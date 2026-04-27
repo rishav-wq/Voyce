@@ -362,7 +362,6 @@
       <span class="nav-user" id="user-tag"></span>
       <a class="nav-link active">Quick Generate</a>
       <a class="nav-link" href="/setup">Dashboard</a>
-      <a class="nav-link" href="/">Home</a>
       <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
       <label class="dry-toggle">
         <input type="checkbox" id="dry-run-checkbox" checked />
@@ -388,7 +387,7 @@
       <div class="input-tabs">
         <button class="input-tab active" data-type="text">Paste Text</button>
         <button class="input-tab" data-type="url">Website URL</button>
-        <button class="input-tab" data-type="youtube">YouTube URL</button>
+        <button class="input-tab" data-type="youtube" onclick="youtubeComingSoon(event)">YouTube URL &nbsp;<span style="font-size:10px;background:#f0eeff;color:#6c47ff;padding:2px 6px;border-radius:10px;font-weight:700;">Soon</span></button>
       </div>
       <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="4"></textarea>
       <div class="btn-row">

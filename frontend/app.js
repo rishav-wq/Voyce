@@ -11,6 +11,12 @@ function checkAuth() {
 let activeType = "text";
 let linkedInConnected = false;
 
+function youtubeComingSoon(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  toast("YouTube import is coming soon!", "warn");
+}
+
 function isDryRun() {
   return document.getElementById("dry-run-checkbox").checked;
 }
