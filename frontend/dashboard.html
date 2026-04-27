@@ -424,13 +424,24 @@
         <h2>Post Analytics</h2>
         <a class="nav-link" id="analytics-refresh-btn" onclick="refreshAnalytics()">Refresh from LinkedIn</a>
       </div>
-      <div style="position:relative;height:220px;margin-bottom:8px;">
-        <canvas id="analytics-chart"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;">
+        <div style="background:#faf9ff;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;">Engagement by Post (Bar)</div>
+          <div style="position:relative;height:180px;">
+            <canvas id="analytics-chart"></canvas>
+          </div>
+        </div>
+        <div style="background:#faf9ff;border-radius:12px;padding:16px;">
+          <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;">Engagement Trend (Line)</div>
+          <div style="position:relative;height:180px;">
+            <canvas id="analytics-chart-line"></canvas>
+          </div>
+        </div>
       </div>
-      <div style="display:flex;gap:20px;font-size:12px;color:#888;margin-top:4px;flex-wrap:wrap;">
+      <div style="display:flex;gap:20px;font-size:12px;color:#888;flex-wrap:wrap;">
         <span><span style="display:inline-block;width:10px;height:10px;background:#6c47ff;border-radius:2px;margin-right:4px;"></span>Carousel</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#06b6d4;border-radius:2px;margin-right:4px;"></span>Text post</span>
-        <span style="margin-left:auto;color:#bbb;" id="analytics-hint">Likes · Comments · Reposts — reconnect LinkedIn to load engagement</span>
+        <span style="margin-left:auto;color:#bbb;" id="analytics-hint"></span>
       </div>
     </div>
 
@@ -847,6 +858,7 @@
 
     // ── Analytics chart ───────────────────────────────────────────────────────
     let _analyticsChart = null;
+    let _analyticsLineChart = null;
 
     async function loadAnalytics() {
       const res = await fetch("/analytics", { headers: { "x-token": getToken() } });
@@ -872,57 +884,76 @@
     }
 
     function renderAnalyticsChart(posts) {
-      const withEngagement = posts.filter(p => p.engagement);
       const section = document.getElementById("analytics-section");
-
       if (!posts.length) { section.style.display = "none"; return; }
       section.style.display = "";
 
-      const labels = posts.map(p => {
+      const labels  = posts.map(p => {
         const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
         return `${d.getMonth()+1}/${d.getDate()} ${p.post_type.split(" ")[0]}`;
       });
 
       const hasAny   = posts.some(p => p.engagement);
       const hint = document.getElementById("analytics-hint");
-      if (hint) hint.textContent = hasAny ? "Likes · Comments · Reposts stacked" : "Reconnect LinkedIn to load engagement data";
+      if (hint) hint.textContent = hasAny ? "Likes · Comments · Reposts" : "Reconnect LinkedIn to load engagement data";
+
       const likes    = posts.map(p => p.engagement?.likes    ?? (hasAny ? 0 : 1));
       const comments = posts.map(p => p.engagement?.comments ?? 0);
       const reposts  = posts.map(p => p.engagement?.reposts  ?? 0);
       const colors   = posts.map(p => p.post_format === "carousel" ? "#6c47ff" : "#06b6d4");
 
+      const sharedTooltip = {
+        callbacks: {
+          title: (items) => posts[items[0].dataIndex].company_name + " — " + posts[items[0].dataIndex].post_type,
+          afterBody: (items) => {
+            const p = posts[items[0].dataIndex];
+            if (!p.engagement) return ["No engagement data yet — click Refresh from LinkedIn"];
+            const e = p.engagement;
+            return [`Likes: ${e.likes}  Comments: ${e.comments}  Reposts: ${e.reposts}`];
+          },
+        },
+      };
+
+      // Bar chart
       if (_analyticsChart) _analyticsChart.destroy();
-      const ctx = document.getElementById("analytics-chart").getContext("2d");
-      _analyticsChart = new Chart(ctx, {
+      _analyticsChart = new Chart(document.getElementById("analytics-chart").getContext("2d"), {
         type: "bar",
         data: {
           labels,
           datasets: [
-            { label: "Likes",    data: likes,    backgroundColor: colors,  borderRadius: 3 },
-            { label: "Comments", data: comments, backgroundColor: colors.map(c => c + "99"), borderRadius: 3 },
-            { label: "Reposts",  data: reposts,  backgroundColor: colors.map(c => c + "55"), borderRadius: 3 },
+            { label: "Likes",    data: likes,    backgroundColor: colors,                    borderRadius: 4 },
+            { label: "Comments", data: comments, backgroundColor: colors.map(c => c + "99"), borderRadius: 4 },
+            { label: "Reposts",  data: reposts,  backgroundColor: colors.map(c => c + "55"), borderRadius: 4 },
           ],
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: (items) => posts[items[0].dataIndex].company_name + " — " + posts[items[0].dataIndex].post_type,
-                afterBody: (items) => {
-                  const p = posts[items[0].dataIndex];
-                  if (!p.engagement) return ["No engagement data yet — click Refresh from LinkedIn"];
-                  const e = p.engagement;
-                  return [`Likes: ${e.likes}  Comments: ${e.comments}  Reposts: ${e.reposts}`, `Total: ${e.likes + e.comments + e.reposts}`];
-                },
-              },
-            },
-          },
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: sharedTooltip },
           scales: {
-            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 }, color: "#888" } },
-            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 11 }, color: "#888" }, grid: { color: "#f0eeff" } },
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: "#888" } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#f0eeff" } },
+          },
+        },
+      });
+
+      // Line chart
+      if (_analyticsLineChart) _analyticsLineChart.destroy();
+      _analyticsLineChart = new Chart(document.getElementById("analytics-chart-line").getContext("2d"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            { label: "Likes",    data: likes,    borderColor: "#6c47ff", backgroundColor: "#6c47ff22", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#6c47ff" },
+            { label: "Comments", data: comments, borderColor: "#06b6d4", backgroundColor: "#06b6d422", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#06b6d4" },
+            { label: "Reposts",  data: reposts,  borderColor: "#f59e0b", backgroundColor: "#f59e0b22", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#f59e0b" },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10, padding: 10 } }, tooltip: sharedTooltip },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#888" } },
+            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#f0eeff" } },
           },
         },
       });
