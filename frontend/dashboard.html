@@ -181,6 +181,38 @@
       margin-bottom: 14px;
     }
 
+    .carousel-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .carousel-toggle-switch {
+      width: 36px;
+      height: 20px;
+      background: #ddd;
+      border-radius: 20px;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .carousel-toggle-switch.on { background: #6c47ff; }
+    .carousel-toggle-knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: left 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .carousel-toggle-switch.on .carousel-toggle-knob { left: 19px; }
+    .carousel-toggle-label { font-size: 13px; font-weight: 600; color: #555; }
+
     .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .act-btn {
       background: none;
@@ -432,7 +464,7 @@
           </div>
         </div>
         <div style="background:#faf9ff;border-radius:12px;padding:16px;">
-          <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;">Engagement Trend (Line)</div>
+          <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;" id="analytics-line-title">Engagement Trend</div>
           <div style="position:relative;height:180px;">
             <canvas id="analytics-chart-line"></canvas>
           </div>
@@ -689,7 +721,6 @@
         const typeClass  = isPersonal ? "personal" : "company";
         const hasVoice   = p.linkedin_analysis && p.linkedin_analysis.writing_style;
         const voiceTag   = hasVoice ? `<span class="voice-tag">✦ LinkedIn voice loaded</span>` : "";
-        const carouselTag = p.carousel_enabled ? `<span class="voice-tag" style="background:#fff8e1;color:#e65100;">▤ Carousel alternating</span>` : "";
         const statusBadge = p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`;
 
         return `<div class="profile-card" id="card-${p.id}">
@@ -709,7 +740,14 @@
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
           </div>
 
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${voiceTag}${carouselTag}</div>
+          <label class="carousel-toggle-row" onclick="toggleCarousel('${p.id}', this)">
+            <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}">
+              <div class="carousel-toggle-knob"></div>
+            </div>
+            <span class="carousel-toggle-label">Carousel posts</span>
+          </label>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${voiceTag}</div>
 
           <div class="profile-actions">
             <button class="act-btn primary" onclick="runNow('${p.id}')">▶ Run Now</button>
@@ -747,6 +785,15 @@
       await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
       toast(active ? "Profile resumed." : "Profile paused.", "success");
       loadProfiles();
+    }
+
+    async function toggleCarousel(id, labelEl) {
+      const sw = document.getElementById(`carousel-sw-${id}`);
+      const res = await fetch(`/companies/${id}/carousel`, { method:"PATCH", headers: ah() });
+      if (!res.ok) { toast("Failed to update carousel setting.", "error"); return; }
+      const data = await res.json();
+      sw.classList.toggle("on", data.carousel_enabled);
+      toast(data.carousel_enabled ? "Carousel posts enabled." : "Carousel posts disabled.", "success");
     }
 
     async function deleteProfile(id) {
@@ -888,16 +935,16 @@
       if (!posts.length) { section.style.display = "none"; return; }
       section.style.display = "";
 
-      const labels  = posts.map(p => {
+      const labels = posts.map((p, i) => {
         const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
-        return `${d.getMonth()+1}/${d.getDate()} ${p.post_type.split(" ")[0]}`;
+        return `${d.getMonth()+1}/${d.getDate()}`;
       });
 
-      const hasAny   = posts.some(p => p.engagement);
+      const hasAny = posts.some(p => p.engagement);
       const hint = document.getElementById("analytics-hint");
-      if (hint) hint.textContent = hasAny ? "Likes · Comments · Reposts" : "Reconnect LinkedIn to load engagement data";
+      if (hint) hint.textContent = hasAny ? "Likes · Comments · Reposts" : "Click 'Refresh from LinkedIn' to load engagement data";
 
-      const likes    = posts.map(p => p.engagement?.likes    ?? (hasAny ? 0 : 1));
+      const likes    = posts.map(p => p.engagement?.likes    ?? 0);
       const comments = posts.map(p => p.engagement?.comments ?? 0);
       const reposts  = posts.map(p => p.engagement?.reposts  ?? 0);
       const colors   = posts.map(p => p.post_format === "carousel" ? "#6c47ff" : "#06b6d4");
@@ -936,21 +983,45 @@
         },
       });
 
-      // Line chart
+      // Line chart — bezier curves; engagement if available, else posts-per-day
       if (_analyticsLineChart) _analyticsLineChart.destroy();
-      _analyticsLineChart = new Chart(document.getElementById("analytics-chart-line").getContext("2d"), {
+      const lineCanvas = document.getElementById("analytics-chart-line");
+      const lineTitle  = document.getElementById("analytics-line-title");
+
+      let lineDatasets, lineLabels;
+      if (hasAny) {
+        lineTitle.textContent = "Engagement Trend";
+        lineLabels = labels;
+        lineDatasets = [
+          { label: "Likes",    data: likes,    borderColor: "#6c47ff", backgroundColor: "#6c47ff18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#6c47ff", borderWidth: 2 },
+          { label: "Comments", data: comments, borderColor: "#06b6d4", backgroundColor: "#06b6d418", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#06b6d4", borderWidth: 2 },
+          { label: "Reposts",  data: reposts,  borderColor: "#f59e0b", backgroundColor: "#f59e0b18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#f59e0b", borderWidth: 2 },
+        ];
+      } else {
+        // Group posts by date to show posting frequency curve
+        lineTitle.textContent = "Posts Over Time";
+        const dateCounts = {};
+        posts.forEach(p => {
+          const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
+          const key = `${d.getMonth()+1}/${d.getDate()}`;
+          dateCounts[key] = (dateCounts[key] || 0) + 1;
+        });
+        lineLabels = Object.keys(dateCounts);
+        const counts = Object.values(dateCounts);
+        lineDatasets = [
+          { label: "Posts", data: counts, borderColor: "#6c47ff", backgroundColor: "#6c47ff18", fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: "#6c47ff", borderWidth: 2.5 },
+        ];
+      }
+
+      _analyticsLineChart = new Chart(lineCanvas.getContext("2d"), {
         type: "line",
-        data: {
-          labels,
-          datasets: [
-            { label: "Likes",    data: likes,    borderColor: "#6c47ff", backgroundColor: "#6c47ff22", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#6c47ff" },
-            { label: "Comments", data: comments, borderColor: "#06b6d4", backgroundColor: "#06b6d422", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#06b6d4" },
-            { label: "Reposts",  data: reposts,  borderColor: "#f59e0b", backgroundColor: "#f59e0b22", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#f59e0b" },
-          ],
-        },
+        data: { labels: lineLabels, datasets: lineDatasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10, padding: 10 } }, tooltip: sharedTooltip },
+          plugins: {
+            legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10, padding: 10 } },
+            tooltip: hasAny ? sharedTooltip : {},
+          },
           scales: {
             x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#888" } },
             y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#f0eeff" } },

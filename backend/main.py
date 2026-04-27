@@ -447,6 +447,18 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
     return {"active": request.active}
 
 
+@app.patch("/companies/{company_id}/carousel")
+def toggle_carousel(company_id: str, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    new_val = not company.get("carousel_enabled", False)
+    import db as _db
+    _db.companies.update_one({"id": company_id}, {"$set": {"carousel_enabled": new_val}})
+    return {"carousel_enabled": new_val}
+
+
 @app.post("/companies/{company_id}/run")
 def run_company_now(company_id: str, x_token: str = Header(None)):
     user = _require_user(x_token)
