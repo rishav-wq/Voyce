@@ -10,7 +10,7 @@ load_dotenv()
 
 CLIENT_ID = os.getenv("LINKEDIN_CLIENT_ID")
 CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET")
-REDIRECT_URI = "http://localhost:8000/auth/linkedin/callback"
+REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8000/auth/linkedin/callback")
 SCOPES = "openid profile w_member_social"
 
 # OAuth state -> user_id mapping (short-lived, in-memory is fine)
