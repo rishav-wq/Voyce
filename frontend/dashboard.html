@@ -961,18 +961,20 @@
         },
       };
 
-      // Bar chart
+      // Bar chart — show engagement if available, else 1 per post (coloured by type)
       if (_analyticsChart) _analyticsChart.destroy();
-      _analyticsChart = new Chart(document.getElementById("analytics-chart").getContext("2d"), {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
+      const barDatasets = hasAny
+        ? [
             { label: "Likes",    data: likes,    backgroundColor: colors,                    borderRadius: 4 },
             { label: "Comments", data: comments, backgroundColor: colors.map(c => c + "99"), borderRadius: 4 },
             { label: "Reposts",  data: reposts,  backgroundColor: colors.map(c => c + "55"), borderRadius: 4 },
-          ],
-        },
+          ]
+        : [
+            { label: "Post", data: posts.map(() => 1), backgroundColor: colors, borderRadius: 4 },
+          ];
+      _analyticsChart = new Chart(document.getElementById("analytics-chart").getContext("2d"), {
+        type: "bar",
+        data: { labels, datasets: barDatasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: sharedTooltip },
