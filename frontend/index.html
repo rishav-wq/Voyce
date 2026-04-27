@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voyce — Manual Tool</title>
+  <title>Voyce — Quick Generate</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #f5f4ff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a2e; }
@@ -109,7 +109,7 @@
       resize: vertical;
       outline: none;
       transition: border-color 0.15s;
-      min-height: 140px;
+      min-height: 90px;
       line-height: 1.6;
     }
     #content-input:focus { border-color: #6c47ff; }
@@ -360,7 +360,7 @@
     <div class="logo">V<span>oyce</span></div>
     <div class="nav-right">
       <span class="nav-user" id="user-tag"></span>
-      <a class="nav-link active">Manual Tool</a>
+      <a class="nav-link active">Quick Generate</a>
       <a class="nav-link" href="/setup">Dashboard</a>
       <a class="nav-link" href="/">Home</a>
       <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
@@ -378,8 +378,8 @@
   <div id="toast"></div>
 
   <div class="page-body">
-    <div class="page-title">Generate Content</div>
-    <div class="page-sub">Paste any content — get ready-to-post formats for every platform.</div>
+    <div class="page-title">Quick Generate</div>
+    <div class="page-sub">Paste content, a URL, or a YouTube link — get LinkedIn posts, carousels & more in seconds.</div>
 
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
@@ -390,7 +390,7 @@
         <button class="input-tab" data-type="url">Website URL</button>
         <button class="input-tab" data-type="youtube">YouTube URL</button>
       </div>
-      <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="7"></textarea>
+      <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="4"></textarea>
       <div class="btn-row">
         <button class="generate-btn" id="generate-btn" onclick="generate()">
           <span id="btn-text">Generate Content</span>
