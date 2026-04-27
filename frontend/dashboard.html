@@ -4,11 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { background: #f5f4ff; margin: 0; font-family: inherit; }
+    body { background: #f5f4ff; margin: 0; font-family: 'Poppins', sans-serif; }
 
     /* ── Top nav ── */
     .dash-nav {
@@ -877,7 +879,7 @@
       section.style.display = "";
 
       const labels = posts.map(p => {
-        const d = new Date(p.timestamp);
+        const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
         return `${d.getMonth()+1}/${d.getDate()} ${p.post_type.split(" ")[0]}`;
       });
 
@@ -935,7 +937,7 @@
       if (!log.length) { container.innerHTML = `<p style="color:#aaa;font-size:13px;padding:16px 0;">No posts yet.</p>`; return; }
       const rows = log.slice().reverse().slice(0,10).map(entry => `
         <tr>
-          <td>${new Date(entry.timestamp).toLocaleString()}</td>
+          <td>${new Date(entry.timestamp.endsWith('Z') ? entry.timestamp : entry.timestamp + 'Z').toLocaleString()}</td>
           <td>${entry.company_name}</td>
           <td>${entry.post_type}</td>
           <td class="status-${entry.status}">${entry.status}</td>
