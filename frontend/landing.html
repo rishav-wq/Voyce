@@ -71,17 +71,44 @@
       box-shadow: 0 8px 40px rgba(108,71,255,0.10), 0 1px 4px rgba(0,0,0,0.05);
     }
     .mock-label { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-    .mock-post {
-      background: #fff; border-radius: 12px; padding: 16px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 12px;
+
+    /* ── Carousel slide preview ── */
+    .mock-slides { position: relative; margin-bottom: 12px; }
+    .mock-slide {
+      background: #0f172a; border-radius: 14px; padding: 28px 26px 22px;
+      color: #fff; position: relative; overflow: hidden;
+      min-height: 200px; display: none; flex-direction: column; justify-content: flex-start;
     }
-    .mock-head { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
-    .mock-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #6c47ff, #a78bff); flex-shrink: 0; }
-    .mock-name { font-size: 13px; font-weight: 700; }
-    .mock-meta { font-size: 11px; color: #aaa; }
-    .mock-body { font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 10px; }
-    .mock-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-    .mock-tag { background: #f0eeff; color: #6c47ff; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; }
+    .mock-slide.active { display: flex; }
+    .slide-accent-bar { width: 40px; height: 4px; border-radius: 2px; margin-bottom: 14px; }
+    .slide-headline { font-size: 18px; font-weight: 900; line-height: 1.25; margin-bottom: 10px; letter-spacing: -0.3px; }
+    .slide-sub { font-size: 12px; line-height: 1.55; opacity: 0.72; }
+    .slide-title-accent { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+    .slide-counter { position: absolute; bottom: 14px; right: 18px; font-size: 10px; opacity: 0.4; font-weight: 600; }
+    .slide-brand { position: absolute; bottom: 14px; left: 18px; font-size: 10px; opacity: 0.4; font-weight: 600; }
+    .mock-nav { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
+    .mock-dot { width: 6px; height: 6px; border-radius: 50%; background: #d0cbff; cursor: pointer; transition: background 0.2s, transform 0.2s; }
+    .mock-dot.active { background: #6c47ff; transform: scale(1.3); }
+    .mock-arrows { display: flex; gap: 6px; margin-left: auto; }
+    .mock-arrow {
+      width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #d0cbff;
+      background: none; cursor: pointer; font-size: 11px; color: #6c47ff;
+      display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+    }
+    .mock-arrow:hover { background: #ede9ff; }
+
+    /* ── Text post (below slides) ── */
+    .mock-post {
+      background: #fff; border-radius: 12px; padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px;
+    }
+    .mock-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .mock-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #6c47ff, #a78bff); flex-shrink: 0; }
+    .mock-name { font-size: 12px; font-weight: 700; }
+    .mock-meta { font-size: 10px; color: #aaa; }
+    .mock-body { font-size: 12px; color: #333; line-height: 1.55; margin-bottom: 8px; }
+    .mock-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+    .mock-tag { background: #f0eeff; color: #6c47ff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
     .mock-formats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .fmt { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
     .fmt-li { background: #e8f0fe; color: #1a73e8; }
@@ -241,7 +268,66 @@
   </div>
   <div>
     <div class="hero-mockup">
-      <div class="mock-label">Generated just now</div>
+      <div class="mock-label">Generated just now — Carousel</div>
+
+      <!-- Slide viewer -->
+      <div class="mock-slides" id="mockSlides">
+        <!-- Slide 1: Hook -->
+        <div class="mock-slide active" style="background:#0f172a;">
+          <div class="slide-accent-bar" style="background:#38bdf8;"></div>
+          <div class="slide-headline">AI automates 45% of healthcare tasks by 2027</div>
+          <div class="slide-sub">Guidehouse report: 1 in 2 admin workflows already replaced. The shift isn't coming — it's here.</div>
+          <div class="slide-counter">1 / 5</div>
+        </div>
+        <!-- Slide 2: Content -->
+        <div class="mock-slide" style="background:#112240;">
+          <div class="slide-accent-bar" style="background:#38bdf8;"></div>
+          <div class="slide-title-accent" style="color:#38bdf8;">What's Already Automated</div>
+          <div class="slide-sub">Prior auth, billing codes, appointment scheduling — Mayo Clinic cut admin costs 31% with AI triage. Epic Systems reports 60% fewer manual entries in 2024.</div>
+          <div class="slide-brand">Voyce</div>
+          <div class="slide-counter">2 / 5</div>
+        </div>
+        <!-- Slide 3: Content -->
+        <div class="mock-slide" style="background:#112240;">
+          <div class="slide-accent-bar" style="background:#38bdf8;"></div>
+          <div class="slide-title-accent" style="color:#38bdf8;">The Human Edge</div>
+          <div class="slide-sub">Diagnosis accuracy improves 23% when AI assists — not replaces — physicians. The winning model: AI handles data, doctors handle decisions.</div>
+          <div class="slide-brand">Voyce</div>
+          <div class="slide-counter">3 / 5</div>
+        </div>
+        <!-- Slide 4: Content -->
+        <div class="mock-slide" style="background:#112240;">
+          <div class="slide-accent-bar" style="background:#38bdf8;"></div>
+          <div class="slide-title-accent" style="color:#38bdf8;">Who's Moving Fast</div>
+          <div class="slide-sub">Kaiser Permanente saved $100M in 2024 using AI scheduling. Cleveland Clinic deployed ambient scribing across 300 departments. First movers are pulling ahead.</div>
+          <div class="slide-brand">Voyce</div>
+          <div class="slide-counter">4 / 5</div>
+        </div>
+        <!-- Slide 5: CTA -->
+        <div class="mock-slide" style="background:#0f172a;">
+          <div class="slide-accent-bar" style="background:#38bdf8;"></div>
+          <div class="slide-headline">The question isn't if — it's how fast you adapt</div>
+          <div class="slide-sub" style="color:#38bdf8; opacity:1; font-weight:600;">Is your org leading the shift or catching up?</div>
+          <div class="slide-brand">Voyce</div>
+          <div class="slide-counter">5 / 5</div>
+        </div>
+      </div>
+
+      <!-- Dots + arrows -->
+      <div class="mock-nav">
+        <div class="mock-dot active" onclick="goSlide(0)"></div>
+        <div class="mock-dot" onclick="goSlide(1)"></div>
+        <div class="mock-dot" onclick="goSlide(2)"></div>
+        <div class="mock-dot" onclick="goSlide(3)"></div>
+        <div class="mock-dot" onclick="goSlide(4)"></div>
+        <div class="mock-arrows">
+          <button class="mock-arrow" onclick="prevSlide()">‹</button>
+          <button class="mock-arrow" onclick="nextSlide()">›</button>
+        </div>
+      </div>
+
+      <!-- Text post below -->
+      <div class="mock-label" style="margin-top:14px;">Also generated — LinkedIn post</div>
       <div class="mock-post">
         <div class="mock-head">
           <div class="mock-avatar"></div>
@@ -251,26 +337,13 @@
           </div>
         </div>
         <div class="mock-body">
-          AI agents aren't replacing developers — they're replacing <em>busywork</em>.<br><br>
-          The engineers thriving in 2026 pair deep system thinking with AI execution speed. Google's latest benchmark shows 68% of junior-level coding tasks fully automated.<br><br>
-          The question isn't "will AI replace you?" — it's "are you the one directing it?"
+          45% of healthcare tasks will be AI-automated by 2027. Most leaders are still planning their response…
         </div>
         <div class="mock-tags">
+          <span class="mock-tag">#Healthcare</span>
           <span class="mock-tag">#AI</span>
-          <span class="mock-tag">#Engineering</span>
           <span class="mock-tag">#FutureOfWork</span>
         </div>
-      </div>
-      <div class="mock-label">Also generated</div>
-      <div class="mock-formats">
-        <span class="fmt fmt-li">LinkedIn</span>
-        <span class="fmt fmt-tw">Twitter thread</span>
-        <span class="fmt fmt-em">Email</span>
-        <span class="fmt fmt-bl">Blog intro</span>
-      </div>
-      <div class="mock-carousel">
-        <div class="mock-carousel-title">▤ Carousel PDF · 5 slides · 1080×1080</div>
-        <div class="mock-carousel-sub">Branded PDF — post directly as LinkedIn document</div>
       </div>
     </div>
   </div>
@@ -431,5 +504,23 @@
   <div class="foot-copy">© 2026 Voyce. All rights reserved.</div>
 </footer>
 
+<script>
+  let _slide = 0;
+  const slides = document.querySelectorAll('.mock-slide');
+  const dots   = document.querySelectorAll('.mock-dot');
+
+  function goSlide(n) {
+    slides[_slide].classList.remove('active');
+    dots[_slide].classList.remove('active');
+    _slide = (n + slides.length) % slides.length;
+    slides[_slide].classList.add('active');
+    dots[_slide].classList.add('active');
+  }
+  function nextSlide() { goSlide(_slide + 1); }
+  function prevSlide() { goSlide(_slide - 1); }
+
+  // Auto-advance every 3s
+  setInterval(nextSlide, 3000);
+</script>
 </body>
 </html>
