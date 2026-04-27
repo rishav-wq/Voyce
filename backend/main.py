@@ -52,6 +52,13 @@ def _check_gen_limit(user: dict):
         )
 
 
+def _run_company_by_id(company_id: str):
+    """Fetch fresh company data at job fire time, then run."""
+    company = get_company(company_id)
+    if company and company.get("active"):
+        run_for_company(company)
+
+
 def _setup_company_cron(company: dict):
     job_id = f"auto_{company['id']}"
     try:
@@ -60,9 +67,9 @@ def _setup_company_cron(company: dict):
         pass
     hour, minute = company["post_time"].split(":")
     scheduler.add_job(
-        run_for_company,
-        trigger=CronTrigger(hour=int(hour), minute=int(minute)),
-        args=[company],
+        _run_company_by_id,
+        trigger=CronTrigger(hour=int(hour), minute=int(minute), timezone="Asia/Kolkata"),
+        args=[company["id"]],
         id=job_id,
         replace_existing=True,
     )

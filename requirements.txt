@@ -12,3 +12,4 @@ Pillow
 google-generativeai
 pymongo[srv]
 dnspython
+pytz
