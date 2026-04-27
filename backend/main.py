@@ -142,6 +142,11 @@ class LoginRequest(BaseModel):
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/")
 def serve_landing():
     return FileResponse(os.path.join(frontend_path, "landing.html"))
