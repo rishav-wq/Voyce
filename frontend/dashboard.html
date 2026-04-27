@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voyce — Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f5f4ff; margin: 0; font-family: inherit; }
+
+    /* ── Top nav ── */
+    .dash-nav {
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .dash-nav .logo { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+    .dash-nav .logo span { color: #6c47ff; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-user { font-size: 13px; color: #555; font-weight: 600; }
+    .nav-link { font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
+    .nav-link:hover { color: #6c47ff; }
+    .btn-add {
+      background: #6c47ff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-add:hover { background: #5835e0; }
+
+    /* ── Main layout ── */
+    .dash-body { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Plan banner ── */
+    .plan-banner {
+      background: #fff;
+      border: 1.5px solid #e8e4ff;
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 16px;
+    }
+    .plan-banner.pro { border-color: #a5d6a7; background: #f0faf0; display: none; }
+    .plan-left { display: flex; align-items: center; gap: 14px; }
+    .plan-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+      border-radius: 20px; background: #f0eeff; color: #6c47ff;
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .plan-badge.pro-badge { background: #e6f4ea; color: #057642; }
+    .plan-text { font-size: 14px; color: #444; font-weight: 500; }
+    .plan-text strong { color: #1a1a2e; }
+    .plan-bar-wrap { flex: 1; max-width: 160px; }
+    .plan-bar-bg { background: #f0eeff; border-radius: 20px; height: 6px; overflow: hidden; }
+    .plan-bar-fill { background: #6c47ff; height: 100%; border-radius: 20px; transition: width 0.3s; }
+    .plan-upgrade-btn {
+      background: #6c47ff; color: #fff;
+      border: none; border-radius: 8px;
+      padding: 8px 18px; font-size: 13px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; transition: background 0.15s;
+      text-decoration: none; display: inline-block;
+    }
+    .plan-upgrade-btn:hover { background: #5835e0; }
+
+    /* ── LinkedIn banner ── */
+    .li-banner {
+      background: #fff8e1;
+      border: 1.5px solid #ffe082;
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .li-banner p { margin: 0; font-size: 14px; color: #5d4037; font-weight: 500; }
+    .li-banner-btn {
+      background: #6c47ff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-left: 16px;
+    }
+    .li-banner.connected { background: #e8f5e9; border-color: #a5d6a7; }
+    .li-banner.connected p { color: #2e7d32; }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .stat-label { font-size: 12px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 800; color: #1a1a2e; }
+    .stat-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+    /* ── Section title ── */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-head h2 { font-size: 16px; font-weight: 700; margin: 0; }
+
+    /* ── Profile cards ── */
+    .profiles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+    .profile-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1.5px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .profile-card:hover { border-color: #e0d9ff; }
+    .profile-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+    .profile-card-name { font-size: 16px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+    .badge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 20px; }
+    .badge-type.company  { background: #e8f0fe; color: #1a73e8; }
+    .badge-type.personal { background: #fce8f3; color: #c2185b; }
+    .badge-active   { background: #e6f4ea; color: #057642; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+    .badge-paused   { background: #f0f0f0; color: #888;    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+    .profile-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      margin-bottom: 16px;
+    }
+    .meta-item { font-size: 12px; }
+    .meta-item .meta-key { color: #aaa; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; margin-bottom: 2px; }
+    .meta-item .meta-val { color: #333; font-weight: 500; }
+
+    .voice-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f0ecff;
+      color: #6c47ff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+
+    .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .act-btn {
+      background: none;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 7px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #444;
+      transition: all 0.12s;
+    }
+    .act-btn:hover { background: #f5f5f5; border-color: #ccc; }
+    .act-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
+    .act-btn.primary:hover { background: #5835e0; }
+    .act-btn.danger { color: #c0392b; border-color: #fdecea; }
+    .act-btn.danger:hover { background: #fdecea; }
+
+    /* ── LinkedIn data upload panel inside card ── */
+    .card-li-panel {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #f9f7ff;
+      border: 1.5px dashed #c5b8f5;
+      border-radius: 10px;
+      display: none;
+    }
+    .card-li-panel.open { display: block; }
+    .card-li-panel p { font-size: 11px; color: #666; margin: 0 0 8px; line-height: 1.5; }
+    .card-li-row { display: flex; gap: 8px; align-items: center; }
+    .card-li-row input[type=file] { font-size: 12px; flex: 1; }
+    .card-li-up-btn { background: #6c47ff; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .card-li-up-btn:disabled { background: #b0a0e8; }
+    .card-li-status { font-size: 12px; margin-top: 6px; }
+    .card-li-status.ok  { color: #057642; }
+    .card-li-status.err { color: #c0392b; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { color: #888; font-size: 14px; margin: 0 0 16px; }
+
+    /* ── Activity log ── */
+    .activity-section { margin-top: 8px; }
+    .log-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .log-table th { background: #f9f7ff; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
+    .log-table td { padding: 11px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; color: #333; }
+    .log-table .status-posted  { color: #057642; font-weight: 600; }
+    .log-table .status-failed  { color: #c0392b; font-weight: 600; }
+    .log-table .post-preview   { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555; font-size: 12px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s;
+      pointer-events: none;
+      z-index: 9999;
+      max-width: 340px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: #057642; }
+    #toast.error   { background: #c0392b; }
+    #toast.warn    { background: #e65100; }
+
+    /* ── Add Profile Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      display: none;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-drawer {
+      background: #fff;
+      width: 480px;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 32px;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .modal-drawer h2 { font-size: 20px; font-weight: 800; margin: 0 0 4px; }
+    .modal-drawer .modal-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
+    .modal-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: #aaa; margin-top: -4px; }
+
+    .mode-tabs { display: flex; background: #f4f2ff; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+    .mode-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: #888; border: none; background: none; transition: all 0.15s; }
+    .mode-tab.active { background: #fff; color: #6c47ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .mode-tab span { display: block; font-size: 11px; font-weight: 400; color: #bbb; }
+    .mode-tab.active span { color: #bbb; }
+
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
+    .optional-tag { font-weight: 400; color: #aaa; font-size: 12px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px 13px; border: 1.5px solid #e0e0e0; border-radius: 8px;
+      font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: #6c47ff; }
+    .form-hint { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+    .li-upload-box { background: #f9f7ff; border: 1.5px dashed #c5b8f5; border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+    .li-upload-box .li-upload-title { font-size: 13px; font-weight: 600; color: #6c47ff; margin-bottom: 4px; }
+    .li-upload-box .li-upload-desc { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 8px; }
+    .li-upload-status { font-size: 12px; margin-top: 6px; }
+    .li-upload-status.ok { color: #057642; }
+
+    .submit-btn { width: 100%; padding: 13px; background: #6c47ff; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .submit-btn:hover { background: #5835e0; }
+    .submit-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
+
+    /* ── Content Calendar ── */
+    .cal-table { border-collapse: collapse; width: 100%; min-width: 600px; }
+    .cal-table th {
+      background: #f5f4ff; color: #6c47ff; font-size: 12px; font-weight: 700;
+      padding: 8px 12px; text-align: center; border-bottom: 2px solid #e8e4ff;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .cal-table th.today-col { background: #6c47ff; color: #fff; }
+    .cal-table td {
+      padding: 10px 12px; border: 1px solid #f0eeff;
+      vertical-align: top; min-width: 80px;
+    }
+    .cal-table td.today-col { background: #faf9ff; border-color: #d4caff; }
+    .cal-profile-name { font-size: 11px; font-weight: 700; color: #888; padding: 8px 12px 4px; }
+    .cal-cell-type { font-size: 12px; color: #444; font-weight: 500; line-height: 1.3; }
+    .cal-cell-badge {
+      display: inline-block; margin-top: 4px;
+      font-size: 10px; font-weight: 700; border-radius: 4px;
+      padding: 1px 5px;
+    }
+    .cal-cell-badge.carousel { background: #fff0e6; color: #e65100; }
+    .cal-cell-badge.text     { background: #e8f4fd; color: #0277bd; }
+    .cal-time { font-size: 10px; color: #bbb; margin-top: 3px; }
+    .cal-empty { font-size: 12px; color: #ddd; text-align: center; padding: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Nav ── -->
+  <nav class="dash-nav">
+    <div class="logo">V<span>oyce</span></div>
+    <div class="nav-right">
+      <a href="/tool" class="nav-link">Manual Tool</a>
+      <span class="nav-user" id="nav-user"></span>
+      <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
+      <button class="btn-add" onclick="openModal()">+ Add Profile</button>
+    </div>
+  </nav>
+
+  <!-- ── Toast ── -->
+  <div id="toast"></div>
+
+  <div class="dash-body">
+
+    <!-- Plan usage banner -->
+    <div class="plan-banner" id="plan-banner" style="display:none;">
+      <div class="plan-left">
+        <span class="plan-badge" id="plan-badge">Free</span>
+        <div>
+          <div class="plan-text" id="plan-text">Loading…</div>
+          <div class="plan-bar-wrap" id="plan-bar-wrap" style="margin-top:6px;">
+            <div class="plan-bar-bg"><div class="plan-bar-fill" id="plan-bar-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+      <a href="/#pricing" class="plan-upgrade-btn" id="plan-upgrade-btn">⚡ Upgrade to Pro</a>
+    </div>
+
+    <!-- LinkedIn banner -->
+    <div class="li-banner" id="li-banner">
+      <p>⚠️ LinkedIn not connected — automated posts won't fire until you connect.</p>
+      <button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Active Profiles</div>
+        <div class="stat-value" id="stat-active">—</div>
+        <div class="stat-sub" id="stat-total"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Today's Post Type</div>
+        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-today">—</div>
+        <div class="stat-sub" id="stat-weekday"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Next Post</div>
+        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-next">—</div>
+        <div class="stat-sub" id="stat-next-who"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">LinkedIn</div>
+        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-li">—</div>
+        <div class="stat-sub" id="stat-li-sub"></div>
+      </div>
+    </div>
+
+    <!-- Profile cards -->
+    <div class="section-head">
+      <h2>Your Profiles</h2>
+    </div>
+    <div class="profiles-grid" id="profiles-grid"></div>
+
+    <!-- Content calendar -->
+    <div class="activity-section" id="calendar-section" style="display:none;">
+      <div class="section-head">
+        <h2>Content Calendar</h2>
+        <span style="font-size:12px;color:#aaa;" id="cal-subtitle"></span>
+      </div>
+      <div id="calendar-grid" style="overflow-x:auto;"></div>
+    </div>
+
+    <!-- Analytics chart -->
+    <div class="activity-section" id="analytics-section" style="display:none;">
+      <div class="section-head">
+        <h2>Post Analytics</h2>
+        <a class="nav-link" id="analytics-refresh-btn" onclick="refreshAnalytics()">Refresh from LinkedIn</a>
+      </div>
+      <div style="position:relative;height:220px;margin-bottom:8px;">
+        <canvas id="analytics-chart"></canvas>
+      </div>
+      <div style="display:flex;gap:20px;font-size:12px;color:#888;margin-top:4px;flex-wrap:wrap;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#6c47ff;border-radius:2px;margin-right:4px;"></span>Carousel</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#06b6d4;border-radius:2px;margin-right:4px;"></span>Text post</span>
+        <span style="margin-left:auto;color:#bbb;" id="analytics-hint">Likes · Comments · Reposts — reconnect LinkedIn to load engagement</span>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="activity-section">
+      <div class="section-head">
+        <h2>Recent Activity</h2>
+        <a class="nav-link" onclick="loadLog()">Refresh</a>
+      </div>
+      <div id="log-container"></div>
+    </div>
+  </div>
+
+  <!-- ── Add Profile Modal (right drawer) ── -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModalIfBg(event)">
+    <div class="modal-drawer">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>Add a Profile</h2>
+      <p class="modal-sub">Set up once — Voyce posts daily, automatically.</p>
+
+      <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
+
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="switchMode('company')">
+          For a Company
+          <span>Brand voice from website</span>
+        </button>
+        <button class="mode-tab" onclick="switchMode('personal')">
+          For Yourself
+          <span>Personal brand voice</span>
+        </button>
+      </div>
+
+      <!-- Company form -->
+      <div class="form-panel active" id="panel-company">
+        <form onsubmit="submitProfile(event,'company')">
+          <div class="form-group"><label>Company Name *</label><input type="text" id="c-name" placeholder="Knowella" required /></div>
+          <div class="form-group">
+            <label>Website URL *</label>
+            <input type="url" id="c-website" placeholder="https://knowella.com" required />
+            <p class="form-hint">We'll scrape this to learn their products and voice.</p>
+          </div>
+          <div class="form-group"><label>LinkedIn Company Page <span class="optional-tag">(optional)</span></label><input type="url" id="c-linkedin" placeholder="https://linkedin.com/company/knowella" /></div>
+          <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="B2B SaaS, Operations Software" required /><p class="form-hint">Used to find relevant news daily.</p></div>
+          <div class="form-group"><label>Post Tone *</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
+          <div class="form-group"><label>Daily Post Time *</label><input type="time" id="c-time" value="09:00" required /></div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" id="c-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('c-theme-group').style.display=this.checked?'block':'none'" />
+              <span>Enable carousel posts <span class="optional-tag">(alternates with text posts daily)</span></span>
+            </label>
+            <p class="form-hint">On carousel days, AI generates branded PDF slide decks posted as LinkedIn documents.</p>
+          </div>
+          <div class="form-group" id="c-theme-group" style="display:none;">
+            <label>Carousel Theme</label>
+            <select id="c-theme">
+              <option value="">Auto (based on industry)</option>
+              <option value="dark_pro">Dark Pro — Navy + Cyan</option>
+              <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
+              <option value="deep_teal">Deep Teal — Teal + Emerald</option>
+              <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
+            </select>
+          </div>
+          <button type="submit" class="submit-btn" id="c-submit-btn">Set Up Company</button>
+        </form>
+      </div>
+
+      <!-- Personal form -->
+      <div class="form-panel" id="panel-personal">
+        <form onsubmit="submitProfile(event,'personal')">
+          <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Rishav Agarwal" required /></div>
+          <div class="form-group">
+            <label>Your Designation <span class="optional-tag">(optional)</span></label>
+            <input type="text" id="p-designation" placeholder="Head of Product at Knowella" />
+            <p class="form-hint">Used to write from the right level of authority — e.g. "Founder", "Senior ML Engineer", "VP of Sales".</p>
+          </div>
+          <div class="form-group">
+            <label>Website URL <span class="optional-tag">(optional)</span></label>
+            <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" />
+            <div style="display:flex;gap:16px;margin-top:8px;">
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> My site / blog</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> External reference</label>
+            </div>
+            <p class="form-hint">My site → AI uses as personal experience. External → AI uses as reference to react to.</p>
+          </div>
+          <div class="form-group"><label>Your LinkedIn URL <span class="optional-tag">(optional)</span></label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/rishav" /></div>
+          <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="AI, Product Management, Startups" required /><p class="form-hint">Used to find relevant news and topics daily.</p></div>
+          <div class="form-group"><label>Post Tone *</label><select id="p-tone"><option value="conversational">Conversational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
+          <div class="form-group"><label>Daily Post Time *</label><input type="time" id="p-time" value="09:00" required /></div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
+              <span>Enable carousel posts <span class="optional-tag">(alternates with text posts daily)</span></span>
+            </label>
+            <p class="form-hint">On carousel days, AI generates branded PDF slide decks posted as LinkedIn documents.</p>
+          </div>
+          <div class="form-group" id="p-theme-group" style="display:none;">
+            <label>Carousel Theme</label>
+            <select id="p-theme">
+              <option value="">Auto (based on industry)</option>
+              <option value="dark_pro">Dark Pro — Navy + Cyan</option>
+              <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
+              <option value="deep_teal">Deep Teal — Teal + Emerald</option>
+              <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
+            </select>
+          </div>
+
+          <div class="li-upload-box">
+            <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
+            <div class="li-upload-desc">AI reads your past posts and matches your exact writing voice.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
+            <input type="file" id="p-li-file" accept=".pdf,.zip" />
+            <div class="li-upload-status" id="p-li-status"></div>
+          </div>
+
+          <button type="submit" class="submit-btn" id="p-submit-btn">Set Up Personal Brand</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    function getToken() { return localStorage.getItem("cm_token") || ""; }
+    function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
+    function ah(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
+    if (!getToken()) window.location.href = "/login";
+
+    const COMPANY_SCHEDULE  = { 0:"Trend Commentary",1:"Expert Insight",2:"Expert Insight",3:"Product Spotlight",4:"Industry Stat",5:"Case Study",6:"Expert Insight" };
+    const PERSONAL_SCHEDULE = { 0:"Trend Reaction",1:"Hot Take",2:"Lesson Learned",3:"Expert Insight",4:"Stat Reaction",5:"Personal Story",6:"Hot Take" };
+    function todayPostType(p) { const d=new Date().getDay(); return p.profile_type==="personal"?PERSONAL_SCHEDULE[d]:COMPANY_SCHEDULE[d]; }
+    const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+    let liConnected = false;
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    let toastTimer;
+    function toast(msg, type="") {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.className = "show " + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.className = "", 3500);
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    window.addEventListener("load", () => {
+      const user = getUser();
+      if (user) {
+        document.getElementById("nav-user").textContent = user.name || user.email;
+        if (user.account_type === "personal") switchMode("personal");
+      }
+      document.getElementById("stat-weekday").textContent = DAYS[new Date().getDay()];
+      checkLinkedIn();
+      loadProfiles();
+      loadLog();
+      loadAnalytics();
+      loadPlanBanner();
+    });
+
+    window.addEventListener("message", e => {
+      if (e.data === "linkedin_connected") { liConnected=true; updateLiBanner(true); toast("LinkedIn connected!", "success"); checkLinkedIn(); }
+      else if (e.data === "linkedin_error") toast("LinkedIn connection failed.", "error");
+    });
+
+    // ── LinkedIn ──────────────────────────────────────────────────────────────
+    async function checkLinkedIn() {
+      const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
+      const data = await res.json();
+      liConnected = data.connected;
+      updateLiBanner(data.connected);
+      updateLiStat(data.connected);
+    }
+
+    function updateLiBanner(connected) {
+      const b = document.getElementById("li-banner");
+      if (connected) {
+        b.className = "li-banner connected";
+        b.innerHTML = `<p>✓ LinkedIn connected — automated posts are live.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`;
+      } else {
+        b.className = "li-banner";
+        b.innerHTML = `<p>⚠️ LinkedIn not connected — automated posts won't fire until you connect.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
+      }
+    }
+
+    function updateLiStat(connected) {
+      document.getElementById("stat-li").textContent = connected ? "✓ Connected" : "Not Connected";
+      document.getElementById("stat-li").style.color = connected ? "#057642" : "#c0392b";
+      document.getElementById("stat-li-sub").textContent = connected ? "Posts will fire on schedule" : "Connect to enable posting";
+    }
+
+    function connectLinkedIn() {
+      window.open(`/auth/linkedin?token=${getToken()}`, "linkedin-auth", "width=600,height=700,scrollbars=yes");
+    }
+
+    async function disconnectLinkedIn() {
+      if (!confirm("Disconnect LinkedIn?")) return;
+      await fetch("/auth/linkedin/logout", { method: "POST" });
+      liConnected = false;
+      updateLiBanner(false);
+      updateLiStat(false);
+    }
+
+    // ── Profiles ──────────────────────────────────────────────────────────────
+    async function loadProfiles() {
+      const res = await fetch("/companies", { headers: { "x-token": getToken() } });
+      if (!res.ok) { if (res.status===401) window.location.href="/login"; return; }
+      const profiles = await res.json();
+      renderProfiles(profiles);
+      updateStats(profiles);
+    }
+
+    function updateStats(profiles) {
+      const active = profiles.filter(p => p.active).length;
+      document.getElementById("stat-active").textContent = active;
+      document.getElementById("stat-total").textContent = `of ${profiles.length} total`;
+
+      const d = new Date().getDay();
+      const types = [...new Set(profiles.map(p => todayPostType(p)))];
+      document.getElementById("stat-today").textContent = types.join(" / ") || "—";
+
+      const next = profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
+      if (next) {
+        document.getElementById("stat-next").textContent = next.post_time;
+        document.getElementById("stat-next-who").textContent = next.name;
+      } else {
+        document.getElementById("stat-next").textContent = "—";
+      }
+    }
+
+    function renderProfiles(profiles) {
+      const grid = document.getElementById("profiles-grid");
+      if (!profiles.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-icon">🚀</div>
+          <p>No profiles yet. Add your first company or personal brand to get started.</p>
+          <button class="btn-add" onclick="openModal()">+ Add Profile</button>
+        </div>`;
+        return;
+      }
+
+      buildCalendar(profiles);
+      grid.innerHTML = profiles.map(p => {
+        const isPersonal = p.profile_type === "personal";
+        const typeLabel  = isPersonal ? "Personal" : "Company";
+        const typeClass  = isPersonal ? "personal" : "company";
+        const hasVoice   = p.linkedin_analysis && p.linkedin_analysis.writing_style;
+        const voiceTag   = hasVoice ? `<span class="voice-tag">✦ LinkedIn voice loaded</span>` : "";
+        const carouselTag = p.carousel_enabled ? `<span class="voice-tag" style="background:#fff8e1;color:#e65100;">▤ Carousel alternating</span>` : "";
+        const statusBadge = p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`;
+
+        return `<div class="profile-card" id="card-${p.id}">
+          <div class="profile-card-top">
+            <div class="profile-card-name">
+              ${p.name}
+              <span class="badge-type ${typeClass}">${typeLabel}</span>
+            </div>
+            ${statusBadge}
+          </div>
+
+          <div class="profile-meta-grid">
+            <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
+            <div class="meta-item"><div class="meta-key">Tone</div><div class="meta-val">${p.tone}</div></div>
+            <div class="meta-item"><div class="meta-key">Post Time</div><div class="meta-val">${p.post_time} daily</div></div>
+            <div class="meta-item"><div class="meta-key">Today's Type</div><div class="meta-val">${todayPostType(p)}</div></div>
+            ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${voiceTag}${carouselTag}</div>
+
+          <div class="profile-actions">
+            <button class="act-btn primary" onclick="runNow('${p.id}')">▶ Run Now</button>
+            <button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>
+            <button class="act-btn" onclick="editProfile('${p.id}')">Edit</button>
+            <button class="act-btn" onclick="toggleLiPanel('${p.id}')">+ LinkedIn Data</button>
+            <button class="act-btn danger" onclick="deleteProfile('${p.id}')">Delete</button>
+          </div>
+
+          <div class="card-li-panel" id="li-panel-${p.id}">
+            <p><strong>Upload LinkedIn PDF or data export ZIP</strong> to load their writing voice.<br>
+            ZIP: LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive<br>
+            PDF: Profile → More → Save to PDF</p>
+            <div class="card-li-row">
+              <input type="file" id="li-file-${p.id}" accept=".pdf,.zip" />
+              <button class="card-li-up-btn" id="li-btn-${p.id}" onclick="uploadLinkedIn('${p.id}')">Upload</button>
+            </div>
+            <div class="card-li-status" id="li-status-${p.id}"></div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    async function runNow(id) {
+      if (!liConnected) { toast("LinkedIn not connected. Connect it first from the banner above.", "warn"); return; }
+      if (!confirm("Post to LinkedIn right now?")) return;
+      toast("Generating and posting...");
+      const res  = await fetch(`/companies/${id}/run`, { method:"POST", headers: {"x-token": getToken()} });
+      const data = await res.json();
+      if (data.status === "posted") { toast("Posted successfully!", "success"); loadLog(); loadAnalytics(); }
+      else toast("Failed: " + (data.error || "unknown error"), "error");
+    }
+
+    async function toggleProfile(id, active) {
+      await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
+      toast(active ? "Profile resumed." : "Profile paused.", "success");
+      loadProfiles();
+    }
+
+    async function deleteProfile(id) {
+      if (!confirm("Delete this profile? This cannot be undone.")) return;
+      await fetch(`/companies/${id}`, { method:"DELETE", headers: {"x-token": getToken()} });
+      toast("Profile deleted.", "");
+      loadProfiles();
+    }
+
+    function toggleLiPanel(id) {
+      document.getElementById(`li-panel-${id}`).classList.toggle("open");
+    }
+
+    async function uploadLinkedIn(id) {
+      const fileInput = document.getElementById(`li-file-${id}`);
+      const btn       = document.getElementById(`li-btn-${id}`);
+      const status    = document.getElementById(`li-status-${id}`);
+      if (!fileInput.files[0]) { toast("Choose a file first.", "warn"); return; }
+      btn.disabled = true; btn.textContent = "Uploading...";
+      const form = new FormData();
+      form.append("file", fileInput.files[0]);
+      try {
+        const res  = await fetch(`/companies/${id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Upload failed");
+        const n = data.posts_found ? ` · ${data.posts_found} posts analysed` : "";
+        status.textContent = `✓ LinkedIn voice loaded${n}`;
+        status.className = "card-li-status ok";
+        fileInput.value = "";
+        toast("LinkedIn voice loaded!", "success");
+        loadProfiles();
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+        status.className = "card-li-status err";
+        toast("Upload failed: " + err.message, "error");
+      } finally { btn.disabled=false; btn.textContent="Upload"; }
+    }
+
+    // ── Content Calendar ─────────────────────────────────────────────────────
+    function buildCalendar(profiles) {
+      const active = profiles.filter(p => p.active);
+      const section = document.getElementById("calendar-section");
+      if (!active.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+
+      // Build 7 days starting from today
+      const today = new Date();
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        return d;
+      });
+
+      const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const todayStr = today.toDateString();
+
+      // Header row
+      const headerCells = days.map(d => {
+        const isToday = d.toDateString() === todayStr;
+        const label = isToday ? "Today" : DAY_SHORT[d.getDay()];
+        const date  = `${d.getMonth()+1}/${d.getDate()}`;
+        return `<th class="${isToday ? 'today-col' : ''}">${label}<br><span style="font-weight:400;font-size:11px;">${date}</span></th>`;
+      }).join("");
+
+      // Profile rows
+      const profileRows = active.map(p => {
+        const isPersonal = p.profile_type === "personal";
+        const schedule   = isPersonal ? PERSONAL_SCHEDULE : COMPANY_SCHEDULE;
+
+        const cells = days.map((d, i) => {
+          const jsDay = d.getDay();
+          const pyDay = jsDay === 0 ? 6 : jsDay - 1;
+          const type  = schedule[pyDay];
+          const isToday = d.toDateString() === todayStr;
+          // Approximate carousel alternation: even offset days = carousel if enabled
+          const isCarousel = p.carousel_enabled && (i % 2 === 1);
+          const badge = p.carousel_enabled
+            ? `<div class="cal-cell-badge ${isCarousel ? 'carousel' : 'text'}">${isCarousel ? '▤ Carousel' : '✎ Text'}</div>`
+            : "";
+          return `<td class="${isToday ? 'today-col' : ''}">
+            <div class="cal-cell-type">${type}</div>
+            ${badge}
+            <div class="cal-time">${p.post_time}</div>
+          </td>`;
+        }).join("");
+
+        return `<tr>
+          <td colspan="7" style="padding:0;border:none;background:#fafafa;">
+            <div class="cal-profile-name">${p.name} <span style="font-weight:400;color:#bbb;">(${isPersonal ? 'personal' : 'company'})</span></div>
+          </td>
+        </tr>
+        <tr>${cells}</tr>`;
+      }).join("");
+
+      document.getElementById("calendar-grid").innerHTML = `
+        <table class="cal-table">
+          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;border-bottom:1px solid #f0eeff;padding:8px 12px;">Next 7 days</th></tr>
+          <tr>${headerCells}</tr></thead>
+          <tbody>${profileRows}</tbody>
+        </table>`;
+
+      // Subtitle
+      const types = [...new Set(active.map(p => {
+        const pyDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
+        return (p.profile_type === "personal" ? PERSONAL_SCHEDULE : COMPANY_SCHEDULE)[pyDay];
+      }))];
+      document.getElementById("cal-subtitle").textContent = `Today: ${types.join(" · ")}`;
+    }
+
+    // ── Analytics chart ───────────────────────────────────────────────────────
+    let _analyticsChart = null;
+
+    async function loadAnalytics() {
+      const res = await fetch("/analytics", { headers: { "x-token": getToken() } });
+      if (!res.ok) return;
+      const posts = await res.json();
+      renderAnalyticsChart(posts);
+    }
+
+    async function refreshAnalytics() {
+      const btn = document.getElementById("analytics-refresh-btn");
+      btn.textContent = "Fetching…";
+      try {
+        const res = await fetch("/analytics/refresh", { method: "POST", headers: { "x-token": getToken() } });
+        if (!res.ok) throw new Error("Failed");
+        const posts = await res.json();
+        renderAnalyticsChart(posts);
+        toast("Analytics updated!", "success");
+      } catch {
+        toast("Could not fetch analytics from LinkedIn.", "error");
+      } finally {
+        btn.textContent = "Refresh from LinkedIn";
+      }
+    }
+
+    function renderAnalyticsChart(posts) {
+      const withEngagement = posts.filter(p => p.engagement);
+      const section = document.getElementById("analytics-section");
+
+      if (!posts.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+
+      const labels = posts.map(p => {
+        const d = new Date(p.timestamp);
+        return `${d.getMonth()+1}/${d.getDate()} ${p.post_type.split(" ")[0]}`;
+      });
+
+      const hasAny   = posts.some(p => p.engagement);
+      const hint = document.getElementById("analytics-hint");
+      if (hint) hint.textContent = hasAny ? "Likes · Comments · Reposts stacked" : "Reconnect LinkedIn to load engagement data";
+      const likes    = posts.map(p => p.engagement?.likes    ?? (hasAny ? 0 : 1));
+      const comments = posts.map(p => p.engagement?.comments ?? 0);
+      const reposts  = posts.map(p => p.engagement?.reposts  ?? 0);
+      const colors   = posts.map(p => p.post_format === "carousel" ? "#6c47ff" : "#06b6d4");
+
+      if (_analyticsChart) _analyticsChart.destroy();
+      const ctx = document.getElementById("analytics-chart").getContext("2d");
+      _analyticsChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            { label: "Likes",    data: likes,    backgroundColor: colors,  borderRadius: 3 },
+            { label: "Comments", data: comments, backgroundColor: colors.map(c => c + "99"), borderRadius: 3 },
+            { label: "Reposts",  data: reposts,  backgroundColor: colors.map(c => c + "55"), borderRadius: 3 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => posts[items[0].dataIndex].company_name + " — " + posts[items[0].dataIndex].post_type,
+                afterBody: (items) => {
+                  const p = posts[items[0].dataIndex];
+                  if (!p.engagement) return ["No engagement data yet — click Refresh from LinkedIn"];
+                  const e = p.engagement;
+                  return [`Likes: ${e.likes}  Comments: ${e.comments}  Reposts: ${e.reposts}`, `Total: ${e.likes + e.comments + e.reposts}`];
+                },
+              },
+            },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 }, color: "#888" } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 11 }, color: "#888" }, grid: { color: "#f0eeff" } },
+          },
+        },
+      });
+    }
+
+    // ── Activity log ──────────────────────────────────────────────────────────
+    async function loadLog() {
+      const res = await fetch("/companies/log", { headers: {"x-token": getToken()} });
+      if (!res.ok) return;
+      const log = await res.json();
+      const container = document.getElementById("log-container");
+      if (!log.length) { container.innerHTML = `<p style="color:#aaa;font-size:13px;padding:16px 0;">No posts yet.</p>`; return; }
+      const rows = log.slice().reverse().slice(0,10).map(entry => `
+        <tr>
+          <td>${new Date(entry.timestamp).toLocaleString()}</td>
+          <td>${entry.company_name}</td>
+          <td>${entry.post_type}</td>
+          <td class="status-${entry.status}">${entry.status}</td>
+          <td class="post-preview">${entry.post_text ? entry.post_text.slice(0,80)+"…" : (entry.error||"")}</td>
+        </tr>`).join("");
+      container.innerHTML = `<table class="log-table"><thead><tr><th>Time</th><th>Profile</th><th>Type</th><th>Status</th><th>Preview</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    // ── Modal ─────────────────────────────────────────────────────────────────
+    let currentMode = "company";
+    let _editingId = null;   // null = add mode, string = edit mode
+
+    function openModal() {
+      _editingId = null;
+      document.querySelector(".modal-drawer h2").textContent = "Add a Profile";
+      document.querySelector(".modal-drawer .modal-sub").textContent = "Set up once — Voyce posts daily, automatically.";
+      document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
+      document.getElementById("modal-success").style.display = "none";
+      document.getElementById("modal-overlay").classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeModal() {
+      document.getElementById("modal-overlay").classList.remove("open");
+      document.body.style.overflow = "";
+      _editingId = null;
+    }
+    function closeModalIfBg(e) { if (e.target === document.getElementById("modal-overlay")) closeModal(); }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll(".mode-tab").forEach((t,i) => t.classList.toggle("active", (mode==="company"&&i===0)||(mode==="personal"&&i===1)));
+      document.getElementById("panel-company").classList.toggle("active", mode==="company");
+      document.getElementById("panel-personal").classList.toggle("active", mode==="personal");
+    }
+
+    function editProfile(id) {
+      // Find profile data from the cached list
+      fetch("/companies", { headers: { "x-token": getToken() } })
+        .then(r => r.json())
+        .then(profiles => {
+          const p = profiles.find(x => x.id === id);
+          if (!p) return;
+          _editingId = id;
+          const isPersonal = p.profile_type === "personal";
+
+          // Switch modal to edit mode
+          document.querySelector(".modal-drawer h2").textContent = "Edit Profile";
+          document.querySelector(".modal-drawer .modal-sub").textContent = "Changes take effect from the next scheduled post.";
+          document.getElementById("modal-success").style.display = "none";
+          // Hide mode tabs (can't change type after creation)
+          document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "none");
+
+          switchMode(isPersonal ? "personal" : "company");
+
+          if (isPersonal) {
+            document.getElementById("p-name").value        = p.name || "";
+            document.getElementById("p-designation").value = p.designation || "";
+            document.getElementById("p-website").value     = p.website_url || "";
+            document.getElementById("p-linkedin").value = p.linkedin_url || "";
+            document.getElementById("p-industry").value = p.industry || "";
+            document.getElementById("p-tone").value     = p.tone || "conversational";
+            document.getElementById("p-time").value     = p.post_time || "09:00";
+            const wtVal = p.website_type || "own";
+            const wtRadio = document.querySelector(`input[name="p-website-type"][value="${wtVal}"]`);
+            if (wtRadio) wtRadio.checked = true;
+            document.getElementById("p-carousel").checked = !!p.carousel_enabled;
+            document.getElementById("p-theme").value = p.carousel_theme || "";
+            document.getElementById("p-theme-group").style.display = p.carousel_enabled ? "block" : "none";
+            document.getElementById("p-submit-btn").textContent = "Save Changes";
+          } else {
+            document.getElementById("c-name").value     = p.name || "";
+            document.getElementById("c-website").value  = p.website_url || "";
+            document.getElementById("c-linkedin").value = p.linkedin_url || "";
+            document.getElementById("c-industry").value = p.industry || "";
+            document.getElementById("c-tone").value     = p.tone || "professional";
+            document.getElementById("c-time").value     = p.post_time || "09:00";
+            document.getElementById("c-carousel").checked = !!p.carousel_enabled;
+            document.getElementById("c-theme").value = p.carousel_theme || "";
+            document.getElementById("c-theme-group").style.display = p.carousel_enabled ? "block" : "none";
+            document.getElementById("c-submit-btn").textContent = "Save Changes";
+          }
+
+          document.getElementById("modal-overlay").classList.add("open");
+          document.body.style.overflow = "hidden";
+        });
+    }
+
+    async function submitProfile(e, mode) {
+      e.preventDefault();
+      const isPersonal = mode === "personal";
+      const btn = document.getElementById(isPersonal ? "p-submit-btn" : "c-submit-btn");
+      const isEdit = !!_editingId;
+      btn.disabled = true;
+      btn.textContent = isEdit ? "Saving..." : (isPersonal ? "Setting up..." : "Setting up... (scraping website)");
+
+      const wtEl = document.querySelector('input[name="p-website-type"]:checked');
+      const payload = isPersonal ? {
+        name: document.getElementById("p-name").value,
+        designation: document.getElementById("p-designation").value || "",
+        website_url: document.getElementById("p-website").value || "",
+        website_type: wtEl ? wtEl.value : "own",
+        linkedin_url: document.getElementById("p-linkedin").value || "",
+        industry: document.getElementById("p-industry").value,
+        tone: document.getElementById("p-tone").value,
+        post_time: document.getElementById("p-time").value,
+        profile_type: "personal",
+        carousel_enabled: document.getElementById("p-carousel").checked,
+        carousel_theme: document.getElementById("p-theme").value,
+      } : {
+        name: document.getElementById("c-name").value,
+        website_url: document.getElementById("c-website").value,
+        linkedin_url: document.getElementById("c-linkedin").value || "",
+        industry: document.getElementById("c-industry").value,
+        tone: document.getElementById("c-tone").value,
+        post_time: document.getElementById("c-time").value,
+        profile_type: "company",
+        carousel_enabled: document.getElementById("c-carousel").checked,
+        carousel_theme: document.getElementById("c-theme").value,
+      };
+
+      try {
+        let res, created;
+        if (isEdit) {
+          res = await fetch(`/companies/${_editingId}`, { method: "PUT", headers: ah(), body: JSON.stringify(payload) });
+          if (!res.ok) throw new Error(await res.text());
+          created = await res.json();
+          toast(`${payload.name} updated!`, "success");
+          closeModal();
+          loadProfiles();
+        } else {
+          res = await fetch("/companies", { method: "POST", headers: ah(), body: JSON.stringify(payload) });
+          if (!res.ok) throw new Error(await res.text());
+          created = await res.json();
+
+          const liFile = isPersonal ? document.getElementById("p-li-file").files[0] : null;
+          if (liFile && created.id) {
+            document.getElementById("p-li-status").textContent = "Uploading LinkedIn data...";
+            const form = new FormData();
+            form.append("file", liFile);
+            const upRes = await fetch(`/companies/${created.id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
+            if (upRes.ok) { document.getElementById("p-li-status").textContent = "✓ Voice loaded"; document.getElementById("p-li-status").className = "li-upload-status ok"; }
+          }
+
+          document.getElementById(isPersonal ? "p-time" : "c-time").value = "09:00";
+          const successEl = document.getElementById("modal-success");
+          successEl.textContent = `${payload.name} is set up! Posts start at ${payload.post_time}.`;
+          successEl.style.display = "block";
+          setTimeout(() => { successEl.style.display="none"; closeModal(); }, 3000);
+          toast(`${payload.name} added!`, "success");
+          loadProfiles();
+        }
+      } catch (err) {
+        toast("Error: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = isEdit ? "Save Changes" : (isPersonal ? "Set Up Personal Brand" : "Set Up Company");
+      }
+    }
+
+    // ── Plan banner ──────────────────────────────────────────────────────────
+    async function loadPlanBanner() {
+      try {
+        const res = await fetch("/auth/me", { headers: { "x-token": getToken() } });
+        if (!res.ok) return;
+        const data = await res.json();
+        const info = data.gen_info;
+        if (!info) return;
+
+        const banner  = document.getElementById("plan-banner");
+        const badge   = document.getElementById("plan-badge");
+        const text    = document.getElementById("plan-text");
+        const fill    = document.getElementById("plan-bar-fill");
+        const barWrap = document.getElementById("plan-bar-wrap");
+        const btn     = document.getElementById("plan-upgrade-btn");
+
+        banner.style.display = "flex";
+
+        if (info.plan === "admin" || info.limit === -1) {
+          badge.textContent = info.plan === "admin" ? "Admin" : "Pro";
+          badge.className = "plan-badge pro-badge";
+          text.innerHTML = "<strong>Unlimited generations</strong> — all features unlocked";
+          barWrap.style.display = "none";
+          btn.style.display = "none";
+          banner.style.borderColor = "#a5d6a7";
+          banner.style.background = "#f0faf0";
+        } else {
+          const left = Math.max(0, info.limit - info.used);
+          const pct  = Math.min(100, (info.used / info.limit) * 100);
+          badge.textContent = "Free Plan";
+          text.innerHTML = `<strong>${left} generation${left !== 1 ? "s" : ""} remaining</strong> &nbsp;·&nbsp; ${info.used} of ${info.limit} used`;
+          fill.style.width = pct + "%";
+          fill.style.background = left === 0 ? "#c0392b" : "#6c47ff";
+          if (left === 0) {
+            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; Upgrade to keep posting`;
+            banner.style.borderColor = "#fdecea";
+            banner.style.background = "#fffafa";
+          }
+        }
+      } catch (_) {}
+    }
+
+    // ── Sign out ──────────────────────────────────────────────────────────────
+    function doAppLogout() {
+      fetch("/auth/logout", { method:"POST", headers:{"x-token":getToken()} });
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+  </script>
+</body>
+</html>

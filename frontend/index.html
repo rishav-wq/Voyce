@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voyce — Manual Tool</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f5f4ff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a2e; }
+
+    /* ── Nav ── */
+    .dash-nav {
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+    .logo span { color: #6c47ff; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-user { font-size: 13px; color: #555; font-weight: 600; }
+    .nav-link { font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
+    .nav-link:hover { color: #6c47ff; }
+    .nav-link.active { color: #6c47ff; font-weight: 600; }
+
+    .li-status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1.5px solid #e0e0e0;
+      cursor: pointer;
+      background: none;
+      color: #888;
+      transition: all 0.15s;
+    }
+    .li-status-pill.connected { border-color: #a5d6a7; color: #057642; background: #e8f5e9; }
+    .li-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
+    .li-status-pill.connected .dot { background: #057642; }
+
+    .dry-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #888;
+      cursor: pointer;
+    }
+    .dry-toggle input { accent-color: #6c47ff; width: 14px; height: 14px; }
+
+    /* ── Body ── */
+    .page-body { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+
+    .page-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+    .page-sub { font-size: 14px; color: #888; margin-bottom: 28px; }
+
+    /* ── Input card ── */
+    .input-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      margin-bottom: 24px;
+    }
+
+    .input-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+      background: #f4f2ff;
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .input-tab {
+      flex: 1;
+      padding: 9px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #888;
+      border: none;
+      background: none;
+      transition: all 0.15s;
+    }
+    .input-tab.active {
+      background: #fff;
+      color: #6c47ff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    #content-input {
+      width: 100%;
+      padding: 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+      min-height: 140px;
+      line-height: 1.6;
+    }
+    #content-input:focus { border-color: #6c47ff; }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .generate-btn {
+      flex: 1;
+      padding: 14px;
+      background: #6c47ff;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .generate-btn:hover { background: #5835e0; }
+    .generate-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
+    .generate-btn.secondary {
+      background: #1a1a2e;
+      flex: 0.85;
+    }
+    .generate-btn.secondary:hover { background: #2a2a4a; }
+    .generate-btn.secondary:disabled { background: #aaa; }
+
+    .error-banner {
+      background: #fdecea;
+      color: #c0392b;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Output grid ── */
+    .output-section { display: none; }
+    .output-section.visible { display: block; }
+
+    .output-section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .output-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .output-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      overflow: hidden;
+      border: 1.5px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .output-card:hover { border-color: #e0d9ff; }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #f4f2ff;
+    }
+    .platform-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .platform-badge.linkedin  { background: #e8f0fe; color: #1a73e8; }
+    .platform-badge.twitter   { background: #e8f5fd; color: #1da1f2; }
+    .platform-badge.email     { background: #fce8f3; color: #c2185b; }
+    .platform-badge.blog      { background: #e8f5e9; color: #2e7d32; }
+
+    .card-actions { display: flex; gap: 6px; align-items: center; }
+    .action-btn {
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1.5px solid #e0e0e0;
+      background: none;
+      color: #555;
+      transition: all 0.12s;
+    }
+    .action-btn:hover { background: #f5f5f5; }
+    .action-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
+    .action-btn.primary:hover { background: #5835e0; }
+    .action-btn.copied { background: #e6f4ea; color: #057642; border-color: #a5d6a7; }
+
+    .card-body {
+      padding: 16px;
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: #333;
+      white-space: pre-wrap;
+      max-height: 320px;
+      overflow-y: auto;
+      min-height: 80px;
+    }
+
+    /* Twitter tweets */
+    .tweet {
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .tweet:last-child { border-bottom: none; }
+
+    /* LinkedIn card spans full width */
+    #card-linkedin { grid-column: 1 / -1; }
+
+    /* ── Carousel card ── */
+    #card-carousel { grid-column: 1 / -1; }
+    .carousel-inner {
+      display: flex;
+      gap: 20px;
+      padding: 16px;
+      align-items: flex-start;
+    }
+    .carousel-post-text {
+      flex: 1;
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: #333;
+      white-space: pre-wrap;
+    }
+    .carousel-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 140px;
+    }
+    .carousel-action-btn {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1.5px solid #e0e0e0;
+      background: none;
+      color: #555;
+      text-align: center;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .carousel-action-btn:hover { background: #f5f5f5; }
+    .carousel-action-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
+    .carousel-action-btn.primary:hover { background: #5835e0; }
+    .carousel-preview-tag {
+      font-size: 12px;
+      color: #888;
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    /* ── Queue ── */
+    .queue-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      padding: 20px 24px;
+      margin-top: 24px;
+      display: none;
+    }
+    .queue-card.visible { display: block; }
+    .queue-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f4f2ff;
+      font-size: 13px;
+    }
+    .queue-item:last-child { border-bottom: none; }
+    .queue-preview { flex: 1; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-time { color: #999; font-size: 12px; white-space: nowrap; }
+    .queue-status { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+    .queue-status.scheduled    { background: #e8f0fe; color: #1a73e8; }
+    .queue-status.posted       { background: #e6f4ea; color: #057642; }
+    .queue-status.dry_run_fired{ background: #f4f2ff; color: #6c47ff; }
+    .queue-status.cancelled    { background: #f0f0f0; color: #888; }
+    .queue-cancel { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 14px; padding: 2px 6px; }
+
+    /* ── Schedule modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px;
+      width: 360px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+    .modal-box label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
+    .modal-box input[type=datetime-local] {
+      width: 100%; padding: 10px 13px; border: 1.5px solid #e0e0e0;
+      border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+    }
+    .modal-box input:focus { border-color: #6c47ff; }
+    .modal-hint { font-size: 12px; color: #aaa; margin-top: 6px; margin-bottom: 20px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
+    .modal-cancel { background: none; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; }
+    .modal-confirm { background: #6c47ff; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .modal-confirm:hover { background: #5835e0; }
+    .modal-confirm:disabled { background: #b0a0e8; cursor: not-allowed; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: #1a1a2e; color: #fff;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 500;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      opacity: 0; transform: translateY(10px);
+      transition: all 0.25s; pointer-events: none;
+      z-index: 9999; max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: #057642; }
+    #toast.error   { background: #c0392b; }
+    #toast.warn    { background: #e65100; }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="dash-nav">
+    <div class="logo">V<span>oyce</span></div>
+    <div class="nav-right">
+      <span class="nav-user" id="user-tag"></span>
+      <a class="nav-link active">Manual Tool</a>
+      <a class="nav-link" href="/setup">Dashboard</a>
+      <a class="nav-link" href="/">Home</a>
+      <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
+      <label class="dry-toggle">
+        <input type="checkbox" id="dry-run-checkbox" checked />
+        <span>Dry Run</span>
+      </label>
+      <button class="li-status-pill" id="li-pill" onclick="handleLiClick()">
+        <span class="dot"></span>
+        <span id="li-pill-text">LinkedIn</span>
+      </button>
+    </div>
+  </nav>
+
+  <div id="toast"></div>
+
+  <div class="page-body">
+    <div class="page-title">Generate Content</div>
+    <div class="page-sub">Paste any content — get ready-to-post formats for every platform.</div>
+
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <!-- Input card -->
+    <div class="input-card">
+      <div class="input-tabs">
+        <button class="input-tab active" data-type="text">Paste Text</button>
+        <button class="input-tab" data-type="url">Website URL</button>
+        <button class="input-tab" data-type="youtube">YouTube URL</button>
+      </div>
+      <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="7"></textarea>
+      <div class="btn-row">
+        <button class="generate-btn" id="generate-btn" onclick="generate()">
+          <span id="btn-text">Generate Content</span>
+          <span id="btn-loader" style="display:none;">Generating…</span>
+        </button>
+        <button class="generate-btn secondary" id="carousel-btn" onclick="generateCarousel()">
+          <span id="carousel-btn-text">⊞ Carousel PDF</span>
+          <span id="carousel-btn-loader" style="display:none;">Generating…</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="output-section" id="output-section">
+      <div class="output-section-title">Generated Content</div>
+      <div class="output-grid">
+        <div class="output-card" id="card-linkedin">
+          <div class="card-header">
+            <div class="platform-badge linkedin">LinkedIn</div>
+            <div class="card-actions">
+              <button class="action-btn" onclick="copyContent('linkedin-content')">Copy</button>
+              <button class="action-btn" id="post-now-btn" onclick="postToLinkedIn()">Post Now</button>
+              <button class="action-btn" onclick="openSchedule()">Schedule</button>
+            </div>
+          </div>
+          <div class="card-body" id="linkedin-content"></div>
+        </div>
+
+        <div class="output-card" id="card-twitter">
+          <div class="card-header">
+            <div class="platform-badge twitter">Twitter / X</div>
+            <button class="action-btn" onclick="copyContent('twitter-content')">Copy</button>
+          </div>
+          <div class="card-body" id="twitter-content"></div>
+        </div>
+
+        <div class="output-card" id="card-email">
+          <div class="card-header">
+            <div class="platform-badge email">Email Newsletter</div>
+            <button class="action-btn" onclick="copyContent('email-content')">Copy</button>
+          </div>
+          <div class="card-body" id="email-content"></div>
+        </div>
+
+        <div class="output-card" id="card-blog">
+          <div class="card-header">
+            <div class="platform-badge blog">Blog Intro</div>
+            <button class="action-btn" onclick="copyContent('blog-content')">Copy</button>
+          </div>
+          <div class="card-body" id="blog-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Carousel Output -->
+    <div class="output-section" id="carousel-section">
+      <div class="output-section-title">Carousel PDF</div>
+      <div class="output-card" id="card-carousel">
+        <div class="card-header">
+          <div class="platform-badge" style="background:#f0eeff;color:#6c47ff;text-transform:none;font-size:13px;">LinkedIn Carousel</div>
+          <div class="card-actions">
+            <span id="carousel-hook-label" style="font-size:12px;color:#888;font-style:italic;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;"></span>
+          </div>
+        </div>
+        <div class="carousel-inner">
+          <div class="carousel-post-text" id="carousel-post-text"></div>
+          <div class="carousel-actions">
+            <button class="carousel-action-btn" onclick="downloadCarousel()">⬇ Download PDF</button>
+            <button class="carousel-action-btn primary" id="post-carousel-btn" onclick="postCarousel()">Post to LinkedIn</button>
+            <p class="carousel-preview-tag">5-slide PDF · 1080×1080</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Queue -->
+    <div class="queue-card" id="queue-section">
+      <h3>Scheduled Posts</h3>
+      <div id="queue-list"></div>
+    </div>
+  </div>
+
+  <!-- Schedule modal -->
+  <div class="modal-backdrop" id="schedule-modal" style="display:none;" onclick="closeScheduleIfBg(event)">
+    <div class="modal-box">
+      <h3>Schedule LinkedIn Post</h3>
+      <label>Post at:</label>
+      <input type="datetime-local" id="schedule-time" />
+      <p class="modal-hint">Pick a time at least 1 minute from now.</p>
+      <div class="modal-footer">
+        <button class="modal-cancel" onclick="closeSchedule()">Cancel</button>
+        <button class="modal-confirm" id="confirm-schedule-btn" onclick="confirmSchedule()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>

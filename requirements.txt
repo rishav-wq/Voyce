@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+groq
+python-dotenv
+requests
+beautifulsoup4
+python-multipart
+youtube-transcript-api
+apscheduler
+pdfplumber
+Pillow
+google-generativeai
+pymongo[srv]
+dnspython

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voyce — LinkedIn content, on autopilot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a2e; background: #fff; line-height: 1.6; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── Nav ── */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #f0eeff;
+      padding: 0 48px; height: 62px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { font-size: 22px; font-weight: 800; }
+    .nav-logo span { color: #6c47ff; }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-link { font-size: 14px; color: #555; font-weight: 500; transition: color 0.15s; }
+    .nav-link:hover { color: #6c47ff; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .btn-ghost { font-size: 14px; font-weight: 600; color: #555; padding: 8px 16px; border-radius: 8px; transition: color 0.15s; }
+    .btn-ghost:hover { color: #6c47ff; }
+    .btn-nav { background: #6c47ff; color: #fff; padding: 9px 20px; border-radius: 8px; font-size: 14px; font-weight: 700; transition: background 0.15s; }
+    .btn-nav:hover { background: #5835e0; }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: 1100px; margin: 0 auto;
+      padding: 88px 48px 72px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 64px; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f0eeff; color: #6c47ff;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+      padding: 5px 12px; border-radius: 20px; margin-bottom: 22px;
+    }
+    .hero h1 {
+      font-size: 54px; font-weight: 900; line-height: 1.08;
+      letter-spacing: -1.8px; margin-bottom: 22px;
+    }
+    .hero h1 span { color: #6c47ff; }
+    .hero-sub { font-size: 18px; color: #555; line-height: 1.7; margin-bottom: 36px; max-width: 440px; }
+    .hero-actions { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .btn-hero {
+      background: #6c47ff; color: #fff;
+      padding: 14px 30px; border-radius: 10px;
+      font-size: 15px; font-weight: 700; transition: background 0.15s;
+    }
+    .btn-hero:hover { background: #5835e0; }
+    .btn-outline {
+      border: 1.5px solid #d6ccff; color: #6c47ff;
+      padding: 13px 24px; border-radius: 10px;
+      font-size: 15px; font-weight: 600; transition: all 0.15s;
+    }
+    .btn-outline:hover { background: #f5f2ff; }
+    .hero-trust { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 6px; }
+    .trust-dot { width: 6px; height: 6px; border-radius: 50%; background: #a5d6a7; }
+
+    /* Hero mockup */
+    .hero-mockup {
+      background: #f5f4ff; border-radius: 20px; padding: 22px;
+      box-shadow: 0 8px 40px rgba(108,71,255,0.10), 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .mock-label { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .mock-post {
+      background: #fff; border-radius: 12px; padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 12px;
+    }
+    .mock-head { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+    .mock-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #6c47ff, #a78bff); flex-shrink: 0; }
+    .mock-name { font-size: 13px; font-weight: 700; }
+    .mock-meta { font-size: 11px; color: #aaa; }
+    .mock-body { font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 10px; }
+    .mock-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mock-tag { background: #f0eeff; color: #6c47ff; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; }
+    .mock-formats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .fmt { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+    .fmt-li { background: #e8f0fe; color: #1a73e8; }
+    .fmt-tw { background: #e8f5fd; color: #0ea5e9; }
+    .fmt-em { background: #fce8f3; color: #c2185b; }
+    .fmt-bl { background: #e8f5e9; color: #2e7d32; }
+    .mock-carousel {
+      background: linear-gradient(135deg, #6c47ff 0%, #9b7eff 100%);
+      border-radius: 10px; padding: 14px 16px; color: #fff;
+    }
+    .mock-carousel-title { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+    .mock-carousel-sub { font-size: 11px; opacity: 0.75; }
+
+    /* ── Stats ── */
+    .stats { background: #f5f4ff; padding: 36px 48px; }
+    .stats-inner {
+      max-width: 800px; margin: 0 auto;
+      display: flex; justify-content: space-around; gap: 16px; flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat-num { font-size: 36px; font-weight: 900; color: #6c47ff; line-height: 1; margin-bottom: 5px; }
+    .stat-lbl { font-size: 13px; color: #888; font-weight: 500; }
+
+    /* ── Features ── */
+    .features { max-width: 1100px; margin: 0 auto; padding: 88px 48px; }
+    .sec-eyebrow { font-size: 12px; font-weight: 700; color: #6c47ff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    .sec-title { font-size: 40px; font-weight: 900; line-height: 1.15; letter-spacing: -1px; margin-bottom: 52px; max-width: 500px; }
+    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feat-card {
+      background: #f9f8ff; border-radius: 16px; padding: 28px;
+      border: 1.5px solid #f0eeff; transition: border-color 0.15s, transform 0.15s;
+    }
+    .feat-card:hover { border-color: #c5b8f5; transform: translateY(-2px); }
+    .feat-icon { font-size: 24px; margin-bottom: 14px; }
+    .feat-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .feat-desc { font-size: 14px; color: #666; line-height: 1.65; }
+
+    /* ── How it works ── */
+    .how { background: #1a1a2e; padding: 88px 48px; }
+    .how-inner { max-width: 900px; margin: 0 auto; }
+    .how .sec-eyebrow { color: #9b7eff; }
+    .how .sec-title { color: #fff; margin-bottom: 60px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+    .step { text-align: center; }
+    .step-num {
+      width: 52px; height: 52px; border-radius: 50%; background: #6c47ff;
+      font-size: 20px; font-weight: 900; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .step-title { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+    .step-desc { font-size: 14px; color: #888; line-height: 1.65; }
+
+    /* ── Pricing ── */
+    .pricing { max-width: 1100px; margin: 0 auto; padding: 88px 48px; text-align: center; }
+    .pricing .sec-title { margin: 0 auto 10px; }
+    .pricing-sub { font-size: 16px; color: #888; margin-bottom: 52px; }
+    .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: start; }
+    .price-card {
+      background: #fff; border-radius: 20px; padding: 32px;
+      border: 2px solid #f0eeff; text-align: left; position: relative;
+      transition: box-shadow 0.15s;
+    }
+    .price-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+    .price-card.pop { border-color: #6c47ff; box-shadow: 0 8px 36px rgba(108,71,255,0.14); transform: scale(1.03); }
+    .pop-badge {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      background: #6c47ff; color: #fff; font-size: 11px; font-weight: 700;
+      padding: 4px 14px; border-radius: 20px; white-space: nowrap;
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .plan-tier { font-size: 12px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+    .plan-price { font-size: 46px; font-weight: 900; line-height: 1; margin-bottom: 4px; }
+    .plan-price sup { font-size: 22px; vertical-align: top; margin-top: 8px; display: inline-block; font-weight: 800; }
+    .plan-per { font-size: 14px; color: #aaa; margin-bottom: 26px; }
+    .plan-btn {
+      display: block; width: 100%; padding: 12px; border: none;
+      border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
+      text-align: center; margin-bottom: 26px; transition: opacity 0.15s;
+      background: #f0eeff; color: #6c47ff;
+    }
+    .price-card.pop .plan-btn { background: #6c47ff; color: #fff; }
+    .plan-btn:hover { opacity: 0.88; }
+    .plan-feats { list-style: none; }
+    .plan-feats li {
+      font-size: 14px; color: #444; padding: 7px 0;
+      border-bottom: 1px solid #f5f2ff;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .plan-feats li:last-child { border-bottom: none; }
+    .plan-feats li::before { content: "✓"; color: #6c47ff; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+    .plan-feats li.off { color: #ccc; }
+    .plan-feats li.off::before { color: #e0e0e0; }
+
+    /* ── CTA banner ── */
+    .cta-band {
+      background: linear-gradient(135deg, #6c47ff 0%, #4a2fc0 100%);
+      padding: 88px 48px; text-align: center; color: #fff;
+    }
+    .cta-band h2 { font-size: 44px; font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; }
+    .cta-band p { font-size: 18px; color: rgba(255,255,255,0.72); margin-bottom: 40px; }
+    .btn-white { background: #fff; color: #6c47ff; padding: 15px 34px; border-radius: 10px; font-size: 16px; font-weight: 700; display: inline-block; transition: background 0.15s; }
+    .btn-white:hover { background: #f0eeff; }
+    .cta-fine { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 16px; }
+
+    /* ── Footer ── */
+    .footer {
+      background: #1a1a2e; padding: 36px 48px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    }
+    .foot-logo { font-size: 18px; font-weight: 800; color: #fff; }
+    .foot-logo span { color: #9b7eff; }
+    .foot-links { display: flex; gap: 24px; }
+    .foot-link { font-size: 13px; color: #666; transition: color 0.15s; }
+    .foot-link:hover { color: #fff; }
+    .foot-copy { font-size: 13px; color: #555; }
+  </style>
+</head>
+<body>
+
+<script>
+  if (localStorage.getItem("cm_token")) {
+    fetch("/auth/me", { headers: { "x-token": localStorage.getItem("cm_token") } })
+      .then(r => { if (r.ok) window.location.href = "/setup"; })
+      .catch(() => {});
+  }
+</script>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-logo">V<span>oyce</span></div>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+  </div>
+  <div class="nav-right">
+    <a href="/login" class="btn-ghost">Log in</a>
+    <a href="/login" class="btn-nav">Get started free</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div>
+    <div class="hero-badge">✦ AI-powered LinkedIn growth</div>
+    <h1>LinkedIn content<br>that sounds <span>like you.</span></h1>
+    <p class="hero-sub">Voyce learns your writing style and posts every day — carousels, trend reactions, expert insights. Fully automated, completely on-brand.</p>
+    <div class="hero-actions">
+      <a href="/login" class="btn-hero">Start for free →</a>
+      <a href="#how" class="btn-outline">See how it works</a>
+    </div>
+    <div class="hero-trust">
+      <span class="trust-dot"></span>
+      No credit card &nbsp;·&nbsp; 3 free generations &nbsp;·&nbsp; 3-minute setup
+    </div>
+  </div>
+  <div>
+    <div class="hero-mockup">
+      <div class="mock-label">Generated just now</div>
+      <div class="mock-post">
+        <div class="mock-head">
+          <div class="mock-avatar"></div>
+          <div>
+            <div class="mock-name">Rishav Agarwal</div>
+            <div class="mock-meta">Head of Product · Just now</div>
+          </div>
+        </div>
+        <div class="mock-body">
+          AI agents aren't replacing developers — they're replacing <em>busywork</em>.<br><br>
+          The engineers thriving in 2026 pair deep system thinking with AI execution speed. Google's latest benchmark shows 68% of junior-level coding tasks fully automated.<br><br>
+          The question isn't "will AI replace you?" — it's "are you the one directing it?"
+        </div>
+        <div class="mock-tags">
+          <span class="mock-tag">#AI</span>
+          <span class="mock-tag">#Engineering</span>
+          <span class="mock-tag">#FutureOfWork</span>
+        </div>
+      </div>
+      <div class="mock-label">Also generated</div>
+      <div class="mock-formats">
+        <span class="fmt fmt-li">LinkedIn</span>
+        <span class="fmt fmt-tw">Twitter thread</span>
+        <span class="fmt fmt-em">Email</span>
+        <span class="fmt fmt-bl">Blog intro</span>
+      </div>
+      <div class="mock-carousel">
+        <div class="mock-carousel-title">▤ Carousel PDF · 5 slides · 1080×1080</div>
+        <div class="mock-carousel-sub">Branded PDF — post directly as LinkedIn document</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats bar -->
+<div class="stats">
+  <div class="stats-inner">
+    <div class="stat"><div class="stat-num">5</div><div class="stat-lbl">Content formats</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-lbl">Min to set up</div></div>
+    <div class="stat"><div class="stat-num">7×</div><div class="stat-lbl">Posts per week</div></div>
+    <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Hours of writing</div></div>
+  </div>
+</div>
+
+<!-- Features -->
+<section class="features" id="features">
+  <div class="sec-eyebrow">What Voyce does</div>
+  <h2 class="sec-title">Everything LinkedIn needs. Nothing else.</h2>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">Daily auto-posting</div>
+      <div class="feat-desc">Set a time once. Voyce generates and posts every day — trend reactions, hot takes, expert insights — on a rotating content schedule.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📄</div>
+      <div class="feat-title">Carousel PDFs</div>
+      <div class="feat-desc">Branded 5-slide carousels generated from any content, posted directly as LinkedIn documents. No Canva, no design work.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🧠</div>
+      <div class="feat-title">Learns your voice</div>
+      <div class="feat-desc">Upload your LinkedIn data export and Voyce reads your past posts to match your exact writing style, vocabulary, and tone.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🌐</div>
+      <div class="feat-title">Content from anywhere</div>
+      <div class="feat-desc">Paste text, drop a URL, or share a YouTube link. Voyce extracts the key insights and repurposes them into multi-platform posts.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">Post analytics</div>
+      <div class="feat-desc">Track your post history, see which content types perform best, and monitor engagement trends over time — all in one dashboard.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">👥</div>
+      <div class="feat-title">Multiple profiles</div>
+      <div class="feat-desc">Manage your personal brand and company page from one dashboard. Different voices, tones, and schedules — all automated.</div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="how" id="how">
+  <div class="how-inner">
+    <div class="sec-eyebrow">Simple setup</div>
+    <h2 class="sec-title">Live in 3 minutes.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Create your profile</div>
+        <div class="step-desc">Add your name, industry, tone, and post time. Optionally upload your LinkedIn data export for a perfect voice match.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Connect LinkedIn</div>
+        <div class="step-desc">One OAuth click. Voyce gets posting permission. No API keys, no manual configuration — just connect and go.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Voyce posts daily</div>
+        <div class="step-desc">Every day at your chosen time, Voyce finds trending news, generates on-brand content, and posts it for you automatically.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing" id="pricing">
+  <div class="sec-eyebrow">Pricing</div>
+  <h2 class="sec-title">Simple, transparent pricing.</h2>
+  <p class="pricing-sub">Start free. Upgrade when automation saves you time.</p>
+  <div class="price-grid">
+
+    <!-- Free -->
+    <div class="price-card">
+      <div class="plan-tier">Free</div>
+      <div class="plan-price">$0</div>
+      <div class="plan-per">No credit card needed</div>
+      <a href="/login" class="plan-btn">Get started free</a>
+      <ul class="plan-feats">
+        <li><strong>3 generations</strong> to try</li>
+        <li>Manual tool (text, URL, YouTube)</li>
+        <li>LinkedIn · Twitter · Email · Blog</li>
+        <li>Carousel PDF download</li>
+        <li class="off">Autonomous daily posting</li>
+        <li class="off">Multiple profiles</li>
+        <li class="off">Post analytics</li>
+      </ul>
+    </div>
+
+    <!-- Pro (Popular) -->
+    <div class="price-card pop">
+      <div class="pop-badge">Most Popular</div>
+      <div class="plan-tier">Pro</div>
+      <div class="plan-price"><sup>$</sup>29</div>
+      <div class="plan-per">per month · cancel anytime</div>
+      <a href="/login" class="plan-btn">Start Pro →</a>
+      <ul class="plan-feats">
+        <li><strong>Unlimited</strong> generations</li>
+        <li>Everything in Free</li>
+        <li><strong>Autonomous</strong> daily posting</li>
+        <li>Up to <strong>3 profiles</strong></li>
+        <li>Carousel PDFs (automated)</li>
+        <li>Post analytics + engagement</li>
+        <li>LinkedIn voice upload</li>
+      </ul>
+    </div>
+
+    <!-- Agency -->
+    <div class="price-card">
+      <div class="plan-tier">Agency</div>
+      <div class="plan-price"><sup>$</sup>79</div>
+      <div class="plan-per">per month · cancel anytime</div>
+      <a href="/login" class="plan-btn">Start Agency →</a>
+      <ul class="plan-feats">
+        <li><strong>Unlimited</strong> generations</li>
+        <li>Everything in Pro</li>
+        <li>Up to <strong>10 profiles</strong></li>
+        <li>Company + personal brands</li>
+        <li>Priority support</li>
+        <li>Early access to new features</li>
+        <li>Custom carousel branding</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section class="cta-band">
+  <h2>Start growing on LinkedIn today.</h2>
+  <p>Join founders, creators, and teams who never stress about posting again.</p>
+  <a href="/login" class="btn-white">Get 3 free generations →</a>
+  <div class="cta-fine">No credit card · Cancel anytime · Set up in 3 minutes</div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="foot-logo">V<span>oyce</span></div>
+  <div class="foot-links">
+    <a href="#features" class="foot-link">Features</a>
+    <a href="#pricing" class="foot-link">Pricing</a>
+    <a href="/terms" class="foot-link">Terms</a>
+    <a href="/privacy" class="foot-link">Privacy</a>
+    <a href="mailto:hello@voyce.ai" class="foot-link">Contact</a>
+  </div>
+  <div class="foot-copy">© 2026 Voyce. All rights reserved.</div>
+</footer>
+
+</body>
+</html>
