@@ -34,9 +34,13 @@ function toast(msg, type = "") {
 function showError(msg) {
   const el = document.getElementById("error-banner");
   if (!el) { toast(msg, "error"); return; }
-  el.textContent = msg;
+  if (msg === "LIMIT_REACHED") {
+    el.innerHTML = `You've used all 3 free generations. To get more credits, email us at <a href="mailto:r65581350@gmail.com" style="color:#6c47ff;font-weight:700;">r65581350@gmail.com</a>.`;
+  } else {
+    el.textContent = msg;
+  }
   el.style.display = "block";
-  setTimeout(() => el.style.display = "none", 5000);
+  setTimeout(() => el.style.display = "none", 10000);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

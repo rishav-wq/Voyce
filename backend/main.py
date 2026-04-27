@@ -48,7 +48,7 @@ def _check_gen_limit(user: dict):
     if info["limit"] != -1 and info["used"] >= info["limit"]:
         raise HTTPException(
             status_code=402,
-            detail=f"Free plan limit reached ({info['limit']} generations used). Upgrade to Pro for unlimited."
+            detail=f"LIMIT_REACHED"
         )
 
 
