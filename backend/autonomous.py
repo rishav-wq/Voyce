@@ -404,6 +404,36 @@ def _get_post_type(company: dict) -> str:
     return COMPANY_ROTATION[weekday]
 
 
+_REVISION_SYSTEM = """You are a senior LinkedIn editor. You will receive a drafted LinkedIn post.
+
+Your job is to rewrite it to be sharper and more engaging — keep the same idea and structure, but:
+1. If the hook (first line) is generic or weak, replace it with something specific and impossible to ignore
+2. Cut any sentence that is filler, vague, or repeats something already said
+3. Replace any clichés with concrete specifics
+4. Ensure no paragraph exceeds 2 sentences
+5. Make sure the closing question is specific to the audience — not "what do you think?"
+6. Keep the hashtags unchanged on the final line
+
+Return ONLY the improved post text — no explanation, no preamble."""
+
+
+def _revise_post(draft: str, industry: str) -> str:
+    """Second-pass revision to sharpen the draft."""
+    try:
+        resp = _groq.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": _REVISION_SYSTEM},
+                {"role": "user", "content": f"Industry: {industry}\n\nDraft post to improve:\n\n{draft}"},
+            ],
+            max_tokens=1024,
+        )
+        revised = resp.choices[0].message.content.strip()
+        return _format_linkedin_post(revised) if revised else draft
+    except Exception:
+        return draft  # fall back to original if revision fails
+
+
 def generate_autonomous_post(company: dict, news_context: str, post_type: str) -> str:
     is_personal = company.get("profile_type") == "personal"
     prompts = PERSONAL_PROMPTS if is_personal else COMPANY_PROMPTS
@@ -422,8 +452,8 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1024,
     )
-    text = response.choices[0].message.content.strip()
-    return _format_linkedin_post(text)
+    draft = _format_linkedin_post(response.choices[0].message.content.strip())
+    return _revise_post(draft, company["industry"])
 
 
 def _format_linkedin_post(text: str) -> str:
