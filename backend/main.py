@@ -466,10 +466,16 @@ def toggle_carousel(company_id: str, x_token: str = Header(None)):
 @app.post("/companies/{company_id}/run")
 def run_company_now(company_id: str, x_token: str = Header(None)):
     user = _require_user(x_token)
+    _check_gen_limit(user)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     result = run_for_company(company)
+    if result.get("status") == "posted":
+        try:
+            auth_module.increment_gens(user["id"])
+        except Exception as e:
+            logging.error(f"[Run] increment_gens failed: {e}")
     return result
 
 
