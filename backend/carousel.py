@@ -11,7 +11,7 @@ load_dotenv()
 _groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SLIDE_W, SLIDE_H = 1080, 1080
-_SCALE = 3                          # 3× supersampling → downscale for crisp anti-aliased text
+_SCALE = 4                          # 4× supersampling → downscale for maximum sharpness
 _RW, _RH = SLIDE_W * _SCALE, SLIDE_H * _SCALE
 PAD = 88 * _SCALE
 
@@ -246,26 +246,47 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
 
 def _slide_content(title: str, body: str, num: int, total: int,
                    brand: str, p: dict) -> Image.Image:
-    body = body[:280].rsplit(" ", 1)[0] if len(body) > 280 else body
-    bg2  = _mix(p["bg"], (255, 255, 255), 0.04)
+    # Cap body to 2 punchy sentences
+    body = body[:180].rsplit(" ", 1)[0] if len(body) > 180 else body
+    bg2  = _mix(p["bg"], (255, 255, 255), 0.035)
 
     img  = Image.new("RGB", (_RW, _RH), bg2)
     draw = ImageDraw.Draw(img)
 
-    f_title = _font(72 * _SCALE, bold=True)
-    f_body  = _font(36 * _SCALE)
-    f_sm    = _font(22 * _SCALE)
+    # Slide number shown as "01", "02", "03" — large, top-left in accent
+    point_num   = str(num - 1).zfill(2)          # content slides are 2,3,4 → "01","02","03"
+    f_num   = _font(180 * _SCALE, bold=True)
+    f_title = _font(68  * _SCALE, bold=True)
+    f_body  = _font(34  * _SCALE)
+    f_sm    = _font(22  * _SCALE)
 
     max_w = _RW - PAD * 2
 
-    y = PAD + 32 * _SCALE
-
-    draw.rectangle([PAD, y, PAD + 56 * _SCALE, y + 5 * _SCALE], fill=p["accent"])
-    y += 18 * _SCALE
-    y += _put_text(draw, title, f_title, PAD, y, max_w, p["accent"], gap=14 * _SCALE)
+    # Top accent bar
+    y = PAD
+    draw.rectangle([PAD, y, PAD + 48 * _SCALE, y + 5 * _SCALE], fill=p["accent"])
     y += 28 * _SCALE
-    _put_text(draw, body, f_body, PAD, y, max_w, p["body"], gap=16 * _SCALE)
 
+    # Large point number
+    draw.text((PAD, y), point_num, font=f_num, fill=(*p["accent"], 40) if len(p["accent"]) == 3 else p["accent"])
+    # Use a semi-transparent version by blending with bg
+    num_color = _mix(bg2, p["accent"], 0.25)
+    draw.text((PAD, y), point_num, font=f_num, fill=num_color)
+    num_h = draw.textbbox((0, 0), point_num, font=f_num)[3]
+    y += num_h + 10 * _SCALE
+
+    # Divider line
+    draw.rectangle([PAD, y, PAD + 56 * _SCALE, y + 4 * _SCALE], fill=p["accent"])
+    y += 22 * _SCALE
+
+    # Point title in accent
+    y += _put_text(draw, title, f_title, PAD, y, max_w, p["title"], gap=12 * _SCALE)
+    y += 20 * _SCALE
+
+    # Body text
+    _put_text(draw, body, f_body, PAD, y, max_w, p["body"], gap=14 * _SCALE)
+
+    # Footer
     draw.text((PAD, _RH - 62 * _SCALE), f"{num}/{total}", font=f_sm, fill=p["muted"])
     bw = _tw(draw, brand, f_sm)
     draw.text((_RW - PAD - bw, _RH - 62 * _SCALE), brand, font=f_sm, fill=p["muted"])
@@ -319,9 +340,9 @@ Return ONLY valid JSON:
 {{
   "hook_slide": {{"headline": "...", "subtext": "..."}},
   "content_slides": [
-    {{"title": "Max 6 words", "body": "2-3 specific sentences."}},
-    {{"title": "Max 6 words", "body": "2-3 specific sentences."}},
-    {{"title": "Max 6 words", "body": "2-3 specific sentences."}}
+    {{"title": "The point in max 6 words", "body": "1-2 sentences max. Specific, punchy."}},
+    {{"title": "The point in max 6 words", "body": "1-2 sentences max. Specific, punchy."}},
+    {{"title": "The point in max 6 words", "body": "1-2 sentences max. Specific, punchy."}}
   ],
   "cta_slide": {{"headline": "...", "cta": "..."}},
   "post_text": "Hook line.\\n\\nOne supporting line.\\n\\nOne closing line.\\n\\n#tag1 #tag2 #tag3"
@@ -330,7 +351,7 @@ Return ONLY valid JSON:
     res = _groq.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": "You are a LinkedIn carousel content generator. Return ONLY valid JSON matching the schema exactly."},
+            {"role": "system", "content": "You are a LinkedIn carousel content generator. Return ONLY valid JSON matching the schema exactly. Each content slide title is the point itself (bold, direct). Each body is MAX 2 short sentences — specific and punchy, no fluff."},
             {"role": "user", "content": prompt},
         ],
         response_format={"type": "json_object"},
@@ -369,9 +390,9 @@ Return ONLY valid JSON — no markdown, no extra text:
     "subtext": "Specific tension or fact that earns the swipe — max 12 words"
   }},
   "content_slides": [
-    {{"title": "Max 6 words", "body": "2-3 short sentences with real names, stats, or examples."}},
-    {{"title": "Max 6 words", "body": "2-3 short sentences with real names, stats, or examples."}},
-    {{"title": "Max 6 words", "body": "2-3 short sentences with real names, stats, or examples."}}
+    {{"title": "The point in max 6 words", "body": "1-2 sentences. Specific stat, name, or example. No fluff."}},
+    {{"title": "The point in max 6 words", "body": "1-2 sentences. Specific stat, name, or example. No fluff."}},
+    {{"title": "The point in max 6 words", "body": "1-2 sentences. Specific stat, name, or example. No fluff."}}
   ],
   "cta_slide": {{
     "headline": "Sharp one-line takeaway — max 8 words",
@@ -383,7 +404,7 @@ Return ONLY valid JSON — no markdown, no extra text:
     res = _groq.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": "You are a LinkedIn carousel content generator. Return ONLY valid JSON matching the schema exactly — no markdown, no explanation."},
+            {"role": "system", "content": "You are a LinkedIn carousel content generator. Return ONLY valid JSON — no markdown, no explanation. CRITICAL: each content_slide title is the core point (direct, bold, max 6 words). Each body is MAX 2 short sentences with real specifics — no vague claims, no padding."},
             {"role": "user", "content": prompt},
         ],
         response_format={"type": "json_object"},
