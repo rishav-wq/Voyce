@@ -492,10 +492,7 @@ def _format_linkedin_post(text: str) -> str:
 
 
 def _should_post_carousel(company: dict) -> bool:
-    """Carousel on Mon/Wed/Fri/Sun, text on Tue/Thu/Sat."""
-    if not company.get("carousel_enabled"):
-        return False
-    return datetime.now().weekday() in {0, 2, 4, 6}  # Mon=0, Wed=2, Fri=4, Sun=6
+    return bool(company.get("carousel_enabled"))
 
 
 def run_for_company(company: dict) -> dict:
