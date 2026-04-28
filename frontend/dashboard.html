@@ -402,7 +402,31 @@
           </div>
         </div>
       </div>
-      <a href="/#pricing" class="plan-upgrade-btn" id="plan-upgrade-btn">⚡ Upgrade to Pro</a>
+      <button class="plan-upgrade-btn" id="plan-upgrade-btn" onclick="openUpgradeModal()">⚡ Upgrade to Pro</button>
+    </div>
+
+    <!-- Upgrade modal -->
+    <div id="upgrade-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;" onclick="if(event.target===this)closeUpgradeModal()">
+      <div style="background:#fff;border-radius:20px;padding:36px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.18);position:relative;">
+        <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
+        <div style="text-align:center;margin-bottom:24px;">
+          <div style="font-size:13px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
+          <div style="font-size:48px;font-weight:900;line-height:1;color:#1a1a2e;"><sup style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">$</sup>9.99</div>
+          <div style="font-size:13px;color:#aaa;margin-top:4px;">per month · cancel anytime</div>
+        </div>
+        <ul style="list-style:none;margin-bottom:28px;">
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
+          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>LinkedIn voice upload</span></li>
+        </ul>
+        <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro&body=Hi, I'd like to upgrade my account to Pro. My email is: " style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-align:center;text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='#5835e0'" onmouseout="this.style.background='#6c47ff'">
+          Contact us to upgrade →
+        </a>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">We'll activate your Pro account within 24 hours</div>
+      </div>
     </div>
 
     <!-- LinkedIn banner -->
@@ -1053,6 +1077,15 @@
     // ── Modal ─────────────────────────────────────────────────────────────────
     let currentMode = "company";
     let _editingId = null;   // null = add mode, string = edit mode
+
+    function openUpgradeModal() {
+      const m = document.getElementById("upgrade-modal");
+      m.style.display = "flex";
+    }
+    function closeUpgradeModal() {
+      document.getElementById("upgrade-modal").style.display = "none";
+    }
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeUpgradeModal(); });
 
     function openModal() {
       _editingId = null;
