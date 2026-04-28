@@ -227,6 +227,54 @@
     .foot-link { font-size: 13px; color: #666; transition: color 0.15s; }
     .foot-link:hover { color: #fff; }
     .foot-copy { font-size: 13px; color: #555; }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+      /* Nav */
+      .nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .btn-ghost { display: none; }
+      .btn-nav { padding: 8px 14px; font-size: 13px; }
+
+      /* Hero */
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 48px 20px 40px;
+        gap: 36px;
+      }
+      .hero h1 { font-size: 36px; letter-spacing: -1px; }
+      .hero-sub { font-size: 15px; }
+      .hero-actions { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .btn-hero, .btn-outline { width: 100%; text-align: center; }
+
+      /* Stats */
+      .stats { padding: 28px 20px; }
+      .stats-inner { gap: 20px; }
+      .stat-num { font-size: 28px; }
+
+      /* Features */
+      .features { padding: 60px 20px; }
+      .sec-title { font-size: 28px; }
+      .feat-grid { grid-template-columns: 1fr; gap: 14px; }
+
+      /* How it works */
+      .how { padding: 60px 20px; }
+      .steps { grid-template-columns: 1fr; gap: 32px; }
+
+      /* Pricing */
+      .pricing { padding: 60px 20px; }
+      .price-grid { grid-template-columns: 1fr; gap: 20px; }
+      .price-card.pop { transform: scale(1); }
+
+      /* CTA */
+      .cta-band { padding: 60px 20px; }
+      .cta-band h2 { font-size: 28px; }
+      .cta-band p { font-size: 15px; }
+
+      /* Footer */
+      .footer { padding: 28px 20px; flex-direction: column; align-items: flex-start; gap: 12px; }
+      .foot-links { flex-wrap: wrap; gap: 14px; }
+    }
   </style>
 </head>
 <body>
