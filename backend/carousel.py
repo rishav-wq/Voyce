@@ -11,7 +11,9 @@ load_dotenv()
 _groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SLIDE_W, SLIDE_H = 1080, 1080
-PAD = 88
+_SCALE = 3                          # 3× supersampling → downscale for crisp anti-aliased text
+_RW, _RH = SLIDE_W * _SCALE, SLIDE_H * _SCALE
+PAD = 88 * _SCALE
 
 # ── Four named palettes: exact color codes ───────────────────────────────────
 # Each palette: bg, accent, title, subtitle, body, muted
@@ -218,88 +220,82 @@ def _text_block_height(draw, text, font, max_w, gap=10) -> int:
 
 def _slide_hook(headline: str, subtext: str, num: int, total: int,
                 p: dict) -> Image.Image:
-    img  = Image.new("RGB", (SLIDE_W, SLIDE_H), p["bg"])
+    img  = Image.new("RGB", (_RW, _RH), p["bg"])
     draw = ImageDraw.Draw(img)
 
-    f_head = _font(116, bold=True)
-    f_sub  = _font(36)
-    f_sm   = _font(22)
+    f_head = _font(116 * _SCALE, bold=True)
+    f_sub  = _font(36  * _SCALE)
+    f_sm   = _font(22  * _SCALE)
 
-    max_w = SLIDE_W - PAD * 2
-    # Measure total block: accent bar + gap + headline + gap + subtext
-    h_head = _text_block_height(draw, headline, f_head, max_w, gap=20)
-    h_sub  = _text_block_height(draw, subtext[:120], f_sub, max_w, gap=11)
-    # _put_text adds trailing gap after every line (including last), so h_head+20 is what's consumed.
-    # Then y+=32 additional gap before subtext.
-    block_h = 5 + 14 + h_head + 20 + 32 + h_sub
+    max_w = _RW - PAD * 2
+    h_head = _text_block_height(draw, headline, f_head, max_w, gap=20 * _SCALE)
+    h_sub  = _text_block_height(draw, subtext[:120], f_sub, max_w, gap=11 * _SCALE)
+    block_h = 5 * _SCALE + 14 * _SCALE + h_head + 20 * _SCALE + 32 * _SCALE + h_sub
 
-    y = (SLIDE_H - block_h) // 2
+    y = (_RH - block_h) // 2
 
-    draw.rectangle([PAD, y, PAD + 56, y + 5], fill=p["accent"])
-    y += 14
-    y += _put_text(draw, headline, f_head, PAD, y, max_w, p["title"], gap=20)
-    y += 32
-    _put_text(draw, subtext[:120], f_sub, PAD, y, max_w, p["subtitle"], gap=11)
+    draw.rectangle([PAD, y, PAD + 56 * _SCALE, y + 5 * _SCALE], fill=p["accent"])
+    y += 14 * _SCALE
+    y += _put_text(draw, headline, f_head, PAD, y, max_w, p["title"], gap=20 * _SCALE)
+    y += 32 * _SCALE
+    _put_text(draw, subtext[:120], f_sub, PAD, y, max_w, p["subtitle"], gap=11 * _SCALE)
 
-    draw.text((PAD, SLIDE_H - 62), f"{num}/{total}", font=f_sm, fill=p["muted"])
-    return img
+    draw.text((PAD, _RH - 62 * _SCALE), f"{num}/{total}", font=f_sm, fill=p["muted"])
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
 def _slide_content(title: str, body: str, num: int, total: int,
                    brand: str, p: dict) -> Image.Image:
-    # Hard cap body at 280 chars
     body = body[:280].rsplit(" ", 1)[0] if len(body) > 280 else body
     bg2  = _mix(p["bg"], (255, 255, 255), 0.04)
 
-    img  = Image.new("RGB", (SLIDE_W, SLIDE_H), bg2)
+    img  = Image.new("RGB", (_RW, _RH), bg2)
     draw = ImageDraw.Draw(img)
 
-    f_title = _font(72, bold=True)
-    f_body  = _font(36)
-    f_sm    = _font(22)
+    f_title = _font(72 * _SCALE, bold=True)
+    f_body  = _font(36 * _SCALE)
+    f_sm    = _font(22 * _SCALE)
 
-    max_w = SLIDE_W - PAD * 2
+    max_w = _RW - PAD * 2
 
-    # Content slides are top-aligned (like template 3), not centered
-    y = PAD + 32
+    y = PAD + 32 * _SCALE
 
-    draw.rectangle([PAD, y, PAD + 56, y + 5], fill=p["accent"])
-    y += 18
-    y += _put_text(draw, title, f_title, PAD, y, max_w, p["accent"], gap=14)
-    y += 28
-    _put_text(draw, body, f_body, PAD, y, max_w, p["body"], gap=16)
+    draw.rectangle([PAD, y, PAD + 56 * _SCALE, y + 5 * _SCALE], fill=p["accent"])
+    y += 18 * _SCALE
+    y += _put_text(draw, title, f_title, PAD, y, max_w, p["accent"], gap=14 * _SCALE)
+    y += 28 * _SCALE
+    _put_text(draw, body, f_body, PAD, y, max_w, p["body"], gap=16 * _SCALE)
 
-    draw.text((PAD, SLIDE_H - 62), f"{num}/{total}", font=f_sm, fill=p["muted"])
+    draw.text((PAD, _RH - 62 * _SCALE), f"{num}/{total}", font=f_sm, fill=p["muted"])
     bw = _tw(draw, brand, f_sm)
-    draw.text((SLIDE_W - PAD - bw, SLIDE_H - 62), brand, font=f_sm, fill=p["muted"])
-    return img
+    draw.text((_RW - PAD - bw, _RH - 62 * _SCALE), brand, font=f_sm, fill=p["muted"])
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
 def _slide_cta(headline: str, cta: str, num: int, total: int,
                brand: str, p: dict) -> Image.Image:
-    img  = Image.new("RGB", (SLIDE_W, SLIDE_H), p["bg"])
+    img  = Image.new("RGB", (_RW, _RH), p["bg"])
     draw = ImageDraw.Draw(img)
 
-    f_head = _font(82, bold=True)
-    f_cta  = _font(46)
-    f_sm   = _font(22)
+    f_head = _font(82 * _SCALE, bold=True)
+    f_cta  = _font(46 * _SCALE)
+    f_sm   = _font(22 * _SCALE)
 
-    max_w = SLIDE_W - PAD * 2
-    h_head = _text_block_height(draw, headline, f_head, max_w, gap=14)
-    h_cta  = _text_block_height(draw, cta,      f_cta,  max_w, gap=10)
-    # _put_text returns h_head+14 (trailing gap); then cta is placed at y+h+28
-    block_h = 5 + 14 + h_head + 14 + 28 + h_cta
+    max_w = _RW - PAD * 2
+    h_head = _text_block_height(draw, headline, f_head, max_w, gap=14 * _SCALE)
+    h_cta  = _text_block_height(draw, cta,      f_cta,  max_w, gap=10 * _SCALE)
+    block_h = 5 * _SCALE + 14 * _SCALE + h_head + 14 * _SCALE + 28 * _SCALE + h_cta
 
-    y = (SLIDE_H - block_h) // 2
+    y = (_RH - block_h) // 2
 
-    draw.rectangle([PAD, y, PAD + 56, y + 5], fill=p["accent"])
-    y += 14
-    h = _put_text(draw, headline, f_head, PAD, y, max_w, p["title"], gap=14)
-    _put_text(draw, cta, f_cta, PAD, y + h + 28, max_w, p["accent"], gap=10)
+    draw.rectangle([PAD, y, PAD + 56 * _SCALE, y + 5 * _SCALE], fill=p["accent"])
+    y += 14 * _SCALE
+    h = _put_text(draw, headline, f_head, PAD, y, max_w, p["title"], gap=14 * _SCALE)
+    _put_text(draw, cta, f_cta, PAD, y + h + 28 * _SCALE, max_w, p["accent"], gap=10 * _SCALE)
 
-    draw.text((PAD, SLIDE_H - 62), brand, font=f_sm, fill=p["accent"])
-    draw.text((SLIDE_W - PAD - 72, SLIDE_H - 62), f"{num}/{total}", font=f_sm, fill=p["muted"])
-    return img
+    draw.text((PAD, _RH - 62 * _SCALE), brand, font=f_sm, fill=p["accent"])
+    draw.text((_RW - PAD - 72 * _SCALE, _RH - 62 * _SCALE), f"{num}/{total}", font=f_sm, fill=p["muted"])
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
 # ── Manual carousel (from pasted content) ────────────────────────────────────
@@ -413,5 +409,5 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     slides.append(_slide_cta(cta["headline"], cta["cta"], total, total, brand, p))
 
     buf = io.BytesIO()
-    slides[0].save(buf, format="PDF", save_all=True, append_images=slides[1:], resolution=150)
+    slides[0].save(buf, format="PDF", save_all=True, append_images=slides[1:], resolution=300)
     return buf.getvalue()
