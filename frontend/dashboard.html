@@ -1277,6 +1277,11 @@
       } catch (_) {}
     }
 
+    // Refresh plan banner when user comes back to this tab (e.g. from Quick Generate)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadPlanBanner();
+    });
+
     // ── Sign out ──────────────────────────────────────────────────────────────
     function doAppLogout() {
       fetch("/auth/logout", { method:"POST", headers:{"x-token":getToken()} });

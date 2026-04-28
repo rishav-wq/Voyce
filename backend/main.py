@@ -290,7 +290,11 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
         result = generate_content(raw_text)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Generation failed: {str(e)}")
-    auth_module.increment_gens(user["id"])
+    try:
+        auth_module.increment_gens(user["id"])
+        logging.info(f"[Gen] incremented for user {user['id']}")
+    except Exception as e:
+        logging.error(f"[Gen] increment_gens failed: {e}")
     return result
 
 
