@@ -253,9 +253,8 @@ def _slide_content(title: str, body: str, num: int, total: int,
     img  = Image.new("RGB", (_RW, _RH), bg2)
     draw = ImageDraw.Draw(img)
 
-    # Slide number shown as "01", "02", "03" — large, top-left in accent
-    point_num   = str(num - 1).zfill(2)          # content slides are 2,3,4 → "01","02","03"
-    f_num   = _font(180 * _SCALE, bold=True)
+    point_num = str(num - 1).zfill(2)
+    f_num   = _font(140 * _SCALE, bold=True)   # slightly smaller so number breathes
     f_title = _font(68  * _SCALE, bold=True)
     f_body  = _font(34  * _SCALE)
     f_sm    = _font(22  * _SCALE)
@@ -267,21 +266,19 @@ def _slide_content(title: str, body: str, num: int, total: int,
     draw.rectangle([PAD, y, PAD + 48 * _SCALE, y + 5 * _SCALE], fill=p["accent"])
     y += 28 * _SCALE
 
-    # Large point number
-    draw.text((PAD, y), point_num, font=f_num, fill=(*p["accent"], 40) if len(p["accent"]) == 3 else p["accent"])
-    # Use a semi-transparent version by blending with bg
+    # Large faded number
     num_color = _mix(bg2, p["accent"], 0.25)
     draw.text((PAD, y), point_num, font=f_num, fill=num_color)
     num_h = draw.textbbox((0, 0), point_num, font=f_num)[3]
-    y += num_h + 10 * _SCALE
+    y += num_h + 28 * _SCALE          # ← increased gap: number → divider
 
     # Divider line
     draw.rectangle([PAD, y, PAD + 56 * _SCALE, y + 4 * _SCALE], fill=p["accent"])
-    y += 22 * _SCALE
+    y += 32 * _SCALE                  # ← increased gap: divider → title
 
-    # Point title in accent
+    # Point title
     y += _put_text(draw, title, f_title, PAD, y, max_w, p["title"], gap=12 * _SCALE)
-    y += 20 * _SCALE
+    y += 24 * _SCALE
 
     # Body text
     _put_text(draw, body, f_body, PAD, y, max_w, p["body"], gap=14 * _SCALE)
