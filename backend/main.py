@@ -226,6 +226,23 @@ def app_logout(x_token: str = Header(None)):
     return {"logged_out": True}
 
 
+@app.post("/admin/set-plan")
+def admin_set_plan(body: dict, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    info = auth_module.get_gen_info(user["id"])
+    if info.get("plan") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    email = body.get("email", "").strip().lower()
+    plan  = body.get("plan", "pro")
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
+    import db as _db
+    result = _db.users.update_one({"email": email}, {"$set": {"plan": plan, "gens_used": 0}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"email": email, "plan": plan}
+
+
 # ── LinkedIn OAuth ─────────────────────────────────────────────────────────────
 @app.get("/auth/linkedin")
 def linkedin_login(token: str = ""):
