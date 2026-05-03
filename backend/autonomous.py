@@ -149,30 +149,42 @@ Return ONLY the post text.""",
 
 # ── Personal brand prompt templates ──────────────────────────────────────────
 _PERSONAL_QUALITY_RULES = """
+HOOK FORMULA — you MUST use one of these for line 1 (nothing else on line 1):
+  A) SPECIFIC NUMBER: "[X]% of [audience] [surprising fact]. Not [wrong assumption]. [Real cause]."
+  B) NAMED EVENT: "[Company] just [did X]. The implication nobody is talking about: [Y]."
+  C) COUNTERINTUITIVE TRUTH: "The [best/smartest] [people] I know [do the opposite of conventional wisdom]."
+  D) UNCOMFORTABLE CONFESSION: "I [specific mistake] for [timeframe]. Here's what I missed."
+  E) MYTH-BUSTER: "Everyone says [X]. I've seen the opposite."
+
 QUALITY RULES (non-negotiable):
-- No clichés. NEVER write: "possibilities are endless", "I couldn't help but think", "it's amazing to see", "the future is bright", "game-changer", "dive deep", "landscape", "leverage", "unlock potential", "at the end of the day", "in today's fast-paced world", "I read something this week".
-- Be specific. Name the actual company, report, number, or trend. Vague = ignored.
-- Sound like a real person texting a smart friend, not a newsletter or press release.
-- Hook = first line only. It must make someone stop scrolling. Make it surprising, contrarian, or oddly specific.
-- No filler sentences. Every line must earn its place.
+- Hook = line 1, completely alone. Must use formula A-E above. Must contain a real number, company, or specific event.
+- Be specific. Name the actual company, report title, or statistic. Vague = ignored. "AI is changing things" = automatic fail.
+- Sound like a real expert texting a sharp colleague. Not a newsletter. Not a press release.
+- No filler sentences. Every line must add information the previous line did not.
 - Hashtags: lowercase, relevant, max 4. Put them on the last line alone.
 
-LINKEDIN FORMATTING (critical — posts that ignore this get buried):
-- Every 1-2 sentences = its own block, separated by a blank line.
+FORMATTING (critical — posts that break this get buried by the LinkedIn algorithm):
+- Every 1-2 sentences = its own paragraph, separated by a blank line.
 - NEVER write more than 2 sentences in a row without a blank line.
-- The hook must be completely alone on the first line — nothing else on that line.
-- Short sentences. If a sentence is longer than 20 words, split it.
+- Short sentences. If over 20 words, split it.
+- The hook must be completely alone on the first line.
 
-The post must look exactly like this structure:
-[One-line hook that stops the scroll]
+ABSOLUTELY BANNED (using any of these is an automatic fail):
+possibilities are endless, I couldn’t help but think, it’s amazing to see, the future is bright,
+game-changer, dive deep, landscape, leverage, unlock potential, at the end of the day,
+in today’s fast-paced world, I read something this week, thrilled to announce, excited to share,
+synergy, paradigm shift, move the needle, circle back, learnings, impactful, groundbreaking.
 
-[1-2 sentences]
+The post must look exactly like this:
+[One-line hook using formula A-E — stops the scroll]
 
-[1-2 sentences]
+[1-2 sentences with a specific fact, name, or example]
 
-[1-2 sentences]
+[1-2 sentences adding a new point — not restating]
 
-[One closing question]
+[1-2 sentences of concrete takeaway or implication]
+
+[One sharp closing question specific to this audience]
 
 #tag1 #tag2 #tag3
 """
@@ -399,21 +411,89 @@ def _build_company_brief(company: dict) -> str:
 
 
 def _get_post_type(company: dict) -> str:
-    weekday = datetime.now().weekday()
-    if company.get("profile_type") == "personal":
-        return PERSONAL_ROTATION[weekday]
-    return COMPANY_ROTATION[weekday]
+    """
+    Returns a post type that varies by weekday AND by how many times this company
+    has run today, so repeated Run Now clicks always produce a different type.
+    """
+    from datetime import date
+    import hashlib
+
+    is_personal = company.get("profile_type") == "personal"
+    rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
+
+    # Count how many posts this company has already made today
+    today_str = date.today().isoformat()
+    company_id = company.get("id", "default")
+    log = get_post_log()
+    runs_today = sum(
+        1 for e in log
+        if e.get("company_id") == company_id
+        and e.get("timestamp", "").startswith(today_str)
+        and e.get("status") in ("posted", "dry_run_fired")
+    )
+
+    # Use a hash of (company_id + date + runs_today) to pick from rotation
+    # This gives deterministic but varied results across runs
+    seed = hashlib.md5(f"{company_id}{today_str}{runs_today}".encode()).hexdigest()
+    idx = int(seed[:4], 16) % len(rotation)
+    return rotation[idx]
 
 
-_REVISION_SYSTEM = """You are a senior LinkedIn editor. You will receive a drafted LinkedIn post.
+def get_post_type_info(company: dict) -> dict:
+    """
+    Returns data for the dashboard: the next post type that will be generated,
+    and a list of the 3 most recently generated post types.
+    """
+    next_type_key = _get_post_type(company)
+    next_type_label = POST_TYPE_LABELS.get(next_type_key, next_type_key)
 
-Your job is to rewrite it to be sharper and more engaging — keep the same idea and structure, but:
-1. If the hook (first line) is generic or weak, replace it with something specific and impossible to ignore
-2. Cut any sentence that is filler, vague, or repeats something already said
-3. Replace any clichés with concrete specifics
-4. Ensure no paragraph exceeds 2 sentences
-5. Make sure the closing question is specific to the audience — not "what do you think?"
-6. Keep the hashtags unchanged on the final line
+    company_id = company.get("id", "default")
+    log = get_post_log()
+    recent = []
+    
+    # log is sorted chronologically (oldest to newest usually, or we can reverse it)
+    # let's iterate in reverse
+    for entry in reversed(log):
+        if entry.get("company_id") == company_id and entry.get("status") in ("posted", "dry_run_fired"):
+            pt_label = entry.get("post_type", "")
+            if pt_label:
+                recent.append(pt_label)
+            if len(recent) >= 3:
+                break
+
+    return {
+        "next_post_type": next_type_label,
+        "recent_post_types": recent
+    }
+
+
+_REVISION_SYSTEM = """You are a senior LinkedIn editor who has edited 5,000+ viral posts.
+
+You receive a drafted LinkedIn post. Your job: make it impossible to scroll past.
+
+Check every item — fix any that fail:
+
+1. HOOK (line 1 only): Does it use one of these formulas?
+   - Specific Number: "[X]% of [audience] [surprising fact]. Not [assumption]. [Reality]."
+   - Named Event: "[Company] just [did X]. The implication nobody’s talking about: [Y]."
+   - Counterintuitive Truth: "The [best/top] [people] in [field] [do opposite of norm]."
+   - Confession: "I [specific mistake] for [timeframe]. Here’s what I missed."
+   - Myth-Buster: "Everyone says [X]. I’ve seen the opposite."
+   If NOT — rewrite line 1 completely using the best formula for this content.
+
+2. SPECIFICITY: Does every paragraph name a real company, number, or example?
+   Replace any vague sentence with something concrete and verifiable.
+
+3. BANNED PHRASES: Remove every instance of:
+   game-changer, landscape, unlock, leveraging, synergy, paradigm, thrilled, excited,
+   it goes without saying, at the end of the day, move the needle, circle back, learnings, impactful.
+
+4. SENTENCE LENGTH: Split any sentence over 20 words.
+
+5. CLOSING QUESTION: Is it specific to THIS exact audience?
+   "What do you think?" = fail. Replace with a question only an expert in this field would ask.
+
+6. FORMAT: Hook alone on line 1. Every paragraph separated by blank lines. Hashtags alone on last line.
 
 Return ONLY the improved post text — no explanation, no preamble."""
 
@@ -437,16 +517,35 @@ def _revise_post(draft: str, industry: str) -> str:
 
 def generate_autonomous_post(company: dict, news_context: str, post_type: str) -> str:
     is_personal = company.get("profile_type") == "personal"
-    prompts = PERSONAL_PROMPTS if is_personal else COMPANY_PROMPTS
+    industry    = company["industry"]
+
+    # Phase 0: generate a locked, formula-specific hook
+    locked_hook = ""
+    try:
+        from hooks import generate_hook
+        context = (news_context or "") + "\n\n" + _build_company_brief(company)[:600]
+        allowed = company.get("allowed_hooks", [])
+        locked_hook = generate_hook(context=context, industry=industry, post_type=post_type, allowed_hooks=allowed)
+    except Exception:
+        pass
+
+    # Phase 1: generate the full post body, hook pre-anchored
+    prompts  = PERSONAL_PROMPTS if is_personal else COMPANY_PROMPTS
     template = prompts[post_type]
+    hook_instruction = (
+        f"\n\nSTART YOUR POST WITH THIS EXACT LINE (do not change it, do not add anything before it):\n"
+        f"\"{locked_hook}\"\n"
+        f"Write the rest of the post to build naturally from this opening."
+        if locked_hook else ""
+    )
     prompt = template.format(
         name=company["name"],
-        industry=company["industry"],
+        industry=industry,
         tone=company.get("tone", "conversational" if is_personal else "professional"),
         news=news_context or "No specific news today — draw from general industry knowledge.",
         company_brief=_build_company_brief(company),
         quality_rules=_PERSONAL_QUALITY_RULES if is_personal else "",
-    )
+    ) + hook_instruction
 
     response = _groq.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -454,6 +553,13 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
         max_tokens=1024,
     )
     draft = _format_linkedin_post(response.choices[0].message.content.strip())
+
+    # Enforce locked hook as line 1 if the model drifted
+    if locked_hook and draft:
+        first_line = draft.split("\n")[0].strip()
+        if locked_hook.lower() not in first_line.lower():
+            draft = locked_hook + "\n\n" + draft
+
     return _revise_post(draft, company["industry"])
 
 
@@ -532,8 +638,11 @@ def run_for_company(company: dict, allow_free_manual: bool = False) -> dict:
 
         NEWS_HEAVY  = ("trend_commentary", "industry_stat", "trend_reaction", "stat_reaction")
         num_results = 6 if post_type in NEWS_HEAVY else 3
-        news_results  = search_industry_news(company["industry"], company["name"], num_results)
-        news_context  = format_news_context(news_results)
+        # Pass post_type so search uses targeted queries for this specific post angle
+        news_results = search_industry_news(
+            company["industry"], company["name"], num_results, post_type=post_type
+        )
+        news_context = format_news_context(news_results)
 
         if do_carousel:
             from carousel import generate_carousel_content, render_carousel_pdf

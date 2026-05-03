@@ -169,6 +169,7 @@ class CompanyRequest(BaseModel):
     carousel_enabled: bool = False
     designation: str = ""
     carousel_theme: str = ""
+    allowed_hooks: list[str] = []
 
 
 class ToggleRequest(BaseModel):
@@ -327,7 +328,10 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
-        result = generate_content(_with_profile_context(user["id"], raw_text))
+        profiles = list_companies(user["id"])
+        profile = profiles[0] if profiles else None
+        context_text = _with_profile_context(user["id"], raw_text)
+        result = generate_content(context_text, company=profile)
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
     try:
@@ -351,8 +355,11 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
     try:
         import base64
         from carousel import generate_carousel_from_text, render_carousel_pdf
-        content   = generate_carousel_from_text(_with_profile_context(user["id"], raw_text))
-        pdf_bytes = render_carousel_pdf(content, {"name": "Voyce"})
+        profiles = list_companies(user["id"])
+        profile = profiles[0] if profiles else None
+        context_text = _with_profile_context(user["id"], raw_text)
+        content   = generate_carousel_from_text(context_text, company=profile)
+        pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {
             "post_text":  content.get("post_text", ""),
@@ -443,7 +450,13 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
 @app.get("/companies")
 def get_companies(x_token: str = Header(None)):
     user = _require_user(x_token)
-    return list_companies(user["id"])
+    companies = list_companies(user["id"])
+    from autonomous import get_post_type_info
+    for c in companies:
+        info = get_post_type_info(c)
+        c["next_post_type"] = info["next_post_type"]
+        c["recent_post_types"] = info["recent_post_types"]
+    return companies
 
 
 @app.put("/companies/{company_id}")

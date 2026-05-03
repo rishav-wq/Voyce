@@ -443,9 +443,9 @@
         <div class="stat-sub" id="stat-total"></div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Today's Post Type</div>
-        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-today">—</div>
-        <div class="stat-sub" id="stat-weekday"></div>
+        <div class="stat-label">Next Post Type</div>
+        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-next-type">—</div>
+        <div class="stat-sub" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center;" id="stat-recent-types"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Next Post</div>
@@ -561,6 +561,17 @@
               <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Allowed Hook Formulas <span class="optional-tag">(uncheck to avoid)</span></label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="c-hooks-container">
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="specific_number" checked style="width:auto;margin-right:4px;"> Specific Number</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="named_event" checked style="width:auto;margin-right:4px;"> Named Event</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="counterintuitive" checked style="width:auto;margin-right:4px;"> Counterintuitive</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="confession" checked style="width:auto;margin-right:4px;"> Confession</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="myth_buster" checked style="width:auto;margin-right:4px;"> Myth-Buster</label>
+            </div>
+            <p class="form-hint">Used for scroll-stopping openers. Leave all checked for maximum variety.</p>
+          </div>
           <button type="submit" class="submit-btn" id="c-submit-btn">Set Up Company</button>
         </form>
       </div>
@@ -604,6 +615,17 @@
               <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Allowed Hook Formulas <span class="optional-tag">(uncheck to avoid)</span></label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="p-hooks-container">
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="specific_number" checked style="width:auto;margin-right:4px;"> Specific Number</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="named_event" checked style="width:auto;margin-right:4px;"> Named Event</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="counterintuitive" checked style="width:auto;margin-right:4px;"> Counterintuitive</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="confession" checked style="width:auto;margin-right:4px;"> Confession</label>
+              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="myth_buster" checked style="width:auto;margin-right:4px;"> Myth-Buster</label>
+            </div>
+            <p class="form-hint">Used for scroll-stopping openers. Leave all checked for maximum variety.</p>
+          </div>
 
           <div class="li-upload-box">
             <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
@@ -627,7 +649,6 @@
 
     const COMPANY_SCHEDULE  = { 0:"Trend Commentary",1:"Expert Insight",2:"Expert Insight",3:"Product Spotlight",4:"Industry Stat",5:"Case Study",6:"Expert Insight" };
     const PERSONAL_SCHEDULE = { 0:"Trend Reaction",1:"Hot Take",2:"Lesson Learned",3:"Expert Insight",4:"Stat Reaction",5:"Personal Story",6:"Hot Take" };
-    function todayPostType(p) { const d=new Date().getDay(); return p.profile_type==="personal"?PERSONAL_SCHEDULE[d]:COMPANY_SCHEDULE[d]; }
     const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
     let liConnected = false;
@@ -651,7 +672,6 @@
         document.getElementById("nav-user").textContent = user.name || user.email;
         if (user.account_type === "personal") switchMode("personal");
       }
-      document.getElementById("stat-weekday").textContent = DAYS[new Date().getDay()];
       loadPlanBanner().then(() => {
         checkLinkedIn();
         loadProfiles();
@@ -725,9 +745,17 @@
       document.getElementById("stat-active").textContent = active;
       document.getElementById("stat-total").textContent = isFreePlan() ? "automation requires Pro" : `of ${profiles.length} total`;
 
-      const d = new Date().getDay();
-      const types = [...new Set(profiles.map(p => todayPostType(p)))];
-      document.getElementById("stat-today").textContent = types.join(" / ") || "—";
+      const mainProfile = profiles.find(p => p.active) || profiles[0];
+      if (mainProfile && mainProfile.next_post_type) {
+        document.getElementById("stat-next-type").textContent = mainProfile.next_post_type;
+        const recentHtml = (mainProfile.recent_post_types || []).map(rt => 
+          `<span style="background:#f0eeff;color:#6c47ff;font-size:9px;padding:3px 6px;border-radius:4px;font-weight:700;">${rt}</span>`
+        ).join("");
+        document.getElementById("stat-recent-types").innerHTML = recentHtml ? `<span style="font-size:10px;color:#aaa;margin-right:2px;">Recent:</span>${recentHtml}` : `<span style="font-size:10px;color:#aaa;">No recent posts</span>`;
+      } else {
+        document.getElementById("stat-next-type").textContent = "—";
+        document.getElementById("stat-recent-types").innerHTML = "";
+      }
 
       const next = isFreePlan() ? null : profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
       if (next) {
@@ -777,7 +805,7 @@
             <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
             <div class="meta-item"><div class="meta-key">Tone</div><div class="meta-val">${p.tone}</div></div>
             <div class="meta-item"><div class="meta-key">${timeLabel}</div><div class="meta-val">${timeValue}</div></div>
-            <div class="meta-item"><div class="meta-key">Today's Type</div><div class="meta-val">${todayPostType(p)}</div></div>
+            <div class="meta-item"><div class="meta-key">Next Type</div><div class="meta-val">${p.next_post_type || "—"}</div></div>
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
           </div>
 
@@ -944,11 +972,9 @@
         </table>`;
 
       // Subtitle
-      const types = [...new Set(active.map(p => {
-        const pyDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
-        return (p.profile_type === "personal" ? PERSONAL_SCHEDULE : COMPANY_SCHEDULE)[pyDay];
-      }))];
-      document.getElementById("cal-subtitle").textContent = `Today: ${types.join(" · ")}`;
+      // Subtitle
+      const types = [...new Set(active.map(p => p.next_post_type))].filter(Boolean);
+      document.getElementById("cal-subtitle").textContent = types.length ? `Next: ${types.join(" · ")}` : "";
     }
 
     // ── Analytics chart ───────────────────────────────────────────────────────
@@ -1168,6 +1194,10 @@
             document.getElementById("p-carousel").checked = !!p.carousel_enabled;
             document.getElementById("p-theme").value = p.carousel_theme || "";
             document.getElementById("p-theme-group").style.display = p.carousel_enabled ? "block" : "none";
+            
+            const allowedHooks = p.allowed_hooks || ["specific_number", "named_event", "counterintuitive", "confession", "myth_buster"];
+            document.querySelectorAll('input[name="p-hooks"]').forEach(cb => cb.checked = allowedHooks.includes(cb.value));
+
             document.getElementById("p-submit-btn").textContent = "Save Changes";
           } else {
             document.getElementById("c-name").value     = p.name || "";
@@ -1179,6 +1209,10 @@
             document.getElementById("c-carousel").checked = !!p.carousel_enabled;
             document.getElementById("c-theme").value = p.carousel_theme || "";
             document.getElementById("c-theme-group").style.display = p.carousel_enabled ? "block" : "none";
+            
+            const allowedHooks = p.allowed_hooks || ["specific_number", "named_event", "counterintuitive", "confession", "myth_buster"];
+            document.querySelectorAll('input[name="c-hooks"]').forEach(cb => cb.checked = allowedHooks.includes(cb.value));
+
             document.getElementById("c-submit-btn").textContent = "Save Changes";
           }
 
@@ -1196,6 +1230,10 @@
       btn.textContent = isEdit ? "Saving..." : (isPersonal ? "Setting up..." : "Setting up... (scraping website)");
 
       const wtEl = document.querySelector('input[name="p-website-type"]:checked');
+      
+      const pHooks = Array.from(document.querySelectorAll('input[name="p-hooks"]:checked')).map(cb => cb.value);
+      const cHooks = Array.from(document.querySelectorAll('input[name="c-hooks"]:checked')).map(cb => cb.value);
+
       const payload = isPersonal ? {
         name: document.getElementById("p-name").value,
         designation: document.getElementById("p-designation").value || "",
@@ -1208,6 +1246,7 @@
         profile_type: "personal",
         carousel_enabled: document.getElementById("p-carousel").checked,
         carousel_theme: document.getElementById("p-theme").value,
+        allowed_hooks: pHooks,
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,
@@ -1218,6 +1257,7 @@
         profile_type: "company",
         carousel_enabled: document.getElementById("c-carousel").checked,
         carousel_theme: document.getElementById("c-theme").value,
+        allowed_hooks: cHooks,
       };
 
       try {
