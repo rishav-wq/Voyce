@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from search import search_industry_news, format_news_context
 import linkedin as li
+import auth as auth_module
 import db
 
 load_dotenv()
@@ -495,7 +496,7 @@ def _should_post_carousel(company: dict) -> bool:
     return bool(company.get("carousel_enabled"))
 
 
-def run_for_company(company: dict) -> dict:
+def run_for_company(company: dict, allow_free_manual: bool = False) -> dict:
     company_id = company["id"]
     post_type  = _get_post_type(company)
     do_carousel = _should_post_carousel(company)
@@ -513,6 +514,19 @@ def run_for_company(company: dict) -> dict:
 
     try:
         user_id = company.get("user_id", "")
+        gen_info = auth_module.get_gen_info(user_id)
+        if gen_info.get("plan") == "free" and not allow_free_manual:
+            log_entry["status"] = "skipped"
+            log_entry["error"] = "Autonomous posting requires Pro"
+            _append_log(log_entry)
+            return log_entry
+
+        if gen_info["limit"] != -1 and gen_info["used"] >= gen_info["limit"]:
+            log_entry["status"] = "skipped"
+            log_entry["error"] = "Free generation limit reached"
+            _append_log(log_entry)
+            return log_entry
+
         if not li.is_connected(user_id):
             raise ValueError("LinkedIn not connected for this user")
 
@@ -530,6 +544,7 @@ def run_for_company(company: dict) -> dict:
             result = li.upload_and_post_carousel(user_id, pdf_bytes, post_text, title=company["name"])
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
+            auth_module.increment_gens(user_id)
             logger.info(f"[Autonomous] Carousel posted for {company['name']}")
         else:
             post_text = generate_autonomous_post(company, news_context, post_type)
@@ -537,6 +552,7 @@ def run_for_company(company: dict) -> dict:
             result = li.post_to_linkedin(user_id, post_text)
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
+            auth_module.increment_gens(user_id)
             logger.info(f"[Autonomous] {POST_TYPE_LABELS[post_type]} posted for {company['name']}")
 
     except Exception as e:

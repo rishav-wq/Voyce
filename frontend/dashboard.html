@@ -516,7 +516,7 @@
     <div class="modal-drawer">
       <button class="modal-close" onclick="closeModal()">✕</button>
       <h2>Add a Profile</h2>
-      <p class="modal-sub">Set up once — Voyce posts daily, automatically.</p>
+      <p class="modal-sub">Create a profile for manual generation; Pro profiles can turn on daily automation.</p>
 
       <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
 
@@ -543,11 +543,11 @@
           <div class="form-group"><label>LinkedIn Company Page <span class="optional-tag">(optional)</span></label><input type="url" id="c-linkedin" placeholder="https://linkedin.com/company/knowella" /></div>
           <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="B2B SaaS, Operations Software" required /><p class="form-hint">Used to find relevant news daily.</p></div>
           <div class="form-group"><label>Post Tone *</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-          <div class="form-group"><label>Daily Post Time *</label><input type="time" id="c-time" value="09:00" required /></div>
+          <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Used when daily automation is active.</p></div>
           <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="checkbox" id="c-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('c-theme-group').style.display=this.checked?'block':'none'" />
-              <span>Enable carousel posts <span class="optional-tag">(alternates with text posts daily)</span></span>
+              <span>Enable carousel posts <span class="optional-tag">(used when automation is active)</span></span>
             </label>
             <p class="form-hint">On carousel days, AI generates branded PDF slide decks posted as LinkedIn documents.</p>
           </div>
@@ -586,11 +586,11 @@
           <div class="form-group"><label>Your LinkedIn URL <span class="optional-tag">(optional)</span></label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/rishav" /></div>
           <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="AI, Product Management, Startups" required /><p class="form-hint">Used to find relevant news and topics daily.</p></div>
           <div class="form-group"><label>Post Tone *</label><select id="p-tone"><option value="conversational">Conversational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-          <div class="form-group"><label>Daily Post Time *</label><input type="time" id="p-time" value="09:00" required /></div>
+          <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Used when daily automation is active.</p></div>
           <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
               <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
-              <span>Enable carousel posts <span class="optional-tag">(alternates with text posts daily)</span></span>
+              <span>Enable carousel posts <span class="optional-tag">(used when automation is active)</span></span>
             </label>
             <p class="form-hint">On carousel days, AI generates branded PDF slide decks posted as LinkedIn documents.</p>
           </div>
@@ -1090,7 +1090,7 @@
     function openModal() {
       _editingId = null;
       document.querySelector(".modal-drawer h2").textContent = "Add a Profile";
-      document.querySelector(".modal-drawer .modal-sub").textContent = "Set up once — Voyce posts daily, automatically.";
+      document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation; Pro profiles can turn on daily automation.";
       document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
       document.getElementById("modal-success").style.display = "none";
       document.getElementById("modal-overlay").classList.add("open");
@@ -1221,7 +1221,9 @@
 
           document.getElementById(isPersonal ? "p-time" : "c-time").value = "09:00";
           const successEl = document.getElementById("modal-success");
-          successEl.textContent = `${payload.name} is set up! Posts start at ${payload.post_time}.`;
+          successEl.textContent = created.active
+            ? `${payload.name} is set up! Posts start at ${payload.post_time}.`
+            : `${payload.name} is ready! Use Quick Generate now; upgrade to Pro to turn on daily posting.`;
           successEl.style.display = "block";
           setTimeout(() => { successEl.style.display="none"; closeModal(); }, 3000);
           toast(`${payload.name} added!`, "success");

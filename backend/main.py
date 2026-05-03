@@ -390,6 +390,9 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     try:
         data = request.model_dump()
         data["user_id"] = user["id"]
+        gen_info = auth_module.get_gen_info(user["id"])
+        if gen_info.get("plan") == "free":
+            data["active"] = False
         company = save_company(data)
         if company.get("active", True):
             _setup_company_cron(company)
@@ -471,12 +474,7 @@ def run_company_now(company_id: str, x_token: str = Header(None)):
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
-    result = run_for_company(company)
-    if result.get("status") == "posted":
-        try:
-            auth_module.increment_gens(user["id"])
-        except Exception as e:
-            logging.error(f"[Run] increment_gens failed: {e}")
+    result = run_for_company(company, allow_free_manual=True)
     return result
 
 

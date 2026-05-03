@@ -45,7 +45,7 @@ def save_company(profile: dict) -> dict:
         "linkedin_analysis": {},
         "linkedin_top_posts": [],
         "created_at":       datetime.now().isoformat(),
-        "active":           True,
+        "active":           profile.get("active", True),
         "carousel_enabled": profile.get("carousel_enabled", False),
         "designation":      profile.get("designation", ""),
     }
