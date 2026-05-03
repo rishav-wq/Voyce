@@ -72,7 +72,7 @@ def get_gen_info(user_id: str) -> dict:
         return {"used": 0, "limit": -1, "plan": "admin"}
     plan  = user.get("plan", "free")
     used  = user.get("gens_used", 0)
-    limit = 5 if plan == "free" else -1
+    limit = 10 if plan == "free" else -1
     return {"used": used, "limit": limit, "plan": plan}
 
 
