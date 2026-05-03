@@ -559,11 +559,57 @@ CTA SLIDE RULES:
 - Headline = the ONE thing you want them to remember — state it as a bold declaration
 - CTA = a sharp question that only THIS specific audience would care about. Not "what do you think?"
 
+OUTPUT HYGIENE RULES (strict):
+- Do NOT include markdown symbols like **, __, ##, backticks, or bullet prefixes.
+- Do NOT include placeholder tokens like [Specific Number], [X], [audience], [Company].
+- Do NOT prefix lines with numbering like "1." or "2)".
+
 Banned words/phrases: game-changer, landscape, unlock, dive deep, revolutionize, leverage, synergy,
 in today's world, the future is here, are you ready, this is just the beginning, I'm excited,
 it goes without saying, at the end of the day, paradigm shift, move the needle.
 
 Return ONLY valid JSON."""
+
+def _clean_slide_text(text: str) -> str:
+    """Strip markdown/template artifacts so rendered slides are publish-safe."""
+    t = " ".join((text or "").split()).strip()
+    if not t:
+        return ""
+    # Remove markdown emphasis/heading markers
+    t = re.sub(r"[*_`#]+", "", t)
+    # Remove leading numbering/bullets like "1. ", "2) ", "- "
+    t = re.sub(r"^\s*(?:\d+[\.\)]\s+|[-•]\s+)", "", t)
+    # Remove template placeholders like [Specific Number], [audience], [X]
+    t = re.sub(r"\[[^\]]+\]", "", t)
+    # Normalize spacing around punctuation after cleanup
+    t = re.sub(r"\s+([.,!?;:])", r"\1", t)
+    t = re.sub(r"\s{2,}", " ", t).strip()
+    # Fallback if model returns almost-empty tokenized text
+    return t if len(t) >= 2 else "Insight"
+
+
+def _sanitize_carousel_result(result: dict) -> dict:
+    hook = result.get("hook_slide") or {}
+    hook["headline"] = _clean_slide_text(hook.get("headline", ""))
+    hook["subtext"] = _clean_slide_text(hook.get("subtext", ""))
+    result["hook_slide"] = hook
+
+    cleaned_content = []
+    for s in (result.get("content_slides") or []):
+        cleaned_content.append({
+            "title": _clean_slide_text((s or {}).get("title", "")),
+            "body": _clean_slide_text((s or {}).get("body", "")),
+        })
+    result["content_slides"] = cleaned_content[:3]
+
+    cta = result.get("cta_slide") or {}
+    cta["headline"] = _clean_slide_text(cta.get("headline", ""))
+    cta["cta"] = _clean_slide_text(cta.get("cta", ""))
+    result["cta_slide"] = cta
+
+    if "post_text" in result:
+        result["post_text"] = (result.get("post_text") or "").replace("**", "")
+    return result
 
 
 def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
@@ -614,10 +660,10 @@ Return ONLY valid JSON:
         response_format={"type": "json_object"},
         max_tokens=1200,
     )
-    result = json.loads(res.choices[0].message.content)
+    result = _sanitize_carousel_result(json.loads(res.choices[0].message.content))
     # Enforce locked headline
     if locked_headline and result.get("hook_slide"):
-        result["hook_slide"]["headline"] = locked_headline
+        result["hook_slide"]["headline"] = _clean_slide_text(locked_headline)
     return result
 
 
@@ -705,10 +751,10 @@ Return ONLY valid JSON:
         response_format={"type": "json_object"},
         max_tokens=1200,
     )
-    result = json.loads(res.choices[0].message.content)
+    result = _sanitize_carousel_result(json.loads(res.choices[0].message.content))
     # Enforce locked headline
     if locked_headline and result.get("hook_slide"):
-        result["hook_slide"]["headline"] = locked_headline
+        result["hook_slide"]["headline"] = _clean_slide_text(locked_headline)
     return result
 
 

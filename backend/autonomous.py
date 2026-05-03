@@ -160,6 +160,8 @@ QUALITY RULES (non-negotiable):
 - Hook = line 1, completely alone. Must use formula A-E above. Must contain a real number, company, or specific event.
 - Be specific. Name the actual company, report title, or statistic. Vague = ignored. "AI is changing things" = automatic fail.
 - Sound like a real expert texting a sharp colleague. Not a newsletter. Not a press release.
+- Never fabricate personal history. Do NOT claim the author did/used/built/invested in something unless that is explicitly in AUTHOR CONTEXT.
+- If evidence is from external reference material, attribute it clearly ("X reports...", "Y's case shows...") instead of "I did...".
 - No filler sentences. Every line must add information the previous line did not.
 - Hashtags: lowercase, relevant, max 4. Put them on the last line alone.
 
@@ -268,6 +270,7 @@ Closing: "What took you too long to learn?" or a more specific question.
 Hashtags on final line.
 
 IMPORTANT: If website context is marked EXTERNAL REFERENCE MATERIAL, draw the story from general {industry} experience instead.
+Never invent personal events ("I spent...", "I built...", "I invested...") unless present in AUTHOR CONTEXT.
 
 Return ONLY the post text.""",
 
@@ -344,7 +347,9 @@ Closing: A relatable question that connects the story to the reader's experience
 
 Hashtags on final line.
 
-IMPORTANT: If website context is marked EXTERNAL REFERENCE MATERIAL, invent a plausible career story in {industry} instead.
+IMPORTANT: If website context is marked EXTERNAL REFERENCE MATERIAL, do NOT invent personal stories.
+Write an analysis-led post using attributed third-party examples ("Klarna showed...", "Report X found..."),
+and only use first-person claims if they are explicitly present in AUTHOR CONTEXT.
 
 Return ONLY the post text.""",
 }

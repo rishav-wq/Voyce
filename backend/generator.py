@@ -50,6 +50,9 @@ STRUCTURE:
 WRITING RULES:
 - Write like a senior practitioner texting a sharp colleague — not a press release
 - Name real companies, real reports, real numbers from the content
+- Never fabricate first-person experience. Do not write "I built / I invested / I used / my team"
+  unless that exact claim appears in the provided content/context.
+- When using third-party material, attribute it explicitly ("According to X...", "Y reported...").
 - Every sentence earns its place. No filler. No transitions like "Furthermore" or "In conclusion"
 - Max 20 words per sentence. If longer, split it.
 - \\n\\n between every paragraph (use escaped newlines in the JSON string)
