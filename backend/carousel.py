@@ -215,6 +215,44 @@ def _text_block_height(draw, text, font, max_w, gap=10) -> int:
     return total
 
 
+def _fit_text_to_box(draw, text: str, max_w: int, max_h: int, sizes: list[int], gap: int,
+                     max_lines: int | None = None):
+    """
+    Fit text into a width/height box by stepping down font size and optionally line count.
+    Returns (fitted_text, font, height).
+    """
+    clean = " ".join((text or "").split())
+    if not clean:
+        f = _font(sizes[-1] * _SCALE, bold=True)
+        return "", f, 0
+
+    for size in sizes:
+        f_try = _font(size * _SCALE, bold=True)
+        lines = _wrap(draw, clean, f_try, max_w)
+        if max_lines and len(lines) > max_lines:
+            lines = lines[:max_lines]
+            lines[-1] = lines[-1].rstrip(" .,;:") + "..."
+        candidate = " ".join(lines)
+        h = _text_block_height(draw, candidate, f_try, max_w, gap=gap)
+        if h <= max_h:
+            return candidate, f_try, h
+
+    # Last-resort fallback with smallest size + aggressive trim
+    f_last = _font(sizes[-1] * _SCALE, bold=True)
+    words = clean.split()
+    best = ""
+    for i in range(1, len(words) + 1):
+        trial = " ".join(words[:i])
+        if i < len(words):
+            trial = trial.rstrip(" .,;:") + "..."
+        h = _text_block_height(draw, trial, f_last, max_w, gap=gap)
+        if h > max_h:
+            break
+        best = trial
+    final = best or clean[:60]
+    return final, f_last, _text_block_height(draw, final, f_last, max_w, gap=gap)
+
+
 # ── Visual helper utilities ───────────────────────────────────────────────────
 
 def _draw_gradient_bg(img: Image.Image, top_color: tuple, bot_color: tuple):
@@ -283,22 +321,29 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
     draw.rectangle([margin, margin, margin + bar_w, _RH - margin], fill=p["accent"])
 
     # ── Content block (vertically centered, offset right of bar) ──
-    f_head = _font(112 * _SCALE, bold=True)
-    f_sub  = _font(38  * _SCALE)
+    f_sub  = _font(34 * _SCALE)
     f_sm   = _font(21  * _SCALE)
     text_x = margin + bar_w + int(40 * _SCALE)
     max_w  = _RW - text_x - int(80 * _SCALE)
-
-    h_head = _text_block_height(draw, headline, f_head, max_w, gap=18 * _SCALE)
-    h_sub  = _text_block_height(draw, subtext[:130], f_sub, max_w, gap=10 * _SCALE)
+    footer_reserved = int(180 * _SCALE)
+    safe_h = _RH - (margin * 2) - footer_reserved
+    head_gap = int(16 * _SCALE)
+    sub_gap = int(9 * _SCALE)
     divider_h = int(5 * _SCALE)
-    gap_after_head = int(28 * _SCALE)
-    gap_before_sub = int(24 * _SCALE)
+    gap_after_head = int(22 * _SCALE)
+    gap_before_sub = int(18 * _SCALE)
+
+    hook_text, f_head, h_head = _fit_text_to_box(
+        draw, headline, max_w, int(safe_h * 0.65), [112, 104, 96, 88, 80, 72], gap=head_gap, max_lines=6
+    )
+    sub_text, f_sub, h_sub = _fit_text_to_box(
+        draw, subtext[:180], max_w, int(safe_h * 0.30), [38, 36, 34, 32, 30, 28], gap=sub_gap, max_lines=4
+    )
     block_h = h_head + gap_after_head + divider_h + gap_before_sub + h_sub
-    y = (_RH - block_h) // 2
+    y = max(margin, (_RH - footer_reserved - block_h) // 2)
 
     # Headline
-    y += _put_text(draw, headline, f_head, text_x, y, max_w, p["title"], gap=18 * _SCALE)
+    y += _put_text(draw, hook_text, f_head, text_x, y, max_w, p["title"], gap=head_gap)
     y += gap_after_head
 
     # Accent divider line (wider)
@@ -306,7 +351,7 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
     y += divider_h + gap_before_sub
 
     # Subtext
-    _put_text(draw, subtext[:130], f_sub, text_x, y, max_w, p["subtitle"], gap=10 * _SCALE)
+    _put_text(draw, sub_text, f_sub, text_x, y, max_w, p["subtitle"], gap=sub_gap)
 
     # ── Dot grid decoration bottom-right ──
     dot_color = _mix(p["bg"], p["accent"], 0.20)
@@ -357,7 +402,6 @@ def _slide_content(title: str, body: str, num: int, total: int,
 
     # ── Content in lower-center area ──
     f_label = _font(22 * _SCALE, bold=True)
-    f_title = _font(72 * _SCALE, bold=True)
     f_sm    = _font(21 * _SCALE)
 
     content_x = PAD
@@ -375,33 +419,24 @@ def _slide_content(title: str, body: str, num: int, total: int,
                     content_y + int(4 * _SCALE)], fill=p["accent"])
     content_y += int(22 * _SCALE)
 
-    # Title
-    content_y += _put_text(draw, title, f_title, content_x, content_y,
+    # Title (fit safely before body)
+    footer_y = _RH - int(70 * _SCALE)
+    max_title_h = int((_RH * 0.22))
+    title_text, f_title, title_h = _fit_text_to_box(
+        draw, title, max_w, max_title_h, [72, 66, 60, 54, 48], gap=int(10 * _SCALE), max_lines=4
+    )
+    content_y += _put_text(draw, title_text, f_title, content_x, content_y,
                            max_w, p["title"], gap=10 * _SCALE)
-    content_y += int(20 * _SCALE)
+    content_y += int(16 * _SCALE)
 
     # Body in a softly tinted box, auto-fit to available vertical space
-    footer_y = _RH - int(70 * _SCALE)
     box_pad = int(20 * _SCALE)
     body_gap = int(12 * _SCALE)
     available_h = max(0, footer_y - content_y - box_pad - int(22 * _SCALE))
-    f_body = _font(34 * _SCALE)
-    fitted_body = body
-    max_lines = 6
-    for size in (34, 32, 30, 28, 26):
-        f_try = _font(size * _SCALE)
-        text = body
-        if len(text) > 170:
-            text = text[:170].rsplit(" ", 1)[0]
-        lines = _wrap(draw, text, f_try, max_w)[:max_lines]
-        if len(lines) == max_lines and len(_wrap(draw, text, f_try, max_w)) > max_lines:
-            lines[-1] = lines[-1].rstrip(" .,;:") + "..."
-        text_fit = " ".join(lines)
-        h = _text_block_height(draw, text_fit, f_try, max_w, gap=body_gap)
-        if h <= available_h:
-            f_body = f_try
-            fitted_body = text_fit
-            break
+    body_source = body[:220].rsplit(" ", 1)[0] if len(body) > 220 else body
+    fitted_body, f_body, _ = _fit_text_to_box(
+        draw, body_source, max_w, available_h, [34, 32, 30, 28, 26, 24], gap=body_gap, max_lines=7
+    )
     body_lines_h = _text_block_height(draw, fitted_body, f_body, max_w, gap=body_gap)
     box_pad = int(20 * _SCALE)
     box_bg = _mix(bg2, p["accent"], 0.10)
