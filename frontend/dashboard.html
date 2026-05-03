@@ -516,7 +516,7 @@
     <div class="modal-drawer">
       <button class="modal-close" onclick="closeModal()">✕</button>
       <h2>Add a Profile</h2>
-      <p class="modal-sub">Create a profile for manual generation; Pro profiles can turn on daily automation.</p>
+      <p class="modal-sub">Create a profile for manual generation or daily automation. Free includes 10 total generations/posts.</p>
 
       <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
 
@@ -596,7 +596,7 @@
           </div>
           <div class="form-group"><label>Your LinkedIn URL <span class="optional-tag">(optional)</span></label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/rishav" /></div>
           <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="AI, Product Management, Startups" required /><p class="form-hint">Used to find relevant news and topics daily.</p></div>
-          <div class="form-group"><label>Post Tone *</label><select id="p-tone"><option value="conversational">Conversational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
+          <div class="form-group"><label>Post Tone *</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
           <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Used when daily automation is active.</p></div>
           <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -652,8 +652,8 @@
     const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
     let liConnected = false;
-    let currentGenInfo = null;
     let currentProfiles = [];
+    let personalToneTouched = false;
 
     // ── Toast ─────────────────────────────────────────────────────────────────
     let toastTimer;
@@ -676,6 +676,8 @@
         checkLinkedIn();
         loadProfiles();
       });
+      document.getElementById("p-tone").addEventListener("change", () => { personalToneTouched = true; });
+      document.getElementById("p-industry").addEventListener("input", suggestPersonalTone);
       loadLog();
       loadAnalytics();
     });
@@ -696,26 +698,19 @@
 
     function updateLiBanner(connected) {
       const b = document.getElementById("li-banner");
-      const free = isFreePlan();
       if (connected) {
         b.className = "li-banner connected";
-        b.innerHTML = free
-          ? `<p>✓ LinkedIn connected — you can use Run Now. Daily automation requires Pro.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`
-          : `<p>✓ LinkedIn connected — active profiles can post on schedule.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`;
+        b.innerHTML = `<p>✓ LinkedIn connected — active profiles can post on schedule.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`;
       } else {
         b.className = "li-banner";
-        b.innerHTML = free
-          ? `<p>LinkedIn is optional for generating. Connect it only when you want to post from Voyce.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`
-          : `<p>LinkedIn not connected — connect it before enabling scheduled posting.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
+        b.innerHTML = `<p>LinkedIn not connected — connect it before scheduled or manual posting.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
       }
     }
 
     function updateLiStat(connected) {
       document.getElementById("stat-li").textContent = connected ? "✓ Connected" : "Not Connected";
       document.getElementById("stat-li").style.color = connected ? "#057642" : "#c0392b";
-      document.getElementById("stat-li-sub").textContent = isFreePlan()
-        ? (connected ? "Ready for manual posting" : "Optional for Free generation")
-        : (connected ? "Scheduled posting ready" : "Connect before scheduling");
+      document.getElementById("stat-li-sub").textContent = connected ? "Scheduled posting ready" : "Connect before posting";
     }
 
     function connectLinkedIn() {
@@ -741,9 +736,9 @@
     }
 
     function updateStats(profiles) {
-      const active = isFreePlan() ? 0 : profiles.filter(p => p.active).length;
+      const active = profiles.filter(p => p.active).length;
       document.getElementById("stat-active").textContent = active;
-      document.getElementById("stat-total").textContent = isFreePlan() ? "automation requires Pro" : `of ${profiles.length} total`;
+      document.getElementById("stat-total").textContent = `of ${profiles.length} total`;
 
       const mainProfile = profiles.find(p => p.active) || profiles[0];
       if (mainProfile && mainProfile.next_post_type) {
@@ -757,7 +752,7 @@
         document.getElementById("stat-recent-types").innerHTML = "";
       }
 
-      const next = isFreePlan() ? null : profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
+      const next = profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
       if (next) {
         document.getElementById("stat-next").textContent = next.post_time;
         document.getElementById("stat-next-who").textContent = next.name;
@@ -784,13 +779,8 @@
         const typeClass  = isPersonal ? "personal" : "company";
         const hasVoice   = p.linkedin_analysis && p.linkedin_analysis.writing_style;
         const voiceTag   = hasVoice ? `<span class="voice-tag">✦ LinkedIn voice loaded</span>` : "";
-        const free = isFreePlan();
-        const statusBadge = free ? `<span class="badge-paused">Manual</span>` : (p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`);
-        const automationButton = free
-          ? `<button class="act-btn" onclick="openUpgradeModal()">Upgrade for Automation</button>`
-          : `<button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>`;
-        const timeLabel = free ? "Default Time" : "Post Time";
-        const timeValue = free ? p.post_time : `${p.post_time} daily`;
+        const statusBadge = p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`;
+        const automationButton = `<button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>`;
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
@@ -804,7 +794,7 @@
           <div class="profile-meta-grid">
             <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
             <div class="meta-item"><div class="meta-key">Tone</div><div class="meta-val">${p.tone}</div></div>
-            <div class="meta-item"><div class="meta-key">${timeLabel}</div><div class="meta-val">${timeValue}</div></div>
+            <div class="meta-item"><div class="meta-key">Post Time</div><div class="meta-val">${p.post_time} daily</div></div>
             <div class="meta-item"><div class="meta-key">Next Type</div><div class="meta-val">${p.next_post_type || "—"}</div></div>
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
           </div>
@@ -853,11 +843,9 @@
     }
 
     async function toggleProfile(id, active) {
-      if (active && isFreePlan()) { openUpgradeModal(); return; }
       const res = await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (data.detail === "UPGRADE_REQUIRED") { openUpgradeModal(); return; }
         toast("Could not update automation.", "error");
         return;
       }
@@ -912,7 +900,7 @@
 
     // ── Content Calendar ─────────────────────────────────────────────────────
     function buildCalendar(profiles) {
-      const active = isFreePlan() ? [] : profiles.filter(p => p.active);
+      const active = profiles.filter(p => p.active);
       const section = document.getElementById("calendar-section");
       if (!active.length) { section.style.display = "none"; return; }
       section.style.display = "";
@@ -1141,8 +1129,9 @@
 
     function openModal() {
       _editingId = null;
+      personalToneTouched = false;
       document.querySelector(".modal-drawer h2").textContent = "Add a Profile";
-      document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation; Pro profiles can turn on daily automation.";
+      document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation or daily automation. Free includes 10 total generations/posts.";
       document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
       document.getElementById("modal-success").style.display = "none";
       document.getElementById("modal-overlay").classList.add("open");
@@ -1163,6 +1152,13 @@
       document.getElementById("panel-personal").classList.toggle("active", mode==="personal");
     }
 
+    function suggestPersonalTone() {
+      if (personalToneTouched) return;
+      const topic = document.getElementById("p-industry").value.toLowerCase();
+      const isAiDev = /\b(ai|ml|machine learning|genai|llm|rag|agent|agents|python|developer|development|coding|software)\b/.test(topic);
+      if (isAiDev) document.getElementById("p-tone").value = "educational";
+    }
+
     function editProfile(id) {
       // Find profile data from the cached list
       fetch("/companies", { headers: { "x-token": getToken() } })
@@ -1171,6 +1167,7 @@
           const p = profiles.find(x => x.id === id);
           if (!p) return;
           _editingId = id;
+          personalToneTouched = true;
           const isPersonal = p.profile_type === "personal";
 
           // Switch modal to edit mode
@@ -1311,8 +1308,6 @@
         const data = await res.json();
         const info = data.gen_info;
         if (!info) return;
-        currentGenInfo = info;
-
         const banner  = document.getElementById("plan-banner");
         const badge   = document.getElementById("plan-badge");
         const text    = document.getElementById("plan-text");
@@ -1350,10 +1345,6 @@
           updateStats(currentProfiles);
         }
       } catch (_) {}
-    }
-
-    function isFreePlan() {
-      return currentGenInfo && currentGenInfo.plan === "free" && currentGenInfo.limit !== -1;
     }
 
     // Refresh plan banner when user comes back to this tab (e.g. from Quick Generate)

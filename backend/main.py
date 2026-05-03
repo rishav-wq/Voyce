@@ -436,9 +436,6 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     try:
         data = request.model_dump()
         data["user_id"] = user["id"]
-        gen_info = auth_module.get_gen_info(user["id"])
-        if gen_info.get("plan") == "free":
-            data["active"] = False
         company = save_company(data)
         if company.get("active", True):
             _setup_company_cron(company)
@@ -491,9 +488,6 @@ def remove_company(company_id: str, x_token: str = Header(None)):
 @app.post("/companies/{company_id}/toggle")
 def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
-    gen_info = auth_module.get_gen_info(user["id"])
-    if request.active and gen_info.get("plan") == "free":
-        raise HTTPException(status_code=402, detail="UPGRADE_REQUIRED")
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")

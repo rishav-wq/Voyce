@@ -35,7 +35,7 @@ function showError(msg) {
   const el = document.getElementById("error-banner");
   if (!el) { toast(msg, "error"); return; }
   if (msg === "LIMIT_REACHED") {
-    el.innerHTML = `You've used all 5 free generations. To get more credits, email us at <a href="mailto:r65581350@gmail.com" style="color:#6c47ff;font-weight:700;">r65581350@gmail.com</a>.`;
+    el.innerHTML = `You've used all 10 free generations. To get more credits, email us at <a href="mailto:r65581350@gmail.com" style="color:#6c47ff;font-weight:700;">r65581350@gmail.com</a>.`;
   } else {
     el.textContent = msg;
   }

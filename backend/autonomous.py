@@ -626,12 +626,6 @@ def run_for_company(company: dict, allow_free_manual: bool = False) -> dict:
     try:
         user_id = company.get("user_id", "")
         gen_info = auth_module.get_gen_info(user_id)
-        if gen_info.get("plan") == "free" and not allow_free_manual:
-            log_entry["status"] = "skipped"
-            log_entry["error"] = "Autonomous posting requires Pro"
-            _append_log(log_entry)
-            return log_entry
-
         if gen_info["limit"] != -1 and gen_info["used"] >= gen_info["limit"]:
             log_entry["status"] = "skipped"
             log_entry["error"] = "Free generation limit reached"
