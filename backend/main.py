@@ -52,6 +52,45 @@ def _check_gen_limit(user: dict):
         )
 
 
+def _friendly_generation_error(exc: Exception) -> str:
+    msg = str(exc)
+    low = msg.lower()
+    if "rate limit" in low or "rate_limit" in low or "quota" in low or "too many requests" in low:
+        return "AI generation is temporarily rate-limited. Please try again in a few minutes."
+    if "api key" in low or "authentication" in low or "unauthorized" in low:
+        return "AI generation is temporarily unavailable. Please contact support if this keeps happening."
+    if "timeout" in low or "timed out" in low:
+        return "AI generation took too long. Please try again with shorter content."
+    return "AI generation is temporarily unavailable. Please try again shortly."
+
+
+def _friendly_fetch_error(exc: Exception, input_type: str) -> str:
+    if input_type == "url":
+        return "Could not read that URL. Try pasting the article text instead."
+    if input_type == "youtube":
+        return "Could not read that YouTube transcript. Try another video or paste the transcript text."
+    return "Could not read that content. Please try again."
+
+
+def _with_profile_context(user_id: str, raw_text: str) -> str:
+    profiles = list_companies(user_id)
+    if not profiles:
+        return raw_text
+    profile = profiles[0]
+    context = [
+        "Saved profile context for tone and relevance:",
+        f"Name: {profile.get('name', '')}",
+        f"Profile type: {profile.get('profile_type', 'company')}",
+        f"Industry: {profile.get('industry', '')}",
+        f"Tone: {profile.get('tone', '')}",
+    ]
+    if profile.get("designation"):
+        context.append(f"Designation: {profile.get('designation')}")
+    if profile.get("analysis", {}).get("description"):
+        context.append(f"Background: {profile['analysis']['description']}")
+    return "\n".join(context) + "\n\nContent to repurpose:\n" + raw_text
+
+
 def _run_company_by_id(company_id: str):
     """Fetch fresh company data at job fire time, then run."""
     company = get_company(company_id)
@@ -284,13 +323,13 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to fetch content: {str(e)}")
+        raise HTTPException(status_code=502, detail=_friendly_fetch_error(e, request.input_type))
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
-        result = generate_content(raw_text)
+        result = generate_content(_with_profile_context(user["id"], raw_text))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Generation failed: {str(e)}")
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
     try:
         auth_module.increment_gens(user["id"])
         logging.info(f"[Gen] incremented for user {user['id']}")
@@ -308,11 +347,11 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
     try:
         raw_text = process_input(request.input_type, request.content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         import base64
         from carousel import generate_carousel_from_text, render_carousel_pdf
-        content   = generate_carousel_from_text(raw_text)
+        content   = generate_carousel_from_text(_with_profile_context(user["id"], raw_text))
         pdf_bytes = render_carousel_pdf(content, {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {
@@ -321,7 +360,7 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
             "hook":       content.get("hook_slide", {}).get("headline", ""),
         }
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Carousel generation failed: {str(e)}")
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
 
 # ── LinkedIn Post ──────────────────────────────────────────────────────────────
@@ -439,6 +478,9 @@ def remove_company(company_id: str, x_token: str = Header(None)):
 @app.post("/companies/{company_id}/toggle")
 def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
+    gen_info = auth_module.get_gen_info(user["id"])
+    if request.active and gen_info.get("plan") == "free":
+        raise HTTPException(status_code=402, detail="UPGRADE_REQUIRED")
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")

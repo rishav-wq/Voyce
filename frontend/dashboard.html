@@ -431,14 +431,14 @@
 
     <!-- LinkedIn banner -->
     <div class="li-banner" id="li-banner">
-      <p>⚠️ LinkedIn not connected — automated posts won't fire until you connect.</p>
+      <p>LinkedIn is optional for generating. Connect it when you want to post from Voyce.</p>
       <button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>
     </div>
 
     <!-- Stats -->
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-label">Active Profiles</div>
+        <div class="stat-label">Automation Active</div>
         <div class="stat-value" id="stat-active">—</div>
         <div class="stat-sub" id="stat-total"></div>
       </div>
@@ -631,6 +631,8 @@
     const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
     let liConnected = false;
+    let currentGenInfo = null;
+    let currentProfiles = [];
 
     // ── Toast ─────────────────────────────────────────────────────────────────
     let toastTimer;
@@ -650,11 +652,12 @@
         if (user.account_type === "personal") switchMode("personal");
       }
       document.getElementById("stat-weekday").textContent = DAYS[new Date().getDay()];
-      checkLinkedIn();
-      loadProfiles();
+      loadPlanBanner().then(() => {
+        checkLinkedIn();
+        loadProfiles();
+      });
       loadLog();
       loadAnalytics();
-      loadPlanBanner();
     });
 
     window.addEventListener("message", e => {
@@ -673,19 +676,26 @@
 
     function updateLiBanner(connected) {
       const b = document.getElementById("li-banner");
+      const free = isFreePlan();
       if (connected) {
         b.className = "li-banner connected";
-        b.innerHTML = `<p>✓ LinkedIn connected — automated posts are live.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`;
+        b.innerHTML = free
+          ? `<p>✓ LinkedIn connected — you can use Run Now. Daily automation requires Pro.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`
+          : `<p>✓ LinkedIn connected — active profiles can post on schedule.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`;
       } else {
         b.className = "li-banner";
-        b.innerHTML = `<p>⚠️ LinkedIn not connected — automated posts won't fire until you connect.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
+        b.innerHTML = free
+          ? `<p>LinkedIn is optional for generating. Connect it only when you want to post from Voyce.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`
+          : `<p>LinkedIn not connected — connect it before enabling scheduled posting.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
       }
     }
 
     function updateLiStat(connected) {
       document.getElementById("stat-li").textContent = connected ? "✓ Connected" : "Not Connected";
       document.getElementById("stat-li").style.color = connected ? "#057642" : "#c0392b";
-      document.getElementById("stat-li-sub").textContent = connected ? "Posts will fire on schedule" : "Connect to enable posting";
+      document.getElementById("stat-li-sub").textContent = isFreePlan()
+        ? (connected ? "Ready for manual posting" : "Optional for Free generation")
+        : (connected ? "Scheduled posting ready" : "Connect before scheduling");
     }
 
     function connectLinkedIn() {
@@ -694,7 +704,7 @@
 
     async function disconnectLinkedIn() {
       if (!confirm("Disconnect LinkedIn?")) return;
-      await fetch("/auth/linkedin/logout", { method: "POST" });
+      await fetch("/auth/linkedin/logout", { method: "POST", headers: { "x-token": getToken() } });
       liConnected = false;
       updateLiBanner(false);
       updateLiStat(false);
@@ -705,20 +715,21 @@
       const res = await fetch("/companies", { headers: { "x-token": getToken() } });
       if (!res.ok) { if (res.status===401) window.location.href="/login"; return; }
       const profiles = await res.json();
+      currentProfiles = profiles;
       renderProfiles(profiles);
       updateStats(profiles);
     }
 
     function updateStats(profiles) {
-      const active = profiles.filter(p => p.active).length;
+      const active = isFreePlan() ? 0 : profiles.filter(p => p.active).length;
       document.getElementById("stat-active").textContent = active;
-      document.getElementById("stat-total").textContent = `of ${profiles.length} total`;
+      document.getElementById("stat-total").textContent = isFreePlan() ? "automation requires Pro" : `of ${profiles.length} total`;
 
       const d = new Date().getDay();
       const types = [...new Set(profiles.map(p => todayPostType(p)))];
       document.getElementById("stat-today").textContent = types.join(" / ") || "—";
 
-      const next = profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
+      const next = isFreePlan() ? null : profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
       if (next) {
         document.getElementById("stat-next").textContent = next.post_time;
         document.getElementById("stat-next-who").textContent = next.name;
@@ -745,7 +756,13 @@
         const typeClass  = isPersonal ? "personal" : "company";
         const hasVoice   = p.linkedin_analysis && p.linkedin_analysis.writing_style;
         const voiceTag   = hasVoice ? `<span class="voice-tag">✦ LinkedIn voice loaded</span>` : "";
-        const statusBadge = p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`;
+        const free = isFreePlan();
+        const statusBadge = free ? `<span class="badge-paused">Manual</span>` : (p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`);
+        const automationButton = free
+          ? `<button class="act-btn" onclick="openUpgradeModal()">Upgrade for Automation</button>`
+          : `<button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>`;
+        const timeLabel = free ? "Default Time" : "Post Time";
+        const timeValue = free ? p.post_time : `${p.post_time} daily`;
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
@@ -759,7 +776,7 @@
           <div class="profile-meta-grid">
             <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
             <div class="meta-item"><div class="meta-key">Tone</div><div class="meta-val">${p.tone}</div></div>
-            <div class="meta-item"><div class="meta-key">Post Time</div><div class="meta-val">${p.post_time} daily</div></div>
+            <div class="meta-item"><div class="meta-key">${timeLabel}</div><div class="meta-val">${timeValue}</div></div>
             <div class="meta-item"><div class="meta-key">Today's Type</div><div class="meta-val">${todayPostType(p)}</div></div>
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
           </div>
@@ -775,7 +792,7 @@
 
           <div class="profile-actions">
             <button class="act-btn primary" onclick="runNow('${p.id}')">▶ Run Now</button>
-            <button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>
+            ${automationButton}
             <button class="act-btn" onclick="editProfile('${p.id}')">Edit</button>
             <button class="act-btn" onclick="toggleLiPanel('${p.id}')">+ LinkedIn Data</button>
             <button class="act-btn danger" onclick="deleteProfile('${p.id}')">Delete</button>
@@ -806,7 +823,14 @@
     }
 
     async function toggleProfile(id, active) {
-      await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
+      if (active && isFreePlan()) { openUpgradeModal(); return; }
+      const res = await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.detail === "UPGRADE_REQUIRED") { openUpgradeModal(); return; }
+        toast("Could not update automation.", "error");
+        return;
+      }
       toast(active ? "Profile resumed." : "Profile paused.", "success");
       loadProfiles();
     }
@@ -858,7 +882,7 @@
 
     // ── Content Calendar ─────────────────────────────────────────────────────
     function buildCalendar(profiles) {
-      const active = profiles.filter(p => p.active);
+      const active = isFreePlan() ? [] : profiles.filter(p => p.active);
       const section = document.getElementById("calendar-section");
       if (!active.length) { section.style.display = "none"; return; }
       section.style.display = "";
@@ -1245,6 +1269,7 @@
         const data = await res.json();
         const info = data.gen_info;
         if (!info) return;
+        currentGenInfo = info;
 
         const banner  = document.getElementById("plan-banner");
         const badge   = document.getElementById("plan-badge");
@@ -1276,7 +1301,17 @@
             banner.style.background = "#fffafa";
           }
         }
+        updateLiBanner(liConnected);
+        updateLiStat(liConnected);
+        if (currentProfiles.length) {
+          renderProfiles(currentProfiles);
+          updateStats(currentProfiles);
+        }
       } catch (_) {}
+    }
+
+    function isFreePlan() {
+      return currentGenInfo && currentGenInfo.plan === "free" && currentGenInfo.limit !== -1;
     }
 
     // Refresh plan banner when user comes back to this tab (e.g. from Quick Generate)
