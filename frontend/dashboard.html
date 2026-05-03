@@ -846,7 +846,9 @@
       toast("Generating and posting...");
       const res  = await fetch(`/companies/${id}/run`, { method:"POST", headers: {"x-token": getToken()} });
       const data = await res.json();
-      if (data.status === "posted") { toast("Posted successfully!", "success"); loadLog(); loadAnalytics(); }
+      loadLog();
+      if (data.status === "posted") { toast("Posted successfully!", "success"); loadAnalytics(); }
+      else if (data.status === "skipped") { toast("Skipped: " + (data.error || "generation limit/plan restriction"), "warn"); }
       else toast("Failed: " + (data.error || "unknown error"), "error");
     }
 
@@ -1113,7 +1115,7 @@
       const log = await res.json();
       const container = document.getElementById("log-container");
       if (!log.length) { container.innerHTML = `<p style="color:#aaa;font-size:13px;padding:16px 0;">No posts yet.</p>`; return; }
-      const rows = log.slice().reverse().slice(0,10).map(entry => `
+      const rows = log.slice(0,10).map(entry => `
         <tr>
           <td>${new Date(entry.timestamp.endsWith('Z') ? entry.timestamp : entry.timestamp + 'Z').toLocaleString()}</td>
           <td>${entry.company_name}</td>

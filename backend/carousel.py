@@ -358,12 +358,11 @@ def _slide_content(title: str, body: str, num: int, total: int,
     # ── Content in lower-center area ──
     f_label = _font(22 * _SCALE, bold=True)
     f_title = _font(72 * _SCALE, bold=True)
-    f_body  = _font(34 * _SCALE)
     f_sm    = _font(21 * _SCALE)
 
     content_x = PAD
     max_w = panel_x - PAD - int(40 * _SCALE)
-    content_y = int(_RH * 0.52)
+    content_y = int(_RH * 0.50)
 
     # Small step label above title
     label_text = f"STEP {num - 1}"
@@ -381,8 +380,29 @@ def _slide_content(title: str, body: str, num: int, total: int,
                            max_w, p["title"], gap=10 * _SCALE)
     content_y += int(20 * _SCALE)
 
-    # Body in a softly tinted box
-    body_lines_h = _text_block_height(draw, body, f_body, max_w, gap=13 * _SCALE)
+    # Body in a softly tinted box, auto-fit to available vertical space
+    footer_y = _RH - int(70 * _SCALE)
+    box_pad = int(20 * _SCALE)
+    body_gap = int(12 * _SCALE)
+    available_h = max(0, footer_y - content_y - box_pad - int(22 * _SCALE))
+    f_body = _font(34 * _SCALE)
+    fitted_body = body
+    max_lines = 6
+    for size in (34, 32, 30, 28, 26):
+        f_try = _font(size * _SCALE)
+        text = body
+        if len(text) > 170:
+            text = text[:170].rsplit(" ", 1)[0]
+        lines = _wrap(draw, text, f_try, max_w)[:max_lines]
+        if len(lines) == max_lines and len(_wrap(draw, text, f_try, max_w)) > max_lines:
+            lines[-1] = lines[-1].rstrip(" .,;:") + "..."
+        text_fit = " ".join(lines)
+        h = _text_block_height(draw, text_fit, f_try, max_w, gap=body_gap)
+        if h <= available_h:
+            f_body = f_try
+            fitted_body = text_fit
+            break
+    body_lines_h = _text_block_height(draw, fitted_body, f_body, max_w, gap=body_gap)
     box_pad = int(20 * _SCALE)
     box_bg = _mix(bg2, p["accent"], 0.10)
     _draw_rounded_rect(draw, content_x - box_pad,
@@ -390,14 +410,13 @@ def _slide_content(title: str, body: str, num: int, total: int,
                        content_x + max_w + box_pad,
                        content_y + body_lines_h + box_pad,
                        int(12 * _SCALE), box_bg)
-    _put_text(draw, body, f_body, content_x, content_y, max_w, p["body"], gap=13 * _SCALE)
+    _put_text(draw, fitted_body, f_body, content_x, content_y, max_w, p["body"], gap=body_gap)
 
     # ── Right panel decoration: corner arc ──
     arc_color = _mix(panel_color, p["accent"], 0.25)
     _draw_corner_arc(draw, _RW, 0, int(340 * _SCALE), int(180 * _SCALE), arc_color)
 
     # ── Footer: thin full-width divider + brand left / counter right ──
-    footer_y = _RH - int(70 * _SCALE)
     draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)],
                    fill=p["muted"])
     footer_text_y = footer_y + int(14 * _SCALE)

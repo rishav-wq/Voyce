@@ -48,6 +48,7 @@ def save_company(profile: dict) -> dict:
         "active":           profile.get("active", True),
         "carousel_enabled": profile.get("carousel_enabled", False),
         "designation":      profile.get("designation", ""),
+        "allowed_hooks":    profile.get("allowed_hooks", []),
     }
 
     db.companies.replace_one({"id": company_id}, {"_id": company_id, **entry}, upsert=True)
@@ -73,7 +74,7 @@ def update_company(company_id: str, data: dict) -> dict | None:
         return None
 
     for field in ("name", "industry", "tone", "post_time", "linkedin_url",
-                  "website_type", "carousel_enabled", "designation", "carousel_theme"):
+                  "website_type", "carousel_enabled", "designation", "carousel_theme", "allowed_hooks"):
         if field in data:
             c[field] = data[field]
 
