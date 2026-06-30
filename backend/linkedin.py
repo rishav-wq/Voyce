@@ -147,6 +147,57 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
     return {"status": "posted", "type": "carousel", "id": post_res.headers.get("x-restli-id", "")}
 
 
+def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_text: str = "") -> dict:
+    access_token = get_token(user_id)
+    if not access_token:
+        raise ValueError("LinkedIn not connected")
+    person_id = _get_person_id(user_id)
+    headers_base = {
+        "Authorization": f"Bearer {access_token}",
+        "LinkedIn-Version": "202503",
+        "X-Restli-Protocol-Version": "2.0.0",
+    }
+
+    # Step 1: Initialize image upload
+    init_res = requests.post(
+        "https://api.linkedin.com/rest/images?action=initializeUpload",
+        json={"initializeUploadRequest": {"owner": f"urn:li:person:{person_id}"}},
+        headers={**headers_base, "Content-Type": "application/json"},
+    )
+    if not init_res.ok:
+        raise ValueError(f"LinkedIn image init failed {init_res.status_code}: {init_res.text}")
+    val = init_res.json()["value"]
+    upload_url = val["uploadUrl"]
+    image_urn  = val["image"]
+
+    # Step 2: Upload image binary
+    requests.put(upload_url, data=image_bytes,
+                 headers={"Content-Type": "application/octet-stream"}).raise_for_status()
+
+    # Step 3: Create image post
+    payload = {
+        "author": f"urn:li:person:{person_id}",
+        "commentary": post_text,
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": [],
+        },
+        "content": {"media": {"id": image_urn, "altText": (alt_text or "Branded image post")[:300]}},
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False,
+    }
+    post_res = requests.post(
+        "https://api.linkedin.com/rest/posts",
+        json=payload,
+        headers={**headers_base, "Content-Type": "application/json"},
+    )
+    if not post_res.ok:
+        raise ValueError(f"LinkedIn image post failed {post_res.status_code}: {post_res.text}")
+    return {"status": "posted", "type": "image", "id": post_res.headers.get("x-restli-id", "")}
+
+
 def get_post_engagement(user_id: str, post_urn: str) -> dict:
     access_token = get_token(user_id)
     if not access_token or not post_urn:

@@ -1,189 +1,179 @@
-import os
-import json
 import re
-from groq import Groq
-from dotenv import load_dotenv
 
-load_dotenv()
-_groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
+from llm import generate, generate_json
 
-SYSTEM_PROMPT = """You are a world-class LinkedIn ghostwriter. Your posts get 10x more engagement because you never write generic content.
 
-You repurpose content into platform-optimised posts that stop the scroll.
+def _strip_markdown(text: str) -> str:
+    """LinkedIn renders markdown literally — convert to plain text.
+    Handles bullet lines, headings, bold/italic emphasis, and inline code."""
+    # Bullet lines (*, -) → arrow bullets
+    text = re.sub(r"^(\s*)[\*\-]\s+", r"\1→ ", text, flags=re.MULTILINE)
+    # Headings (#, ##, …) → drop the marker, keep the text
+    text = re.sub(r"^\s*#{1,6}\s+", "", text, flags=re.MULTILINE)
+    # Emphasis: ***x*** / **x** / *x* → keep inner text, drop asterisks
+    text = re.sub(r"\*\*\*(.+?)\*\*\*", r"\1", text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    # Inline code backticks render as literal junk on LinkedIn
+    text = text.replace("`", "")
+    return text
+
+SYSTEM_PROMPT = """You are an elite ghostwriter. You write social content that sounds like a specific
+human wrote it — never like AI, never like a template.
+
+You will receive source content and (sometimes) a voice profile with real posts the author wrote.
+Your job: repurpose the source content into platform-native posts in the author's voice.
 
 Return ONLY a valid JSON object with exactly these 4 keys:
 {
   "linkedin_post": "...",
-  "twitter_thread": ["Tweet 1 [1/4]", "Tweet 2 [2/4]", "Tweet 3 [3/4]", "Tweet 4 [4/4]"],
+  "twitter_thread": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4"],
   "email_snippet": "...",
   "blog_summary": "..."
 }
 
 ═══ LINKEDIN POST ═══
 
-CHOOSE ONE of these proven hook formulas based on the content:
-  A) SPECIFIC NUMBER: "[X]% of [audience] [surprising fact]. Not [wrong assumption]. [Real cause]."
-  B) NAMED EVENT: "[Company] just [did X]. The implication nobody is talking about: [Y]."
-  C) COUNTERINTUITIVE TRUTH: "The [best/smartest] [people] in [field] [do the opposite of what everyone expects]."
-  D) UNCOMFORTABLE CONFESSION: "I [specific mistake] for [timeframe]. Here is what I missed."
-  E) MYTH-BUSTER: "Everyone says [X]. The numbers say the opposite."
+THE ONE RULE THAT MATTERS: the post must carry ONE clear idea the reader hasn't heard
+phrased this way before. Find the most surprising, specific, or contrarian angle in the
+source content and build everything around it.
 
-HOOK RULES (line 1 — the ONLY thing visible before “see more”):
-- Must be ONE of the formulas above
-- Must be completely alone on line 1 — nothing else
-- Must contain a specific fact, number, company, or event from the content
-- Must create tension, surprise, or contradiction
+OPENING LINE (the only text visible before "...see more" — decides whether the rest is read):
+- Only ~140 characters show on mobile before truncation. The first line MUST be a complete,
+  self-contained hook within ~140 characters — it has to make total sense and create tension
+  on its own, before any "see more" click.
+- Make it impossible to ignore: a specific number, a named company/event, a confession,
+  or a claim that sounds wrong until you read on.
+- Write it the way the AUTHOR would say it, not the way a marketer would.
+- No generic warm-ups ("I read something interesting", "In today's world").
 
-STRUCTURE:
-- Hook line alone
-- [blank line]
-- 1-2 sentences that BUILD on the hook (specific, not vague)
-- [blank line]
-- 1-2 sentences that ADD a new specific point (data, example, implication)
-- [blank line]
-- 1-2 sentences of concrete takeaway or action
-- [blank line]
-- One closing question that ONLY this specific audience would care about
-- [blank line]
-- 3-4 lowercase hashtags alone on the last line
+VOICE (this outranks every other rule):
+- If voice examples are provided, study their rhythm, vocabulary, and quirks — and write
+  like THAT person. Match how they open, how casual they are, whether they use emoji.
+- Never fabricate first-person experience. No "I built / my team / I invested" unless that
+  exact claim appears in the provided content or voice profile.
+- Attribute third-party material ("According to X…", "Y's report shows…").
 
-WRITING RULES:
-- Write like a senior practitioner texting a sharp colleague — not a press release
-- Name real companies, real reports, real numbers from the content
-- Never fabricate first-person experience. Do not write "I built / I invested / I used / my team"
-  unless that exact claim appears in the provided content/context.
-- When using third-party material, attribute it explicitly ("According to X...", "Y reported...").
-- Every sentence earns its place. No filler. No transitions like "Furthermore" or "In conclusion"
-- Max 20 words per sentence. If longer, split it.
-- \\n\\n between every paragraph (use escaped newlines in the JSON string)
+FACTUAL SAFETY (a fabricated specific that a reader can falsify destroys credibility):
+- Never invent exact statistics ("70% of teams"), product version numbers ("DeepSeek-V3.2",
+  "GPT-5.1"), dates, funding figures, or named studies just to sound authoritative.
+- Only cite facts present in the source content, or things you are genuinely confident are real.
+- When unsure, hedge instead of fabricating: "models like DeepSeek" not "DeepSeek-V3.2";
+  "most teams" not "70% of teams"; "recent benchmarks" not a made-up percentage.
 
-ABSOLUTELY BANNED PHRASES: game-changer, landscape, unlock, dive deep, revolutionize,
-in today’s world, I’m excited, this is huge, the future of X is here, at the end of the day,
-it goes without saying, I couldn’t help but, thrilled to share, it’s no secret that,
-leveraging, synergy, paradigm shift, move the needle, circle back, learnings, impactful.
+WRITING CRAFT:
+- Vary your rhythm. Mix short punchy lines with longer natural sentences — text that is
+  ALL short staccato lines reads as AI-generated in 2026 and gets scrolled past.
+- Concrete beats abstract in every sentence: real names, real numbers, real examples.
+- Blank line between paragraphs. Target 200-350 words (~1,300-2,300 characters) — this length
+  earns the most engagement on LinkedIn. Don't pad to hit it, but don't ship a thin snippet.
+- SAVE-WORTHY: build the post so a reader would want to keep it — a usable framework, a
+  numbered list of specifics, a checklist, or a clear before→after. A save is worth far more
+  than a like to reach. "Nice thought" gets a like; "I need this later" gets a save.
+- End however fits the post: a takeaway, a sharp question, or just the last point landing.
+  Do NOT force an engagement question onto every post.
+- Hashtags: 0-3 maximum, lowercase, last line, only if genuinely relevant. None is fine.
+
+NEVER USE (instant AI tells):
+- "It's not about X. It's about Y." or any "It's not X — it's Y" construction
+- "Here's the thing:" / "Let that sink in" / "Read that again" / "The result?"
+- Three-item lists in every paragraph (the rule-of-three tic)
+- game-changer, landscape, unlock, leverage, dive deep, revolutionize, thrilled, excited
+  to share, in today's fast-paced world, at the end of the day, paradigm, synergy,
+  move the needle, learnings, impactful, groundbreaking, "the future of X is here"
+- Starting consecutive paragraphs with the same word
 
 ═══ TWITTER THREAD ═══
-- Tweet 1: The hook — single sharpest point, use formula A or E from above
-- Tweets 2-3: Specific evidence, data, named examples from the content
-- Tweet 4: Actionable takeaway + soft CTA
-- Max 260 chars each (leave room for the [X/4] counter)
-- No hashtags in threads
+- 4 tweets. Tweet 1 is the sharpest single claim from the content — no "🧵" or "a thread".
+- Tweets 2-3: evidence — data, named examples. Tweet 4: the takeaway.
+- Max 260 chars each. No hashtags.
 
 ═══ EMAIL SNIPPET ═══
-- 100-120 words, conversational
-- Lead with the most interesting fact or tension from the content
-- One clear takeaway in the last sentence
-- End with [READ MORE →]
+- 100-120 words, conversational, like writing to a colleague who trusts you.
+- Lead with the most interesting fact. One clear takeaway. End with [READ MORE →].
 
 ═══ BLOG SUMMARY ═══
-- 150-180 words
-- Opens with a question or bold statement that frames why this matters now
-- Previews 2-3 specific things the reader will learn
-- Ends with a transition sentence into the full post"""
+- 150-180 words. Open with why this matters right now.
+- Preview 2-3 specific things the reader will learn. End with a transition into the post."""
 
 
-_POLISH_PROMPT = """You are a ruthless LinkedIn editor. You receive a JSON object with a linkedin_post field.
+HUMANIZE_PROMPT = """You are the final editor before publishing. Your only job: remove every
+trace of AI writing from this LinkedIn post while keeping its substance and voice.
 
-Your ONLY job: make the linkedin_post impossible to scroll past.
+Hunt and fix:
+1. "It's not X. It's Y." constructions — rewrite as a direct statement.
+2. Relentless staccato (every sentence under 10 words) — merge some into natural longer sentences.
+3. Rule-of-three tics (triads in every paragraph) — break the pattern.
+4. Engagement-bait closers ("What do you think?", "Let that sink in", "Agree?") — replace
+   with a specific question only this audience would care about, or just end on the takeaway.
+5. Banned vocabulary: game-changer, unlock, leverage, landscape, dive deep, thrilled,
+   excited, paradigm, synergy, learnings, impactful, groundbreaking.
+6. Any sentence that could appear in any post about any topic — make it specific or cut it.
+7. Consecutive paragraphs opening with the same word.
 
-Check each of these — fix any that fail:
-1. Hook (line 1): Is it using a scroll-stopping formula (Specific Number / Named Event / Counterintuitive Truth / Confession / Myth-Buster)? If it’s generic or warm-up text, replace it entirely.
-2. Specificity: Does every paragraph name a real company, number, or example? Replace any vague sentence with something verifiable.
-3. Banned phrases: Remove any instance of: game-changer, landscape, unlock, leveraging, synergy, paradigm, thrilled, excited, it goes without saying, at the end of the day.
-4. Sentence length: Split any sentence over 20 words.
-5. Closing question: Is it specific to THIS audience? Generic questions like “what do you think?” must be replaced.
-6. Format: Every paragraph separated by \\n\\n. Hook alone on line 1. Hashtags alone on last line.
+Preserve:
+- The opening line's claim (you may sharpen its wording, not change its idea)
+- All facts, names, numbers — never add new ones
+- Blank lines between paragraphs; hashtags (if any) alone on the last line
+- The author's voice and any human quirks already present
 
-Return the SAME JSON structure — only linkedin_post rewritten. All other fields unchanged."""
+Return ONLY the edited post text — no commentary."""
+
+
+def _build_voice_block(company: dict | None) -> str:
+    """Assemble the voice profile section of the prompt from a saved profile."""
+    if not company:
+        return ""
+    parts = []
+    is_personal = company.get("profile_type") == "personal"
+    who = f"{company.get('name', '')}" + (f", {company['designation']}" if company.get("designation") else "")
+    parts.append(f"Author: {who} ({'personal brand — first person' if is_personal else 'company page'})")
+    if company.get("tone"):
+        parts.append(f"Preferred tone: {company['tone']}")
+
+    li = company.get("linkedin_analysis", {})
+    if li.get("writing_style"):
+        parts.append(f"Writing style: {li['writing_style']}")
+    if li.get("post_style_summary"):
+        parts.append(f"Style summary: {li['post_style_summary']}")
+    if li.get("avoid_topics"):
+        parts.append(f"Never write about: {', '.join(li['avoid_topics'])}")
+
+    top_posts = company.get("linkedin_top_posts", [])
+    if top_posts:
+        parts.append("\nREAL POSTS BY THIS AUTHOR — match this voice exactly:")
+        for i, post in enumerate(top_posts[:5], 1):
+            parts.append(f"--- Example {i} ---\n{post[:600]}")
+
+    return "\n".join(parts)
 
 
 def generate_content(raw_text: str, company: dict = None) -> dict:
-    # Phase 0: generate a locked scroll-stopping hook first
-    locked_hook = ""
-    try:
-        from hooks import generate_hook
-        allowed = company.get("allowed_hooks", []) if company else []
-        locked_hook = generate_hook(context=raw_text[:1200], industry="general", allowed_hooks=allowed)
-    except Exception:
-        pass
+    voice_block = _build_voice_block(company)
+    voice_section = f"\n\nVOICE PROFILE:\n{voice_block}" if voice_block else ""
 
-    # Build hook constraint for the main prompt
-    hook_constraint = (
-        f"\n\nCRITICAL: The linkedin_post MUST start with this exact line (do not change it):\n"
-        f"\"{locked_hook}\"\n"
-        f"Write the rest of the post to follow from this hook naturally."
-        if locked_hook else ""
-    )
-
-    # Phase 1: generate full content
-    response = _groq.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Content to repurpose:\n\n{raw_text[:3000]}{hook_constraint}"},
-        ],
-        response_format={"type": "json_object"},
+    draft = generate_json(
+        f"Source content to repurpose:\n\n{raw_text[:3000]}{voice_section}",
+        system=SYSTEM_PROMPT,
         max_tokens=2048,
+        temperature=0.85,
     )
-    draft = json.loads(response.choices[0].message.content)
 
-    # Ensure locked hook is actually line 1 (in case model drifted)
-    if locked_hook and draft.get("linkedin_post"):
-        post = draft["linkedin_post"]
-        first_line = post.split("\\n")[0].strip()
-        if locked_hook.lower() not in first_line.lower():
-            draft["linkedin_post"] = locked_hook + "\\n\\n" + post
-
-    # Phase 2: polish — improve body, never touch line 1
+    # Humanize pass on the LinkedIn post only
     try:
-        polish_resp = _groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": _POLISH_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        f"Original content:\n{raw_text[:1500]}\n\n"
-                        f"Draft to improve:\n{json.dumps(draft)}\n\n"
-                        + (f"LOCKED HOOK (do NOT change line 1): \"{locked_hook}\"" if locked_hook else "")
-                    ),
-                },
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=1024,
-        )
-        polished = json.loads(polish_resp.choices[0].message.content)
-        if polished.get("linkedin_post"):
-            draft["linkedin_post"] = polished["linkedin_post"]
+        post = draft.get("linkedin_post", "")
+        if post:
+            edited = generate(
+                f"Post to edit:\n\n{post}",
+                system=HUMANIZE_PROMPT,
+                max_tokens=1024,
+                temperature=0.6,
+            )
+            if edited:
+                draft["linkedin_post"] = edited
     except Exception:
-        pass
+        pass  # keep the draft if humanize fails
 
+    if draft.get("linkedin_post"):
+        draft["linkedin_post"] = _strip_markdown(draft["linkedin_post"])
     return draft
-
-
-def _fix_json_strings(text: str) -> str:
-    """Walk the JSON char-by-char and escape control chars inside string values."""
-    result = []
-    in_string = False
-    escape = False
-    for ch in text:
-        if escape:
-            result.append(ch)
-            escape = False
-        elif ch == '\\' and in_string:
-            result.append(ch)
-            escape = True
-        elif ch == '"':
-            in_string = not in_string
-            result.append(ch)
-        elif in_string and ch == '\n':
-            result.append('\\n')
-        elif in_string and ch == '\r':
-            result.append('\\r')
-        elif in_string and ch == '\t':
-            result.append('\\t')
-        elif in_string and ord(ch) < 0x20:
-            pass  # drop other control chars
-        else:
-            result.append(ch)
-    return ''.join(result)

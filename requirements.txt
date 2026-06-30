@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-groq
 python-dotenv
 requests
 beautifulsoup4
@@ -13,3 +12,5 @@ google-generativeai
 pymongo[srv]
 dnspython
 pytz
+python-jose[cryptography]
+httpx

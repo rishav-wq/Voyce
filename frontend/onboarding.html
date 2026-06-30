@@ -2,414 +2,502 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — Get Started</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css" />
   <style>
-    * { box-sizing: border-box; }
-    body { background: #f5f4ff; margin: 0; font-family: 'Poppins', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f4f0e8; font-family: 'Poppins', sans-serif; min-height: 100vh; display: flex; flex-direction: column; color: #1c1813; }
 
-    /* ── Nav ── */
-    .ob-nav {
-      background: #fff;
-      border-bottom: 1px solid #eee;
-      padding: 0 32px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .logo { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+    /* Nav */
+    .ob-nav { background: #fff; border-bottom: 1px solid #eee; padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-size: 20px; font-weight: 800; }
     .logo span { color: #6c47ff; }
+    .nav-user { font-size: 13px; color: #888; }
 
-    /* ── Step indicator ── */
-    .steps-bar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      padding: 28px 0 0;
-    }
-    .step-dot {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700;
-      background: #e8e4ff; color: #6c47ff;
-      transition: all 0.2s;
-    }
+    /* Step indicator */
+    .steps-wrap { padding: 28px 0 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .steps-bar { display: flex; align-items: center; gap: 0; }
+    .step-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: #e8e4ff; color: #6c47ff; transition: all 0.3s; }
     .step-dot.active { background: #6c47ff; color: #fff; }
-    .step-dot.done   { background: #057642; color: #fff; }
-    .step-line { width: 60px; height: 2px; background: #e8e4ff; }
+    .step-dot.done { background: #057642; color: #fff; }
+    .step-line { width: 80px; height: 2px; background: #e8e4ff; transition: background 0.3s; }
     .step-line.done { background: #057642; }
-    .step-label {
-      font-size: 11px; color: #aaa; text-align: center; margin-top: 6px; font-weight: 500;
-    }
-    .steps-labels { display: flex; justify-content: center; gap: 0; }
-    .step-label-item { width: 32px; text-align: center; font-size: 11px; color: #aaa; margin: 0 30px; white-space: nowrap; }
-    .step-label-item.active { color: #6c47ff; font-weight: 600; }
+    .steps-labels { display: flex; gap: 0; }
+    .step-lbl { width: 32px; text-align: center; font-size: 11px; color: #aaa; margin: 0 40px; white-space: nowrap; font-weight: 500; }
+    .step-lbl.active { color: #6c47ff; font-weight: 700; }
 
-    /* ── Card ── */
-    .ob-wrap {
-      flex: 1;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 32px 24px 48px;
-    }
-    .ob-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 40px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-      width: 100%;
-      max-width: 520px;
-    }
+    /* Card */
+    .ob-wrap { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 28px 24px 48px; }
+    .ob-card { background: #fff; border-radius: 20px; padding: 40px; box-shadow: 0 2px 20px rgba(108,71,255,0.09); width: 100%; max-width: 520px; }
 
-    /* ── Step panels ── */
-    .step-panel { display: none; }
-    .step-panel.active { display: block; }
-
-    /* Step 1 */
-    .welcome-emoji { font-size: 40px; margin-bottom: 16px; }
-    .ob-title { font-size: 24px; font-weight: 800; color: #1a1a2e; margin: 0 0 8px; }
-    .ob-sub { font-size: 15px; color: #666; margin: 0 0 28px; line-height: 1.5; }
-    .value-list { list-style: none; padding: 0; margin: 0 0 28px; display: flex; flex-direction: column; gap: 12px; }
-    .value-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; color: #444; }
-    .value-list li .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-
-    .li-connect-btn {
-      width: 100%; padding: 14px;
-      background: #0a66c2; color: #fff;
-      border: none; border-radius: 10px;
-      font-size: 15px; font-weight: 700;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-      margin-bottom: 12px; transition: background 0.15s;
-    }
-    .li-connect-btn:hover { background: #084e96; }
-    .li-connect-btn.connected { background: #057642; cursor: default; }
-    .skip-link { text-align: center; font-size: 13px; color: #aaa; cursor: pointer; }
-    .skip-link:hover { color: #6c47ff; }
-
-    /* Step 2 */
-    .mode-tabs { display: flex; background: #f4f2ff; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
-    .mode-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: #888; border: none; background: none; transition: all 0.15s; }
-    .mode-tab.active { background: #fff; color: #6c47ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    /* Mode tabs */
+    .mode-tabs { display: flex; background: #efe9e0; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+    .mode-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: #888; border: none; background: none; transition: all 0.15s; line-height: 1.3; }
     .mode-tab span { display: block; font-size: 11px; font-weight: 400; color: #bbb; }
-    .mode-tab.active span { color: #bbb; }
+    .mode-tab.active { background: #fff; color: #6c47ff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .mode-tab.active span { color: #9b8fd4; }
+
+    /* Form */
     .form-panel { display: none; }
     .form-panel.active { display: block; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 5px; }
     .optional-tag { font-weight: 400; color: #aaa; font-size: 12px; }
-    .form-group input, .form-group select {
-      width: 100%; padding: 10px 13px; border: 1.5px solid #e0e0e0; border-radius: 8px;
-      font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s;
-    }
+    .form-group input, .form-group select { width: 100%; padding: 10px 13px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s; background: #fff; }
     .form-group input:focus, .form-group select:focus { border-color: #6c47ff; }
-    .form-hint { font-size: 11px; color: #aaa; margin-top: 3px; }
-    .submit-btn {
-      width: 100%; padding: 13px; background: #6c47ff; color: #fff;
-      border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: background 0.15s; margin-top: 4px;
-    }
+    .form-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+    .submit-btn { width: 100%; padding: 13px; background: #6c47ff; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; margin-top: 6px; }
     .submit-btn:hover { background: #5835e0; }
     .submit-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
+    .error-msg { color: #c0392b; font-size: 13px; margin-top: 10px; display: none; background: #fdecea; padding: 10px 13px; border-radius: 8px; }
 
-    /* Step 3 */
-    .success-icon { font-size: 52px; margin-bottom: 20px; }
-    .week-preview {
-      background: #f5f4ff;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin: 20px 0 28px;
+    .topic-suggest { display: none; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+    .topic-suggest.visible { display: flex; }
+    .topic-suggest .ts-label { font-size: 11px; color: #888; font-weight: 600; }
+    .topic-chip {
+      background: #f0eeff; color: #6c47ff; border: none; border-radius: 20px;
+      padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.12s;
     }
-    .week-preview-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .week-row { display: flex; flex-direction: column; gap: 6px; }
-    .week-day { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-    .week-day .day-name { color: #888; font-weight: 600; min-width: 36px; }
-    .week-day .day-type { color: #444; }
-    .week-day.today .day-name { color: #6c47ff; }
-    .week-day.today .day-type { color: #6c47ff; font-weight: 600; }
-    .week-day .day-badge { font-size: 11px; background: #e8e4ff; color: #6c47ff; border-radius: 4px; padding: 1px 6px; font-weight: 600; }
-    .dash-btn {
-      width: 100%; padding: 13px; background: #6c47ff; color: #fff;
-      border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: background 0.15s;
+    .topic-chip:hover { background: #e2dcff; }
+    .topic-chip.added { background: #e6f4ea; color: #057642; cursor: default; }
+    .topic-chip.muted { background: #f5f5f5; color: #999; cursor: default; }
+
+    /* Loading screen */
+    #loading-screen { display: none; text-align: center; padding: 20px 0; }
+    .loading-icon { font-size: 44px; margin-bottom: 16px; animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.12);opacity:0.8} }
+    #loading-screen h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    #loading-screen p { font-size: 14px; color: #777; margin-bottom: 28px; }
+    .progress-wrap { background: #f0eeff; border-radius: 100px; height: 8px; overflow: hidden; margin-bottom: 16px; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6c47ff, #a07cff); border-radius: 100px; transition: width 0.8s ease; width: 0%; }
+    .loading-msg { font-size: 13px; color: #6c47ff; font-weight: 600; min-height: 20px; transition: opacity 0.4s; }
+
+    /* Step 2: Post preview */
+    #step-2 { display: none; }
+    .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .post-badge { background: #f0eeff; color: #6c47ff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.3px; }
+    .post-preview-box {
+      background: #f9f9f9; border: 1.5px solid #e8e4ff; border-radius: 12px;
+      padding: 18px; font-size: 14px; line-height: 1.75; color: #333;
+      white-space: pre-wrap; max-height: 280px; overflow-y: auto;
+      margin-bottom: 20px; font-family: inherit;
     }
+    .li-connect-btn { width: 100%; padding: 14px; background: #0a66c2; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; transition: background 0.15s; }
+    .li-connect-btn:hover { background: #084e96; }
+    .li-connect-btn.connected { background: #057642; cursor: default; }
+    .dash-btn { width: 100%; padding: 13px; background: #6c47ff; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
     .dash-btn:hover { background: #5835e0; }
+    .skip-txt { text-align: center; font-size: 13px; color: #aaa; margin-top: 12px; cursor: pointer; }
+    .skip-txt:hover { color: #6c47ff; }
+    .li-success { text-align: center; font-size: 13px; color: #057642; font-weight: 600; margin-bottom: 12px; display: none; }
 
-    .error-msg { color: #c0392b; font-size: 13px; margin-top: 8px; display: none; }
+    @media (max-width: 540px) {
+      .ob-card { padding: 28px 20px; }
+      .step-lbl { margin: 0 28px; }
+      .step-line { width: 56px; }
+    }
   </style>
 </head>
 <body>
 
   <nav class="ob-nav">
     <div class="logo">V<span>oyce</span></div>
-    <span id="nav-user" style="font-size:13px;color:#888;"></span>
+    <span class="nav-user" id="nav-user"></span>
   </nav>
 
-  <!-- Step indicator -->
-  <div class="steps-bar">
-    <div class="step-dot active" id="dot-1">1</div>
-    <div class="step-line" id="line-1"></div>
-    <div class="step-dot" id="dot-2">2</div>
-    <div class="step-line" id="line-2"></div>
-    <div class="step-dot" id="dot-3">3</div>
-  </div>
-  <div class="steps-labels">
-    <div class="step-label-item active" id="lbl-1">Start</div>
-    <div class="step-label-item" id="lbl-2">Profile</div>
-    <div class="step-label-item" id="lbl-3">Done</div>
+  <div class="steps-wrap">
+    <div class="steps-bar">
+      <div class="step-dot active" id="dot-1">1</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2">2</div>
+    </div>
+    <div class="steps-labels">
+      <div class="step-lbl active" id="lbl-1">Profile</div>
+      <div class="step-lbl" id="lbl-2">First Post</div>
+    </div>
   </div>
 
   <div class="ob-wrap">
     <div class="ob-card">
 
-      <!-- ── Step 1: Connect LinkedIn ── -->
-      <div class="step-panel active" id="panel-1">
-        <div class="welcome-emoji">👋</div>
-        <h1 class="ob-title">Welcome to Voyce, <span id="welcome-name">there</span>.</h1>
-        <p class="ob-sub">Let's set up a profile first. You can generate your first posts for free right away, then connect LinkedIn when you're ready to publish or automate.</p>
-        <ul class="value-list">
-          <li><span class="icon">✍️</span><div>Create LinkedIn-ready posts from your industry, website, or notes.</div></li>
-          <li><span class="icon">📄</span><div>Try text posts, carousel PDFs, and scheduled posts with your 10 free generations.</div></li>
-          <li><span class="icon">📤</span><div>Connect LinkedIn when you want Voyce to publish manually or on schedule.</div></li>
-        </ul>
-        <button class="li-connect-btn" id="li-btn" onclick="connectLinkedIn()" style="display:none;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-          Connect LinkedIn Account
-        </button>
-        <div id="li-status" style="text-align:center;font-size:13px;color:#057642;font-weight:600;margin-bottom:12px;display:none;">✓ LinkedIn connected</div>
-        <button class="submit-btn" onclick="goToStep(2)">Set up my profile →</button>
-        <div class="skip-link" onclick="connectLinkedIn()">Optional: connect LinkedIn now</div>
-      </div>
-
-      <!-- ── Step 2: Add Profile ── -->
-      <div class="step-panel" id="panel-2">
-        <h1 class="ob-title" style="font-size:20px;margin-bottom:4px;">Set up your first profile</h1>
-        <p class="ob-sub" style="margin-bottom:20px;font-size:14px;">Tell Voyce who you are. Free includes 10 total generations, whether you generate manually or let a profile post on schedule.</p>
+      <!-- Step 1: Profile setup -->
+      <div id="step-1">
+        <h1 style="font-size:22px;font-weight:800;margin-bottom:6px;">Set up your profile</h1>
+        <p style="font-size:14px;color:#666;margin-bottom:22px;line-height:1.5;">Tell Voyce who you are — it uses this to write posts that sound like you, every day.</p>
 
         <div class="mode-tabs">
-          <button class="mode-tab active" onclick="switchMode('company')">
+          <button class="mode-tab" id="tab-company" onclick="switchMode('company')">
             For a Company
-            <span>Brand voice from website</span>
+            <span>Brand style from website</span>
           </button>
-          <button class="mode-tab" onclick="switchMode('personal')">
+          <button class="mode-tab" id="tab-personal" onclick="switchMode('personal')">
             For Yourself
-            <span>Personal brand voice</span>
+            <span>Your personal writing style</span>
           </button>
         </div>
 
         <!-- Company form -->
-        <div class="form-panel active" id="fp-company">
+        <div class="form-panel" id="fp-company">
           <form onsubmit="submitProfile(event,'company')">
-            <div class="form-group"><label>Company Name *</label><input type="text" id="c-name" placeholder="Knowella" required /></div>
+            <div class="form-group">
+              <label>Company Name *</label>
+              <input type="text" id="c-name" placeholder="e.g. Acme Software" required />
+            </div>
             <div class="form-group">
               <label>Website URL *</label>
-              <input type="url" id="c-website" placeholder="https://knowella.com" required />
-              <p class="form-hint">We scrape this to learn your products, voice, and positioning.</p>
+              <input type="url" id="c-website" placeholder="https://yourcompany.com" required />
+              <p class="form-hint">We scrape this once to learn your products, style, and positioning.</p>
             </div>
-            <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="B2B SaaS, AI Tools" required /></div>
-            <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-            <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Used as your default if you upgrade to daily automation.</p></div>
+            <div class="form-group">
+              <label>Industry / Niche *</label>
+              <input type="text" id="c-industry" placeholder="e.g. B2B SaaS, fintech, healthcare" required />
+            </div>
+            <div class="form-group">
+              <label>Post Tone</label>
+              <select id="c-tone">
+                <option value="professional">Professional</option>
+                <option value="thought leadership">Thought Leadership</option>
+                <option value="conversational">Conversational</option>
+                <option value="educational">Educational</option>
+                <option value="bold and direct">Bold &amp; Direct</option>
+              </select>
+            </div>
             <div id="c-error" class="error-msg"></div>
-            <button type="submit" class="submit-btn" id="c-btn">Set Up Company →</button>
+            <button type="submit" class="submit-btn" id="c-btn">Continue →</button>
           </form>
         </div>
 
         <!-- Personal form -->
         <div class="form-panel" id="fp-personal">
           <form onsubmit="submitProfile(event,'personal')">
-            <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Rishav Raj" required /></div>
+            <div class="form-group">
+              <label>Your Name *</label>
+              <input type="text" id="p-name" placeholder="Your full name" required />
+            </div>
             <div class="form-group">
               <label>Your Designation <span class="optional-tag">(optional)</span></label>
-              <input type="text" id="p-designation" placeholder="AI/ML Engineer · Fresher" />
+              <input type="text" id="p-designation" placeholder="e.g. Founder, Head of Product, ML Engineer" />
               <p class="form-hint">Helps the AI write from the right level of authority.</p>
             </div>
-            <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="AI, Product Management, Startups" required /></div>
-            <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-            <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="p-time" value="09:00" required /></div>
+            <div class="form-group">
+              <label>What do you post about? *</label>
+              <input type="text" id="p-industry" placeholder="e.g. AI tools, SaaS, startup lessons" autocomplete="off" required />
+              <div class="topic-suggest" id="p-topic-suggest"></div>
+            </div>
+            <div class="form-group">
+              <label>Post Tone</label>
+              <select id="p-tone">
+                <option value="conversational">Conversational</option>
+                <option value="educational">Educational</option>
+                <option value="thought leadership">Thought Leadership</option>
+                <option value="professional">Professional</option>
+                <option value="bold and direct">Bold &amp; Direct</option>
+              </select>
+            </div>
             <div id="p-error" class="error-msg"></div>
-            <button type="submit" class="submit-btn" id="p-btn">Set Up Personal Brand →</button>
+            <button type="submit" class="submit-btn" id="p-btn">Continue →</button>
           </form>
         </div>
       </div>
 
-      <!-- ── Step 3: Done ── -->
-      <div class="step-panel" id="panel-3">
-        <div class="success-icon">🎉</div>
-        <h1 class="ob-title">You're all set!</h1>
-        <p class="ob-sub">Your profile is ready. Connect LinkedIn to let Voyce use your free generations for scheduled posts.</p>
-        <div class="week-preview">
-          <div class="week-preview-title">Automation schedule preview</div>
-          <div class="week-row" id="week-schedule"></div>
+      <!-- Loading screen -->
+      <div id="loading-screen">
+        <div class="loading-icon">⚡</div>
+        <h2>Building your content engine...</h2>
+        <p id="loading-sub">This takes about 20 seconds. Hang tight.</p>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="progress-bar"></div>
         </div>
+        <div class="loading-msg" id="loading-msg">Creating your profile...</div>
+      </div>
+
+      <!-- Step 2: First post -->
+      <div id="step-2">
+        <div class="post-header">
+          <span style="font-size:22px;">✨</span>
+          <div>
+            <div style="font-size:18px;font-weight:800;">Here's your first post</div>
+            <div style="font-size:13px;color:#888;" id="post-type-label">Generated just for you</div>
+          </div>
+          <span class="post-badge" id="post-badge"></span>
+        </div>
+
+        <div class="post-preview-box" id="post-preview-box"></div>
+
+        <p style="font-size:13px;color:#666;margin-bottom:16px;line-height:1.5;">
+          Connect LinkedIn to post in one click from Voyce. Upgrading to Pro later unlocks fully automatic daily posting. You can always connect from your dashboard instead.
+        </p>
+
+        <div class="li-success" id="li-success">✓ LinkedIn connected! You can now post from Voyce in one click.</div>
+
+        <button class="li-connect-btn" id="li-btn" onclick="connectLinkedIn()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          Connect LinkedIn Account
+        </button>
+
         <button class="dash-btn" onclick="window.location.href='/setup'">Go to Dashboard →</button>
+        <div class="skip-txt" onclick="window.location.href='/setup'">Skip LinkedIn for now</div>
       </div>
 
     </div>
   </div>
 
   <script>
-    function getToken() { return localStorage.getItem("cm_token") || ""; }
+    let _clerkToken = "";
+
+    async function _refreshToken() {
+      if (window.Clerk?.session) _clerkToken = await window.Clerk.session.getToken();
+    }
+
+    async function initClerk() {
+      const clerk = window.Clerk;
+      await clerk.load();
+      if (!clerk.user) { window.location.href = "/login"; return false; }
+      await _refreshToken();
+      setInterval(_refreshToken, 50000);
+      const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
+      if (res.ok) {
+        const user = await res.json();
+        localStorage.setItem("cm_user", JSON.stringify(user));
+      }
+      return true;
+    }
+
+    function getToken() { return _clerkToken; }
     function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
-    if (!getToken()) window.location.href = "/login";
 
-    const PERSONAL_SCHEDULE = { 0:"Trend Reaction", 1:"Hot Take", 2:"Lesson Learned", 3:"Expert Insight", 4:"Stat Reaction", 5:"Personal Story", 6:"Hot Take" };
-    const COMPANY_SCHEDULE  = { 0:"Trend Commentary", 1:"Expert Insight", 2:"Expert Insight", 3:"Product Spotlight", 4:"Industry Stat", 5:"Case Study", 6:"Expert Insight" };
-    const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    let _companyId = null;
 
-    let liConnected = false;
-    let _createdProfile = null;
-    let personalToneTouched = false;
-
-    window.addEventListener("load", () => {
+    async function startApp() {
+      const ok = await initClerk();
+      if (!ok) return;
       const user = getUser();
       if (user) {
-        document.getElementById("welcome-name").textContent = user.name ? user.name.split(" ")[0] : "there";
         document.getElementById("nav-user").textContent = user.name || user.email;
-        if (user.account_type === "personal") switchMode("personal");
+        const mode = user.account_type === "personal" ? "personal" : "company";
+        switchMode(mode);
+      } else {
+        switchMode("company");
       }
-      document.getElementById("p-tone").addEventListener("change", () => { personalToneTouched = true; });
-      document.getElementById("p-industry").addEventListener("input", suggestPersonalTone);
-      checkLinkedIn();
-    });
+      document.getElementById("p-industry").addEventListener("input", suggestTone);
+      document.getElementById("p-designation").addEventListener("blur", loadTopicSuggestions);
+    }
+
+    // ── Topic suggestions (based on designation + current trends) ────────────
+    const _topicSuggestCache = {};
+
+    async function loadTopicSuggestions() {
+      const desig = document.getElementById("p-designation").value.trim();
+      const box = document.getElementById("p-topic-suggest");
+      if (desig.length < 3) { box.classList.remove("visible"); return; }
+      box.classList.add("visible");
+      box.innerHTML = '<span class="topic-chip muted">Finding trending topics for this role…</span>';
+      let topics = _topicSuggestCache[desig.toLowerCase()];
+      if (!topics) {
+        try {
+          const res = await fetch("/topics/suggest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-token": getToken() },
+            body: JSON.stringify({ designation: desig }),
+          });
+          if (!res.ok) throw new Error();
+          topics = (await res.json()).topics || [];
+          _topicSuggestCache[desig.toLowerCase()] = topics;
+        } catch (_) { box.classList.remove("visible"); return; }
+      }
+      if (!topics.length) { box.classList.remove("visible"); return; }
+      box.innerHTML = "";
+      const lbl = document.createElement("span");
+      lbl.className = "ts-label";
+      lbl.textContent = "Suggested:";
+      box.appendChild(lbl);
+      topics.forEach(t => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "topic-chip";
+        chip.textContent = t;
+        chip.onclick = () => {
+          const input = document.getElementById("p-industry");
+          const current = input.value.split(",").map(s => s.trim()).filter(Boolean);
+          if (!current.some(c => c.toLowerCase() === t.toLowerCase())) {
+            current.push(t);
+            input.value = current.join(", ");
+            input.dispatchEvent(new Event("input"));
+          }
+          chip.classList.add("added");
+        };
+        box.appendChild(chip);
+      });
+    }
 
     window.addEventListener("message", e => {
       if (e.data === "linkedin_connected") {
-        liConnected = true;
         const btn = document.getElementById("li-btn");
         btn.className = "li-connect-btn connected";
         btn.innerHTML = "✓ LinkedIn Connected";
         btn.onclick = null;
-        document.getElementById("li-status").style.display = "none";
-        setTimeout(() => goToStep(2), 800);
+        document.getElementById("li-success").style.display = "block";
       }
     });
 
-    async function checkLinkedIn() {
-      const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
-      const data = await res.json();
-      liConnected = data.connected;
-      if (data.connected) {
-        const btn = document.getElementById("li-btn");
-        btn.className = "li-connect-btn connected";
-        btn.innerHTML = "✓ LinkedIn Connected";
-        btn.onclick = null;
-        document.getElementById("li-status").style.display = "none";
-      }
+    function switchMode(mode) {
+      document.getElementById("tab-company").classList.toggle("active", mode === "company");
+      document.getElementById("tab-personal").classList.toggle("active", mode === "personal");
+      document.getElementById("fp-company").classList.toggle("active", mode === "company");
+      document.getElementById("fp-personal").classList.toggle("active", mode === "personal");
+    }
+
+    function suggestTone() {
+      const topic = document.getElementById("p-industry").value.toLowerCase();
+      const isAiDev = /\b(ai|ml|machine learning|genai|llm|rag|agent|python|developer|coding|software)\b/.test(topic);
+      if (isAiDev) document.getElementById("p-tone").value = "educational";
     }
 
     function connectLinkedIn() {
       window.open(`/auth/linkedin?token=${getToken()}`, "li-auth", "width=600,height=700,scrollbars=yes");
     }
 
-    function goToStep(n) {
-      document.querySelectorAll(".step-panel").forEach((p, i) => p.classList.toggle("active", i + 1 === n));
-      [1, 2, 3].forEach(i => {
-        const dot = document.getElementById(`dot-${i}`);
-        const lbl = document.getElementById(`lbl-${i}`);
-        dot.className = "step-dot" + (i < n ? " done" : i === n ? " active" : "");
-        lbl.className = "step-label-item" + (i === n ? " active" : "");
-        if (i < 3) {
-          const line = document.getElementById(`line-${i}`);
-          line.className = "step-line" + (i < n ? " done" : "");
-        }
+    function setStep(n) {
+      [1, 2].forEach(i => {
+        document.getElementById(`dot-${i}`).className = "step-dot" + (i < n ? " done" : i === n ? " active" : "");
+        document.getElementById(`lbl-${i}`).className = "step-lbl" + (i === n ? " active" : "");
+        if (i < 2) document.getElementById(`line-${i}`).className = "step-line" + (i < n ? " done" : "");
       });
-      window.scrollTo(0, 0);
     }
 
-    function switchMode(mode) {
-      document.querySelectorAll(".mode-tab").forEach((t, i) =>
-        t.classList.toggle("active", (mode === "company" && i === 0) || (mode === "personal" && i === 1)));
-      document.getElementById("fp-company").classList.toggle("active", mode === "company");
-      document.getElementById("fp-personal").classList.toggle("active", mode === "personal");
+    // Progress bar animation
+    let _progressInterval = null;
+
+    function startProgress(isCompany) {
+      document.getElementById("step-1").style.display = "none";
+      document.getElementById("loading-screen").style.display = "block";
+      document.getElementById("step-2").style.display = "none";
+
+      const msgs = isCompany
+        ? [
+            [0,   5,  "Creating your profile..."],
+            [5,   35, "Scanning your website..."],
+            [35,  70, "Pulling today's trending news..."],
+            [70,  90, "Writing your first post..."],
+            [90,  99, "Almost there..."],
+          ]
+        : [
+            [0,   10, "Creating your profile..."],
+            [10,  55, "Pulling today's trending news..."],
+            [55,  90, "Writing your first post..."],
+            [90,  99, "Almost there..."],
+          ];
+
+      document.getElementById("loading-sub").textContent = isCompany
+        ? "Scanning your website + writing your first post. Takes ~25 seconds."
+        : "Pulling today's news and writing your first post. Takes ~10 seconds.";
+
+      let pct = 0;
+      const bar = document.getElementById("progress-bar");
+      const msgEl = document.getElementById("loading-msg");
+
+      _progressInterval = setInterval(() => {
+        pct = Math.min(pct + 0.6, 99);
+        bar.style.width = pct + "%";
+        const match = msgs.slice().reverse().find(m => pct >= m[0]);
+        if (match) msgEl.textContent = match[2];
+      }, 300);
     }
 
-    function suggestPersonalTone() {
-      if (personalToneTouched) return;
-      const topic = document.getElementById("p-industry").value.toLowerCase();
-      const isAiDev = /\b(ai|ml|machine learning|genai|llm|rag|agent|agents|python|developer|development|coding|software)\b/.test(topic);
-      if (isAiDev) document.getElementById("p-tone").value = "educational";
+    function stopProgress(pct = 100) {
+      clearInterval(_progressInterval);
+      document.getElementById("progress-bar").style.width = pct + "%";
+    }
+
+    function showStep2(postText, postType) {
+      stopProgress(100);
+      setTimeout(() => {
+        document.getElementById("loading-screen").style.display = "none";
+        document.getElementById("step-2").style.display = "block";
+        setStep(2);
+
+        document.getElementById("post-preview-box").textContent = postText || "Your post will appear here. Go to dashboard to generate your first post.";
+        document.getElementById("post-badge").textContent = postType || "";
+        document.getElementById("post-type-label").textContent = postType ? `Today's type: ${postType}` : "Generated just for you";
+        window.scrollTo(0, 0);
+      }, 600);
     }
 
     async function submitProfile(e, mode) {
       e.preventDefault();
       const isPersonal = mode === "personal";
-      const btn = document.getElementById(isPersonal ? "p-btn" : "c-btn");
       const errEl = document.getElementById(isPersonal ? "p-error" : "c-error");
-      btn.disabled = true;
-      btn.textContent = isPersonal ? "Setting up..." : "Setting up... (scraping website)";
       errEl.style.display = "none";
 
       const payload = isPersonal ? {
-        name: document.getElementById("p-name").value,
-        designation: document.getElementById("p-designation").value || "",
-        industry: document.getElementById("p-industry").value,
-        tone: document.getElementById("p-tone").value,
-        post_time: document.getElementById("p-time").value,
-        profile_type: "personal",
+        name:            document.getElementById("p-name").value.trim(),
+        designation:     document.getElementById("p-designation").value.trim(),
+        industry:        document.getElementById("p-industry").value.trim(),
+        tone:            document.getElementById("p-tone").value,
+        post_time:       "09:00",
+        profile_type:    "personal",
         carousel_enabled: false,
       } : {
-        name: document.getElementById("c-name").value,
-        website_url: document.getElementById("c-website").value,
-        industry: document.getElementById("c-industry").value,
-        tone: document.getElementById("c-tone").value,
-        post_time: document.getElementById("c-time").value,
-        profile_type: "company",
+        name:            document.getElementById("c-name").value.trim(),
+        website_url:     document.getElementById("c-website").value.trim(),
+        industry:        document.getElementById("c-industry").value.trim(),
+        tone:            document.getElementById("c-tone").value,
+        post_time:       "09:00",
+        profile_type:    "company",
         carousel_enabled: false,
       };
 
+      startProgress(!isPersonal);
+
       try {
+        // Step 1: create profile (may take 20-30s for company due to scraping)
         const res = await fetch("/companies", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-token": getToken() },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error((await res.json()).detail || "Setup failed");
-        _createdProfile = await res.json();
-        _createdProfile._mode = mode;
-        showDone(_createdProfile);
-        goToStep(3);
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "Setup failed");
+        }
+        const company = await res.json();
+        _companyId = company.id;
+
+        // Step 2: generate preview post (no gen credit used)
+        let postText = "";
+        let postType = "";
+        try {
+          const prev = await fetch(`/companies/${company.id}/preview`, {
+            method: "POST",
+            headers: { "x-token": getToken() },
+          });
+          if (prev.ok) {
+            const data = await prev.json();
+            postText = data.post || "";
+            postType = data.post_type || "";
+          }
+        } catch (_) {}
+
+        showStep2(postText, postType);
       } catch (err) {
+        stopProgress(0);
+        document.getElementById("loading-screen").style.display = "none";
+        document.getElementById("step-1").style.display = "block";
         errEl.textContent = err.message;
         errEl.style.display = "block";
-      } finally {
-        btn.disabled = false;
-        btn.textContent = isPersonal ? "Set Up Personal Brand →" : "Set Up Company →";
       }
-    }
-
-    function showDone(profile) {
-      const postTime = profile.post_time || "09:00";
-
-      const isPersonal = profile.profile_type === "personal";
-      const schedule = isPersonal ? PERSONAL_SCHEDULE : COMPANY_SCHEDULE;
-      const today = new Date();
-      const todayJs = today.getDay(); // 0=Sun
-
-      const rows = [];
-      for (let offset = 0; offset < 7; offset++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + offset);
-        const jsDay = d.getDay();
-        // Convert JS day (0=Sun) to Python day (0=Mon)
-        const pyDay = jsDay === 0 ? 6 : jsDay - 1;
-        const type = schedule[pyDay];
-        const isToday = offset === 0;
-        const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
-        rows.push(`
-          <div class="week-day ${isToday ? 'today' : ''}">
-            <span class="day-name">${DAY_NAMES[jsDay]}</span>
-            <span class="day-type">${type}</span>
-            ${isToday ? '<span class="day-badge">today</span>' : `<span style="font-size:12px;color:#bbb;">${dateStr}</span>`}
-          </div>`);
-      }
-      document.getElementById("week-schedule").innerHTML = rows.join("");
     }
   </script>
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_test_Y2hhbXBpb24tZ3JvdXNlLTY3LmNsZXJrLmFjY291bnRzLmRldiQ"
+    src="https://champion-grouse-67.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    onload="startApp()"
+  ></script>
 </body>
 </html>

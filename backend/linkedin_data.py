@@ -6,11 +6,11 @@ import re
 import zipfile
 
 import pdfplumber
-from groq import Groq
 from dotenv import load_dotenv
 
+from llm import generate_json
+
 load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 # ── PDF Parser ────────────────────────────────────────────────────────────────
@@ -124,18 +124,8 @@ Return a JSON object with these exact keys:
 
 Return ONLY valid JSON, no explanation."""
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-    )
-
-    text_out = response.choices[0].message.content.strip()
-    match = re.search(r'\{.*\}', text_out, re.DOTALL)
-    if match:
-        text_out = match.group(0)
     try:
-        return json.loads(text_out)
+        return generate_json(prompt, temperature=0.2)
     except Exception:
         return {}
 

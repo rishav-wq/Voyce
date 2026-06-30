@@ -1,39 +1,44 @@
 import logging
-import os
 import re
 from datetime import datetime
-from groq import Groq
 from dotenv import load_dotenv
 
+from llm import generate as llm_generate
+from generator import HUMANIZE_PROMPT, _strip_markdown
 from search import search_industry_news, format_news_context
 import linkedin as li
 import auth as auth_module
 import db
 
 load_dotenv()
-_groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
 logger = logging.getLogger(__name__)
 
-# ── Company post rotation (0=Mon … 6=Sun) ─────────────────────────────────────
+# ── Post type pools (picked pseudo-randomly per company per day) ──────────────
 COMPANY_ROTATION = {
     0: "trend_commentary",
     1: "expert_insight",
-    2: "expert_insight",
+    2: "how_to_playbook",
     3: "product_spotlight",
     4: "industry_stat",
     5: "case_study",
     6: "expert_insight",
+    7: "myth_vs_reality",
+    8: "teardown",
+    9: "prediction",
 }
 
-# ── Personal brand rotation ────────────────────────────────────────────────────
 PERSONAL_ROTATION = {
-    0: "trend_reaction",    # Mon — my take on this week's news
-    1: "hot_take",          # Tue — bold opinion
-    2: "lesson_learned",    # Wed — story from experience
-    3: "expert_insight_p",  # Thu — insight from deep in the field
-    4: "stat_reaction",     # Fri — surprising number + my read
-    5: "personal_story",    # Sat — longer narrative / turning point
-    6: "hot_take",          # Sun — end the week with an opinion
+    0: "trend_reaction",
+    1: "hot_take",
+    2: "lesson_learned",
+    3: "expert_insight_p",
+    4: "stat_reaction",
+    5: "personal_story",
+    6: "how_to",
+    7: "listicle",
+    8: "teardown",
+    9: "prediction",
+    10: "open_question",
 }
 
 POST_TYPE_LABELS = {
@@ -43,6 +48,8 @@ POST_TYPE_LABELS = {
     "product_spotlight": "Product Spotlight",
     "industry_stat":     "Industry Stat",
     "case_study":        "Case Study / Story",
+    "how_to_playbook":   "Playbook / How-To",
+    "myth_vs_reality":   "Myth vs Reality",
     # Personal
     "trend_reaction":    "Trend Reaction",
     "hot_take":          "Hot Take",
@@ -50,7 +57,33 @@ POST_TYPE_LABELS = {
     "expert_insight_p":  "Expert Insight",
     "stat_reaction":     "Stat Reaction",
     "personal_story":    "Personal Story",
+    "how_to":            "How-To / Playbook",
+    "listicle":          "Listicle",
+    # Shared
+    "teardown":          "Teardown",
+    "prediction":        "Prediction",
+    "open_question":     "Open Question",
 }
+
+# ── Hook style hints (from the profile's allowed_hooks setting) ───────────────
+_HOOK_STYLE_HINTS = {
+    "specific_number": "leading with a striking, specific number or percentage",
+    "named_event":     "reacting to a named company, report, or event",
+    "counterintuitive": "stating a counterintuitive truth that sounds wrong until explained",
+    "confession":      "opening with an honest confession or a mistake",
+    "myth_buster":     "challenging a belief most people in the field hold",
+    "unexpected_comparison": "drawing an unexpected comparison ('X is like Y') that reframes the topic",
+}
+
+
+def _hook_guidance(allowed_hooks: list | None) -> str:
+    hints = [_HOOK_STYLE_HINTS[k] for k in (allowed_hooks or []) if k in _HOOK_STYLE_HINTS]
+    if hints:
+        return ("\nOPENING LINE: open the post by " + ", or by ".join(hints) +
+                ". The first line must be specific and impossible to ignore — no warm-up text.")
+    return ("\nOPENING LINE: the first line must be specific and impossible to ignore — "
+            "a real number, a named company or event, an honest confession, or a claim that "
+            "sounds wrong until explained. No warm-up text.")
 
 # ── Company prompt templates ──────────────────────────────────────────────────
 COMPANY_PROMPTS = {
@@ -64,11 +97,11 @@ COMPANY CONTEXT (use lightly — you are commentating on the trend, not selling)
 {company_brief}
 
 Write a Trend Commentary post:
-- Hook: reference a specific trend or news item above
-- Your take: what does this mean for the industry? (2-3 short paragraphs)
-- End with a question that invites discussion
-- Hashtags on final line (3-5)
-- Blank line between every paragraph
+- Open with the specific trend or news item above — name it
+- Your take: what does this actually mean for the industry? (2-3 short paragraphs, one clear opinion)
+- End with a takeaway or a question only people in this industry would care about — no generic engagement bait
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between every paragraph; vary sentence length — not everything short and punchy
 - Tone: {tone} — sounds like a smart human, NOT a press release
 
 Return ONLY the post text.""",
@@ -81,13 +114,12 @@ COMPANY EXPERTISE:
 INDUSTRY CONTEXT:
 {news}
 
-Write an Expert Insight post in this format:
-- Hook: a bold or counterintuitive statement about the industry
-- Body: 3 short bullet points or paragraphs of genuine insight
-  (things only someone deep in {industry} would know)
-- CTA: end with "What's your experience with this?" or similar
-- Hashtags on final line (3-5)
-- Blank line between every section
+Write an Expert Insight post:
+- Open with a bold or counterintuitive statement about the industry
+- Body: 2-3 paragraphs of genuine insight — things only someone deep in {industry} would know
+- End on the strongest point or a specific question — never "What's your experience with this?"
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between every section; vary sentence rhythm
 - Tone: {tone}
 
 Return ONLY the post text.""",
@@ -103,7 +135,7 @@ Write a Product Spotlight post using this story structure:
 - The Better Way: how {name} solves it (be specific, use real product details)
 - The Result: a concrete outcome (use numbers if possible, or qualitative impact)
 - End with a soft CTA (not "buy now" — "curious how this works for your team?")
-- Hashtags on final line (3-4)
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
 - Blank line between every section
 - Tone: {tone} — educational not salesy
 
@@ -118,12 +150,12 @@ COMPANY CONTEXT:
 {company_brief}
 
 Write an Industry Stat post:
-- Hook: lead with a surprising or striking statistic from the news above
+- Lead with a surprising or striking statistic from the news above — name the source
 - Explain: why this number matters (1-2 sentences)
 - Connect: how this relates to what {name} does or sees in the market
 - Insight: what smart companies should do about it
-- Hashtags on final line (3-5)
-- Blank line between every paragraph
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between every paragraph; vary sentence rhythm
 - Tone: {tone}
 
 Return ONLY the post text.""",
@@ -140,56 +172,141 @@ Write a Case Study / Story post:
 - The measurable or qualitative result
 - One-line takeaway lesson
 - End with: "If your team faces [similar challenge], here's what worked."
-- Hashtags on final line (3-4)
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
 - Blank line between every section
 - Tone: {tone} — storytelling, human, specific
 
 Return ONLY the post text.""",
+
+    "how_to_playbook": """You are writing a LinkedIn post for {name} ({industry}).
+
+COMPANY KNOWLEDGE BASE:
+{company_brief}
+
+INDUSTRY CONTEXT:
+{news}
+
+Write a Playbook / How-To post:
+- Open with the specific, painful problem this playbook solves — not a generic pain point
+- Give 3-5 concrete steps. Each step: what to do + one practical detail that shows real expertise
+- Every step must be something a reader could start this week — no "align stakeholders" fluff
+- Close with the result a team can expect if they actually follow it
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between every step; vary sentence rhythm
+- Tone: {tone} — practitioner sharing a working method, not a consultant selling one
+
+Return ONLY the post text.""",
+
+    "myth_vs_reality": """You are writing a LinkedIn post for {name} ({industry}).
+
+COMPANY KNOWLEDGE BASE:
+{company_brief}
+
+INDUSTRY CONTEXT:
+{news}
+
+Write a Myth vs Reality post:
+- Open with a belief most people in {industry} genuinely hold — state it the way believers say it
+- Show why it's wrong with real evidence: a number, a named example, or a pattern from the company's experience
+- Give the reality, and what to do differently because of it
+- Don't strawman — the myth must be something reasonable people actually believe
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between every paragraph; vary sentence rhythm
+- Tone: {tone}
+
+Return ONLY the post text.""",
+
+    "teardown": """You are writing a LinkedIn post for {name} ({industry}).
+
+COMPANY CONTEXT (use lightly — the analysis is the star, not the company):
+{company_brief}
+
+INDUSTRY NEWS AND EXAMPLES:
+{news}
+
+Write a Teardown post — a sharp breakdown of one specific, real thing a NAMED company did:
+- Pick ONE concrete artifact or move from the news/industry knowledge: a pricing page, a launch,
+  an onboarding flow, an ad campaign, a product decision. Name the company in the first line.
+- Break down 3-4 specific observations: what they did, why it works (or fails), what most
+  companies get wrong on the same thing
+- Each observation must be concrete enough that the reader can go look at it themselves
+- Close with the transferable lesson for {industry} teams
+- Only analyze publicly observable things — never claim insider knowledge
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between observations; vary sentence rhythm
+- Tone: {tone} — analyst dissecting, not fan praising
+
+Return ONLY the post text.""",
+
+    "prediction": """You are writing a LinkedIn post for {name} ({industry}).
+
+COMPANY CONTEXT:
+{company_brief}
+
+INDUSTRY NEWS AND SIGNALS:
+{news}
+
+Write a Prediction post:
+- Open with ONE bold, specific, time-stamped prediction about {industry} (e.g. "By mid-2027, ...").
+  It must be falsifiable — a claim you could check on that date
+- Build the reasoning chain: 2-3 current signals (from the news or known industry facts) that
+  point to it, each named and specific
+- Address the obvious counterargument in one sentence — then hold the position
+- Close with what smart companies should do NOW if this is right
+- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- Blank line between paragraphs; vary sentence rhythm
+- Tone: {tone} — confident, not breathless
+
+Return ONLY the post text.""",
 }
 
-# ── Personal brand prompt templates ──────────────────────────────────────────
+# ── Shared quality rules ──────────────────────────────────────────────────────
 _PERSONAL_QUALITY_RULES = """
-HOOK FORMULA — you MUST use one of these for line 1 (nothing else on line 1):
-  A) SPECIFIC NUMBER: "[X]% of [audience] [surprising fact]. Not [wrong assumption]. [Real cause]."
-  B) NAMED EVENT: "[Company] just [did X]. The implication nobody is talking about: [Y]."
-  C) COUNTERINTUITIVE TRUTH: "The [best/smartest] [people] I know [do the opposite of conventional wisdom]."
-  D) UNCOMFORTABLE CONFESSION: "I [specific mistake] for [timeframe]. Here's what I missed."
-  E) MYTH-BUSTER: "Everyone says [X]. I've seen the opposite."
-
 QUALITY RULES (non-negotiable):
-- Hook = line 1, completely alone. Must use formula A-E above. Must contain a real number, company, or specific event.
-- Be specific. Name the actual company, report title, or statistic. Vague = ignored. "AI is changing things" = automatic fail.
-- Sound like a real expert texting a sharp colleague. Not a newsletter. Not a press release.
-- Never fabricate personal history. Do NOT claim the author did/used/built/invested in something unless that is explicitly in AUTHOR CONTEXT.
-- If evidence is from external reference material, attribute it clearly ("X reports...", "Y's case shows...") instead of "I did...".
-- No filler sentences. Every line must add information the previous line did not.
-- Hashtags: lowercase, relevant, max 4. Put them on the last line alone.
+- Line 1 is the ONLY thing visible before "...see more" — and only ~140 characters show on
+  mobile. It must be a complete, self-contained hook within ~140 characters that creates
+  tension on its own. Write it the way THIS author would say it, not like a marketer.
+- If voice examples are provided in AUTHOR CONTEXT, match their rhythm, vocabulary, and
+  quirks exactly — voice outranks every other rule.
+- Be specific. Name the actual company, report, or statistic. "AI is changing things" = fail.
+- Never fabricate personal history. Do NOT claim the author did/used/built/invested in
+  something unless that is explicitly in AUTHOR CONTEXT.
+- If evidence is from external reference material, attribute it ("X reports...", "Y's case
+  shows...") instead of "I did...".
+- FACTUAL SAFETY: never invent exact statistics, product version numbers ("DeepSeek-V3.2",
+  "GPT-5.1"), dates, or named studies just to sound authoritative. Use only facts from the
+  provided context or things you're genuinely confident are real. When unsure, hedge
+  ("models like DeepSeek", "most teams") rather than fabricate a specific a reader can falsify.
+- Vary your rhythm: mix short punchy lines with longer natural sentences. A post where
+  every sentence is under 10 words reads as AI-generated and gets scrolled past.
+- LENGTH: target 200-350 words (~1,300-2,300 characters) — this length earns the most
+  engagement on LinkedIn. Don't pad, but don't ship a thin snippet either.
+- SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a numbered
+  list of specifics, a checklist, or a clear before→after. A save drives far more reach than
+  a like, so make the post reference-worthy, not just agreeable.
+- End however fits the post: a takeaway, a sharp specific question, or just the last point
+  landing. Do NOT bolt a generic engagement question onto every post.
+- Hashtags: 0-3 lowercase on the last line, only if genuinely relevant. None is fine.
 
-FORMATTING (critical — posts that break this get buried by the LinkedIn algorithm):
-- Every 1-2 sentences = its own paragraph, separated by a blank line.
-- NEVER write more than 2 sentences in a row without a blank line.
-- Short sentences. If over 20 words, split it.
-- The hook must be completely alone on the first line.
+FORMATTING:
+- Blank line between paragraphs. No paragraph over 3 sentences.
+- The opening line stands completely alone on line 1.
+- PLAIN TEXT ONLY — LinkedIn renders markdown literally. No **bold**, no * or - bullets.
+  For list items use "→ " or numbers ("1. ").
 
-ABSOLUTELY BANNED (using any of these is an automatic fail):
-possibilities are endless, I couldn’t help but think, it’s amazing to see, the future is bright,
-game-changer, dive deep, landscape, leverage, unlock potential, at the end of the day,
-in today’s fast-paced world, I read something this week, thrilled to announce, excited to share,
-synergy, paradigm shift, move the needle, circle back, learnings, impactful, groundbreaking.
-
-The post must look exactly like this:
-[One-line hook using formula A-E — stops the scroll]
-
-[1-2 sentences with a specific fact, name, or example]
-
-[1-2 sentences adding a new point — not restating]
-
-[1-2 sentences of concrete takeaway or implication]
-
-[One sharp closing question specific to this audience]
-
-#tag1 #tag2 #tag3
+NEVER USE (instant AI tells — automatic fail):
+- "It's not about X. It's about Y." or any "It's not X — it's Y" construction
+- "Here's the thing:" / "Let that sink in" / "Read that again" / "The result?"
+- Three-item lists in every paragraph (the rule-of-three tic)
+- Starting consecutive paragraphs with the same word
+- possibilities are endless, I couldn't help but think, it's amazing to see, the future is
+  bright, game-changer, dive deep, landscape, leverage, unlock potential, at the end of the
+  day, in today's fast-paced world, I read something this week, thrilled to announce,
+  excited to share, synergy, paradigm shift, move the needle, circle back, learnings,
+  impactful, groundbreaking.
 """
+
+_COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT")
 
 PERSONAL_PROMPTS = {
 
@@ -214,8 +331,6 @@ Body (2-3 short paragraphs):
 
 Closing: One sharp question that invites real responses. Not "What do you think?" — something specific: "Are you already seeing this in your team?"
 
-Hashtags on final line.
-
 Return ONLY the post text.""",
 
     "hot_take": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
@@ -239,9 +354,7 @@ Body:
 
 Counter: One sentence: "I know this is controversial because [reason]." Then stand your ground.
 
-Closing line: "Agree or disagree?" — or a more specific version.
-
-Hashtags on final line.
+Closing: end on the strongest version of your claim, or a question that splits the room in a specific way — never a bare "Agree or disagree?"
 
 Return ONLY the post text.""",
 
@@ -294,8 +407,6 @@ Insight 3 (2-3 sentences): What actually works. Your take, not generic advice.
 
 Closing: "Am I the only one seeing this?" or a sharper version targeting your specific audience.
 
-Hashtags on final line.
-
 Return ONLY the post text.""",
 
     "stat_reaction": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
@@ -319,8 +430,6 @@ Your read (2 paragraphs):
 What to do instead: 2-3 sentences of concrete advice.
 
 Closing: A specific question. Not "what do you think?" — e.g. "Have you seen this play out in your org?"
-
-Hashtags on final line.
 
 Return ONLY the post text.""",
 
@@ -350,6 +459,129 @@ Hashtags on final line.
 IMPORTANT: If website context is marked EXTERNAL REFERENCE MATERIAL, do NOT invent personal stories.
 Write an analysis-led post using attributed third-party examples ("Klarna showed...", "Report X found..."),
 and only use first-person claims if they are explicitly present in AUTHOR CONTEXT.
+
+Return ONLY the post text.""",
+
+    "how_to": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
+
+AUTHOR CONTEXT:
+{company_brief}
+
+INDUSTRY CONTEXT:
+{news}
+
+{quality_rules}
+
+Write a How-To / Playbook post in first person:
+
+Opening (1 line): the specific, painful problem this solves — stated the way someone living it would say it.
+
+The method (3-5 steps): each step is concrete enough to start this week. Include one practical
+detail per step that only a practitioner would know. No "align with stakeholders" fluff.
+
+Close: what changes when you do this — a concrete outcome, not a platitude.
+
+IMPORTANT: Only frame this as "my process" / "what I do" if AUTHOR CONTEXT supports it.
+Otherwise frame it as "the approach that works" with attributed examples.
+
+Return ONLY the post text.""",
+
+    "listicle": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
+
+AUTHOR CONTEXT:
+{company_brief}
+
+INDUSTRY CONTEXT:
+{news}
+
+{quality_rules}
+
+Write a Listicle post in first person:
+
+Opening (1 line): what the list delivers and why it's worth reading — specific, with a number
+(e.g. "5 things I'd tell anyone starting in {industry} today").
+
+The list (4-6 items): each item is one tight insight — a sentence or two. Every item must be
+specific enough that a generic version of it would be obviously worse. Cut any item that
+could appear in anyone's list.
+
+Close: the one item that matters most, called out — or what ignoring this list costs.
+
+IMPORTANT: Only use first-person claims supported by AUTHOR CONTEXT; attribute anything external.
+
+Return ONLY the post text.""",
+
+    "teardown": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
+
+AUTHOR CONTEXT:
+{company_brief}
+
+INDUSTRY NEWS AND EXAMPLES:
+{news}
+
+{quality_rules}
+
+Write a Teardown post in first person — a sharp analysis of one real, NAMED company's move:
+
+Opening (1 line): name the company and the specific thing being torn down — a pricing page,
+a launch, an onboarding flow, a product decision. Make the reader curious why it matters.
+
+The breakdown (3-4 observations): what they did, why it works or fails, what everyone else
+gets wrong on the same thing. Each observation specific enough to verify by looking.
+
+Close: the transferable lesson — what someone in {industry} should steal (or avoid).
+
+IMPORTANT: Analyze only publicly observable things. "X's pricing page does something clever"
+is fine; "when I talked to their team" is fabrication unless it's in AUTHOR CONTEXT.
+
+Return ONLY the post text.""",
+
+    "prediction": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
+
+AUTHOR CONTEXT:
+{company_brief}
+
+INDUSTRY NEWS AND SIGNALS:
+{news}
+
+{quality_rules}
+
+Write a Prediction post in first person:
+
+Opening (1 line): ONE bold, specific, time-stamped prediction (e.g. "By mid-2027, ...").
+Falsifiable — something readers could check on that date.
+
+Reasoning (2-3 short paragraphs): the current signals pointing to it — named companies,
+real numbers, observable shifts from the news or known industry facts.
+
+The counterargument: name the obvious objection in one sentence, then hold the position.
+
+Close: what to do now if this is right — or an invitation to bookmark and check back.
+
+Return ONLY the post text.""",
+
+    "open_question": """You are ghostwriting a LinkedIn post for {name}, a personal brand in {industry}.
+
+AUTHOR CONTEXT:
+{company_brief}
+
+INDUSTRY CONTEXT:
+{news}
+
+{quality_rules}
+
+Write an Open Question post in first person — SHORT (60-120 words total):
+
+Frame a genuine dilemma the {industry} community is split on — something with real arguments
+on both sides, drawn from the news or a recurring debate in the field.
+
+Structure:
+- 1-2 lines setting up the dilemma with a specific detail that proves it's a real situation
+- One line for each side of the argument — steelman both, don't pick a winner
+- End with the question itself, asked plainly. The post's whole job is to start a comment thread.
+
+The tone is genuinely undecided — NOT a rhetorical question with an obvious answer.
+No hashtags on this one. No closing summary. The question is the last line.
 
 Return ONLY the post text.""",
 }
@@ -408,9 +640,9 @@ def _build_company_brief(company: dict) -> str:
 
     top_posts = company.get("linkedin_top_posts", [])
     if top_posts:
-        parts.append("\n--- SAMPLE LINKEDIN POSTS (replicate this voice) ---")
-        for i, post in enumerate(top_posts[:3], 1):
-            parts.append(f"Example {i}:\n{post[:400]}")
+        parts.append("\n--- REAL POSTS BY THIS AUTHOR (match this voice exactly — rhythm, vocabulary, quirks) ---")
+        for i, post in enumerate(top_posts[:5], 1):
+            parts.append(f"Example {i}:\n{post[:600]}")
 
     return "\n".join(p for p in parts if p)
 
@@ -444,6 +676,25 @@ def _get_post_type(company: dict) -> str:
     return rotation[idx]
 
 
+def get_week_plan(company: dict, days: int = 7) -> list[str]:
+    """Predict the post type for today + the next N-1 days using the same hash
+    the daily runner uses (assuming the first run of each day)."""
+    from datetime import date, timedelta
+    import hashlib
+
+    is_personal = company.get("profile_type") == "personal"
+    rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
+    company_id = company.get("id", "default")
+    plan = []
+    for i in range(days):
+        day = (date.today() + timedelta(days=i)).isoformat()
+        seed = hashlib.md5(f"{company_id}{day}0".encode()).hexdigest()
+        idx = int(seed[:4], 16) % len(rotation)
+        key = rotation[idx]
+        plan.append(POST_TYPE_LABELS.get(key, key))
+    return plan
+
+
 def get_post_type_info(company: dict) -> dict:
     """
     Returns data for the dashboard: the next post type that will be generated,
@@ -472,49 +723,15 @@ def get_post_type_info(company: dict) -> dict:
     }
 
 
-_REVISION_SYSTEM = """You are a senior LinkedIn editor who has edited 5,000+ viral posts.
-
-You receive a drafted LinkedIn post. Your job: make it impossible to scroll past.
-
-Check every item — fix any that fail:
-
-1. HOOK (line 1 only): Does it use one of these formulas?
-   - Specific Number: "[X]% of [audience] [surprising fact]. Not [assumption]. [Reality]."
-   - Named Event: "[Company] just [did X]. The implication nobody’s talking about: [Y]."
-   - Counterintuitive Truth: "The [best/top] [people] in [field] [do opposite of norm]."
-   - Confession: "I [specific mistake] for [timeframe]. Here’s what I missed."
-   - Myth-Buster: "Everyone says [X]. I’ve seen the opposite."
-   If NOT — rewrite line 1 completely using the best formula for this content.
-
-2. SPECIFICITY: Does every paragraph name a real company, number, or example?
-   Replace any vague sentence with something concrete and verifiable.
-
-3. BANNED PHRASES: Remove every instance of:
-   game-changer, landscape, unlock, leveraging, synergy, paradigm, thrilled, excited,
-   it goes without saying, at the end of the day, move the needle, circle back, learnings, impactful.
-
-4. SENTENCE LENGTH: Split any sentence over 20 words.
-
-5. CLOSING QUESTION: Is it specific to THIS exact audience?
-   "What do you think?" = fail. Replace with a question only an expert in this field would ask.
-
-6. FORMAT: Hook alone on line 1. Every paragraph separated by blank lines. Hashtags alone on last line.
-
-Return ONLY the improved post text — no explanation, no preamble."""
-
-
 def _revise_post(draft: str, industry: str) -> str:
-    """Second-pass revision to sharpen the draft."""
+    """Humanizer pass: strip AI tells, vary rhythm, keep voice and facts."""
     try:
-        resp = _groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": _REVISION_SYSTEM},
-                {"role": "user", "content": f"Industry: {industry}\n\nDraft post to improve:\n\n{draft}"},
-            ],
+        revised = llm_generate(
+            f"Industry: {industry}\n\nPost to edit:\n\n{draft}",
+            system=HUMANIZE_PROMPT,
             max_tokens=1024,
+            temperature=0.6,
         )
-        revised = resp.choices[0].message.content.strip()
         return _format_linkedin_post(revised) if revised else draft
     except Exception:
         return draft  # fall back to original if revision fails
@@ -524,25 +741,8 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
     is_personal = company.get("profile_type") == "personal"
     industry    = company["industry"]
 
-    # Phase 0: generate a locked, formula-specific hook
-    locked_hook = ""
-    try:
-        from hooks import generate_hook
-        context = (news_context or "") + "\n\n" + _build_company_brief(company)[:600]
-        allowed = company.get("allowed_hooks", [])
-        locked_hook = generate_hook(context=context, industry=industry, post_type=post_type, allowed_hooks=allowed)
-    except Exception:
-        pass
-
-    # Phase 1: generate the full post body, hook pre-anchored
     prompts  = PERSONAL_PROMPTS if is_personal else COMPANY_PROMPTS
     template = prompts[post_type]
-    hook_instruction = (
-        f"\n\nSTART YOUR POST WITH THIS EXACT LINE (do not change it, do not add anything before it):\n"
-        f"\"{locked_hook}\"\n"
-        f"Write the rest of the post to build naturally from this opening."
-        if locked_hook else ""
-    )
     prompt = template.format(
         name=company["name"],
         industry=industry,
@@ -550,26 +750,21 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
         news=news_context or "No specific news today — draw from general industry knowledge.",
         company_brief=_build_company_brief(company),
         quality_rules=_PERSONAL_QUALITY_RULES if is_personal else "",
-    ) + hook_instruction
-
-    response = _groq.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1024,
     )
-    draft = _format_linkedin_post(response.choices[0].message.content.strip())
+    if not is_personal:
+        prompt += "\n" + _COMPANY_QUALITY_RULES
+    prompt += _hook_guidance(company.get("allowed_hooks"))
 
-    # Enforce locked hook as line 1 if the model drifted
-    if locked_hook and draft:
-        first_line = draft.split("\n")[0].strip()
-        if locked_hook.lower() not in first_line.lower():
-            draft = locked_hook + "\n\n" + draft
-
-    return _revise_post(draft, company["industry"])
+    draft = _format_linkedin_post(
+        llm_generate(prompt, max_tokens=1024, temperature=0.85)
+    )
+    return _revise_post(draft, industry)
 
 
 def _format_linkedin_post(text: str) -> str:
-    """Ensure every paragraph is separated by a blank line and no paragraph exceeds 2 sentences."""
+    """Normalize spacing and break up only walls of text (4+ sentences in one paragraph)."""
+    # LinkedIn renders markdown literally — strip it to plain text
+    text = _strip_markdown(text)
     lines = [line.strip() for line in text.splitlines()]
     # Collapse multiple blank lines into one
     collapsed = []
@@ -583,22 +778,23 @@ def _format_linkedin_post(text: str) -> str:
             collapsed.append(line)
             prev_blank = False
 
-    # Join paragraphs and split any that have too many sentences
     paragraphs = "\n".join(collapsed).split("\n\n")
     result = []
     for para in paragraphs:
         para = para.strip()
         if not para:
             continue
-        # Skip hashtag line — leave as-is
-        if para.startswith("#"):
+        # Skip hashtag and list lines — leave as-is
+        if para.startswith("#") or re.match(r"^\s*(\d+[\.\)]|[-•→])", para):
             result.append(para)
             continue
-        # Split sentences and regroup into max-2-sentence blocks
         sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', para) if s.strip()]
-        for i in range(0, len(sentences), 2):
-            block = " ".join(sentences[i:i+2])
-            result.append(block)
+        if len(sentences) <= 3:
+            result.append(para)
+        else:
+            # Wall of text — split into blocks of 2-3 sentences
+            for i in range(0, len(sentences), 3):
+                result.append(" ".join(sentences[i:i+3]))
 
     return "\n\n".join(result)
 

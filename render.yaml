@@ -1,0 +1,41 @@
+# Render Blueprint for Voyce — https://render.com
+# Deploy: push this repo to GitHub, then in Render: New + → Blueprint → pick this repo.
+# Render reads this file, then prompts you to fill the secret env vars below.
+services:
+  - type: web
+    name: voyce
+    runtime: python
+    plan: free
+    region: singapore            # closest to India; change if you prefer
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT --app-dir backend"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # ── Secrets: set these in the Render dashboard (copy from backend/.env) ──
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      # ── Deploy-specific: set AFTER you know your render URL ──
+      - key: ALLOWED_ORIGINS
+        sync: false             # e.g. https://voyce.onrender.com
+      - key: REDIRECT_URI
+        sync: false             # e.g. https://voyce.onrender.com/auth/linkedin/callback

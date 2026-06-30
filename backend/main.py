@@ -2,7 +2,7 @@ import os
 import secrets
 import logging
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,13 +16,17 @@ from autonomous import run_for_company, get_post_log, save_post_log
 from linkedin_data import parse_linkedin_upload
 import linkedin as li
 import auth as auth_module
+import payments
+import db
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI()
 
+# Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -33,7 +37,13 @@ app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 # ── Scheduler ────────────────────────────────────────────────────────────────
 scheduler = BackgroundScheduler()
 scheduler.start()
-scheduled_posts: list[dict] = []
+
+
+def _as_naive_local(dt: datetime) -> datetime:
+    """Normalize an (optionally tz-aware) datetime to naive local time."""
+    if dt.tzinfo:
+        return dt.astimezone().replace(tzinfo=None)
+    return dt
 
 
 def _require_user(x_token: str = Header(None)):
@@ -50,6 +60,15 @@ def _check_gen_limit(user: dict):
             status_code=402,
             detail=f"LIMIT_REACHED"
         )
+
+
+def _is_pro(user: dict) -> bool:
+    return auth_module.get_gen_info(user["id"])["limit"] == -1
+
+
+def _require_pro(user: dict, feature: str):
+    if not _is_pro(user):
+        raise HTTPException(status_code=403, detail=f"PRO_REQUIRED:{feature}")
 
 
 def _friendly_generation_error(exc: Exception) -> str:
@@ -123,6 +142,7 @@ def _refresh_all_crons():
 @app.on_event("startup")
 def startup():
     _refresh_all_crons()
+    _restore_scheduled_jobs()
 
 
 def _do_scheduled_post(text: str, job_id: str, dry_run: bool = False, user_id: str = ""):
@@ -131,13 +151,30 @@ def _do_scheduled_post(text: str, job_id: str, dry_run: bool = False, user_id: s
             print(f"\n[DRY RUN] Scheduled post fired:\n{text}\n")
         else:
             li.post_to_linkedin(user_id, text)
-        for p in scheduled_posts:
-            if p["id"] == job_id:
-                p["status"] = "dry_run_fired" if dry_run else "posted"
+        db.scheduled.update_one({"id": job_id}, {"$set": {"status": "dry_run_fired" if dry_run else "posted"}})
     except Exception as e:
-        for p in scheduled_posts:
-            if p["id"] == job_id:
-                p["status"] = f"failed: {str(e)}"
+        db.scheduled.update_one({"id": job_id}, {"$set": {"status": f"failed: {str(e)}"}})
+
+
+def _restore_scheduled_jobs():
+    """Re-register pending one-off posts after a server restart."""
+    now = datetime.now()
+    for entry in db.scheduled.find({"status": {"$regex": "^scheduled"}}):
+        try:
+            run_at = _as_naive_local(datetime.fromisoformat(entry["scheduled_at"]))
+        except Exception:
+            continue
+        if run_at <= now:
+            db.scheduled.update_one({"id": entry["id"]}, {"$set": {"status": "missed (server was down)"}})
+            continue
+        scheduler.add_job(
+            _do_scheduled_post,
+            trigger="date",
+            run_date=run_at,
+            args=[entry.get("text", ""), entry["id"], "dry run" in entry.get("status", ""), entry.get("user_id", "")],
+            id=entry["id"],
+            replace_existing=True,
+        )
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -176,16 +213,18 @@ class ToggleRequest(BaseModel):
     active: bool
 
 
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    name: str
-    account_type: str  # "company" or "personal"
+class AccountTypeRequest(BaseModel):
+    account_type: str
 
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
+class PaymentVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+class TopicSuggestRequest(BaseModel):
+    designation: str
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
@@ -229,29 +268,31 @@ def serve_privacy():
     return FileResponse(os.path.join(frontend_path, "privacy.html"))
 
 
+# ── Waitlist ──────────────────────────────────────────────────────────────────
+class WaitlistRequest(BaseModel):
+    name: str
+    email: str
+    plan: str = "pro"
+
+@app.post("/waitlist")
+def join_waitlist(req: WaitlistRequest):
+    import db
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    existing = db.waitlist.find_one({"email": email})
+    if existing:
+        return {"status": "already_joined", "plan": existing.get("plan")}
+    db.waitlist.insert_one({
+        "name": req.name.strip(),
+        "email": email,
+        "plan": req.plan,
+        "joined_at": datetime.utcnow().isoformat()
+    })
+    return {"status": "joined"}
+
+
 # ── App Auth ──────────────────────────────────────────────────────────────────
-@app.post("/auth/register")
-def register(req: RegisterRequest):
-    if len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-    try:
-        user = auth_module.register(req.email, req.password, req.name, req.account_type)
-        token = auth_module.login(req.email, req.password)
-        return {"token": token, "user": user}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/auth/login")
-def login(req: LoginRequest):
-    try:
-        token = auth_module.login(req.email, req.password)
-        user = auth_module.get_user_by_token(token)
-        return {"token": token, "user": user}
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-
-
 @app.get("/auth/me")
 def me(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
@@ -260,11 +301,132 @@ def me(x_token: str = Header(None)):
     return {**user, "gen_info": auth_module.get_gen_info(user["id"])}
 
 
+@app.patch("/auth/me")
+def update_me(req: AccountTypeRequest, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    if req.account_type not in ("company", "personal"):
+        raise HTTPException(status_code=400, detail="Invalid account_type")
+    auth_module.update_account_type(user["id"], req.account_type)
+    return {"ok": True}
+
+
 @app.post("/auth/logout")
-def app_logout(x_token: str = Header(None)):
-    auth_module.logout(x_token or "")
+def app_logout():
     return {"logged_out": True}
 
+
+
+# ── Topic suggestions ─────────────────────────────────────────────────────────
+_topic_cache: dict[str, list] = {}
+
+
+@app.post("/topics/suggest")
+def suggest_topics(req: TopicSuggestRequest, x_token: str = Header(None)):
+    _require_user(x_token)
+    designation = req.designation.strip()
+    if len(designation) < 3:
+        return {"topics": []}
+    key = designation.lower()
+    if key in _topic_cache:
+        return {"topics": _topic_cache[key]}
+    import llm
+    try:
+        data = llm.generate_json(
+            f"Suggest 6 LinkedIn content topic areas for a '{designation}' to post about in "
+            f"{datetime.now().year}. Mix the role's core expertise topics with themes currently "
+            "trending for that role. Each topic 2-4 words, plain text, no hashtags, no quotes. "
+            'Return JSON: {"topics": ["topic", "topic", ...]}',
+            temperature=0.7,
+            max_tokens=300,
+        )
+        topics = [str(t).strip().strip('"\'') for t in (data.get("topics") or []) if str(t).strip()][:6]
+    except Exception:
+        logging.exception("topic suggestion failed")
+        topics = []
+    if topics:
+        _topic_cache[key] = topics
+    return {"topics": topics}
+
+
+# ── Payments (Razorpay) ───────────────────────────────────────────────────────
+@app.get("/payments/config")
+def payments_config():
+    return payments.get_config()
+
+
+@app.post("/payments/create-order")
+def payments_create_order(x_token: str = Header(None)):
+    user = _require_user(x_token)
+    if not payments.is_configured():
+        raise HTTPException(status_code=503, detail="Payments are not configured")
+    try:
+        order = payments.create_order(user["id"], user.get("email", ""))
+    except Exception:
+        logging.exception("Razorpay order creation failed")
+        raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
+    return {
+        "order_id": order["id"],
+        "amount":   order["amount"],
+        "currency": order["currency"],
+        "key_id":   payments.RAZORPAY_KEY_ID,
+    }
+
+
+@app.post("/payments/verify")
+def payments_verify(req: PaymentVerifyRequest, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    record = payments.get_order_record(req.razorpay_order_id)
+    if not record or record.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not payments.verify_payment_signature(
+        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature
+    ):
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    payments.activate_pro(user["id"], req.razorpay_order_id, req.razorpay_payment_id)
+    return {"ok": True, "gen_info": auth_module.get_gen_info(user["id"])}
+
+
+@app.post("/payments/restore")
+def payments_restore(x_token: str = Header(None)):
+    """Recovery: check Razorpay for captured payments on this user's
+    unverified orders (e.g. browser closed mid-checkout) and upgrade."""
+    user = _require_user(x_token)
+    if not payments.is_configured():
+        raise HTTPException(status_code=503, detail="Payments are not configured")
+    restored = False
+    for record in payments.pending_orders(user["id"]):
+        try:
+            captured = payments.find_captured_payment(record["order_id"])
+        except Exception:
+            logging.exception("Razorpay restore lookup failed")
+            continue
+        if captured:
+            payments.activate_pro(user["id"], record["order_id"], captured.get("id", ""), source="restore")
+            restored = True
+    return {"restored": restored, "gen_info": auth_module.get_gen_info(user["id"])}
+
+
+@app.get("/payments/history")
+def payments_history(x_token: str = Header(None)):
+    user = _require_user(x_token)
+    return {"payments": payments.payment_history(user["id"])}
+
+
+@app.post("/payments/webhook")
+async def payments_webhook(request: Request):
+    body = await request.body()
+    signature = request.headers.get("x-razorpay-signature", "")
+    if not payments.verify_webhook_signature(body, signature):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    event = await request.json()
+    if event.get("event") == "payment.captured":
+        entity = event["payload"]["payment"]["entity"]
+        order_id = entity.get("order_id", "")
+        user_id = (entity.get("notes") or {}).get("user_id", "")
+        record = payments.get_order_record(order_id)
+        if record and user_id and record.get("user_id") == user_id:
+            payments.activate_pro(user_id, order_id, entity.get("id", ""), source="webhook")
+    return {"ok": True}
 
 
 # ── LinkedIn OAuth ─────────────────────────────────────────────────────────────
@@ -370,6 +532,34 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
 
+@app.post("/generate/image")
+async def generate_image_manual(request: GenerateRequest, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    _check_gen_limit(user)
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+    try:
+        raw_text = process_input(request.input_type, request.content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
+    try:
+        import base64
+        from carousel import generate_image_post_from_text, render_image_post_png
+        profiles = list_companies(user["id"])
+        profile = profiles[0] if profiles else None
+        context_text = _with_profile_context(user["id"], raw_text)
+        content = generate_image_post_from_text(context_text, company=profile)
+        png_bytes = render_image_post_png(content, profile or {"name": "Voyce"})
+        auth_module.increment_gens(user["id"])
+        return {
+            "post_text":    content.get("post_text", ""),
+            "image_base64": base64.b64encode(png_bytes).decode(),
+            "headline":     content.get("card_headline", ""),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+
+
 # ── LinkedIn Post ──────────────────────────────────────────────────────────────
 @app.post("/post/linkedin")
 def post_linkedin(request: PostRequest, x_token: str = Header(None)):
@@ -392,40 +582,49 @@ def schedule_linkedin(request: ScheduleRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
     if not li.is_connected(user["id"]):
         raise HTTPException(status_code=401, detail="LinkedIn not connected.")
-    if request.schedule_time <= datetime.now():
+    run_at = _as_naive_local(request.schedule_time)
+    if run_at <= datetime.now():
         raise HTTPException(status_code=400, detail="Schedule time must be in the future.")
     job_id = secrets.token_urlsafe(8)
     scheduler.add_job(
         _do_scheduled_post,
         trigger="date",
-        run_date=request.schedule_time,
+        run_date=run_at,
         args=[request.text, job_id, request.dry_run, user["id"]],
         id=job_id,
     )
     entry = {
         "id": job_id,
+        "user_id": user["id"],
+        "text": request.text,
         "preview": request.text[:80] + ("..." if len(request.text) > 80 else ""),
-        "scheduled_at": request.schedule_time.isoformat(),
+        "scheduled_at": run_at.isoformat(),
         "status": "scheduled (dry run)" if request.dry_run else "scheduled",
     }
-    scheduled_posts.append(entry)
+    db.scheduled.insert_one({**entry})
+    entry.pop("text")
     return entry
 
 
 @app.get("/schedule/list")
-def list_scheduled():
-    return scheduled_posts
+def list_scheduled(x_token: str = Header(None)):
+    user = _require_user(x_token)
+    return list(
+        db.scheduled.find({"user_id": user["id"]}, {"_id": 0, "text": 0}).sort("scheduled_at", 1)
+    )
 
 
 @app.delete("/schedule/{job_id}")
-def cancel_scheduled(job_id: str):
+def cancel_scheduled(job_id: str, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    entry = db.scheduled.find_one({"id": job_id})
+    if not entry or entry.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
     try:
         scheduler.remove_job(job_id)
     except Exception:
         pass
-    for p in scheduled_posts:
-        if p["id"] == job_id:
-            p["status"] = "cancelled"
+    db.scheduled.update_one({"id": job_id}, {"$set": {"status": "cancelled"}})
     return {"cancelled": job_id}
 
 
@@ -433,9 +632,20 @@ def cancel_scheduled(job_id: str):
 @app.post("/companies")
 def create_company(request: CompanyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
+    pro = _is_pro(user)
+    existing = list_companies(user["id"])
+    max_profiles = 3 if pro else 1
+    if len(existing) >= max_profiles:
+        if pro:
+            raise HTTPException(status_code=400, detail="Profile limit reached (3 profiles on Pro)")
+        raise HTTPException(status_code=403, detail="PRO_REQUIRED:profiles")
     try:
         data = request.model_dump()
         data["user_id"] = user["id"]
+        if not pro:
+            # Daily automation and automated carousels are Pro features
+            data["active"] = False
+            data["carousel_enabled"] = False
         company = save_company(data)
         if company.get("active", True):
             _setup_company_cron(company)
@@ -448,11 +658,12 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
 def get_companies(x_token: str = Header(None)):
     user = _require_user(x_token)
     companies = list_companies(user["id"])
-    from autonomous import get_post_type_info
+    from autonomous import get_post_type_info, get_week_plan
     for c in companies:
         info = get_post_type_info(c)
         c["next_post_type"] = info["next_post_type"]
         c["recent_post_types"] = info["recent_post_types"]
+        c["week_plan"] = get_week_plan(c)
     return companies
 
 
@@ -463,7 +674,10 @@ def edit_company(company_id: str, request: CompanyRequest, x_token: str = Header
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     try:
-        updated = update_company(company_id, request.model_dump())
+        data = request.model_dump()
+        if not _is_pro(user):
+            data["carousel_enabled"] = False
+        updated = update_company(company_id, data)
         if updated and updated.get("active", True):
             _setup_company_cron(updated)
         return updated
@@ -491,6 +705,8 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
+    if request.active:
+        _require_pro(user, "automation")
     toggle_company(company_id, request.active)
     company = get_company(company_id)
     if company:
@@ -511,9 +727,30 @@ def toggle_carousel(company_id: str, x_token: str = Header(None)):
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     new_val = not company.get("carousel_enabled", False)
+    if new_val:
+        _require_pro(user, "carousel")
     import db as _db
     _db.companies.update_one({"id": company_id}, {"$set": {"carousel_enabled": new_val}})
     return {"carousel_enabled": new_val}
+
+
+@app.post("/companies/{company_id}/preview")
+def preview_post(company_id: str, x_token: str = Header(None)):
+    """Generate a sample post for onboarding preview — does not count against gen limit, does not post."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        from autonomous import generate_autonomous_post, _get_post_type, POST_TYPE_LABELS
+        from search import search_industry_news, format_news_context
+        post_type = _get_post_type(company)
+        news_results = search_industry_news(company["industry"], company["name"], 3)
+        news_context = format_news_context(news_results)
+        post_text = generate_autonomous_post(company, news_context, post_type)
+        return {"post": post_text, "post_type": POST_TYPE_LABELS.get(post_type, post_type)}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.post("/companies/{company_id}/run")
@@ -586,6 +823,26 @@ async def post_linkedin_carousel(
         return li.upload_and_post_carousel(user["id"], pdf_bytes, text)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to post carousel: {str(e)}")
+
+
+@app.post("/post/linkedin/image")
+async def post_linkedin_image(
+    file: UploadFile = File(...),
+    text: str = Form(...),
+    dry_run: bool = Form(False),
+    x_token: str = Header(None),
+):
+    user = _require_user(x_token)
+    if not li.is_connected(user["id"]):
+        raise HTTPException(status_code=401, detail="LinkedIn not connected.")
+    image_bytes = await file.read()
+    if dry_run:
+        print(f"\n[DRY RUN] Would post image to LinkedIn:\n{text}\n")
+        return {"status": "dry_run", "preview": text}
+    try:
+        return li.upload_and_post_image(user["id"], image_bytes, text)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to post image: {str(e)}")
 
 
 @app.post("/companies/{company_id}/upload-linkedin")

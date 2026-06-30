@@ -6,11 +6,11 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from groq import Groq
 from dotenv import load_dotenv
 
+from llm import generate_json
+
 load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 PRIORITY_PATHS = ["/about", "/products", "/services", "/solutions",
@@ -145,18 +145,8 @@ Return a JSON object with these exact keys:
 
 Return ONLY valid JSON, no explanation."""
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-    )
-
-    text = response.choices[0].message.content.strip()
-    match = re.search(r'\{.*\}', text, re.DOTALL)
-    if match:
-        text = match.group(0)
     try:
-        return json.loads(text)
+        return generate_json(prompt, temperature=0.3)
     except Exception:
         return {}
 

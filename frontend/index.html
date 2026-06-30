@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — Quick Generate</title>
+  <script src="/static/confirm.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f5f4ff; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; color: #1a1a2e; }
+    body { background: #f4f0e8; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; color: #1c1813; }
 
     /* ── Nav ── */
     .dash-nav {
@@ -23,7 +25,7 @@
       top: 0;
       z-index: 100;
     }
-    .logo { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+    .logo { font-size: 20px; font-weight: 800; color: #1c1813; }
     .logo span { color: #6c47ff; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
@@ -63,7 +65,13 @@
     .page-body { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
 
     .page-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-    .page-sub { font-size: 14px; color: #888; margin-bottom: 28px; }
+    .page-sub { font-size: 14px; color: #6e6e78; margin-bottom: 28px; }
+
+    button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid #6c47ff;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
 
     /* ── Input card ── */
     .input-card {
@@ -78,7 +86,7 @@
       display: flex;
       gap: 4px;
       margin-bottom: 18px;
-      background: #f4f2ff;
+      background: #efe9e0;
       border-radius: 10px;
       padding: 4px;
     }
@@ -136,7 +144,7 @@
     .generate-btn:hover { background: #5835e0; }
     .generate-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
     .generate-btn.secondary {
-      background: #1a1a2e;
+      background: #1c1813;
       flex: 0.85;
     }
     .generate-btn.secondary:hover { background: #2a2a4a; }
@@ -150,6 +158,31 @@
       font-size: 14px;
       margin-bottom: 16px;
     }
+
+    /* ── Generation progress ── */
+    .gen-progress {
+      display: none;
+      align-items: center;
+      gap: 16px;
+      background: #fff;
+      border: 1.5px solid #e8e4ff;
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+    }
+    .gen-progress.visible { display: flex; }
+    .gen-spinner {
+      width: 26px; height: 26px; flex-shrink: 0;
+      border: 3px solid #f0eeff;
+      border-top-color: #6c47ff;
+      border-radius: 50%;
+      animation: gen-spin 0.8s linear infinite;
+    }
+    @keyframes gen-spin { to { transform: rotate(360deg); } }
+    .gen-progress-info { flex: 1; min-width: 0; }
+    .gen-stage { font-size: 14px; font-weight: 600; color: #1c1813; margin-bottom: 8px; transition: opacity 0.2s; }
+    .gen-bar-bg { background: #f0eeff; border-radius: 20px; height: 6px; overflow: hidden; }
+    .gen-bar { background: #6c47ff; height: 100%; border-radius: 20px; width: 0%; transition: width 0.4s ease; }
 
     /* ── Output grid ── */
     .output-section { display: none; }
@@ -182,7 +215,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 14px 16px;
-      border-bottom: 1px solid #f4f2ff;
+      border-bottom: 1px solid #efe9e0;
     }
     .platform-badge {
       font-size: 12px;
@@ -295,7 +328,7 @@
       align-items: center;
       gap: 12px;
       padding: 10px 0;
-      border-bottom: 1px solid #f4f2ff;
+      border-bottom: 1px solid #efe9e0;
       font-size: 13px;
     }
     .queue-item:last-child { border-bottom: none; }
@@ -304,7 +337,7 @@
     .queue-status { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
     .queue-status.scheduled    { background: #e8f0fe; color: #1a73e8; }
     .queue-status.posted       { background: #e6f4ea; color: #057642; }
-    .queue-status.dry_run_fired{ background: #f4f2ff; color: #6c47ff; }
+    .queue-status.dry_run_fired{ background: #efe9e0; color: #6c47ff; }
     .queue-status.cancelled    { background: #f0f0f0; color: #888; }
     .queue-cancel { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 14px; padding: 2px 6px; }
 
@@ -341,7 +374,7 @@
     /* ── Toast ── */
     #toast {
       position: fixed; bottom: 28px; right: 28px;
-      background: #1a1a2e; color: #fff;
+      background: #1c1813; color: #fff;
       padding: 12px 20px; border-radius: 10px;
       font-size: 14px; font-weight: 500;
       box-shadow: 0 4px 16px rgba(0,0,0,0.2);
@@ -353,6 +386,37 @@
     #toast.success { background: #057642; }
     #toast.error   { background: #c0392b; }
     #toast.warn    { background: #e65100; }
+
+    /* ── Mobile ── */
+    @media (max-width: 760px) {
+      .dash-nav {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 10px 14px;
+        gap: 8px 12px;
+      }
+      .nav-right { flex-wrap: wrap; gap: 8px 12px; }
+      .nav-user { display: none; }
+      .page-body { padding: 20px 14px; }
+
+      .btn-row { flex-direction: column; }
+      .generate-btn.secondary { flex: 1; }
+
+      .output-grid { grid-template-columns: 1fr; }
+      #card-linkedin, #card-carousel { grid-column: auto; }
+      .card-header { flex-wrap: wrap; gap: 8px; }
+      .card-body { max-height: 260px; }
+
+      .carousel-inner { flex-direction: column; }
+      .carousel-actions { flex-direction: row; flex-wrap: wrap; min-width: 0; width: 100%; }
+      .carousel-action-btn { flex: 1 1 45%; }
+
+      .queue-item { flex-wrap: wrap; gap: 6px 12px; }
+      .queue-preview { flex-basis: 100%; }
+
+      .modal-box { width: 92%; padding: 22px 18px; }
+      #toast { left: 14px; right: 14px; bottom: 16px; max-width: none; }
+    }
   </style>
 </head>
 <body>
@@ -365,10 +429,6 @@
       <a class="nav-link active">Quick Generate</a>
       <a class="nav-link" href="/setup">Dashboard</a>
       <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
-      <label class="dry-toggle">
-        <input type="checkbox" id="dry-run-checkbox" checked />
-        <span>Dry Run</span>
-      </label>
       <button class="li-status-pill" id="li-pill" onclick="handleLiClick()">
         <span class="dot"></span>
         <span id="li-pill-text">LinkedIn</span>
@@ -401,6 +461,19 @@
           <span id="carousel-btn-text">⊞ Carousel PDF</span>
           <span id="carousel-btn-loader" style="display:none;">Generating…</span>
         </button>
+        <button class="generate-btn secondary" id="image-btn" onclick="generateImagePost()">
+          <span id="image-btn-text">🖼 Image Post</span>
+          <span id="image-btn-loader" style="display:none;">Generating…</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Generation progress -->
+    <div class="gen-progress" id="gen-progress" role="status" aria-live="polite">
+      <div class="gen-spinner"></div>
+      <div class="gen-progress-info">
+        <div class="gen-stage" id="gen-stage">Reading your content…</div>
+        <div class="gen-bar-bg"><div class="gen-bar" id="gen-bar"></div></div>
       </div>
     </div>
 
@@ -467,6 +540,27 @@
       </div>
     </div>
 
+    <!-- Image Post Output -->
+    <div class="output-section" id="image-section">
+      <div class="output-section-title">Image Post</div>
+      <div class="output-card" id="card-image">
+        <div class="card-header">
+          <div class="platform-badge" style="background:#e8f5e9;color:#2e7d32;text-transform:none;font-size:13px;">Branded Image</div>
+        </div>
+        <div class="carousel-inner">
+          <div style="flex:0 0 auto;">
+            <img id="image-preview" alt="Branded image preview" style="width:240px;max-width:100%;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.12);display:block;" />
+          </div>
+          <div class="carousel-post-text" id="image-post-text" style="flex:1;"></div>
+          <div class="carousel-actions">
+            <button class="carousel-action-btn" onclick="downloadImagePost()">⬇ Download PNG</button>
+            <button class="carousel-action-btn primary" id="post-image-btn" onclick="postImage()">Post to LinkedIn</button>
+            <p class="carousel-preview-tag">1 image · 1080×1080</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Queue -->
     <div class="queue-card" id="queue-section">
       <h3>Scheduled Posts</h3>
@@ -488,6 +582,13 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=5"></script>
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_test_Y2hhbXBpb24tZ3JvdXNlLTY3LmNsZXJrLmFjY291bnRzLmRldiQ"
+    src="https://champion-grouse-67.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    onload="startApp()"
+  ></script>
 </body>
 </html>

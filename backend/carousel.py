@@ -1,14 +1,13 @@
 import io
-import json
 import os
 import re
 
-from groq import Groq
 from PIL import Image, ImageDraw, ImageFont
 from dotenv import load_dotenv
 
+from llm import generate_json
+
 load_dotenv()
-_groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SLIDE_W, SLIDE_H = 1080, 1080
 _SCALE = 4                          # 4× supersampling → downscale for maximum sharpness
@@ -49,6 +48,30 @@ PALETTES = {
         "subtitle": (196, 181, 253),   # #c4b5fd
         "body":     (224, 231, 255),   # #e0e7ff
         "muted":    (55,  48,  163),   # #3730a3
+    },
+    "clean_light": {
+        "bg":       (250, 250, 252),   # #fafafc — near-white
+        "accent":   (79,  70,  229),   # #4f46e5 indigo
+        "title":    (17,  24,  39),    # #111827
+        "subtitle": (75,  85,  99),    # #4b5563
+        "body":     (55,  65,  81),    # #374151
+        "muted":    (180, 184, 196),   # light gray
+    },
+    "warm_paper": {
+        "bg":       (252, 248, 240),   # #fcf8f0 — warm cream
+        "accent":   (194, 65,  12),    # #c2410c burnt orange
+        "title":    (41,  37,  36),    # #292524
+        "subtitle": (87,  83,  78),    # #57534e
+        "body":     (68,  64,  60),    # #44403c
+        "muted":    (196, 190, 178),   # warm gray
+    },
+    "electric": {
+        "bg":       (9,   9,   11),    # #09090b — near-black
+        "accent":   (163, 230, 53),    # #a3e635 lime
+        "title":    (255, 255, 255),
+        "subtitle": (161, 161, 170),   # #a1a1aa
+        "body":     (212, 212, 216),   # #d4d4d8
+        "muted":    (63,  63,  70),    # #3f3f46
     },
 }
 
@@ -372,7 +395,7 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
 
 
 def _slide_content(title: str, body: str, num: int, total: int,
-                   brand: str, p: dict) -> Image.Image:
+                   brand: str, p: dict, label: str = "") -> Image.Image:
     """Content slide: split layout — giant clipped number left, accent panel right."""
     body = body[:200].rsplit(" ", 1)[0] if len(body) > 200 else body
 
@@ -408,8 +431,8 @@ def _slide_content(title: str, body: str, num: int, total: int,
     max_w = panel_x - PAD - int(40 * _SCALE)
     content_y = int(_RH * 0.50)
 
-    # Small step label above title
-    label_text = f"STEP {num - 1}"
+    # Small label above title (e.g. STEP 1 / MYTH / TRUTH)
+    label_text = (label or f"STEP {num - 1}").upper()[:24]
     label_color = p["accent"]
     draw.text((content_x, content_y), label_text, font=f_label, fill=label_color)
     content_y += int(34 * _SCALE)
@@ -454,6 +477,73 @@ def _slide_content(title: str, body: str, num: int, total: int,
     # ── Footer: thin full-width divider + brand left / counter right ──
     draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)],
                    fill=p["muted"])
+    footer_text_y = footer_y + int(14 * _SCALE)
+    draw.text((PAD, footer_text_y), brand, font=f_sm, fill=p["muted"])
+    counter = f"{num}/{total}"
+    cw = _tw(draw, counter, f_sm)
+    draw.text((_RW - PAD - cw, footer_text_y), counter, font=f_sm, fill=p["muted"])
+
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_stat(stat: str, title: str, body: str, num: int, total: int,
+                brand: str, p: dict) -> Image.Image:
+    """Stat slide: one huge number centered with a caption — maximum visual punch."""
+    top_c = p["bg"]
+    bot_c = _mix(p["bg"], p["accent"], 0.14)
+    img = Image.new("RGB", (_RW, _RH), top_c)
+    _draw_gradient_bg(img, top_c, bot_c)
+    draw = ImageDraw.Draw(img)
+
+    # Decorations: ghost circle + dot grid
+    _draw_circle(draw, -int(120 * _SCALE), _RH - int(60 * _SCALE),
+                 int(420 * _SCALE), _mix(p["bg"], p["accent"], 0.10))
+    _draw_dot_grid(draw, _RW - int(260 * _SCALE), int(70 * _SCALE),
+                   5, 4, int(44 * _SCALE), int(5 * _SCALE), _mix(p["bg"], p["accent"], 0.20))
+    draw.rectangle([0, 0, _RW, int(8 * _SCALE)], fill=p["accent"])
+
+    f_sm    = _font(21 * _SCALE)
+    f_label = _font(24 * _SCALE, bold=True)
+    max_w   = _RW - PAD * 2
+
+    # Fit the giant stat
+    stat_text, f_stat, h_stat = _fit_text_to_box(
+        draw, stat, max_w, int(_RH * 0.34), [220, 190, 160, 130, 110, 90], gap=int(8 * _SCALE), max_lines=1
+    )
+    title_text, f_title, h_title = _fit_text_to_box(
+        draw, title, max_w, int(_RH * 0.16), [52, 48, 44, 40, 36], gap=int(10 * _SCALE), max_lines=3
+    )
+    body_text, f_body, h_body = _fit_text_to_box(
+        draw, body[:200], max_w - int(120 * _SCALE), int(_RH * 0.18), [32, 30, 28, 26, 24], gap=int(10 * _SCALE), max_lines=4
+    )
+
+    gap1, gap2 = int(30 * _SCALE), int(24 * _SCALE)
+    block_h = h_stat + gap1 + h_title + gap2 + h_body
+    y = (_RH - int(90 * _SCALE) - block_h) // 2
+
+    # Giant stat, centered, accent
+    for line in _wrap(draw, stat_text, f_stat, max_w):
+        lw = _tw(draw, line, f_stat)
+        draw.text(((_RW - lw) // 2, y), line, font=f_stat, fill=p["accent"])
+        y += draw.textbbox((0, 0), line, font=f_stat)[3] + int(8 * _SCALE)
+    y += gap1 - int(8 * _SCALE)
+
+    # Title, centered
+    for line in _wrap(draw, title_text, f_title, max_w):
+        lw = _tw(draw, line, f_title)
+        draw.text(((_RW - lw) // 2, y), line, font=f_title, fill=p["title"])
+        y += draw.textbbox((0, 0), line, font=f_title)[3] + int(10 * _SCALE)
+    y += gap2 - int(10 * _SCALE)
+
+    # Caption, centered, subdued
+    for line in _wrap(draw, body_text, f_body, max_w - int(120 * _SCALE)):
+        lw = _tw(draw, line, f_body)
+        draw.text(((_RW - lw) // 2, y), line, font=f_body, fill=p["subtitle"])
+        y += draw.textbbox((0, 0), line, font=f_body)[3] + int(10 * _SCALE)
+
+    # Footer
+    footer_y = _RH - int(70 * _SCALE)
+    draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)], fill=p["muted"])
     footer_text_y = footer_y + int(14 * _SCALE)
     draw.text((PAD, footer_text_y), brand, font=f_sm, fill=p["muted"])
     counter = f"{num}/{total}"
@@ -535,40 +625,259 @@ def _slide_cta(headline: str, cta: str, num: int, total: int,
     return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
+def _wrap_height(draw, lines, font, gap):
+    total = 0
+    for i, line in enumerate(lines):
+        total += draw.textbbox((0, 0), line, font=font)[3] + (gap if i < len(lines) - 1 else 0)
+    return total
+
+
+def _draw_centered_emphasis(draw, text, font, cx, y, max_w, base, accent, emphasis, gap):
+    """Draw centered, wrapped text; words inside the emphasis phrase get the accent color."""
+    emph = {w.strip('.,!?;:"\'').lower() for w in (emphasis or "").split()}
+    space_w = _tw(draw, " ", font)
+    for line in _wrap(draw, text, font, max_w):
+        words = line.split()
+        widths = [_tw(draw, w, font) for w in words]
+        total = sum(widths) + space_w * (len(words) - 1)
+        x = cx - total // 2
+        lh = 0
+        for w, ww in zip(words, widths):
+            color = accent if w.strip('.,!?;:"\'').lower() in emph else base
+            draw.text((x, y), w, font=font, fill=color)
+            x += ww + space_w
+            lh = draw.textbbox((0, 0), w, font=font)[3]
+        y += lh + gap
+    return y
+
+
+def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
+                 emphasis: str = "", tag: str = "") -> Image.Image:
+    """Standalone branded 'poster' image for a single text+image post.
+    Centered composition with a top category tag and an accent-highlighted key phrase —
+    deliberately distinct from the left-aligned carousel slides."""
+    # Diagonal-feel gradient background
+    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    _draw_gradient_bg(img, p["bg"], _mix(p["bg"], p["accent"], 0.24))
+    draw = ImageDraw.Draw(img)
+
+    # Big soft glow bottom-left + ghost ring top-right for depth
+    _draw_circle(draw, -int(140 * _SCALE), _RH + int(120 * _SCALE),
+                 int(560 * _SCALE), _mix(p["bg"], p["accent"], 0.12))
+    _draw_circle(draw, _RW + int(120 * _SCALE), -int(120 * _SCALE),
+                 int(440 * _SCALE), _mix(p["bg"], p["accent"], 0.10))
+    _draw_dot_grid(draw, _RW - int(250 * _SCALE), _RH - int(170 * _SCALE),
+                   5, 3, int(42 * _SCALE), int(5 * _SCALE), _mix(p["bg"], p["accent"], 0.18))
+
+    cx = _RW // 2
+    pad_x = int(110 * _SCALE)
+    max_w = _RW - pad_x * 2
+
+    # ── Top category tag (pill) ──
+    tag = (tag or "").strip().upper()[:22]
+    tag_bottom = int(150 * _SCALE)
+    if tag:
+        f_tag = _font(28 * _SCALE, bold=True)
+        tw = _tw(draw, tag, f_tag)
+        ph, pv = int(26 * _SCALE), int(13 * _SCALE)
+        pill_w = tw + ph * 2
+        th = draw.textbbox((0, 0), tag, font=f_tag)[3]
+        pill_h = th + pv * 2
+        px = cx - pill_w // 2
+        py = int(120 * _SCALE)
+        _draw_rounded_rect(draw, px, py, px + pill_w, py + pill_h, pill_h // 2,
+                           _mix(p["bg"], p["accent"], 0.28))
+        draw.text((px + ph, py + pv), tag, font=f_tag, fill=p["accent"])
+        tag_bottom = py + pill_h
+
+    # ── Center block: headline (with accent emphasis) + divider + subtext ──
+    brand_reserved = int(150 * _SCALE)
+    region_top = tag_bottom + int(40 * _SCALE)
+    region_h = _RH - region_top - brand_reserved
+    head_gap = int(14 * _SCALE)
+    sub_gap = int(10 * _SCALE)
+    divider_h = int(6 * _SCALE)
+    gap_after_head = int(30 * _SCALE)
+    gap_before_sub = int(22 * _SCALE)
+
+    hook_text, f_head, _ = _fit_text_to_box(
+        draw, headline, max_w, int(region_h * 0.66), [108, 98, 88, 80, 72, 64], gap=head_gap, max_lines=6
+    )
+    h_head = _wrap_height(draw, _wrap(draw, hook_text, f_head, max_w), f_head, head_gap)
+
+    has_sub = bool((subtext or "").strip())
+    if has_sub:
+        sub_text, f_sub, _ = _fit_text_to_box(
+            draw, subtext[:160], max_w, int(region_h * 0.22), [38, 36, 34, 32, 30], gap=sub_gap, max_lines=3
+        )
+        h_sub = _wrap_height(draw, _wrap(draw, sub_text, f_sub, max_w), f_sub, sub_gap)
+    else:
+        sub_text, f_sub, h_sub = "", _font(34 * _SCALE), 0
+
+    block_h = h_head + (gap_after_head + divider_h + gap_before_sub + h_sub if has_sub else 0)
+    y = region_top + max(0, (region_h - block_h) // 2)
+
+    y = _draw_centered_emphasis(draw, hook_text, f_head, cx, y, max_w,
+                                p["title"], p["accent"], emphasis, head_gap)
+    if has_sub:
+        y += gap_after_head - head_gap
+        draw.rectangle([cx - int(40 * _SCALE), y, cx + int(40 * _SCALE), y + divider_h], fill=p["accent"])
+        y += divider_h + gap_before_sub
+        for line in _wrap(draw, sub_text, f_sub, max_w):
+            lw = _tw(draw, line, f_sub)
+            draw.text((cx - lw // 2, y), line, font=f_sub, fill=p["subtitle"])
+            y += draw.textbbox((0, 0), line, font=f_sub)[3] + sub_gap
+
+    # ── Brand bottom-center with accent dot ──
+    f_brand = _font(26 * _SCALE, bold=True)
+    bw = _tw(draw, brand, f_brand)
+    dot_r = int(7 * _SCALE)
+    gap = int(14 * _SCALE)
+    total_w = dot_r * 2 + gap + bw
+    bx = cx - total_w // 2
+    by = _RH - int(96 * _SCALE)
+    _draw_circle(draw, bx + dot_r, by + int(16 * _SCALE), dot_r, p["accent"])
+    draw.text((bx + dot_r * 2 + gap, by), brand, font=f_brand, fill=p["subtitle"])
+
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+# ── Single image post (branded quote card) ───────────────────────────────────
+
+_IMAGE_POST_SYSTEM = """You create a single branded 'poster' image post for LinkedIn — a designed
+graphic with one bold idea, NOT a slide from a deck.
+
+Distill the content into ONE quotable, standalone idea, plus a caption.
+
+card_tag: a 1-2 word category label shown at the top (e.g. "INSIGHT", "HOT TAKE", "THE SHIFT",
+  "PREDICTION", "REALITY CHECK"). Pick what fits the idea.
+card_headline: the single most striking, quotable line. Max 12 words. A bold claim, a sharp
+  truth, or a reframe. Must make complete sense with zero context. No hashtags, no quote marks.
+card_emphasis: the 1-4 word phrase WITHIN card_headline that carries the punch — it gets
+  highlighted in color. MUST be an exact substring of card_headline (e.g. "predictive").
+card_subtext: one supporting line that adds tension or a specific fact. Max 14 words.
+  Optional — use "" if the headline stands strongest alone.
+post_text: the LinkedIn caption. Hook first, no warm-up. 2-3 short paragraphs expanding the
+  idea, varied rhythm. 0-3 lowercase hashtags on the last line.
+
+VOICE: if a voice/author profile is provided, write the way that author talks.
+FACTUAL SAFETY: never invent exact stats, product version numbers, dates, or named studies —
+  hedge when unsure rather than fabricate a specific a reader could falsify.
+NEVER USE: "It's not X. It's Y.", "Let that sink in", game-changer, unlock, leverage, synergy.
+
+Return ONLY JSON: {"card_tag": "...", "card_headline": "...", "card_emphasis": "...",
+"card_subtext": "...", "post_text": "..."}"""
+
+
+def _finalize_image_post(result: dict) -> dict:
+    from generator import _strip_markdown
+    headline = _clean_slide_text(result.get("card_headline", ""))
+    sub = (result.get("card_subtext") or "").strip()
+    emphasis = _clean_slide_text(result.get("card_emphasis", "")) if result.get("card_emphasis") else ""
+    # Only keep emphasis if it's genuinely part of the headline
+    if emphasis and emphasis.lower() not in headline.lower():
+        emphasis = ""
+    return {
+        "card_tag":      _clean_slide_text(result.get("card_tag", "")) if result.get("card_tag") else "",
+        "card_headline": headline,
+        "card_emphasis": emphasis,
+        "card_subtext":  _clean_slide_text(sub) if sub else "",
+        "post_text":     _strip_markdown(result.get("post_text", "") or ""),
+    }
+
+
+def generate_image_post_from_text(raw_text: str, company: dict = None) -> dict:
+    voice_section = ""
+    if company:
+        from generator import _build_voice_block
+        vb = _build_voice_block(company)
+        if vb:
+            voice_section = f"\n\nVOICE PROFILE:\n{vb[:1200]}"
+    prompt = f"""Content to turn into a single branded image post:
+
+{raw_text[:2000]}{voice_section}
+
+Build the card around the single most quotable, scroll-stopping idea in the content.
+
+Return ONLY valid JSON:
+{{"card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...", "post_text": "..."}}"""
+    result = generate_json(prompt, system=_IMAGE_POST_SYSTEM, max_tokens=1200, temperature=0.85)
+    return _finalize_image_post(result)
+
+
+def render_image_post_png(content: dict, company: dict) -> bytes:
+    p = _get_palette(company)
+    brand = company.get("name", "Voyce")
+    img = _slide_quote(
+        content.get("card_headline", ""), content.get("card_subtext", ""), brand, p,
+        emphasis=content.get("card_emphasis", ""), tag=content.get("card_tag", ""),
+    )
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 # ── Manual carousel (from pasted content) ────────────────────────────────────
 
-_CAROUSEL_SYSTEM = """You are a world-class LinkedIn carousel strategist who has studied 10,000+ viral posts.
+_CAROUSEL_SYSTEM = """You are a world-class LinkedIn carousel strategist.
 
-Your job: extract the most SURPRISING, COUNTERINTUITIVE, or CONTROVERSIAL insight from any content and build a carousel that stops the scroll.
+Your job: extract the most surprising, counterintuitive, or genuinely useful insight from the
+content and build a carousel a busy professional would actually swipe through.
 
-HOOK SLIDE RULES (most important):
-The headline must use ONE of these proven scroll-stopping formulas:
-  - The Specific Number: "43% of AI projects fail at deployment. Not ideation."
-  - The Counterintuitive Truth: "The best engineers I know break every best practice."
-  - The Named Event: "Salesforce cut 1,000 jobs. AI did it in 90 days."
-  - The Uncomfortable Confession: "I built the wrong product for 6 months. Here's what I missed."
-  - The Myth-Buster: "Everyone says X. The data says the opposite."
-NEVER write: "X Is Important", "X Changes Everything", "The Future of X", "Why X Matters", "Top X Ways to..."
+SAVE-WORTHY IS THE GOAL: carousels win on LinkedIn because people SAVE them, and a save drives
+far more reach than a like. So make this a keepable reference — a clear framework, a numbered
+playbook, a checklist, or a step-by-step — something a reader thinks "I'll need this later,"
+not just "nice." Every slide must earn its place with a specific, usable takeaway.
 
-CONTENT SLIDE RULES:
-- Title = the point itself, stated as a bold claim (not a question, not vague)
-- Body = name a real company, a real report, or a real number. If none in content, use a well-known industry example.
-- Every body sentence must be specific enough that someone could verify it online.
+HOOK SLIDE (most important):
+- The headline is a specific, bold claim — a real number, a named company/event, a confession,
+  or something that sounds wrong until explained.
+- NEVER write: "X Is Important", "X Changes Everything", "The Future of X", "Why X Matters",
+  "Top X Ways to...".
+- The subtext adds a fact or tension — never restates the headline.
 
-CTA SLIDE RULES:
-- Headline = the ONE thing you want them to remember — state it as a bold declaration
-- CTA = a sharp question that only THIS specific audience would care about. Not "what do you think?"
+CONTENT SLIDES (3-5 slides — pick the count the content deserves, don't pad):
+Each slide has a "kind":
+- "point" (default): title = the point stated as a bold claim; body = a real company, report,
+  number, or concrete example. label = a short tag for the slide (e.g. "STEP 1", "MYTH",
+  "TRUTH", "MISTAKE 2") — pick labels that fit the carousel's narrative arc.
+- "stat": use when one number IS the story. stat = the number itself (e.g. "43%", "₹2.4 Cr",
+  "10x"); title = what the number means; body = one-sentence context with the source.
+Use at most one stat slide. Vary the labels — a carousel where every label is "STEP n" is fine
+for a how-to, wrong for a myth-buster.
 
-OUTPUT HYGIENE RULES (strict):
-- Do NOT include markdown symbols like **, __, ##, backticks, or bullet prefixes.
-- Do NOT include placeholder tokens like [Specific Number], [X], [audience], [Company].
-- Do NOT prefix lines with numbering like "1." or "2)".
+CTA SLIDE:
+- headline = the ONE thing to remember, stated as a declaration
+- cta = a sharp question or next action for this specific audience — never "what do you think?"
 
-Banned words/phrases: game-changer, landscape, unlock, dive deep, revolutionize, leverage, synergy,
-in today's world, the future is here, are you ready, this is just the beginning, I'm excited,
-it goes without saying, at the end of the day, paradigm shift, move the needle.
+VOICE: if a voice/author profile is provided, write every slide the way that author talks.
+
+NEVER FABRICATE: do not invent first-person claims ("My conversion jumped", "I built", "we
+grew") unless that exact claim appears in the provided content or author profile. Attribute
+third-party results to their source ("Razorpay's report found...", "Founders interviewed said...").
+
+OUTPUT HYGIENE (strict):
+- No markdown (**, ##, backticks), no placeholder tokens like [X] or [Company], no numbered
+  prefixes in titles.
+- Banned: game-changer, landscape, unlock, dive deep, revolutionize, leverage, synergy,
+  in today's world, the future is here, are you ready, I'm excited, at the end of the day,
+  paradigm shift, move the needle, let that sink in.
+
+post_text: the LinkedIn caption. Hook first, no warm-up. 3-4 short paragraphs, varied rhythm.
+0-3 lowercase hashtags on the last line, only if relevant.
 
 Return ONLY valid JSON."""
+
+_CAROUSEL_SCHEMA = """{
+  "hook_slide": {"headline": "...", "subtext": "..."},
+  "content_slides": [
+    {"kind": "point", "label": "STEP 1", "title": "...", "body": "..."},
+    {"kind": "stat", "label": "THE NUMBER", "stat": "43%", "title": "...", "body": "..."},
+    {"kind": "point", "label": "STEP 2", "title": "...", "body": "..."}
+  ],
+  "cta_slide": {"headline": "...", "cta": "..."},
+  "post_text": "..."
+}"""
 
 def _clean_slide_text(text: str) -> str:
     """Strip markdown/template artifacts so rendered slides are publish-safe."""
@@ -596,11 +905,20 @@ def _sanitize_carousel_result(result: dict) -> dict:
 
     cleaned_content = []
     for s in (result.get("content_slides") or []):
-        cleaned_content.append({
-            "title": _clean_slide_text((s or {}).get("title", "")),
-            "body": _clean_slide_text((s or {}).get("body", "")),
-        })
-    result["content_slides"] = cleaned_content[:3]
+        s = s or {}
+        kind = s.get("kind", "point")
+        cleaned = {
+            "kind":  kind if kind in ("point", "stat") else "point",
+            "label": _clean_slide_text(s.get("label", ""))[:24],
+            "title": _clean_slide_text(s.get("title", "")),
+            "body":  _clean_slide_text(s.get("body", "")),
+        }
+        if cleaned["kind"] == "stat":
+            cleaned["stat"] = _clean_slide_text(s.get("stat", ""))[:14]
+            if not cleaned["stat"]:
+                cleaned["kind"] = "point"
+        cleaned_content.append(cleaned)
+    result["content_slides"] = cleaned_content[:5]
 
     cta = result.get("cta_slide") or {}
     cta["headline"] = _clean_slide_text(cta.get("headline", ""))
@@ -608,154 +926,68 @@ def _sanitize_carousel_result(result: dict) -> dict:
     result["cta_slide"] = cta
 
     if "post_text" in result:
-        result["post_text"] = (result.get("post_text") or "").replace("**", "")
+        from generator import _strip_markdown
+        result["post_text"] = _strip_markdown(result.get("post_text") or "")
     return result
 
 
 def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
-    # Phase 0: generate a locked scroll-stopping hook headline first
-    locked_headline = ""
-    try:
-        from hooks import generate_hook
-        allowed = company.get("allowed_hooks", []) if company else []
-        locked_headline = generate_hook(context=raw_text[:1200], industry="general", allowed_hooks=allowed)
-    except Exception:
-        pass
+    voice_section = ""
+    if company:
+        from generator import _build_voice_block
+        voice_block = _build_voice_block(company)
+        if voice_block:
+            voice_section = f"\n\nVOICE PROFILE:\n{voice_block[:1200]}"
 
-    hook_constraint = (
-        f"\nCRITICAL: hook_slide.headline MUST be exactly: \"{locked_headline}\" (do not change it)."
-        if locked_headline else ""
-    )
+    prompt = f"""Content to turn into a LinkedIn carousel:
 
-    prompt = f"""Content to turn into a 5-slide LinkedIn carousel:
+{raw_text[:2000]}{voice_section}
 
-{raw_text[:2000]}
+Build the carousel around the single most surprising or useful insight in the content.
 
-Extract the single most surprising or counterintuitive insight. Build the carousel around that.
+Slide constraints:
+- hook_slide.headline: max 8 words. hook_slide.subtext: max 12 words.
+- content slide titles: max 6 words, stated as claims. Bodies: max 2 sentences with real specifics.
+- 3-5 content slides — whatever the content deserves.
+- cta_slide.headline: max 8 words. cta: max 15 words.
 
-Slide 1 (hook): One scroll-stopping headline (max 8 words) + one punchy tension line (max 12 words).
-Slides 2-4 (content): Each gets a bold title (max 6 words, stated as a claim) + 1-2 sentences with real specifics.
-Slide 5 (CTA): A bold takeaway declaration (max 8 words) + a sharp question for this specific audience (max 15 words).
-post_text: Hook first. No warm-up. 3-4 short paragraphs. Ends with 3 relevant lowercase hashtags on their own line.
-{hook_constraint}
+Return ONLY valid JSON in this shape:
+{_CAROUSEL_SCHEMA}"""
 
-Return ONLY valid JSON:
-{{
-  "hook_slide": {{"headline": "...", "subtext": "..."}},
-  "content_slides": [
-    {{"title": "Bold claim max 6 words", "body": "Specific fact, name, or number. Max 2 sentences."}},
-    {{"title": "Bold claim max 6 words", "body": "Specific fact, name, or number. Max 2 sentences."}},
-    {{"title": "Bold claim max 6 words", "body": "Specific fact, name, or number. Max 2 sentences."}}
-  ],
-  "cta_slide": {{"headline": "Bold declaration max 8 words", "cta": "Sharp specific question max 15 words"}},
-  "post_text": "Hook line.\\n\\nSupporting point.\\n\\nClosing insight.\\n\\n#tag1 #tag2 #tag3"
-}}"""
-
-    res = _groq.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": _CAROUSEL_SYSTEM},
-            {"role": "user", "content": prompt},
-        ],
-        response_format={"type": "json_object"},
-        max_tokens=1200,
-    )
-    result = _sanitize_carousel_result(json.loads(res.choices[0].message.content))
-    # Enforce locked headline
-    if locked_headline and result.get("hook_slide"):
-        result["hook_slide"]["headline"] = _clean_slide_text(locked_headline)
-    return result
+    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=1600, temperature=0.85)
+    return _sanitize_carousel_result(result)
 
 
 # ── Autonomous content generation ────────────────────────────────────────────
 
 def generate_carousel_content(company: dict, news_context: str, post_type: str) -> dict:
-    from autonomous import _build_company_brief, POST_TYPE_LABELS
+    from autonomous import _build_company_brief, POST_TYPE_LABELS, _hook_guidance
 
     is_personal = company.get("profile_type") == "personal"
-    voice_note = "First person (I, my, I've) — write as if the author is speaking directly." if is_personal else "Third person — company voice, authoritative."
-    company_brief = _build_company_brief(company)[:900]
+    voice_note = ("First person (I, my, I've) — write as if the author is speaking directly."
+                  if is_personal else "Third person — company voice, authoritative.")
+    company_brief = _build_company_brief(company)[:1400]
 
-    # Phase 0: generate a locked hook headline using the hook engine
-    locked_headline = ""
-    try:
-        from hooks import generate_hook
-        context = (news_context or "") + "\n\n" + company_brief[:500]
-        allowed = company.get("allowed_hooks", [])
-        locked_headline = generate_hook(context=context, industry=company["industry"], post_type=post_type, allowed_hooks=allowed)
-    except Exception:
-        pass
+    prompt = f"""Generate a LinkedIn carousel for {company['name']} ({company['industry']}).
 
-    hook_formula_map = {
-        "trend_commentary":  "Named Event: 'Company/Report just did X. The implication no one is talking about: Y.'",
-        "trend_reaction":    "Named Event: 'Company/Report just did X. The implication no one is talking about: Y.'",
-        "industry_stat":     "Specific Number: '[Exact %/number] of [audience] [surprising fact]. Not [assumed cause]. [Real cause].'",
-        "stat_reaction":     "Specific Number: '[Exact %/number] of [audience] [surprising fact]. Not [assumed cause]. [Real cause].'",
-        "expert_insight":    "Counterintuitive Truth: 'The [best/top/smartest] [people/companies] in [industry] [do the opposite of conventional wisdom].'",
-        "expert_insight_p":  "Counterintuitive Truth: 'The [best/top/smartest] [people/companies] in [industry] [do the opposite of conventional wisdom].'",
-        "hot_take":          "Myth-Buster: 'Everyone says [X]. The data/reality says the opposite.'",
-        "lesson_learned":    "Uncomfortable Confession: 'I [made specific mistake] for [timeframe]. Here is what I missed.'",
-        "personal_story":    "Scene Drop: Drop into a specific moment. Name the situation, the stakes, the turning point.",
-        "product_spotlight": "Problem-First: '[Specific pain point] costs [industry] companies [estimate] per year. Most teams are fixing the wrong thing.'",
-        "case_study":        "Result-First: '[Specific outcome] in [timeframe]. Here is exactly how it happened.'",
-    }
-    hook_formula = hook_formula_map.get(post_type, "Counterintuitive Truth: state the surprising reality, not the obvious take.")
-
-    hook_constraint = (
-        f"\nCRITICAL: hook_slide.headline MUST be exactly: \"{locked_headline}\" (do not change it)."
-        if locked_headline else ""
-    )
-
-    prompt = f"""Generate a 5-slide LinkedIn carousel for {company['name']} ({company['industry']}).
-
-Post type: {POST_TYPE_LABELS.get(post_type, post_type)}
+Post type: {POST_TYPE_LABELS.get(post_type, post_type)} — shape the narrative arc and slide labels to fit this type.
 Latest industry context: {news_context or 'Draw from well-known industry examples and published reports.'}
 Author/company context: {company_brief}
 
-HOOK SLIDE — use this formula for the subtext (headline is already set):
-{hook_formula}
-The subtext must add a specific fact, number, or tension — not just restate the headline.
-
-CONTENT SLIDES (3 slides):
-- Title: the point stated as a bold declarative claim (max 6 words)
-- Body: name real companies, cite real reports/numbers, or give a specific verifiable example
-- No slide can say something generic that would apply to any industry
-
-CTA SLIDE:
-- Headline: the single most memorable takeaway — stated as a bold declaration
-- CTA: a sharp question only a {company['industry']} professional would deeply care about
-
-post_text: Start with the hook — no warm-up sentence. Write 3 short punchy paragraphs. Close with a question. End with 3 lowercase hashtags on their own line.
+Slide constraints:
+- hook_slide.headline: max 8 words, specific to this content. subtext: adds a fact or tension.
+- 3-5 content slides. Titles max 6 words, stated as claims. Bodies cite real companies,
+  reports, or numbers — nothing that could apply to any industry.
+- cta_slide: the most memorable takeaway + a question this exact audience would care about.
 
 {voice_note}
-{hook_constraint}
+{_hook_guidance(company.get("allowed_hooks"))}
 
-Return ONLY valid JSON:
-{{
-  "hook_slide": {{"headline": "...", "subtext": "..."}},
-  "content_slides": [
-    {{"title": "...", "body": "..."}},
-    {{"title": "...", "body": "..."}},
-    {{"title": "...", "body": "..."}}
-  ],
-  "cta_slide": {{"headline": "...", "cta": "..."}},
-  "post_text": "..."
-}}"""
+Return ONLY valid JSON in this shape:
+{_CAROUSEL_SCHEMA}"""
 
-    res = _groq.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": _CAROUSEL_SYSTEM},
-            {"role": "user", "content": prompt},
-        ],
-        response_format={"type": "json_object"},
-        max_tokens=1200,
-    )
-    result = _sanitize_carousel_result(json.loads(res.choices[0].message.content))
-    # Enforce locked headline
-    if locked_headline and result.get("hook_slide"):
-        result["hook_slide"]["headline"] = _clean_slide_text(locked_headline)
-    return result
+    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=1600, temperature=0.85)
+    return _sanitize_carousel_result(result)
 
 
 # ── PDF assembly ──────────────────────────────────────────────────────────────
@@ -771,7 +1003,13 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
 
     slides = [_slide_hook(hook["headline"], hook["subtext"], 1, total, p)]
     for i, s in enumerate(c_slides):
-        slides.append(_slide_content(s["title"], s["body"], 2 + i, total, brand, p))
+        num = 2 + i
+        if s.get("kind") == "stat" and s.get("stat"):
+            slides.append(_slide_stat(s["stat"], s.get("title", ""), s.get("body", ""),
+                                      num, total, brand, p))
+        else:
+            slides.append(_slide_content(s.get("title", ""), s.get("body", ""), num, total,
+                                         brand, p, label=s.get("label", "")))
     slides.append(_slide_cta(cta["headline"], cta["cta"], total, total, brand, p))
 
     buf = io.BytesIO()

@@ -1,79 +1,144 @@
-import hashlib
+import base64
 import os
-import secrets
+import time
 from datetime import datetime
 from dotenv import load_dotenv
-
+import httpx
 import db
 
 load_dotenv()
+
+CLERK_PUBLISHABLE_KEY = os.getenv("CLERK_PUBLISHABLE_KEY", "")
+CLERK_SECRET_KEY      = os.getenv("CLERK_SECRET_KEY", "")
 _ADMIN_EMAILS = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
 
-_P = {"_id": 0}
+# ── JWKS cache (refresh every hour) ──────────────────────────────────────────
+_jwks: dict = {}
+_jwks_fetched_at: float = 0.0
+_JWKS_TTL = 3600
 
 
-def _hash(password: str, salt: str) -> str:
-    return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
+def _clerk_domain() -> str:
+    try:
+        encoded = CLERK_PUBLISHABLE_KEY.split("_", 2)[2]
+        padding = (4 - len(encoded) % 4) % 4
+        return base64.b64decode(encoded + "=" * padding).decode().rstrip("$")
+    except Exception:
+        return ""
 
 
-def _safe(user: dict) -> dict:
-    return {k: v for k, v in user.items() if k not in ("password_hash", "salt")}
+def _get_jwks() -> dict:
+    global _jwks, _jwks_fetched_at
+    now = time.time()
+    if _jwks and (now - _jwks_fetched_at) < _JWKS_TTL:
+        return _jwks
+    domain = _clerk_domain()
+    if not domain:
+        return {}
+    try:
+        resp = httpx.get(f"https://{domain}/.well-known/jwks.json", timeout=5)
+        resp.raise_for_status()
+        _jwks = resp.json()
+        _jwks_fetched_at = now
+    except Exception:
+        pass  # return stale on failure
+    return _jwks
 
 
-def register(email: str, password: str, name: str, account_type: str) -> dict:
-    email = email.strip().lower()
-    if db.users.find_one({"email": email}, _P):
-        raise ValueError("Email already registered")
+def _verify_jwt(token: str) -> dict | None:
+    from jose import jwt, JWTError
+    try:
+        jwks = _get_jwks()
+        if not jwks:
+            return None
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+        key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
+        if not key:
+            # Keys may have rotated — force refresh once
+            global _jwks_fetched_at
+            _jwks_fetched_at = 0
+            jwks = _get_jwks()
+            key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
+            if not key:
+                return None
+        return jwt.decode(token, key, algorithms=["RS256"])
+    except (JWTError, Exception):
+        return None
 
-    user_id = secrets.token_urlsafe(12)
-    salt    = secrets.token_hex(16)
-    user = {
-        "id":           user_id,
-        "email":        email,
-        "name":         name,
-        "account_type": account_type,
-        "password_hash": _hash(password, salt),
-        "salt":         salt,
-        "created_at":   datetime.now().isoformat(),
-        "plan":         "free",
-        "gens_used":    0,
-    }
-    db.users.insert_one({**user, "_id": user_id})
-    return _safe(user)
 
-
-def login(email: str, password: str) -> str:
-    email = email.strip().lower()
-    user = db.users.find_one({"email": email})
-    if not user or user["password_hash"] != _hash(password, user["salt"]):
-        raise ValueError("Invalid email or password")
-    token = secrets.token_urlsafe(32)
-    db.sessions.replace_one({"_id": token}, {"_id": token, "user_id": user["id"]}, upsert=True)
-    return token
+def _fetch_clerk_user(clerk_id: str) -> dict:
+    try:
+        resp = httpx.get(
+            f"https://api.clerk.dev/v1/users/{clerk_id}",
+            headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return {}
 
 
 def get_user_by_token(token: str) -> dict | None:
     if not token:
         return None
-    sess = db.sessions.find_one({"_id": token})
-    if not sess:
+    claims = _verify_jwt(token)
+    if not claims:
         return None
-    user = db.users.find_one({"id": sess["user_id"]}, _P)
-    return _safe(user) if user else None
+
+    clerk_id = claims.get("sub", "")
+    if not clerk_id:
+        return None
+
+    user = db.users.find_one({"clerk_id": clerk_id}, {"_id": 0})
+    if user:
+        return user
+
+    # First login — fetch profile from Clerk and create our record
+    cu = _fetch_clerk_user(clerk_id)
+    email = ""
+    if cu.get("primary_email_address_id") and cu.get("email_addresses"):
+        peid = cu["primary_email_address_id"]
+        ea = next((e for e in cu["email_addresses"] if e["id"] == peid), None)
+        if ea:
+            email = ea["email_address"].lower()
+    name = f"{cu.get('first_name') or ''} {cu.get('last_name') or ''}".strip() or email.split("@")[0] or "User"
+
+    user = {
+        "id":           clerk_id,
+        "clerk_id":     clerk_id,
+        "email":        email,
+        "name":         name,
+        "account_type": None,
+        "created_at":   datetime.now().isoformat(),
+        "plan":         "free",
+        "gens_used":    0,
+    }
+    db.users.insert_one({**user, "_id": clerk_id})
+    return user
 
 
-def logout(token: str):
-    db.sessions.delete_one({"_id": token})
+def update_account_type(user_id: str, account_type: str):
+    db.users.update_one({"id": user_id}, {"$set": {"account_type": account_type}})
 
 
 def get_gen_info(user_id: str) -> dict:
-    user = db.users.find_one({"id": user_id}, _P) or {}
+    user = db.users.find_one({"id": user_id}, {"_id": 0}) or {}
     if user.get("email", "").lower() in _ADMIN_EMAILS:
         return {"used": 0, "limit": -1, "plan": "admin"}
-    plan  = user.get("plan", "free")
+    plan       = user.get("plan", "free")
+    expires_at = user.get("plan_expires_at")
+    if plan == "pro" and expires_at and expires_at < datetime.now().isoformat():
+        # Pro period ended — lazily downgrade back to free
+        plan = "free"
+        db.users.update_one({"id": user_id}, {"$set": {"plan": "free"}})
     used  = user.get("gens_used", 0)
     limit = 10 if plan == "free" else -1
-    return {"used": used, "limit": limit, "plan": plan}
+    info = {"used": used, "limit": limit, "plan": plan}
+    if plan == "pro" and expires_at:
+        info["expires_at"] = expires_at
+    return info
 
 
 def increment_gens(user_id: str):

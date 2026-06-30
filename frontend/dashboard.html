@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/static/confirm.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { background: #f5f4ff; margin: 0; font-family: 'Poppins', sans-serif; }
+    body { background: #f4f0e8; margin: 0; font-family: 'Poppins', sans-serif; }
 
     /* ── Top nav ── */
     .dash-nav {
@@ -25,7 +27,7 @@
       top: 0;
       z-index: 100;
     }
-    .dash-nav .logo { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+    .dash-nav .logo { font-size: 20px; font-weight: 800; color: #1c1813; }
     .dash-nav .logo span { color: #6c47ff; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
@@ -44,8 +46,55 @@
     }
     .btn-add:hover { background: #5835e0; }
 
+    /* ── App shell: sidebar + main ── */
+    .app-shell { display: grid; grid-template-columns: 248px 1fr 320px; min-height: 100vh; align-items: start; }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; background: #fff;
+      border-right: 1px solid #e4ddd0; padding: 22px 16px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .sidebar .logo { font-size: 20px; font-weight: 800; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo .logo-mark { width: 30px; height: 30px; border-radius: 9px; background: #1c1813; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+    .sidebar .logo span { color: #6c47ff; }
+    .side-nav { display: flex; flex-direction: column; gap: 4px; }
+    .side-item {
+      display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px;
+      font-size: 14px; font-weight: 600; color: #6a6258; cursor: pointer; border: none;
+      background: none; width: 100%; text-align: left; text-decoration: none; transition: background .14s, color .14s;
+    }
+    .side-item:hover { background: #f7f3ec; color: #1c1813; }
+    .side-item.active { background: #f1ecff; color: #6c47ff; }
+    .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .side-spacer { flex: 1; }
+    .side-upsell { background: linear-gradient(150deg, #6c47ff, #8a6cff); border-radius: 14px; padding: 16px; color: #fff; }
+    .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
+    .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0 0 12px; }
+    .side-upsell button { width: 100%; background: #fff; color: #6c47ff; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4ddd0; padding-top: 8px; }
+    .side-user { font-size: 12px; color: #a59c8d; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* ── Right rail ── */
+    .rail { position: sticky; top: 0; padding: 30px 24px; display: flex; flex-direction: column; gap: 16px; align-self: start; }
+    .rail-card { background: #fff; border: 1px solid #e4ddd0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .rail-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 14px; color: #1c1813; }
+    .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .ring-cell { text-align: center; }
+    .ring { position: relative; width: 74px; height: 74px; margin: 0 auto; }
+    .ring svg { transform: rotate(-90deg); }
+    .ring-num { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; font-weight: 800; color: #1c1813; }
+    .ring-label { font-size: 11px; color: #6a6258; font-weight: 600; margin-top: 7px; }
+
+    @media (max-width: 1100px) { .app-shell { grid-template-columns: 248px 1fr; } .rail { display: none; } }
+    @media (max-width: 860px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4ddd0; padding: 12px 16px; }
+      .sidebar .side-spacer, .sidebar .side-upsell { display: none; }
+      .side-nav { flex-direction: row; flex-wrap: wrap; }
+      .side-foot { flex-direction: row; align-items: center; border-top: none; padding-top: 0; margin-left: auto; }
+      .side-user { display: none; }
+    }
+
     /* ── Main layout ── */
-    .dash-body { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+    .dash-body { max-width: 1080px; margin: 0 auto; padding: 30px 32px; width: 100%; }
 
     /* ── Plan banner ── */
     .plan-banner {
@@ -68,7 +117,7 @@
     }
     .plan-badge.pro-badge { background: #e6f4ea; color: #057642; }
     .plan-text { font-size: 14px; color: #444; font-weight: 500; }
-    .plan-text strong { color: #1a1a2e; }
+    .plan-text strong { color: #1c1813; }
     .plan-bar-wrap { flex: 1; max-width: 160px; }
     .plan-bar-bg { background: #f0eeff; border-radius: 20px; height: 6px; overflow: hidden; }
     .plan-bar-fill { background: #6c47ff; height: 100%; border-radius: 20px; transition: width 0.3s; }
@@ -122,8 +171,14 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
     .stat-label { font-size: 12px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .stat-value { font-size: 26px; font-weight: 800; color: #1a1a2e; }
-    .stat-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .stat-value { font-size: 26px; font-weight: 800; color: #1c1813; }
+    .stat-sub { font-size: 12px; color: #82828c; margin-top: 4px; }
+
+    button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid #6c47ff;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
 
     /* ── Section title ── */
     .section-head {
@@ -137,7 +192,7 @@
     /* ── Profile cards ── */
     .profiles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
       gap: 16px;
       margin-bottom: 36px;
     }
@@ -151,7 +206,7 @@
     }
     .profile-card:hover { border-color: #e0d9ff; }
     .profile-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
-    .profile-card-name { font-size: 16px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+    .profile-card-name { font-size: 16px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 8px; }
     .badge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 20px; }
     .badge-type.company  { background: #e8f0fe; color: #1a73e8; }
     .badge-type.personal { background: #fce8f3; color: #c2185b; }
@@ -260,6 +315,11 @@
     }
     .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
     .empty-state p { color: #888; font-size: 14px; margin: 0 0 16px; }
+    .empty-hero { padding: 56px 24px 64px; }
+    .empty-hero .empty-illustration { width: 220px; max-width: 60%; margin-bottom: 24px; }
+    .empty-hero h3 { font-size: 20px; font-weight: 800; color: #1c1813; margin: 0 0 8px; }
+    .empty-hero p { max-width: 420px; margin: 0 auto 22px; line-height: 1.6; }
+    .empty-hero .empty-cta { font-size: 14px; padding: 12px 24px; border-radius: 10px; }
 
     /* ── Activity log ── */
     .activity-section { margin-top: 8px; }
@@ -275,7 +335,7 @@
       position: fixed;
       bottom: 28px;
       right: 28px;
-      background: #1a1a2e;
+      background: #1c1813;
       color: #fff;
       padding: 12px 20px;
       border-radius: 10px;
@@ -327,6 +387,42 @@
 
     .form-panel { display: none; }
     .form-panel.active { display: block; }
+
+    details.adv {
+      border: 1.5px solid #eee;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      background: #fcfbff;
+    }
+    details.adv summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    details.adv summary::-webkit-details-marker { display: none; }
+    details.adv summary::after { content: "▸"; color: #aaa; transition: transform 0.15s; }
+    details.adv[open] summary::after { transform: rotate(90deg); }
+    details.adv .adv-inner { padding: 6px 14px 14px; border-top: 1px solid #f3f0ff; }
+    details.adv .adv-inner .form-group:first-child { margin-top: 12px; }
+
+    .topic-suggest { display: none; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+    .topic-suggest.visible { display: flex; }
+    .topic-suggest .ts-label { font-size: 11px; color: #888; font-weight: 600; }
+    .topic-chip {
+      background: #f0eeff; color: #6c47ff; border: none; border-radius: 20px;
+      padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.12s;
+    }
+    .topic-chip:hover { background: #e2dcff; }
+    .topic-chip.added { background: #e6f4ea; color: #057642; cursor: default; }
+    .topic-chip.muted { background: #f5f5f5; color: #999; cursor: default; }
     .form-group { margin-bottom: 18px; }
     .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
     .optional-tag { font-weight: 400; color: #aaa; font-size: 12px; }
@@ -350,7 +446,7 @@
     /* ── Content Calendar ── */
     .cal-table { border-collapse: collapse; width: 100%; min-width: 600px; }
     .cal-table th {
-      background: #f5f4ff; color: #6c47ff; font-size: 12px; font-weight: 700;
+      background: #f4f0e8; color: #6c47ff; font-size: 12px; font-weight: 700;
       padding: 8px 12px; text-align: center; border-bottom: 2px solid #e8e4ff;
       text-transform: uppercase; letter-spacing: 0.4px;
     }
@@ -371,32 +467,97 @@
     .cal-cell-badge.text     { background: #e8f4fd; color: #0277bd; }
     .cal-time { font-size: 10px; color: #bbb; margin-top: 3px; }
     .cal-empty { font-size: 12px; color: #ddd; text-align: center; padding: 8px; }
+
+    .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+
+    /* ── Loading skeletons ── */
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .skeleton-line {
+      display: inline-block;
+      height: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #efecff 25%, #f9f8ff 50%, #efecff 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite linear;
+    }
+    .skeleton-card .skeleton-line { display: block; margin-bottom: 12px; }
+
+    /* ── Mobile ── */
+    @media (max-width: 760px) {
+      .dash-nav { padding: 0 14px; }
+      .nav-right { gap: 10px; }
+      .nav-user { display: none; }
+      .btn-add { padding: 8px 12px; }
+      .dash-body { padding: 18px 14px; }
+
+      .plan-banner { flex-wrap: wrap; padding: 14px 16px; }
+      .plan-upgrade-btn { width: 100%; text-align: center; }
+      .li-banner { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .li-banner-btn { margin-left: 0; }
+
+      .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .stat-card { padding: 14px 16px; }
+      .stat-value { font-size: 20px; }
+
+      .modal-drawer { width: 100%; padding: 24px 18px; }
+
+      .analytics-grid { grid-template-columns: 1fr; }
+      #log-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .log-table { min-width: 560px; }
+      .log-table .post-preview { max-width: 160px; }
+
+      #toast { left: 14px; right: 14px; bottom: 16px; max-width: none; }
+      #upgrade-modal > div { padding: 26px 20px !important; max-height: 92vh; overflow-y: auto; }
+    }
   </style>
 </head>
 <body>
 
-  <!-- ── Nav ── -->
-  <nav class="dash-nav">
-    <div class="logo">V<span>oyce</span></div>
-    <div class="nav-right">
-      <a href="/tool" class="nav-link">Quick Generate</a>
-      <span class="nav-user" id="nav-user"></span>
-      <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
-      <button class="btn-add" onclick="openModal()">+ Add Profile</button>
-    </div>
-  </nav>
-
   <!-- ── Toast ── -->
   <div id="toast"></div>
 
-  <div class="dash-body">
+  <div class="app-shell">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo"><span class="logo-mark">V</span>V<span>oyce</span></div>
+    <nav class="side-nav">
+      <a class="side-item active" href="/setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Home</span>
+      </a>
+      <a class="side-item" href="/tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
+        <span>Quick Generate</span>
+      </a>
+      <a class="side-item" href="#analytics-section">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>Analytics</span>
+      </a>
+    </nav>
+    <button class="btn-add" onclick="openModal()" style="width:100%;padding:11px;">+ Add Profile</button>
+    <div class="side-spacer"></div>
+    <div class="side-upsell" id="side-upsell">
+      <h4>Upgrade to Pro</h4>
+      <p>Unlimited posts and daily auto-posting.</p>
+      <button onclick="openUpgradeModal()">⚡ Upgrade</button>
+    </div>
+    <div class="side-foot">
+      <span class="side-user" id="nav-user"></span>
+      <a class="side-item" onclick="doAppLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Sign out</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="dash-body">
 
     <!-- Plan usage banner -->
-    <div class="plan-banner" id="plan-banner" style="display:none;">
+    <div class="plan-banner" id="plan-banner">
       <div class="plan-left">
-        <span class="plan-badge" id="plan-badge">Free</span>
+        <span class="plan-badge" id="plan-badge">Plan</span>
         <div>
-          <div class="plan-text" id="plan-text">Loading…</div>
+          <div class="plan-text" id="plan-text"><span class="skeleton-line" style="width:220px;"></span></div>
           <div class="plan-bar-wrap" id="plan-bar-wrap" style="margin-top:6px;">
             <div class="plan-bar-bg"><div class="plan-bar-fill" id="plan-bar-fill" style="width:0%"></div></div>
           </div>
@@ -411,8 +572,8 @@
         <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:13px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
-          <div style="font-size:48px;font-weight:900;line-height:1;color:#1a1a2e;"><sup style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">$</sup>9.99</div>
-          <div style="font-size:13px;color:#aaa;margin-top:4px;">per month · cancel anytime</div>
+          <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">$</sup><span id="upgrade-price">9.99</span></div>
+          <div style="font-size:13px;color:#aaa;margin-top:4px;">31 days of Pro · no auto-charge · renew anytime</div>
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
           <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
@@ -420,12 +581,18 @@
           <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
           <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
-          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>LinkedIn voice upload</span></li>
+          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
         </ul>
-        <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro&body=Hi, I'd like to upgrade my account to Pro. My email is: " style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-align:center;text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='#5835e0'" onmouseout="this.style.background='#6c47ff'">
-          Contact us to upgrade →
-        </a>
-        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">We'll activate your Pro account within 24 hours</div>
+        <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#5835e0'" onmouseout="this.style.background='#6c47ff'">
+          Upgrade now — pay securely →
+        </button>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#6c47ff;">need help?</a></div>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:6px;">
+          <a href="#" onclick="restorePurchase();return false;" style="color:#888;">Paid but still on Free? Restore purchase</a>
+          &nbsp;·&nbsp;
+          <a href="#" onclick="toggleBillingHistory();return false;" style="color:#888;">Billing history</a>
+        </div>
+        <div id="billing-history" style="display:none;margin-top:14px;max-height:160px;overflow-y:auto;border-top:1px solid #f0ecff;padding-top:10px;"></div>
       </div>
     </div>
 
@@ -436,7 +603,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="stats-row">
+    <div class="stats-row" id="stats-row">
       <div class="stat-card">
         <div class="stat-label">Automation Active</div>
         <div class="stat-value" id="stat-active">—</div>
@@ -460,10 +627,23 @@
     </div>
 
     <!-- Profile cards -->
-    <div class="section-head">
+    <div class="section-head" id="profiles-head">
       <h2>Your Profiles</h2>
     </div>
-    <div class="profiles-grid" id="profiles-grid"></div>
+    <div class="profiles-grid" id="profiles-grid">
+      <div class="profile-card skeleton-card" aria-hidden="true">
+        <span class="skeleton-line" style="width:45%;height:16px;"></span>
+        <span class="skeleton-line" style="width:70%;"></span>
+        <span class="skeleton-line" style="width:60%;"></span>
+        <span class="skeleton-line" style="width:35%;margin-bottom:0;"></span>
+      </div>
+      <div class="profile-card skeleton-card" aria-hidden="true">
+        <span class="skeleton-line" style="width:55%;height:16px;"></span>
+        <span class="skeleton-line" style="width:65%;"></span>
+        <span class="skeleton-line" style="width:75%;"></span>
+        <span class="skeleton-line" style="width:30%;margin-bottom:0;"></span>
+      </div>
+    </div>
 
     <!-- Content calendar -->
     <div class="activity-section" id="calendar-section" style="display:none;">
@@ -480,7 +660,7 @@
         <h2>Post Analytics</h2>
         <a class="nav-link" id="analytics-refresh-btn" onclick="refreshAnalytics()">Refresh from LinkedIn</a>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;">
+      <div class="analytics-grid">
         <div style="background:#faf9ff;border-radius:12px;padding:16px;">
           <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;">Engagement by Post (Bar)</div>
           <div style="position:relative;height:180px;">
@@ -509,6 +689,28 @@
       </div>
       <div id="log-container"></div>
     </div>
+  </main>
+
+  <!-- ── Right rail ── -->
+  <aside class="rail">
+    <div class="rail-card">
+      <h3>At a glance</h3>
+      <div class="rings">
+        <div class="ring-cell">
+          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-gens-arc" cx="37" cy="37" r="30" fill="none" stroke="#6c47ff" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-gens">—</div></div>
+          <div class="ring-label">Gens left</div>
+        </div>
+        <div class="ring-cell">
+          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-profiles-arc" cx="37" cy="37" r="30" fill="none" stroke="#18a0a0" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-profiles">—</div></div>
+          <div class="ring-label">Profiles</div>
+        </div>
+        <div class="ring-cell">
+          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-linkedin-arc" cx="37" cy="37" r="30" fill="none" stroke="#e08a2b" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-linkedin">–</div></div>
+          <div class="ring-label">LinkedIn</div>
+        </div>
+      </div>
+    </div>
+  </aside>
   </div>
 
   <!-- ── Add Profile Modal (right drawer) ── -->
@@ -523,55 +725,65 @@
       <div class="mode-tabs">
         <button class="mode-tab active" onclick="switchMode('company')">
           For a Company
-          <span>Brand voice from website</span>
+          <span>Brand style from website</span>
         </button>
         <button class="mode-tab" onclick="switchMode('personal')">
           For Yourself
-          <span>Personal brand voice</span>
+          <span>Your personal writing style</span>
         </button>
       </div>
 
       <!-- Company form -->
       <div class="form-panel active" id="panel-company">
         <form onsubmit="submitProfile(event,'company')">
-          <div class="form-group"><label>Company Name *</label><input type="text" id="c-name" placeholder="Knowella" required /></div>
+          <div class="form-group"><label>Company Name *</label><input type="text" id="c-name" placeholder="e.g. Acme Software" required /></div>
           <div class="form-group">
             <label>Website URL *</label>
-            <input type="url" id="c-website" placeholder="https://knowella.com" required />
-            <p class="form-hint">We'll scrape this to learn their products and voice.</p>
+            <input type="url" id="c-website" placeholder="https://yourcompany.com" required />
+            <p class="form-hint">Voyce reads this once to learn the products, style, and positioning.</p>
           </div>
-          <div class="form-group"><label>LinkedIn Company Page <span class="optional-tag">(optional)</span></label><input type="url" id="c-linkedin" placeholder="https://linkedin.com/company/knowella" /></div>
-          <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="B2B SaaS, Operations Software" required /><p class="form-hint">Used to find relevant news daily.</p></div>
-          <div class="form-group"><label>Post Tone *</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-          <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Used when daily automation is active.</p></div>
-          <div class="form-group">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="checkbox" id="c-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('c-theme-group').style.display=this.checked?'block':'none'" />
-              <span>Enable carousel posts <span class="optional-tag">(used when automation is active)</span></span>
-            </label>
-            <p class="form-hint">On carousel days, AI generates branded PDF slide decks posted as LinkedIn documents.</p>
-          </div>
-          <div class="form-group" id="c-theme-group" style="display:none;">
-            <label>Carousel Theme</label>
-            <select id="c-theme">
-              <option value="">Auto (based on industry)</option>
-              <option value="dark_pro">Dark Pro — Navy + Cyan</option>
-              <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
-              <option value="deep_teal">Deep Teal — Teal + Emerald</option>
-              <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Allowed Hook Formulas <span class="optional-tag">(uncheck to avoid)</span></label>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="c-hooks-container">
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="specific_number" checked style="width:auto;margin-right:4px;"> Specific Number</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="named_event" checked style="width:auto;margin-right:4px;"> Named Event</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="counterintuitive" checked style="width:auto;margin-right:4px;"> Counterintuitive</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="confession" checked style="width:auto;margin-right:4px;"> Confession</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="myth_buster" checked style="width:auto;margin-right:4px;"> Myth-Buster</label>
+          <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="e.g. B2B SaaS, fintech, healthcare" required /><p class="form-hint">Used to find relevant news for posts.</p></div>
+          <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
+
+          <details class="adv">
+            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">all optional — smart defaults applied</span></summary>
+            <div class="adv-inner">
+              <div class="form-group"><label>LinkedIn Company Page</label><input type="url" id="c-linkedin" placeholder="https://linkedin.com/company/yourcompany" /></div>
+              <div class="form-group"><label>Daily Post Time</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                  <input type="checkbox" id="c-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('c-theme-group').style.display=this.checked?'block':'none'" />
+                  <span>Carousel posts <span class="optional-tag">(Pro · automation)</span></span>
+                </label>
+                <p class="form-hint">On carousel days Voyce designs a branded PDF slide deck and posts it as a LinkedIn document.</p>
+              </div>
+              <div class="form-group" id="c-theme-group" style="display:none;">
+                <label>Carousel Theme</label>
+                <select id="c-theme">
+                  <option value="">Auto (based on industry)</option>
+                  <option value="dark_pro">Dark Pro — Navy + Cyan</option>
+                  <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
+                  <option value="deep_teal">Deep Teal — Teal + Emerald</option>
+                  <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
+                  <option value="clean_light">Clean Light — White + Indigo</option>
+                  <option value="warm_paper">Warm Paper — Cream + Burnt Orange</option>
+                  <option value="electric">Electric — Black + Lime</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Opening styles <span class="optional-tag">(how posts start — uncheck any you dislike)</span></label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="c-hooks-container">
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="specific_number" checked style="width:auto;margin-right:4px;"> Striking numbers</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="named_event" checked style="width:auto;margin-right:4px;"> News reactions</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="counterintuitive" checked style="width:auto;margin-right:4px;"> Surprising takes</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="confession" checked style="width:auto;margin-right:4px;"> Honest confessions</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="myth_buster" checked style="width:auto;margin-right:4px;"> Myth-busting</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="c-hooks" value="unexpected_comparison" checked style="width:auto;margin-right:4px;"> Surprising comparisons</label>
+                </div>
+              </div>
             </div>
-            <p class="form-hint">Used for scroll-stopping openers. Leave all checked for maximum variety.</p>
-          </div>
+          </details>
+
           <button type="submit" class="submit-btn" id="c-submit-btn">Set Up Company</button>
         </form>
       </div>
@@ -579,60 +791,71 @@
       <!-- Personal form -->
       <div class="form-panel" id="panel-personal">
         <form onsubmit="submitProfile(event,'personal')">
-          <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Rishav Agarwal" required /></div>
+          <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Your full name" required /></div>
           <div class="form-group">
             <label>Your Designation <span class="optional-tag">(optional)</span></label>
-            <input type="text" id="p-designation" placeholder="Head of Product at Knowella" />
-            <p class="form-hint">Used to write from the right level of authority — e.g. "Founder", "Senior ML Engineer", "VP of Sales".</p>
+            <input type="text" id="p-designation" placeholder="e.g. Founder, Head of Product, ML Engineer" />
           </div>
-          <div class="form-group">
-            <label>Website URL <span class="optional-tag">(optional)</span></label>
-            <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" />
-            <div style="display:flex;gap:16px;margin-top:8px;">
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> My site / blog</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> External reference</label>
-            </div>
-            <p class="form-hint">My site → AI uses as personal experience. External → AI uses as reference to react to.</p>
+          <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="e.g. AI, product management, startups" autocomplete="off" required />
+            <div class="topic-suggest" id="p-topic-suggest"></div>
+            <p class="form-hint">Used to find relevant news and topics for posts.</p>
           </div>
-          <div class="form-group"><label>Your LinkedIn URL <span class="optional-tag">(optional)</span></label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/rishav" /></div>
-          <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="AI, Product Management, Startups" required /><p class="form-hint">Used to find relevant news and topics daily.</p></div>
-          <div class="form-group"><label>Post Tone *</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-          <div class="form-group"><label>Preferred Post Time *</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Used when daily automation is active.</p></div>
-          <div class="form-group">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
-              <span>Enable carousel posts <span class="optional-tag">(used when automation is active)</span></span>
-            </label>
-            <p class="form-hint">On carousel days, AI generates branded PDF slide decks posted as LinkedIn documents.</p>
-          </div>
-          <div class="form-group" id="p-theme-group" style="display:none;">
-            <label>Carousel Theme</label>
-            <select id="p-theme">
-              <option value="">Auto (based on industry)</option>
-              <option value="dark_pro">Dark Pro — Navy + Cyan</option>
-              <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
-              <option value="deep_teal">Deep Teal — Teal + Emerald</option>
-              <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Allowed Hook Formulas <span class="optional-tag">(uncheck to avoid)</span></label>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="p-hooks-container">
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="specific_number" checked style="width:auto;margin-right:4px;"> Specific Number</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="named_event" checked style="width:auto;margin-right:4px;"> Named Event</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="counterintuitive" checked style="width:auto;margin-right:4px;"> Counterintuitive</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="confession" checked style="width:auto;margin-right:4px;"> Confession</label>
-              <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="myth_buster" checked style="width:auto;margin-right:4px;"> Myth-Buster</label>
-            </div>
-            <p class="form-hint">Used for scroll-stopping openers. Leave all checked for maximum variety.</p>
-          </div>
+          <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
 
           <div class="li-upload-box">
             <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
-            <div class="li-upload-desc">AI reads your past posts and matches your exact writing voice.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
+            <div class="li-upload-desc">Voyce reads your past posts so new ones sound like you wrote them.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
             <input type="file" id="p-li-file" accept=".pdf,.zip" />
             <div class="li-upload-status" id="p-li-status"></div>
           </div>
+
+          <details class="adv">
+            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">all optional — smart defaults applied</span></summary>
+            <div class="adv-inner">
+              <div class="form-group">
+                <label>Website URL</label>
+                <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" />
+                <div style="display:flex;gap:16px;margin-top:8px;">
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> My site / blog</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> External reference</label>
+                </div>
+                <p class="form-hint">My site → treated as your experience. External → treated as material to react to.</p>
+              </div>
+              <div class="form-group"><label>Your LinkedIn URL</label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/your-profile" /></div>
+              <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                  <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
+                  <span>Carousel posts <span class="optional-tag">(Pro · automation)</span></span>
+                </label>
+                <p class="form-hint">On carousel days Voyce designs a branded PDF slide deck and posts it as a LinkedIn document.</p>
+              </div>
+              <div class="form-group" id="p-theme-group" style="display:none;">
+                <label>Carousel Theme</label>
+                <select id="p-theme">
+                  <option value="">Auto (based on industry)</option>
+                  <option value="dark_pro">Dark Pro — Navy + Cyan</option>
+                  <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
+                  <option value="deep_teal">Deep Teal — Teal + Emerald</option>
+                  <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
+                  <option value="clean_light">Clean Light — White + Indigo</option>
+                  <option value="warm_paper">Warm Paper — Cream + Burnt Orange</option>
+                  <option value="electric">Electric — Black + Lime</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Opening styles <span class="optional-tag">(how posts start — uncheck any you dislike)</span></label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;" id="p-hooks-container">
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="specific_number" checked style="width:auto;margin-right:4px;"> Striking numbers</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="named_event" checked style="width:auto;margin-right:4px;"> News reactions</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="counterintuitive" checked style="width:auto;margin-right:4px;"> Surprising takes</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="confession" checked style="width:auto;margin-right:4px;"> Honest confessions</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="myth_buster" checked style="width:auto;margin-right:4px;"> Myth-busting</label>
+                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="p-hooks" value="unexpected_comparison" checked style="width:auto;margin-right:4px;"> Surprising comparisons</label>
+                </div>
+              </div>
+            </div>
+          </details>
 
           <button type="submit" class="submit-btn" id="p-submit-btn">Set Up Personal Brand</button>
         </form>
@@ -641,11 +864,32 @@
   </div>
 
   <script>
-    // ── Auth ──────────────────────────────────────────────────────────────────
-    function getToken() { return localStorage.getItem("cm_token") || ""; }
+    // ── Auth (Clerk) ──────────────────────────────────────────────────────────
+    let _clerkToken = "";
+
+    async function _refreshToken() {
+      if (window.Clerk?.session) _clerkToken = await window.Clerk.session.getToken();
+    }
+
+    async function initClerk() {
+      const clerk = window.Clerk;
+      await clerk.load();
+      if (!clerk.user) { window.location.href = "/login"; return false; }
+      await _refreshToken();
+      setInterval(_refreshToken, 50000);
+      const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
+      if (res.ok) {
+        const user = await res.json();
+        localStorage.setItem("cm_user", JSON.stringify(user));
+      } else {
+        window.location.href = "/login"; return false;
+      }
+      return true;
+    }
+
+    function getToken() { return _clerkToken; }
     function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
     function ah(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
-    if (!getToken()) window.location.href = "/login";
 
     const COMPANY_SCHEDULE  = { 0:"Trend Commentary",1:"Expert Insight",2:"Expert Insight",3:"Product Spotlight",4:"Industry Stat",5:"Case Study",6:"Expert Insight" };
     const PERSONAL_SCHEDULE = { 0:"Trend Reaction",1:"Hot Take",2:"Lesson Learned",3:"Expert Insight",4:"Stat Reaction",5:"Personal Story",6:"Hot Take" };
@@ -665,8 +909,10 @@
       toastTimer = setTimeout(() => el.className = "", 3500);
     }
 
-    // ── Init ──────────────────────────────────────────────────────────────────
-    window.addEventListener("load", () => {
+    // ── Init (called by Clerk onload) ─────────────────────────────────────────
+    async function startApp() {
+      const ok = await initClerk();
+      if (!ok) return;
       const user = getUser();
       if (user) {
         document.getElementById("nav-user").textContent = user.name || user.email;
@@ -676,11 +922,14 @@
         checkLinkedIn();
         loadProfiles();
       });
+      if (window.location.hash === "#upgrade") openUpgradeModal();
       document.getElementById("p-tone").addEventListener("change", () => { personalToneTouched = true; });
       document.getElementById("p-industry").addEventListener("input", suggestPersonalTone);
+      document.getElementById("p-designation").addEventListener("blur", () =>
+        loadTopicSuggestions("p-designation", "p-topic-suggest", "p-industry"));
       loadLog();
       loadAnalytics();
-    });
+    }
 
     window.addEventListener("message", e => {
       if (e.data === "linkedin_connected") { liConnected=true; updateLiBanner(true); toast("LinkedIn connected!", "success"); checkLinkedIn(); }
@@ -692,6 +941,7 @@
       const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
       const data = await res.json();
       liConnected = data.connected;
+      updateRail();
       updateLiBanner(data.connected);
       updateLiStat(data.connected);
     }
@@ -718,7 +968,7 @@
     }
 
     async function disconnectLinkedIn() {
-      if (!confirm("Disconnect LinkedIn?")) return;
+      if (!(await voyceConfirm("Disconnect LinkedIn from Voyce?", { confirmText: "Disconnect", danger: true }))) return;
       await fetch("/auth/linkedin/logout", { method: "POST", headers: { "x-token": getToken() } });
       liConnected = false;
       updateLiBanner(false);
@@ -731,6 +981,7 @@
       if (!res.ok) { if (res.status===401) window.location.href="/login"; return; }
       const profiles = await res.json();
       currentProfiles = profiles;
+      updateRail();
       renderProfiles(profiles);
       updateStats(profiles);
     }
@@ -763,14 +1014,21 @@
 
     function renderProfiles(profiles) {
       const grid = document.getElementById("profiles-grid");
+      const statsRow = document.getElementById("stats-row");
+      const profilesHead = document.getElementById("profiles-head");
       if (!profiles.length) {
-        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-          <div class="empty-icon">🚀</div>
-          <p>No profiles yet. Add your first company or personal brand to get started.</p>
-          <button class="btn-add" onclick="openModal()">+ Add Profile</button>
+        statsRow.style.display = "none";
+        profilesHead.style.display = "none";
+        grid.innerHTML = `<div class="empty-state empty-hero" style="grid-column:1/-1">
+          <img src="/static/illustrations/work-time.svg" alt="" class="empty-illustration" />
+          <h3>Let's get your content engine running</h3>
+          <p>Add your company or personal brand — Voyce learns your style and writes LinkedIn-ready posts that sound like you.</p>
+          <button class="btn-add empty-cta" onclick="openModal()">+ Create your first profile</button>
         </div>`;
         return;
       }
+      statsRow.style.display = "";
+      profilesHead.style.display = "";
 
       buildCalendar(profiles);
       grid.innerHTML = profiles.map(p => {
@@ -778,7 +1036,7 @@
         const typeLabel  = isPersonal ? "Personal" : "Company";
         const typeClass  = isPersonal ? "personal" : "company";
         const hasVoice   = p.linkedin_analysis && p.linkedin_analysis.writing_style;
-        const voiceTag   = hasVoice ? `<span class="voice-tag">✦ LinkedIn voice loaded</span>` : "";
+        const voiceTag   = hasVoice ? `<span class="voice-tag">✦ Writing style learned</span>` : "";
         const statusBadge = p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`;
         const automationButton = `<button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>`;
 
@@ -799,7 +1057,10 @@
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
           </div>
 
-          <label class="carousel-toggle-row" onclick="toggleCarousel('${p.id}', this)">
+          <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.carousel_enabled}"
+                 aria-label="Carousel posts for ${p.name}"
+                 onclick="toggleCarousel('${p.id}', this)"
+                 onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleCarousel('${p.id}', this);}">
             <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}">
               <div class="carousel-toggle-knob"></div>
             </div>
@@ -817,7 +1078,7 @@
           </div>
 
           <div class="card-li-panel" id="li-panel-${p.id}">
-            <p><strong>Upload LinkedIn PDF or data export ZIP</strong> to load their writing voice.<br>
+            <p><strong>Upload LinkedIn PDF or data export ZIP</strong> to learn their writing style.<br>
             ZIP: LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive<br>
             PDF: Profile → More → Save to PDF</p>
             <div class="card-li-row">
@@ -832,7 +1093,7 @@
 
     async function runNow(id) {
       if (!liConnected) { toast("LinkedIn not connected. Connect it first from the banner above.", "warn"); return; }
-      if (!confirm("Post to LinkedIn right now?")) return;
+      if (!(await voyceConfirm("Generate and post to LinkedIn right now?", { title: "Run now", confirmText: "Post now" }))) return;
       toast("Generating and posting...");
       const res  = await fetch(`/companies/${id}/run`, { method:"POST", headers: {"x-token": getToken()} });
       const data = await res.json();
@@ -842,11 +1103,20 @@
       else toast("Failed: " + (data.error || "unknown error"), "error");
     }
 
+    function isProRequired(data) {
+      return typeof data.detail === "string" && data.detail.startsWith("PRO_REQUIRED");
+    }
+
     async function toggleProfile(id, active) {
       const res = await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast("Could not update automation.", "error");
+        if (isProRequired(data)) {
+          toast("Daily automation is a Pro feature.", "warn");
+          openUpgradeModal();
+        } else {
+          toast("Could not update automation.", "error");
+        }
         return;
       }
       toast(active ? "Profile resumed." : "Profile paused.", "success");
@@ -856,14 +1126,24 @@
     async function toggleCarousel(id, labelEl) {
       const sw = document.getElementById(`carousel-sw-${id}`);
       const res = await fetch(`/companies/${id}/carousel`, { method:"PATCH", headers: ah() });
-      if (!res.ok) { toast("Failed to update carousel setting.", "error"); return; }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (isProRequired(data)) {
+          toast("Automated carousels are a Pro feature.", "warn");
+          openUpgradeModal();
+        } else {
+          toast("Failed to update carousel setting.", "error");
+        }
+        return;
+      }
       const data = await res.json();
+      if (labelEl && labelEl.setAttribute) labelEl.setAttribute("aria-checked", data.carousel_enabled);
       sw.classList.toggle("on", data.carousel_enabled);
       toast(data.carousel_enabled ? "Carousel posts enabled." : "Carousel posts disabled.", "success");
     }
 
     async function deleteProfile(id) {
-      if (!confirm("Delete this profile? This cannot be undone.")) return;
+      if (!(await voyceConfirm("Delete this profile? This cannot be undone.", { title: "Delete profile", confirmText: "Delete", danger: true }))) return;
       await fetch(`/companies/${id}`, { method:"DELETE", headers: {"x-token": getToken()} });
       toast("Profile deleted.", "");
       loadProfiles();
@@ -886,10 +1166,10 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         const n = data.posts_found ? ` · ${data.posts_found} posts analysed` : "";
-        status.textContent = `✓ LinkedIn voice loaded${n}`;
+        status.textContent = `✓ Writing style learned${n}`;
         status.className = "card-li-status ok";
         fileInput.value = "";
-        toast("LinkedIn voice loaded!", "success");
+        toast("Writing style learned!", "success");
         loadProfiles();
       } catch (err) {
         status.textContent = "Error: " + err.message;
@@ -932,7 +1212,8 @@
         const cells = days.map((d, i) => {
           const jsDay = d.getDay();
           const pyDay = jsDay === 0 ? 6 : jsDay - 1;
-          const type  = schedule[pyDay];
+          // Real per-day plan from the backend; weekday map only as legacy fallback
+          const type  = (p.week_plan && p.week_plan[i]) || schedule[pyDay];
           const isToday = d.toDateString() === todayStr;
           // Approximate carousel alternation: even offset days = carousel if enabled
           const isCarousel = p.carousel_enabled && (i % 2 === 1);
@@ -1114,6 +1395,51 @@
       container.innerHTML = `<table class="log-table"><thead><tr><th>Time</th><th>Profile</th><th>Type</th><th>Status</th><th>Preview</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 
+    // ── Topic suggestions (based on designation + current trends) ────────────
+    const _topicSuggestCache = {};
+
+    async function loadTopicSuggestions(desigInputId, boxId, topicsInputId) {
+      const desig = document.getElementById(desigInputId).value.trim();
+      const box = document.getElementById(boxId);
+      if (desig.length < 3) { box.classList.remove("visible"); return; }
+      box.classList.add("visible");
+      box.innerHTML = '<span class="topic-chip muted">Finding trending topics for this role…</span>';
+      let topics = _topicSuggestCache[desig.toLowerCase()];
+      if (!topics) {
+        try {
+          const res = await fetch("/topics/suggest", {
+            method: "POST", headers: ah(), body: JSON.stringify({ designation: desig }),
+          });
+          if (!res.ok) throw new Error();
+          topics = (await res.json()).topics || [];
+          _topicSuggestCache[desig.toLowerCase()] = topics;
+        } catch (_) { box.classList.remove("visible"); return; }
+      }
+      if (!topics.length) { box.classList.remove("visible"); return; }
+      box.innerHTML = "";
+      const lbl = document.createElement("span");
+      lbl.className = "ts-label";
+      lbl.textContent = "Suggested:";
+      box.appendChild(lbl);
+      topics.forEach(t => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "topic-chip";
+        chip.textContent = t;
+        chip.onclick = () => {
+          const input = document.getElementById(topicsInputId);
+          const current = input.value.split(",").map(s => s.trim()).filter(Boolean);
+          if (!current.some(c => c.toLowerCase() === t.toLowerCase())) {
+            current.push(t);
+            input.value = current.join(", ");
+            input.dispatchEvent(new Event("input"));
+          }
+          chip.classList.add("added");
+        };
+        box.appendChild(chip);
+      });
+    }
+
     // ── Modal ─────────────────────────────────────────────────────────────────
     let currentMode = "company";
     let _editingId = null;   // null = add mode, string = edit mode
@@ -1121,11 +1447,148 @@
     function openUpgradeModal() {
       const m = document.getElementById("upgrade-modal");
       m.style.display = "flex";
+      loadPaymentConfig();
+      const payBtn = document.getElementById("upgrade-pay-btn");
+      if (payBtn) payBtn.focus();
     }
     function closeUpgradeModal() {
       document.getElementById("upgrade-modal").style.display = "none";
     }
     document.addEventListener("keydown", e => { if (e.key === "Escape") closeUpgradeModal(); });
+
+    // ── Razorpay checkout ─────────────────────────────────────────────────────
+    let _payConfig = null;
+    const _CURRENCY_SYMBOLS = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+
+    async function loadPaymentConfig() {
+      if (_payConfig) return _payConfig;
+      try {
+        const res = await fetch("/payments/config");
+        if (!res.ok) return null;
+        _payConfig = await res.json();
+        if (_payConfig.configured) {
+          const value = _payConfig.amount / 100;
+          document.getElementById("upgrade-currency").textContent =
+            _CURRENCY_SYMBOLS[_payConfig.currency] || _payConfig.currency + " ";
+          document.getElementById("upgrade-price").textContent =
+            Number.isInteger(value) ? value : value.toFixed(2);
+        }
+      } catch (_) {}
+      return _payConfig;
+    }
+
+    function loadRazorpayScript() {
+      return new Promise((resolve, reject) => {
+        if (window.Razorpay) return resolve();
+        const s = document.createElement("script");
+        s.src = "https://checkout.razorpay.com/v1/checkout.js";
+        s.onload = resolve;
+        s.onerror = () => reject(new Error("Could not load payment script"));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function startUpgradePayment() {
+      const btn = document.getElementById("upgrade-pay-btn");
+      const config = await loadPaymentConfig();
+      if (!config || !config.configured) {
+        // Payments not set up on the server — fall back to email
+        window.location.href = "mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro&body=Hi, I'd like to upgrade my account to Pro.";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Starting secure checkout…";
+      try {
+        await loadRazorpayScript();
+        const res = await fetch("/payments/create-order", { method: "POST", headers: { "x-token": getToken() } });
+        if (!res.ok) throw new Error((await res.json()).detail || "Could not start payment");
+        const order = await res.json();
+
+        const rzp = new Razorpay({
+          key: order.key_id,
+          order_id: order.order_id,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Voyce",
+          description: "Voyce Pro — 1 month",
+          theme: { color: "#6c47ff" },
+          handler: async (response) => {
+            try {
+              const vres = await fetch("/payments/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-token": getToken() },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              if (!vres.ok) throw new Error("verification failed");
+              toast("🎉 Welcome to Voyce Pro! Unlimited generations unlocked.", "success");
+              closeUpgradeModal();
+              loadPlanBanner();
+            } catch (_) {
+              toast("Payment received but verification failed — contact support and we'll fix it.", "error");
+            }
+          },
+          modal: { ondismiss: () => toast("Payment cancelled", "error") },
+        });
+        rzp.on("payment.failed", () => toast("Payment failed — you have not been charged. Please try again.", "error"));
+        rzp.open();
+      } catch (err) {
+        toast("Error: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Upgrade now — pay securely →";
+      }
+    }
+
+    async function restorePurchase() {
+      try {
+        const res = await fetch("/payments/restore", { method: "POST", headers: { "x-token": getToken() } });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "restore failed");
+        const data = await res.json();
+        if (data.restored) {
+          toast("🎉 Purchase restored — welcome to Pro!", "success");
+          closeUpgradeModal();
+          loadPlanBanner();
+        } else if (data.gen_info && data.gen_info.limit === -1) {
+          toast("Your account is already on Pro.", "success");
+          closeUpgradeModal();
+          loadPlanBanner();
+        } else {
+          toast("No completed payment found. If you were charged, contact support.", "warn");
+        }
+      } catch (err) {
+        toast("Error: " + err.message, "error");
+      }
+    }
+
+    async function toggleBillingHistory() {
+      const box = document.getElementById("billing-history");
+      if (box.style.display !== "none") { box.style.display = "none"; return; }
+      box.style.display = "block";
+      box.innerHTML = '<div style="font-size:12px;color:#aaa;">Loading…</div>';
+      try {
+        const res = await fetch("/payments/history", { headers: { "x-token": getToken() } });
+        if (!res.ok) throw new Error("could not load");
+        const data = await res.json();
+        if (!data.payments.length) {
+          box.innerHTML = '<div style="font-size:12px;color:#aaa;">No payments yet.</div>';
+          return;
+        }
+        box.innerHTML = data.payments.map(p => {
+          const sym = _CURRENCY_SYMBOLS[p.currency] || p.currency + " ";
+          const amt = (p.amount / 100).toFixed(2).replace(/\.00$/, "");
+          const date = (p.paid_at || p.created_at || "").slice(0, 10);
+          return `<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#555;padding:5px 0;border-bottom:1px solid #f7f5ff;">
+            <span>${date} · Voyce Pro</span><span style="font-weight:700;">${sym}${amt}</span>
+          </div>`;
+        }).join("");
+      } catch (_) {
+        box.innerHTML = '<div style="font-size:12px;color:#c0392b;">Could not load billing history.</div>';
+      }
+    }
 
     function openModal() {
       _editingId = null;
@@ -1134,6 +1597,7 @@
       document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation or daily automation. Free includes 10 total generations/posts.";
       document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
       document.getElementById("modal-success").style.display = "none";
+      document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = false);
       document.getElementById("modal-overlay").classList.add("open");
       document.body.style.overflow = "hidden";
     }
@@ -1168,6 +1632,8 @@
           if (!p) return;
           _editingId = id;
           personalToneTouched = true;
+          // Editing: show everything so prefilled advanced values are visible
+          document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = true);
           const isPersonal = p.profile_type === "personal";
 
           // Switch modal to edit mode
@@ -1270,7 +1736,16 @@
           loadProfiles();
         } else {
           res = await fetch("/companies", { method: "POST", headers: ah(), body: JSON.stringify(payload) });
-          if (!res.ok) throw new Error(await res.text());
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            if (isProRequired(errData)) {
+              closeModal();
+              toast("Multiple profiles are a Pro feature.", "warn");
+              openUpgradeModal();
+              return;
+            }
+            throw new Error(errData.detail || "Could not save profile");
+          }
           created = await res.json();
 
           const liFile = isPersonal ? document.getElementById("p-li-file").files[0] : null;
@@ -1279,7 +1754,7 @@
             const form = new FormData();
             form.append("file", liFile);
             const upRes = await fetch(`/companies/${created.id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
-            if (upRes.ok) { document.getElementById("p-li-status").textContent = "✓ Voice loaded"; document.getElementById("p-li-status").className = "li-upload-status ok"; }
+            if (upRes.ok) { document.getElementById("p-li-status").textContent = "✓ Style learned"; document.getElementById("p-li-status").className = "li-upload-status ok"; }
           }
 
           document.getElementById(isPersonal ? "p-time" : "c-time").value = "09:00";
@@ -1301,13 +1776,38 @@
     }
 
     // ── Plan banner ──────────────────────────────────────────────────────────
+    // ── Right rail rings ──────────────────────────────────────────────────────
+    function _setArc(id, frac) {
+      const c = document.getElementById(id); if (!c) return;
+      const C = 188.5;
+      c.style.strokeDashoffset = String(C * (1 - Math.max(0, Math.min(1, frac))));
+    }
+    function updateRail() {
+      const g = document.getElementById("ring-gens"); if (!g) return;
+      const info = window._genInfo;
+      let gleft = "—", gfrac = 0;
+      if (info) {
+        if (info.limit === -1) { gleft = "∞"; gfrac = 1; }
+        else { gleft = Math.max(0, info.limit - info.used); gfrac = info.limit ? gleft / info.limit : 0; }
+      }
+      g.textContent = gleft; _setArc("ring-gens-arc", gfrac);
+      const pcount = (currentProfiles || []).length;
+      const pmax = (info && info.limit === -1) ? 3 : 1;
+      const pe = document.getElementById("ring-profiles");
+      if (pe) { pe.textContent = pcount; _setArc("ring-profiles-arc", pmax ? Math.min(1, pcount / pmax) : 0); }
+      const le = document.getElementById("ring-linkedin");
+      if (le) { le.textContent = liConnected ? "✓" : "–"; le.style.color = liConnected ? "#18a07a" : "#a59c8d"; _setArc("ring-linkedin-arc", liConnected ? 1 : 0); }
+    }
+
     async function loadPlanBanner() {
+      const bannerEl = document.getElementById("plan-banner");
       try {
         const res = await fetch("/auth/me", { headers: { "x-token": getToken() } });
-        if (!res.ok) return;
+        if (!res.ok) { bannerEl.style.display = "none"; return; }
         const data = await res.json();
         const info = data.gen_info;
-        if (!info) return;
+        window._genInfo = info; updateRail();
+        if (!info) { bannerEl.style.display = "none"; return; }
         const banner  = document.getElementById("plan-banner");
         const badge   = document.getElementById("plan-badge");
         const text    = document.getElementById("plan-text");
@@ -1317,7 +1817,9 @@
 
         banner.style.display = "flex";
 
+        const sideUpsell = document.getElementById("side-upsell");
         if (info.plan === "admin" || info.limit === -1) {
+          if (sideUpsell) sideUpsell.style.display = "none";
           badge.textContent = info.plan === "admin" ? "Admin" : "Pro";
           badge.className = "plan-badge pro-badge";
           text.innerHTML = "<strong>Unlimited generations</strong> — all features unlocked";
@@ -1325,6 +1827,20 @@
           btn.style.display = "none";
           banner.style.borderColor = "#a5d6a7";
           banner.style.background = "#f0faf0";
+          if (info.plan === "pro" && info.expires_at) {
+            const expiry = new Date(info.expires_at);
+            const daysLeft = Math.ceil((expiry - new Date()) / 86400000);
+            const dateStr = expiry.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+            if (daysLeft <= 5) {
+              text.innerHTML = `<strong style="color:#b9770e">Pro expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}</strong> &nbsp;·&nbsp; renew to keep unlimited generations`;
+              btn.style.display = "";
+              btn.textContent = "🔄 Renew Pro";
+              banner.style.borderColor = "#f6d68a";
+              banner.style.background = "#fffbf0";
+            } else {
+              text.innerHTML = `<strong>Unlimited generations</strong> — Pro active until ${dateStr}`;
+            }
+          }
         } else {
           const left = Math.max(0, info.limit - info.used);
           const pct  = Math.min(100, (info.used / info.limit) * 100);
@@ -1333,7 +1849,7 @@
           fill.style.width = pct + "%";
           fill.style.background = left === 0 ? "#c0392b" : "#6c47ff";
           if (left === 0) {
-            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; Email <a href="mailto:r65581350@gmail.com" style="color:#6c47ff;font-weight:700;">r65581350@gmail.com</a> to get more credits`;
+            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; <a href="#" onclick="openUpgradeModal();return false;" style="color:#6c47ff;font-weight:700;">Upgrade to Pro</a> for unlimited generations`;
             banner.style.borderColor = "#fdecea";
             banner.style.background = "#fffafa";
           }
@@ -1344,7 +1860,7 @@
           renderProfiles(currentProfiles);
           updateStats(currentProfiles);
         }
-      } catch (_) {}
+      } catch (_) { bannerEl.style.display = "none"; }
     }
 
     // Refresh plan banner when user comes back to this tab (e.g. from Quick Generate)
@@ -1353,11 +1869,18 @@
     });
 
     // ── Sign out ──────────────────────────────────────────────────────────────
-    function doAppLogout() {
-      fetch("/auth/logout", { method:"POST", headers:{"x-token":getToken()} });
+    async function doAppLogout() {
+      if (window.Clerk) await window.Clerk.signOut();
       localStorage.clear();
       window.location.href = "/login";
     }
   </script>
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_test_Y2hhbXBpb24tZ3JvdXNlLTY3LmNsZXJrLmFjY291bnRzLmRldiQ"
+    src="https://champion-grouse-67.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    onload="startApp()"
+  ></script>
 </body>
 </html>

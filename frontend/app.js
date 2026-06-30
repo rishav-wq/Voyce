@@ -1,24 +1,31 @@
-// ── Auth ──────────────────────────────────────────────────────────────────────
-function getToken() { return localStorage.getItem("cm_token") || ""; }
-function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
-function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
+// ── Auth (Clerk) ──────────────────────────────────────────────────────────────
+let _clerkToken = "";
 
-function checkAuth() {
-  if (!getToken()) { window.location.href = "/login"; return false; }
+async function _refreshToken() {
+  if (window.Clerk?.session) _clerkToken = await window.Clerk.session.getToken();
+}
+
+async function initClerk() {
+  const clerk = window.Clerk;
+  await clerk.load();
+  if (!clerk.user) { window.location.href = "/login"; return false; }
+  await _refreshToken();
+  setInterval(_refreshToken, 50000);
+  try {
+    const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
+    if (res.ok) localStorage.setItem("cm_user", JSON.stringify(await res.json()));
+  } catch (_) {}
   return true;
 }
+
+function getToken() { return _clerkToken; }
+function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
+function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
 
 let activeType = "text";
 let linkedInConnected = false;
 
-function isDryRun() {
-  return document.getElementById("dry-run-checkbox").checked;
-}
-
-document.getElementById("dry-run-checkbox").addEventListener("change", () => {
-  const btn = document.getElementById("post-now-btn");
-  if (btn) { btn.textContent = "Post Now"; btn.classList.remove("primary"); btn.disabled = false; }
-});
+function isDryRun() { return false; }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 let _toastTimer;
@@ -35,7 +42,7 @@ function showError(msg) {
   const el = document.getElementById("error-banner");
   if (!el) { toast(msg, "error"); return; }
   if (msg === "LIMIT_REACHED") {
-    el.innerHTML = `You've used all 10 free generations. To get more credits, email us at <a href="mailto:r65581350@gmail.com" style="color:#6c47ff;font-weight:700;">r65581350@gmail.com</a>.`;
+    el.innerHTML = `You've used all 10 free generations. <a href="/setup#upgrade" style="color:#6c47ff;font-weight:700;">Upgrade to Pro</a> for unlimited generations.`;
   } else {
     el.textContent = msg;
   }
@@ -43,9 +50,9 @@ function showError(msg) {
   setTimeout(() => el.style.display = "none", 10000);
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-window.addEventListener("load", () => {
-  if (!checkAuth()) return;
+// ── Init (called by Clerk script onload) ─────────────────────────────────────
+async function startApp() {
+  if (!(await initClerk())) return;
   const user = getUser();
   if (user) {
     const tag = document.getElementById("user-tag");
@@ -53,7 +60,7 @@ window.addEventListener("load", () => {
   }
   checkLinkedInStatus();
   loadQueue();
-});
+}
 
 window.addEventListener("message", (e) => {
   if (e.data === "linkedin_connected") {
@@ -83,9 +90,9 @@ function updateLiPill(connected) {
   text.textContent = connected ? "LinkedIn Connected" : "Connect LinkedIn";
 }
 
-function handleLiClick() {
+async function handleLiClick() {
   if (linkedInConnected) {
-    if (!confirm("Disconnect LinkedIn?")) return;
+    if (!(await voyceConfirm("Disconnect LinkedIn from Voyce?", { confirmText: "Disconnect", danger: true }))) return;
     fetch("/auth/linkedin/logout", { method: "POST", headers: { "x-token": getToken() } });
     linkedInConnected = false;
     updateLiPill(false);
@@ -115,6 +122,44 @@ document.querySelectorAll(".input-tab").forEach(tab => {
   });
 });
 
+// ── Generation progress ───────────────────────────────────────────────────────
+let _genTimer = null;
+
+function startGenProgress(stages) {
+  const panel   = document.getElementById("gen-progress");
+  const stageEl = document.getElementById("gen-stage");
+  const bar     = document.getElementById("gen-bar");
+  if (!panel) return;
+  let stageIdx = 0, pct = 6, elapsed = 0;
+  const stageEvery = 4500;
+  stageEl.textContent = stages[0];
+  bar.style.width = pct + "%";
+  panel.classList.add("visible");
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  clearInterval(_genTimer);
+  _genTimer = setInterval(() => {
+    elapsed += 400;
+    pct = Math.min(92, pct + (92 - pct) * 0.035);  // ease toward 92%, never finish on its own
+    bar.style.width = pct + "%";
+    const idx = Math.min(stages.length - 1, Math.floor(elapsed / stageEvery));
+    if (idx !== stageIdx) {
+      stageIdx = idx;
+      stageEl.style.opacity = 0;
+      setTimeout(() => { stageEl.textContent = stages[stageIdx]; stageEl.style.opacity = 1; }, 200);
+    }
+  }, 400);
+}
+
+function stopGenProgress() {
+  clearInterval(_genTimer);
+  _genTimer = null;
+  const panel = document.getElementById("gen-progress");
+  const bar   = document.getElementById("gen-bar");
+  if (!panel) return;
+  bar.style.width = "100%";
+  setTimeout(() => { panel.classList.remove("visible"); bar.style.width = "0%"; }, 350);
+}
+
 // ── Generate ──────────────────────────────────────────────────────────────────
 async function generate() {
   const content = document.getElementById("content-input").value.trim();
@@ -131,6 +176,16 @@ async function generate() {
   document.getElementById("error-banner").style.display = "none";
   document.getElementById("output-section").classList.remove("visible");
 
+  const fetchStage = { text: "Reading your content…", url: "Fetching the article…", youtube: "Reading the video transcript…" }[activeType];
+  startGenProgress([
+    fetchStage,
+    "Analyzing tone & writing style…",
+    "Drafting your LinkedIn post…",
+    "Writing Twitter thread, email & blog…",
+    "Polishing everything…",
+    "Almost there…",
+  ]);
+
   try {
     const res = await fetch("/generate", {
       method: "POST",
@@ -145,6 +200,7 @@ async function generate() {
   } catch (err) {
     showError(err.message);
   } finally {
+    stopGenProgress();
     btn.disabled = false;
     btnText.style.display = "inline";
     btnLoad.style.display = "none";
@@ -246,7 +302,7 @@ async function confirmSchedule() {
 // ── Queue ─────────────────────────────────────────────────────────────────────
 async function loadQueue() {
   try {
-    const res = await fetch("/schedule/list");
+    const res = await fetch("/schedule/list", { headers: { "x-token": getToken() } });
     const posts = await res.json();
     renderQueue(posts);
   } catch (_) {}
@@ -270,7 +326,7 @@ function renderQueue(posts) {
 }
 
 async function cancelPost(jobId) {
-  await fetch(`/schedule/${jobId}`, { method: "DELETE" });
+  await fetch(`/schedule/${jobId}`, { method: "DELETE", headers: { "x-token": getToken() } });
   await loadQueue();
   toast("Scheduled post cancelled.");
 }
@@ -294,6 +350,14 @@ async function generateCarousel() {
   document.getElementById("error-banner").style.display = "none";
   document.getElementById("carousel-section").classList.remove("visible");
 
+  startGenProgress([
+    "Reading your content…",
+    "Planning the slide story…",
+    "Writing slide copy…",
+    "Designing & rendering the PDF…",
+    "Almost there…",
+  ]);
+
   try {
     const res = await fetch("/generate/carousel", {
       method: "POST",
@@ -316,6 +380,7 @@ async function generateCarousel() {
   } catch (err) {
     showError(err.message);
   } finally {
+    stopGenProgress();
     btn.disabled = false;
     btnText.style.display = "inline";
     btnLoad.style.display = "none";
@@ -363,6 +428,100 @@ async function postCarousel() {
   }
 }
 
+// ── Image Post ─────────────────────────────────────────────────────────────────
+let _imagePostBase64 = null;
+
+async function generateImagePost() {
+  const content = document.getElementById("content-input").value.trim();
+  if (!content) { showError("Please enter some content first."); return; }
+
+  const btn     = document.getElementById("image-btn");
+  const btnText = document.getElementById("image-btn-text");
+  const btnLoad = document.getElementById("image-btn-loader");
+
+  btn.disabled = true;
+  btnText.style.display = "none";
+  btnLoad.style.display = "inline";
+  document.getElementById("error-banner").style.display = "none";
+  document.getElementById("image-section").classList.remove("visible");
+
+  startGenProgress([
+    "Reading your content…",
+    "Finding the most quotable idea…",
+    "Designing your branded card…",
+    "Writing the caption…",
+    "Almost there…",
+  ]);
+
+  try {
+    const res = await fetch("/generate/image", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ input_type: activeType, content })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Image generation failed.");
+
+    _imagePostBase64 = data.image_base64;
+    document.getElementById("image-preview").src = "data:image/png;base64," + data.image_base64;
+    document.getElementById("image-post-text").textContent = data.post_text || "";
+    const postBtn = document.getElementById("post-image-btn");
+    postBtn.textContent = "Post to LinkedIn";
+    postBtn.disabled = false;
+    document.getElementById("image-section").classList.add("visible");
+    document.getElementById("image-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    toast("Image post ready!", "success");
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    stopGenProgress();
+    btn.disabled = false;
+    btnText.style.display = "inline";
+    btnLoad.style.display = "none";
+  }
+}
+
+function downloadImagePost() {
+  if (!_imagePostBase64) { toast("Generate an image post first.", "warn"); return; }
+  const a = document.createElement("a");
+  a.href = "data:image/png;base64," + _imagePostBase64;
+  a.download = "voyce-image-post.png";
+  a.click();
+}
+
+async function postImage() {
+  if (!linkedInConnected) { toast("LinkedIn not connected — click the pill in the nav to connect.", "warn"); return; }
+  if (!_imagePostBase64) { toast("Generate an image post first.", "warn"); return; }
+
+  const text = document.getElementById("image-post-text").textContent;
+  const btn  = document.getElementById("post-image-btn");
+  btn.disabled = true;
+  btn.textContent = "Posting…";
+
+  try {
+    const imgBytes = Uint8Array.from(atob(_imagePostBase64), c => c.charCodeAt(0));
+    const blob = new Blob([imgBytes], { type: "image/png" });
+    const formData = new FormData();
+    formData.append("file", blob, "image-post.png");
+    formData.append("text", text);
+    formData.append("dry_run", isDryRun() ? "true" : "false");
+
+    const res = await fetch("/post/linkedin/image", {
+      method: "POST",
+      headers: { "x-token": getToken() },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to post image.");
+    btn.textContent = isDryRun() ? "Dry Run OK!" : "Posted!";
+    toast(isDryRun() ? "Dry run — image previewed in console." : "Image posted to LinkedIn!", "success");
+  } catch (err) {
+    toast(err.message, "error");
+    btn.textContent = "Post to LinkedIn";
+    btn.disabled = false;
+  }
+}
+
 // ── Copy ──────────────────────────────────────────────────────────────────────
 function copyContent(id) {
   const el = document.getElementById(id);
@@ -376,7 +535,8 @@ function copyContent(id) {
 
 // ── Sign out ──────────────────────────────────────────────────────────────────
 async function doAppLogout() {
-  await fetch("/auth/logout", { method: "POST", headers: { "x-token": getToken() } });
-  localStorage.clear();
+  try { await fetch("/auth/logout", { method: "POST", headers: { "x-token": getToken() } }); } catch (_) {}
+  localStorage.removeItem("cm_user");
+  if (window.Clerk) { try { await window.Clerk.signOut(); } catch (_) {} }
   window.location.href = "/login";
 }
