@@ -8,7 +8,9 @@ import db
 
 load_dotenv()
 
-CLERK_PUBLISHABLE_KEY = os.getenv("CLERK_PUBLISHABLE_KEY", "")
+# Accept either name — root .env uses NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+# backend/.env uses CLERK_PUBLISHABLE_KEY. Either resolves the same Clerk domain.
+CLERK_PUBLISHABLE_KEY = os.getenv("CLERK_PUBLISHABLE_KEY") or os.getenv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "")
 CLERK_SECRET_KEY      = os.getenv("CLERK_SECRET_KEY", "")
 _ADMIN_EMAILS = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
 

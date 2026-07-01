@@ -1,3 +1,4 @@
+import colorsys
 import io
 import os
 import re
@@ -9,7 +10,7 @@ from llm import generate_json
 
 load_dotenv()
 
-SLIDE_W, SLIDE_H = 1080, 1080
+SLIDE_W, SLIDE_H = 1080, 1350       # portrait 4:5 — max uncropped vertical space on mobile (research-backed)
 _SCALE = 4                          # 4× supersampling → downscale for maximum sharpness
 _RW, _RH = SLIDE_W * _SCALE, SLIDE_H * _SCALE
 PAD = 88 * _SCALE
@@ -72,6 +73,14 @@ PALETTES = {
         "subtitle": (161, 161, 170),   # #a1a1aa
         "body":     (212, 212, 216),   # #d4d4d8
         "muted":    (63,  63,  70),    # #3f3f46
+    },
+    "warm_violet": {                    # Voyce brand — warm beige + violet (default)
+        "bg":       (244, 240, 232),   # #f4f0e8 warm beige canvas
+        "accent":   (108, 71,  255),   # #6c47ff violet
+        "title":    (28,  24,  19),    # #1c1813 warm black
+        "subtitle": (92,  86,  78),    # muted warm grey
+        "body":     (60,  56,  50),    # dark warm grey
+        "muted":    (196, 188, 174),   # light warm grey
     },
 }
 
@@ -162,11 +171,8 @@ def _get_palette(company: dict) -> dict:
         if key in industry:
             return PALETTES[palette_name]
 
-    # 4. Personal brand default → warm dark
-    if company.get("profile_type") == "personal":
-        return PALETTES["warm_dark"]
-
-    return PALETTES["dark_pro"]
+    # 4. Default → Voyce brand: warm beige + violet (on-brand, high contrast, light)
+    return PALETTES["warm_violet"]
 
 
 # ── Font helpers ──────────────────────────────────────────────────────────────
@@ -395,8 +401,10 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
 
 
 def _slide_content(title: str, body: str, num: int, total: int,
-                   brand: str, p: dict, label: str = "") -> Image.Image:
-    """Content slide: split layout — giant clipped number left, accent panel right."""
+                   brand: str, p: dict, label: str = "", step_index: int = None) -> Image.Image:
+    """Content slide: split layout — giant clipped number left, accent panel right.
+    step_index is the 1-based content-step number for the giant numeral/label (defaults to num-1)."""
+    step = step_index if step_index is not None else num - 1
     body = body[:200].rsplit(" ", 1)[0] if len(body) > 200 else body
 
     # Slightly lighter background
@@ -404,81 +412,68 @@ def _slide_content(title: str, body: str, num: int, total: int,
     img = Image.new("RGB", (_RW, _RH), bg2)
     draw = ImageDraw.Draw(img)
 
-    # ── Right-side accent panel (subtle) ──
-    panel_x = int(_RW * 0.62)
-    panel_color = _mix(bg2, p["accent"], 0.08)
-    draw.rectangle([panel_x, 0, _RW, _RH], fill=panel_color)
-
     # ── Top accent bar (full width) ──
     draw.rectangle([0, 0, _RW, int(8 * _SCALE)], fill=p["accent"])
 
-    # ── Giant background number (left half, very faded, clipped feel) ──
-    f_giant = _font(320 * _SCALE, bold=True)
-    point_num = str(num - 1).zfill(2)
-    ghost_num_color = _mix(bg2, p["accent"], 0.14)
-    num_bbox = draw.textbbox((0, 0), point_num, font=f_giant)
-    num_w = num_bbox[2]
-    # Position so number is partially off the left edge for dynamic cropped feel
-    num_x = PAD - int(num_w * 0.05)
-    num_y = int(_RH * 0.10)
-    draw.text((num_x, num_y), point_num, font=f_giant, fill=ghost_num_color)
-
-    # ── Content in lower-center area ──
-    f_label = _font(22 * _SCALE, bold=True)
-    f_sm    = _font(21 * _SCALE)
+    # ── Subtle dot-grid accent top-right (keeps the frame alive, no empty panel) ──
+    _draw_dot_grid(draw, _RW - int(250 * _SCALE), int(80 * _SCALE),
+                   5, 3, int(44 * _SCALE), int(5 * _SCALE), _mix(bg2, p["accent"], 0.18))
 
     content_x = PAD
-    max_w = panel_x - PAD - int(40 * _SCALE)
-    content_y = int(_RH * 0.50)
+    max_w = _RW - PAD * 2
 
-    # Small label above title (e.g. STEP 1 / MYTH / TRUTH)
-    label_text = (label or f"STEP {num - 1}").upper()[:24]
-    label_color = p["accent"]
-    draw.text((content_x, content_y), label_text, font=f_label, fill=label_color)
-    content_y += int(34 * _SCALE)
+    # ── Giant faded step number, top-left as a background accent ──
+    f_giant = _font(300 * _SCALE, bold=True)
+    point_num = str(step).zfill(2)
+    draw.text((PAD - int(6 * _SCALE), int(_RH * 0.085)), point_num,
+              font=f_giant, fill=_mix(bg2, p["accent"], 0.20))
 
-    # Short accent underline
-    draw.rectangle([content_x, content_y, content_x + int(50 * _SCALE),
-                    content_y + int(4 * _SCALE)], fill=p["accent"])
-    content_y += int(22 * _SCALE)
-
-    # Title (fit safely before body)
+    f_label = _font(24 * _SCALE, bold=True)
+    f_sm    = _font(22 * _SCALE)
     footer_y = _RH - int(70 * _SCALE)
-    max_title_h = int((_RH * 0.22))
+
+    # ── Content: label → underline → title → body, full width, lower half ──
+    content_y = int(_RH * 0.40)
+
+    label_text = (label or f"STEP {step}").upper()[:24]
+    draw.text((content_x, content_y), label_text, font=f_label, fill=p["accent"])
+    content_y += int(38 * _SCALE)
+    draw.rectangle([content_x, content_y, content_x + int(56 * _SCALE),
+                    content_y + int(5 * _SCALE)], fill=p["accent"])
+    content_y += int(5 * _SCALE) + int(26 * _SCALE)
+
+    # Title — big, full width
     title_text, f_title, title_h = _fit_text_to_box(
-        draw, title, max_w, max_title_h, [72, 66, 60, 54, 48], gap=int(10 * _SCALE), max_lines=4
+        draw, title, max_w, int(_RH * 0.24), [92, 84, 76, 68, 60], gap=int(12 * _SCALE), max_lines=3
     )
     content_y += _put_text(draw, title_text, f_title, content_x, content_y,
-                           max_w, p["title"], gap=10 * _SCALE)
-    content_y += int(16 * _SCALE)
+                           max_w, p["title"], gap=12 * _SCALE)
+    content_y += int(42 * _SCALE)
 
-    # Body in a softly tinted box, auto-fit to available vertical space
-    box_pad = int(20 * _SCALE)
-    body_gap = int(12 * _SCALE)
-    available_h = max(0, footer_y - content_y - box_pad - int(22 * _SCALE))
-    body_source = body[:220].rsplit(" ", 1)[0] if len(body) > 220 else body
+    # Body — big, full width, in a softly tinted box with an accent left-edge bar
+    body_gap = int(14 * _SCALE)
+    box_pad  = int(26 * _SCALE)
+    text_w = max_w - box_pad * 2
+    available_h = max(0, footer_y - content_y - box_pad - int(28 * _SCALE))
+    body_source = body[:260].rsplit(" ", 1)[0] if len(body) > 260 else body
     fitted_body, f_body, _ = _fit_text_to_box(
-        draw, body_source, max_w, available_h, [34, 32, 30, 28, 26, 24], gap=body_gap, max_lines=7
+        draw, body_source, text_w, available_h, [42, 38, 34, 32, 30, 28, 26], gap=body_gap, max_lines=6
     )
-    body_lines_h = _text_block_height(draw, fitted_body, f_body, max_w, gap=body_gap)
-    box_pad = int(20 * _SCALE)
-    box_bg = _mix(bg2, p["accent"], 0.10)
-    _draw_rounded_rect(draw, content_x - box_pad,
-                       content_y - box_pad,
-                       content_x + max_w + box_pad,
-                       content_y + body_lines_h + box_pad,
-                       int(12 * _SCALE), box_bg)
-    _put_text(draw, fitted_body, f_body, content_x, content_y, max_w, p["body"], gap=body_gap)
+    body_lines_h = _text_block_height(draw, fitted_body, f_body, text_w, gap=body_gap)
+    box_bg = _mix(bg2, p["accent"], 0.13)
+    box_top = content_y - box_pad
+    box_bot = content_y + body_lines_h + box_pad
+    radius = int(16 * _SCALE)
+    _draw_rounded_rect(draw, content_x, box_top, content_x + max_w, box_bot, radius, box_bg)
+    draw.rectangle([content_x, box_top + radius, content_x + int(7 * _SCALE), box_bot - radius],
+                   fill=p["accent"])
+    _put_text(draw, fitted_body, f_body, content_x + box_pad, content_y, text_w, p["body"], gap=body_gap)
 
-    # ── Right panel decoration: corner arc ──
-    arc_color = _mix(panel_color, p["accent"], 0.25)
-    _draw_corner_arc(draw, _RW, 0, int(340 * _SCALE), int(180 * _SCALE), arc_color)
-
-    # ── Footer: thin full-width divider + brand left / counter right ──
-    draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)],
-                   fill=p["muted"])
+    # ── Footer: divider + counter (no logo on assets) ──
+    draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)], fill=p["muted"])
     footer_text_y = footer_y + int(14 * _SCALE)
-    draw.text((PAD, footer_text_y), brand, font=f_sm, fill=p["muted"])
+    if brand:
+        draw.text((PAD, footer_text_y), brand, font=f_sm, fill=p["muted"])
     counter = f"{num}/{total}"
     cw = _tw(draw, counter, f_sm)
     draw.text((_RW - PAD - cw, footer_text_y), counter, font=f_sm, fill=p["muted"])
@@ -625,6 +620,105 @@ def _slide_cta(headline: str, cta: str, num: int, total: int,
     return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
+def _slide_context(title: str, body: str, num: int, total: int,
+                   brand: str, p: dict, label: str = "START HERE") -> Image.Image:
+    """Context slide (slide 2): frames why the reader should keep swiping. No giant numeral."""
+    bg2 = _mix(p["bg"], (255, 255, 255), 0.04)
+    img = Image.new("RGB", (_RW, _RH), bg2)
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([0, 0, _RW, int(8 * _SCALE)], fill=p["accent"])
+    _draw_circle(draw, -int(120 * _SCALE), _RH - int(80 * _SCALE),
+                 int(420 * _SCALE), _mix(bg2, p["accent"], 0.09))
+
+    f_label = _font(24 * _SCALE, bold=True)
+    f_sm    = _font(21 * _SCALE)
+    content_x = PAD
+    max_w = _RW - PAD * 2
+    footer_y = _RH - int(70 * _SCALE)
+
+    label_text = (label or "START HERE").upper()[:24]
+    title_text, f_title, h_title = _fit_text_to_box(
+        draw, title, max_w, int(_RH * 0.28), [72, 64, 58, 52, 46], gap=int(12 * _SCALE), max_lines=4)
+    body_text, f_body, h_body = _fit_text_to_box(
+        draw, body[:300], max_w, int(_RH * 0.32), [36, 34, 32, 30, 28, 26], gap=int(12 * _SCALE), max_lines=7)
+    label_h = draw.textbbox((0, 0), label_text, font=f_label)[3]
+    gap1, gap2 = int(24 * _SCALE), int(28 * _SCALE)
+    block_h = label_h + int(5 * _SCALE) + gap1 + h_title + gap2 + h_body
+    y = max(int(110 * _SCALE), (footer_y - block_h) // 2)
+
+    draw.text((content_x, y), label_text, font=f_label, fill=p["accent"])
+    y += label_h + int(12 * _SCALE)
+    draw.rectangle([content_x, y, content_x + int(60 * _SCALE), y + int(5 * _SCALE)], fill=p["accent"])
+    y += int(5 * _SCALE) + gap1
+    y += _put_text(draw, title_text, f_title, content_x, y, max_w, p["title"], gap=12 * _SCALE)
+    y += gap2
+    _put_text(draw, body_text, f_body, content_x, y, max_w, p["body"], gap=12 * _SCALE)
+
+    draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)], fill=p["muted"])
+    fty = footer_y + int(14 * _SCALE)
+    draw.text((PAD, fty), brand, font=f_sm, fill=p["muted"])
+    counter = f"{num}/{total}"
+    cw = _tw(draw, counter, f_sm)
+    draw.text((_RW - PAD - cw, fty), counter, font=f_sm, fill=p["muted"])
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_recap(title: str, bullets: list, num: int, total: int,
+                 brand: str, p: dict) -> Image.Image:
+    """Recap slide: a screenshot-friendly summary of 3-5 one-line takeaways."""
+    bg2 = _mix(p["bg"], (255, 255, 255), 0.04)
+    img = Image.new("RGB", (_RW, _RH), bg2)
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([0, 0, _RW, int(8 * _SCALE)], fill=p["accent"])
+    _draw_corner_arc(draw, _RW, 0, int(320 * _SCALE), int(170 * _SCALE),
+                     _mix(bg2, p["accent"], 0.20))
+
+    f_label = _font(24 * _SCALE, bold=True)
+    f_sm    = _font(21 * _SCALE)
+    content_x = PAD
+    max_w = _RW - PAD * 2
+
+    top_y = int(96 * _SCALE)
+    draw.text((content_x, top_y), "RECAP", font=f_label, fill=p["accent"])
+    top_y += int(40 * _SCALE)
+    draw.rectangle([content_x, top_y, content_x + int(60 * _SCALE), top_y + int(5 * _SCALE)], fill=p["accent"])
+    top_y += int(5 * _SCALE) + int(24 * _SCALE)
+    title_text, f_title, th = _fit_text_to_box(
+        draw, title or "The key takeaways", max_w, int(_RH * 0.15),
+        [60, 54, 48, 44, 40], gap=int(10 * _SCALE), max_lines=2)
+    top_y += _put_text(draw, title_text, f_title, content_x, top_y, max_w, p["title"], gap=10 * _SCALE)
+    top_y += int(40 * _SCALE)
+
+    bullets = [b for b in (bullets or []) if b][:5]
+    footer_y = _RH - int(70 * _SCALE)
+    avail_h = max(int(120 * _SCALE), footer_y - top_y - int(24 * _SCALE))
+    n = max(1, len(bullets))
+    row_h = avail_h // n
+    dot_r = int(9 * _SCALE)
+    for i, b in enumerate(bullets):
+        ry = top_y + i * row_h
+        text_x = content_x + dot_r * 2 + int(28 * _SCALE)
+        text_w = max_w - (dot_r * 2 + int(28 * _SCALE))
+        bt, f_b, bh = _fit_text_to_box(
+            draw, b, text_w, row_h - int(18 * _SCALE), [34, 32, 30, 28, 26, 24],
+            gap=int(8 * _SCALE), max_lines=2)
+        by = ry + max(0, (row_h - bh) // 2)
+        _draw_circle(draw, content_x + dot_r, by + int(16 * _SCALE), dot_r, p["accent"])
+        _put_text(draw, bt, f_b, text_x, by, text_w, p["body"], gap=8 * _SCALE)
+        if i < len(bullets) - 1:
+            dy = ry + row_h - int(1 * _SCALE)
+            draw.rectangle([content_x, dy, _RW - PAD, dy + int(1 * _SCALE)],
+                           fill=_mix(bg2, p["muted"], 0.4))
+
+    draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)], fill=p["muted"])
+    fty = footer_y + int(14 * _SCALE)
+    draw.text((PAD, fty), brand, font=f_sm, fill=p["muted"])
+    counter = f"{num}/{total}"
+    cw = _tw(draw, counter, f_sm)
+    draw.text((_RW - PAD - cw, fty), counter, font=f_sm, fill=p["muted"])
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
 def _wrap_height(draw, lines, font, gap):
     total = 0
     for i, line in enumerate(lines):
@@ -652,26 +746,27 @@ def _draw_centered_emphasis(draw, text, font, cx, y, max_w, base, accent, emphas
 
 
 def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
-                 emphasis: str = "", tag: str = "") -> Image.Image:
+                 emphasis: str = "", tag: str = "", rw: int = _RW, rh: int = _RH) -> Image.Image:
     """Standalone branded 'poster' image for a single text+image post.
     Centered composition with a top category tag and an accent-highlighted key phrase —
-    deliberately distinct from the left-aligned carousel slides."""
+    deliberately distinct from the left-aligned carousel slides.
+    rw/rh are the supersampled render dimensions (default 1:1); pass a taller rh for 4:5."""
     # Diagonal-feel gradient background
-    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    img = Image.new("RGB", (rw, rh), p["bg"])
     _draw_gradient_bg(img, p["bg"], _mix(p["bg"], p["accent"], 0.24))
     draw = ImageDraw.Draw(img)
 
     # Big soft glow bottom-left + ghost ring top-right for depth
-    _draw_circle(draw, -int(140 * _SCALE), _RH + int(120 * _SCALE),
+    _draw_circle(draw, -int(140 * _SCALE), rh + int(120 * _SCALE),
                  int(560 * _SCALE), _mix(p["bg"], p["accent"], 0.12))
-    _draw_circle(draw, _RW + int(120 * _SCALE), -int(120 * _SCALE),
+    _draw_circle(draw, rw + int(120 * _SCALE), -int(120 * _SCALE),
                  int(440 * _SCALE), _mix(p["bg"], p["accent"], 0.10))
-    _draw_dot_grid(draw, _RW - int(250 * _SCALE), _RH - int(170 * _SCALE),
+    _draw_dot_grid(draw, rw - int(250 * _SCALE), rh - int(170 * _SCALE),
                    5, 3, int(42 * _SCALE), int(5 * _SCALE), _mix(p["bg"], p["accent"], 0.18))
 
-    cx = _RW // 2
+    cx = rw // 2
     pad_x = int(110 * _SCALE)
-    max_w = _RW - pad_x * 2
+    max_w = rw - pad_x * 2
 
     # ── Top category tag (pill) ──
     tag = (tag or "").strip().upper()[:22]
@@ -693,7 +788,7 @@ def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
     # ── Center block: headline (with accent emphasis) + divider + subtext ──
     brand_reserved = int(150 * _SCALE)
     region_top = tag_bottom + int(40 * _SCALE)
-    region_h = _RH - region_top - brand_reserved
+    region_h = rh - region_top - brand_reserved
     head_gap = int(14 * _SCALE)
     sub_gap = int(10 * _SCALE)
     divider_h = int(6 * _SCALE)
@@ -735,11 +830,11 @@ def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
     gap = int(14 * _SCALE)
     total_w = dot_r * 2 + gap + bw
     bx = cx - total_w // 2
-    by = _RH - int(96 * _SCALE)
+    by = rh - int(96 * _SCALE)
     _draw_circle(draw, bx + dot_r, by + int(16 * _SCALE), dot_r, p["accent"])
     draw.text((bx + dot_r * 2 + gap, by), brand, font=f_brand, fill=p["subtitle"])
 
-    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+    return img.resize((rw // _SCALE, rh // _SCALE), Image.LANCZOS)
 
 
 # ── Single image post (branded quote card) ───────────────────────────────────
@@ -805,50 +900,231 @@ Return ONLY valid JSON:
     return _finalize_image_post(result)
 
 
+# Image posts render as vertical 4:5 (1080x1350) — the tallest ratio LinkedIn shows
+# in full before cropping, which maximizes mobile feed real estate (research-backed).
+IMG_POST_W, IMG_POST_H = 1080, 1350
+
+
 def render_image_post_png(content: dict, company: dict) -> bytes:
+    """Render the branded 'insight card' image post at 4:5."""
     p = _get_palette(company)
-    brand = company.get("name", "Voyce")
+    brand = (company or {}).get("name", "Voyce")
     img = _slide_quote(
         content.get("card_headline", ""), content.get("card_subtext", ""), brand, p,
         emphasis=content.get("card_emphasis", ""), tag=content.get("card_tag", ""),
+        rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE,
     )
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
 
 
+# ── AI illustration image post (research-grounded) ───────────────────────────
+# Research (deep-research, 2026): for founders, AI images work ONLY when they read as
+# intentionally-designed flat/editorial graphics — never photorealistic, never AI human
+# faces/hands (the #1 credibility killer and "AI slop" tell), never model-rendered text
+# (garbles). So we generate a clean, muted, flat illustration and add any text ourselves.
+
+_AI_IMAGE_SYSTEM = """You design ONE editorial illustration to accompany a founder's LinkedIn post, plus the caption.
+
+Return JSON:
+image_concept: describe, in 2-3 rich sentences for an illustrator, ONE striking visual scene that
+  captures the post's core idea. Give it a clear FOCAL subject AND supporting detail so the frame feels
+  composed and intentional — never a single tiny object floating in empty space. Specify the subject,
+  the setting/context around it, and the one element that carries the meaning. Think like a New Yorker /
+  Monocle / Stripe-press editorial illustration: conceptual, a little clever, concrete.
+  Example (good): "An oversized brass key, worn smooth from use, lying across a scattered pile of dozens
+  of identical shiny keys — the one that actually fits stands apart by wear, not shine."
+  BE SPECIFIC to THIS post's idea. BAN these tired clichés: lightbulbs, handshakes, chess pieces, gears,
+  rockets/rocketships, ladders, mountains-with-a-flag, two cups, glowing brains, generic upward arrows.
+  NEVER include text, numbers, logos, brand names, charts with labels, or human faces.
+alt_text: a short accessibility description of the image (<= 100 chars).
+post_text: the LinkedIn caption. Strong first line (no warm-up), 2-3 short paragraphs, varied rhythm,
+  0-3 lowercase hashtags on the final line. Plain text only, no markdown.
+
+VOICE: if a voice/author profile is provided, write the caption the way that author talks.
+FACTUAL SAFETY: never invent exact stats, product versions, dates, or named studies.
+NEVER USE: "It's not X. It's Y.", "Let that sink in", game-changer, unlock, leverage, synergy.
+
+Return ONLY JSON: {"image_concept": "...", "alt_text": "...", "post_text": "..."}"""
+
+
+_HUE_NAMES = [
+    (18, "red"), (42, "warm orange"), (58, "amber"), (72, "gold"),
+    (95, "lime green"), (150, "green"), (175, "teal"), (200, "cyan"),
+    (240, "blue"), (268, "indigo"), (288, "violet"), (318, "purple"),
+    (338, "magenta"), (360, "red"),
+]
+
+
+def _describe_color(rgb) -> str:
+    """A human colour name for an RGB tuple, so the image model uses the real palette."""
+    r, g, b = (c / 255 for c in rgb)
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    if s < 0.16:  # near-neutral
+        if v > 0.90: return "off-white"
+        if v > 0.72: return "warm cream"
+        if v > 0.48: return "warm grey"
+        if v > 0.26: return "dark charcoal"
+        return "near-black"
+    deg = h * 360
+    name = next((nm for lim, nm in _HUE_NAMES if deg <= lim), "blue")
+    return ("deep " + name) if v < 0.45 else name
+
+
+def _palette_words(p: dict) -> str:
+    def _hx(c): return "#%02x%02x%02x" % (int(c[0]), int(c[1]), int(c[2]))
+    bg_name = _describe_color(p["bg"])
+    accent_name = _describe_color(p["accent"])
+    return (f"a restrained 2-3 colour palette: a {bg_name} background (about {_hx(p['bg'])}), "
+            f"a single {accent_name} accent colour (about {_hx(p['accent'])}) used sparingly, "
+            "and a neutral ink tone for linework — muted and tasteful, not saturated")
+
+
+def _build_ai_image_prompt(concept: str, p: dict) -> str:
+    return (
+        f"Flat editorial illustration for a premium magazine. Concept: {concept}. "
+        f"Style: {_palette_words(p)}. Confident flat vector shapes with subtle texture and soft "
+        "flat shading, clean linework, strong depth and a clear focal point, balanced and fully "
+        "composed (fills the frame with intention — comfortable margins, NOT sparse or empty). "
+        "High contrast, tasteful, restrained, conceptual — like Stripe Press, Monocle, or a New "
+        "Yorker cover. "
+        "Absolutely NO text, NO words, NO letters, NO numbers, NO logos, NO watermark, NO charts. "
+        "NO human faces, NO hands, NO people. NO photorealism, NO 3D render, NO glossy corporate "
+        "stock look, NO cliche startup imagery. Vertical 4:5 poster composition."
+    )
+
+
+def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
+    """Scale + center-crop to exactly w x h (cover fit)."""
+    img = img.convert("RGB")
+    sw, sh = img.size
+    scale = max(w / sw, h / sh)
+    resized = img.resize((max(1, round(sw * scale)), max(1, round(sh * scale))), Image.LANCZOS)
+    nw, nh = resized.size
+    left, top = (nw - w) // 2, (nh - h) // 2
+    return resized.crop((left, top, left + w, top + h))
+
+
+def _with_brand_mark(img: Image.Image, brand: str, p: dict) -> Image.Image:
+    """Small, tasteful brand wordmark bottom-left on a translucent chip for legibility."""
+    base = img.convert("RGBA")
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(overlay)
+    f = _font(26, bold=True)
+    label = (brand or "Voyce")[:24]
+    tw = _tw(d, label, f)
+    th = d.textbbox((0, 0), label, font=f)[3]
+    pad, dot_r = 14, 5
+    chip_w = pad + dot_r * 2 + 10 + tw + pad
+    chip_h = th + pad * 2
+    x = 32
+    y = base.size[1] - chip_h - 32
+    d.rounded_rectangle([x, y, x + chip_w, y + chip_h], radius=chip_h // 2, fill=(0, 0, 0, 120))
+    cy = y + chip_h // 2
+    d.ellipse([x + pad, cy - dot_r, x + pad + dot_r * 2, cy + dot_r], fill=tuple(p["accent"]) + (255,))
+    d.text((x + pad + dot_r * 2 + 10, y + pad), label, font=f, fill=(255, 255, 255, 255))
+    return Image.alpha_composite(base, overlay).convert("RGB")
+
+
+def generate_ai_image_post(raw_text: str, company: dict = None) -> dict:
+    """LLM: pick the strongest idea → a concrete visual concept + caption for an AI illustration."""
+    from generator import _strip_markdown
+    voice_section = ""
+    if company:
+        from generator import _build_voice_block
+        vb = _build_voice_block(company)
+        if vb:
+            voice_section = f"\n\nVOICE PROFILE:\n{vb[:1200]}"
+    prompt = f"""Content to turn into ONE editorial illustration + caption:
+
+{raw_text[:2000]}{voice_section}
+
+Choose the single strongest idea and design a concrete visual metaphor for it.
+
+Return ONLY valid JSON:
+{{"image_concept": "...", "alt_text": "...", "post_text": "..."}}"""
+    result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1200, temperature=0.85)
+    return {
+        "image_concept": (result.get("image_concept") or "").strip(),
+        "alt_text":      (result.get("alt_text") or "").strip(),
+        "post_text":     _strip_markdown(result.get("post_text", "") or ""),
+    }
+
+
+def render_ai_image_png(content: dict, company: dict) -> bytes:
+    """Generate a flat editorial illustration for the concept, composed to 4:5 with a small
+    brand wordmark. Falls back to the branded insight card if image generation is unavailable."""
+    from llm import generate_image
+    p = _get_palette(company)
+    brand = (company or {}).get("name", "Voyce")
+    concept = (content.get("image_concept") or "").strip()
+    img_bytes = generate_image(_build_ai_image_prompt(concept, p)) if concept else None
+    if img_bytes:
+        try:
+            canvas = _cover_crop(Image.open(io.BytesIO(img_bytes)), IMG_POST_W, IMG_POST_H)
+            buf = io.BytesIO()
+            canvas.save(buf, format="PNG")
+            return buf.getvalue()
+        except Exception:
+            pass
+    # Graceful fallback: the branded insight card (still on-brand, still 4:5)
+    card = {
+        "card_headline": content.get("card_headline") or content.get("alt_text") or brand,
+        "card_subtext": "", "card_emphasis": "", "card_tag": "",
+    }
+    return render_image_post_png(card, company)
+
+
+def generate_caption_from_text(raw_text: str, company: dict = None) -> dict:
+    """Caption + alt text for a user-uploaded image (no image generated)."""
+    data = generate_ai_image_post(raw_text, company)
+    return {"post_text": data.get("post_text", ""), "alt_text": data.get("alt_text", "")}
+
+
 # ── Manual carousel (from pasted content) ────────────────────────────────────
 
-_CAROUSEL_SYSTEM = """You are a world-class LinkedIn carousel strategist.
+_CAROUSEL_SYSTEM = """You are a world-class LinkedIn carousel strategist for founders and creators.
 
-Your job: extract the most surprising, counterintuitive, or genuinely useful insight from the
-content and build a carousel a busy professional would actually swipe through.
+GOAL — SAVE-WORTHY: carousels win because people SAVE them, and saves drive reach far more than
+likes. Build a keepable reference: a step-by-step playbook, a numbered framework, or a checklist —
+something a reader thinks "I need this later." These formats earn the most saves; prefer them.
 
-SAVE-WORTHY IS THE GOAL: carousels win on LinkedIn because people SAVE them, and a save drives
-far more reach than a like. So make this a keepable reference — a clear framework, a numbered
-playbook, a checklist, or a step-by-step — something a reader thinks "I'll need this later,"
-not just "nice." Every slide must earn its place with a specific, usable takeaway.
+DECK STRUCTURE — a five-part narrative, follow it exactly:
+1. hook_slide     — the cover. The single most important slide.
+2. context_slide  — slide 2: answers "why should I keep swiping?" Name the stakes/pain in 1-2 lines.
+3. content_slides — 5 to 8 slides, ONE idea per slide, in a logical progression.
+4. recap_slide    — 3 to 5 one-line takeaways the reader can screenshot.
+5. cta_slide      — a single, specific next action.
+Total deck = 9 to 12 slides. Never fewer than 8, never more than 12.
 
-HOOK SLIDE (most important):
-- The headline is a specific, bold claim — a real number, a named company/event, a confession,
-  or something that sounds wrong until explained.
-- NEVER write: "X Is Important", "X Changes Everything", "The Future of X", "Why X Matters",
-  "Top X Ways to...".
-- The subtext adds a fact or tension — never restates the headline.
+ONE IDEA PER SLIDE (the rule most people break):
+- Each content slide makes exactly one point. If a slide has two ideas, split it.
+- Keep every slide's body under ~40 words. Short, high-contrast, skimmable on a phone.
 
-CONTENT SLIDES (3-5 slides — pick the count the content deserves, don't pad):
-Each slide has a "kind":
-- "point" (default): title = the point stated as a bold claim; body = a real company, report,
-  number, or concrete example. label = a short tag for the slide (e.g. "STEP 1", "MYTH",
-  "TRUTH", "MISTAKE 2") — pick labels that fit the carousel's narrative arc.
-- "stat": use when one number IS the story. stat = the number itself (e.g. "43%", "₹2.4 Cr",
-  "10x"); title = what the number means; body = one-sentence context with the source.
-Use at most one stat slide. Vary the labels — a carousel where every label is "STEP n" is fine
-for a how-to, wrong for a myth-buster.
+HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formulas:
+- Contrarian:         "Stop doing X. Do Y instead."
+- Curiosity + pain:   "X mistakes quietly killing your Y"
+- Result + timeframe: "How I did X in Y days/weeks"
+- Framework promise:  "The X framework that got Y"
+- Data authority:     "I analyzed X. Here's what wins."
+Make it specific (use a real number/name where you can). NEVER generic titles like "Tips for X",
+"X Is Important", "Why X Matters", "The Future of X". subtext adds a fact or the promise — never
+restates the headline.
 
-CTA SLIDE:
-- headline = the ONE thing to remember, stated as a declaration
-- cta = a sharp question or next action for this specific audience — never "what do you think?"
+CONTENT SLIDES — each has a "kind":
+- "point" (default): title = the point as a bold claim (max 6 words); body = ONE concrete example,
+  company, number, or step (max ~40 words). label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
+  "TRUTH") fitting the arc.
+- "stat": use when one number IS the story. stat = the number ("43%", "3x", "₹2.4 Cr"); title =
+  what it means; body = one line of context with the source. Use at most one stat slide.
+
+RECAP SLIDE: title = a short recap heading; bullets = 3-5 punchy one-liners summarizing the deck.
+
+CTA SLIDE: headline = the ONE thing to remember (a declaration). cta = a SINGLE specific ask tied
+to the topic ("Save this for your next launch", "DM me PLAYBOOK for the template", or a genuine
+question). NEVER engagement bait ("Comment YES", "Like if you agree", "Tag a friend") — LinkedIn
+penalizes it. Never stack multiple asks.
 
 VOICE: if a voice/author profile is provided, write every slide the way that author talks.
 
@@ -870,11 +1146,13 @@ Return ONLY valid JSON."""
 
 _CAROUSEL_SCHEMA = """{
   "hook_slide": {"headline": "...", "subtext": "..."},
+  "context_slide": {"title": "...", "body": "..."},
   "content_slides": [
     {"kind": "point", "label": "STEP 1", "title": "...", "body": "..."},
     {"kind": "stat", "label": "THE NUMBER", "stat": "43%", "title": "...", "body": "..."},
     {"kind": "point", "label": "STEP 2", "title": "...", "body": "..."}
   ],
+  "recap_slide": {"title": "The recap", "bullets": ["...", "...", "..."]},
   "cta_slide": {"headline": "...", "cta": "..."},
   "post_text": "..."
 }"""
@@ -903,22 +1181,35 @@ def _sanitize_carousel_result(result: dict) -> dict:
     hook["subtext"] = _clean_slide_text(hook.get("subtext", ""))
     result["hook_slide"] = hook
 
+    ctx = result.get("context_slide") or {}
+    ctx_title = _clean_slide_text(ctx.get("title", "")) if ctx.get("title") else ""
+    ctx_body = _clean_slide_text(ctx.get("body", "")) if ctx.get("body") else ""
+    result["context_slide"] = {"title": ctx_title, "body": ctx_body} if (ctx_title or ctx_body) else None
+
     cleaned_content = []
     for s in (result.get("content_slides") or []):
         s = s or {}
         kind = s.get("kind", "point")
         cleaned = {
             "kind":  kind if kind in ("point", "stat") else "point",
-            "label": _clean_slide_text(s.get("label", ""))[:24],
-            "title": _clean_slide_text(s.get("title", "")),
-            "body":  _clean_slide_text(s.get("body", "")),
+            "label": _clean_slide_text(s.get("label", ""))[:24] if s.get("label") else "",
+            "title": _clean_slide_text(s.get("title", "")) if s.get("title") else "",
+            "body":  _clean_slide_text(s.get("body", "")) if s.get("body") else "",
         }
         if cleaned["kind"] == "stat":
-            cleaned["stat"] = _clean_slide_text(s.get("stat", ""))[:14]
+            cleaned["stat"] = _clean_slide_text(s.get("stat", ""))[:14] if s.get("stat") else ""
             if not cleaned["stat"]:
                 cleaned["kind"] = "point"
-        cleaned_content.append(cleaned)
-    result["content_slides"] = cleaned_content[:5]
+        if cleaned["title"] or cleaned["body"] or cleaned.get("stat"):
+            cleaned_content.append(cleaned)
+    result["content_slides"] = cleaned_content[:8]
+
+    recap = result.get("recap_slide") or {}
+    recap_bullets = [_clean_slide_text(b) for b in (recap.get("bullets") or []) if b and str(b).strip()][:5]
+    result["recap_slide"] = ({
+        "title": (_clean_slide_text(recap.get("title", "")) if recap.get("title") else "") or "The recap",
+        "bullets": recap_bullets,
+    } if recap_bullets else None)
 
     cta = result.get("cta_slide") or {}
     cta["headline"] = _clean_slide_text(cta.get("headline", ""))
@@ -929,6 +1220,15 @@ def _sanitize_carousel_result(result: dict) -> dict:
         from generator import _strip_markdown
         result["post_text"] = _strip_markdown(result.get("post_text") or "")
     return result
+
+
+_SLIDE_CONSTRAINTS = """Slide constraints (follow exactly):
+- hook_slide (cover): headline uses ONE proven formula, max 10 words, specific. subtext: one line, max 14 words.
+- context_slide: title (max 8 words) + body (max ~35 words) that makes the reader want to keep swiping.
+- content_slides: 5-8 slides, ONE idea each. title max 6 words as a claim; body max ~40 words with a real specific.
+- recap_slide: title + 3-5 one-line bullets (each max ~12 words).
+- cta_slide: headline (the one takeaway) + a SINGLE specific ask (no engagement bait).
+Aim for 9-12 total slides. Prefer a step-by-step playbook, numbered framework, or checklist."""
 
 
 def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
@@ -945,16 +1245,12 @@ def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
 
 Build the carousel around the single most surprising or useful insight in the content.
 
-Slide constraints:
-- hook_slide.headline: max 8 words. hook_slide.subtext: max 12 words.
-- content slide titles: max 6 words, stated as claims. Bodies: max 2 sentences with real specifics.
-- 3-5 content slides — whatever the content deserves.
-- cta_slide.headline: max 8 words. cta: max 15 words.
+{_SLIDE_CONSTRAINTS}
 
 Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""
 
-    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=1600, temperature=0.85)
+    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85)
     return _sanitize_carousel_result(result)
 
 
@@ -974,11 +1270,8 @@ Post type: {POST_TYPE_LABELS.get(post_type, post_type)} — shape the narrative 
 Latest industry context: {news_context or 'Draw from well-known industry examples and published reports.'}
 Author/company context: {company_brief}
 
-Slide constraints:
-- hook_slide.headline: max 8 words, specific to this content. subtext: adds a fact or tension.
-- 3-5 content slides. Titles max 6 words, stated as claims. Bodies cite real companies,
-  reports, or numbers — nothing that could apply to any industry.
-- cta_slide: the most memorable takeaway + a question this exact audience would care about.
+{_SLIDE_CONSTRAINTS}
+Content-slide bodies must cite real companies, reports, or numbers — nothing that could apply to any industry.
 
 {voice_note}
 {_hook_guidance(company.get("allowed_hooks"))}
@@ -986,30 +1279,39 @@ Slide constraints:
 Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""
 
-    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=1600, temperature=0.85)
+    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85)
     return _sanitize_carousel_result(result)
 
 
 # ── PDF assembly ──────────────────────────────────────────────────────────────
 
 def render_carousel_pdf(content: dict, company: dict) -> bytes:
-    brand    = company.get("name", "Voyce")
+    brand    = ""  # keep exported assets clean — no logo/watermark (user preference)
     hook     = content["hook_slide"]
+    context  = content.get("context_slide")
     c_slides = content.get("content_slides", [])
+    recap    = content.get("recap_slide")
     cta      = content["cta_slide"]
-    total    = 1 + len(c_slides) + 1
 
+    total = 1 + (1 if context else 0) + len(c_slides) + (1 if recap else 0) + 1
     p = _get_palette(company)
 
     slides = [_slide_hook(hook["headline"], hook["subtext"], 1, total, p)]
+    num = 2
+    if context:
+        slides.append(_slide_context(context["title"], context["body"], num, total, brand, p))
+        num += 1
     for i, s in enumerate(c_slides):
-        num = 2 + i
         if s.get("kind") == "stat" and s.get("stat"):
             slides.append(_slide_stat(s["stat"], s.get("title", ""), s.get("body", ""),
                                       num, total, brand, p))
         else:
             slides.append(_slide_content(s.get("title", ""), s.get("body", ""), num, total,
-                                         brand, p, label=s.get("label", "")))
+                                         brand, p, label=s.get("label", ""), step_index=i + 1))
+        num += 1
+    if recap:
+        slides.append(_slide_recap(recap["title"], recap["bullets"], num, total, brand, p))
+        num += 1
     slides.append(_slide_cta(cta["headline"], cta["cta"], total, total, brand, p))
 
     buf = io.BytesIO()

@@ -7,6 +7,7 @@ Usage:
     data = generate_json(prompt, system=...)   # parsed dict, retries once on bad JSON
 """
 
+import base64
 import json
 import os
 import re
@@ -17,10 +18,11 @@ from google.api_core import exceptions as _gexc
 from dotenv import load_dotenv
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Accept either name: GOOGLE_API_KEY (Google's default) or the older GEMINI_API_KEY.
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
 
-MODEL          = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash-lite")
+MODEL          = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
 
 
 # gemini-2.5 models are "thinking" models: internal reasoning is billed against
@@ -79,10 +81,21 @@ def _extract_json(text: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
+        pass
+    # Decode the FIRST complete JSON object, ignoring any trailing/extra data the
+    # model sometimes appends (raw_decode stops cleanly at the end of the object).
+    start = text.find("{")
+    if start != -1:
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(text[start:])
+            return obj
+        except json.JSONDecodeError:
+            pass
+        # Last resort: greedy brace match (handles some prefix/suffix noise)
+        match = re.search(r"\{.*\}", text[start:], re.DOTALL)
         if match:
             return json.loads(match.group(0))
-        raise
+    raise json.JSONDecodeError("No valid JSON object found", text, 0)
 
 
 def generate_json(prompt: str, system: str = None, max_tokens: int = 2048,
@@ -98,3 +111,26 @@ def generate_json(prompt: str, system: str = None, max_tokens: int = 2048,
             system=system, max_tokens=max_tokens, temperature=0.4, json_mode=True,
         )
         return _extract_json(text)
+
+
+IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+
+
+def generate_image(prompt: str, model_name: str = None) -> bytes:
+    """Generate a single image from a text prompt using a Gemini image model.
+    Returns raw image bytes (PNG/JPEG), or None if generation fails or is unavailable
+    (callers should fall back to a rendered card so the feature degrades gracefully)."""
+    name = model_name or IMAGE_MODEL
+    try:
+        model = genai.GenerativeModel(name)
+        resp = model.generate_content(prompt)
+        for cand in (resp.candidates or []):
+            parts = getattr(getattr(cand, "content", None), "parts", None) or []
+            for part in parts:
+                inline = getattr(part, "inline_data", None)
+                data = getattr(inline, "data", None) if inline else None
+                if data:
+                    return base64.b64decode(data) if isinstance(data, str) else data
+    except Exception:
+        return None
+    return None

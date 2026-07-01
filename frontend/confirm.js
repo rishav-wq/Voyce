@@ -13,7 +13,7 @@
       background: #fff; border-radius: 16px; padding: 26px 26px 22px;
       width: 360px; max-width: 90vw;
       box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       animation: vc-pop 0.15s ease;
     }
     @keyframes vc-pop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }

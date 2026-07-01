@@ -4,13 +4,16 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voyce — Quick Generate</title>
+  <title>Voyce — Create a post</title>
   <script src="/static/confirm.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f0e8; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; color: #1c1813; }
+    body { background: #f4f0e8; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1c1813; }
+    h1, h2, h3, h4, .logo, .page-title, .output-section-title { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+    .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
     /* ── Nav ── */
     .dash-nav {
@@ -25,7 +28,7 @@
       top: 0;
       z-index: 100;
     }
-    .logo { font-size: 20px; font-weight: 800; color: #1c1813; }
+    .logo { font-size: 20px; font-weight: 700; color: #1c1813; }
     .logo span { color: #6c47ff; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
@@ -41,7 +44,7 @@
       font-weight: 600;
       padding: 6px 12px;
       border-radius: 20px;
-      border: 1.5px solid #e0e0e0;
+      border: 1.5px solid #e0d9cc;
       cursor: pointer;
       background: none;
       color: #888;
@@ -61,11 +64,56 @@
     }
     .dry-toggle input { accent-color: #6c47ff; width: 14px; height: 14px; }
 
-    /* ── Body ── */
-    .page-body { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+    /* ── App shell: sidebar + main ── */
+    .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; background: #fff;
+      border-right: 1px solid #e4ddd0; padding: 22px 16px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .sidebar .logo { font-size: 20px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo .logo-mark { width: 30px; height: 30px; border-radius: 9px; background: #1c1813; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+    .sidebar .logo span { color: #6c47ff; }
+    .side-nav { display: flex; flex-direction: column; gap: 4px; }
+    .side-item {
+      display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px;
+      font-size: 14px; font-weight: 600; color: #6a6258; cursor: pointer; border: none;
+      background: none; width: 100%; text-align: left; text-decoration: none; transition: background .14s, color .14s;
+    }
+    .side-item:hover { background: #f7f3ec; color: #1c1813; }
+    .side-item.active { background: #f1ecff; color: #6c47ff; }
+    .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .side-spacer { flex: 1; }
+    .side-upsell { background: linear-gradient(150deg, #6c47ff, #8a6cff); border-radius: 14px; padding: 16px; color: #fff; text-decoration: none; display: block; }
+    .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
+    .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0; }
+    .side-foot { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e4ddd0; padding-top: 12px; }
+    .side-user { font-size: 12px; color: #a59c8d; padding: 0 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .page-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-    .page-sub { font-size: 14px; color: #6e6e78; margin-bottom: 28px; }
+    /* ── Progress strip ── */
+    .progress-strip { display: flex; align-items: center; gap: 6px 14px; background: #fff; border: 1px solid #e4ddd0; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+    .pstep { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: #a59c8d; text-decoration: none; }
+    .pstep .pnum { width: 24px; height: 24px; border-radius: 50%; background: #efe9e0; color: #a59c8d; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .pstep.active { color: #1c1813; }
+    .pstep.active .pnum { background: #6c47ff; color: #fff; }
+    .pstep.done { color: #18a07a; }
+    .pstep.done .pnum { background: #18a07a; color: #fff; }
+    .parrow { color: #d8cfbf; font-size: 13px; }
+
+    @media (max-width: 860px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4ddd0; padding: 12px 16px; }
+      .sidebar .side-spacer, .sidebar .side-upsell { display: none; }
+      .side-nav { flex-direction: row; flex-wrap: wrap; }
+      .side-foot { flex-direction: row; align-items: center; border-top: none; padding-top: 0; margin-left: auto; gap: 12px; }
+      .side-user { display: none; }
+    }
+
+    /* ── Body ── */
+    .page-body { max-width: 820px; margin: 0 auto; padding: 30px 32px; width: 100%; }
+
+    .page-title { font-size: clamp(28px,4vw,40px); font-weight: 700; letter-spacing: -0.04em; line-height: 1.04; margin-bottom: 10px; }
+    .page-sub { font-size: 15px; color: #6f6a5f; margin-bottom: 32px; max-width: 560px; line-height: 1.6; }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
       outline: 2px solid #6c47ff;
@@ -75,10 +123,11 @@
 
     /* ── Input card ── */
     .input-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      background: #fffdf8;
+      border: 1px solid #e3ddd0;
+      border-radius: 18px;
+      padding: 26px;
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 14px 34px rgba(20,16,10,0.05);
       margin-bottom: 24px;
     }
 
@@ -112,15 +161,16 @@
     #content-input {
       width: 100%;
       padding: 14px;
-      border: 1.5px solid #e0e0e0;
-      border-radius: 10px;
+      border: 1.5px solid #e0d9cc;
+      border-radius: 11px;
       font-size: 14px;
       font-family: inherit;
       resize: vertical;
       outline: none;
       transition: border-color 0.15s;
-      min-height: 90px;
+      min-height: 96px;
       line-height: 1.6;
+      background: #fff;
     }
     #content-input:focus { border-color: #6c47ff; }
 
@@ -141,7 +191,7 @@
       cursor: pointer;
       transition: background 0.15s;
     }
-    .generate-btn:hover { background: #5835e0; }
+    .generate-btn:hover { background: #5634e6; }
     .generate-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
     .generate-btn.secondary {
       background: #1c1813;
@@ -201,14 +251,14 @@
     }
 
     .output-card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      background: #fffdf8;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
       overflow: hidden;
-      border: 1.5px solid transparent;
-      transition: border-color 0.15s;
+      border: 1px solid #e3ddd0;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .output-card:hover { border-color: #e0d9ff; }
+    .output-card:hover { border-color: #cdbdff; box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 12px 30px rgba(20,16,10,0.07); }
 
     .card-header {
       display: flex;
@@ -237,14 +287,14 @@
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
-      border: 1.5px solid #e0e0e0;
+      border: 1.5px solid #e0d9cc;
       background: none;
       color: #555;
       transition: all 0.12s;
     }
     .action-btn:hover { background: #f5f5f5; }
     .action-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
-    .action-btn.primary:hover { background: #5835e0; }
+    .action-btn.primary:hover { background: #5634e6; }
     .action-btn.copied { background: #e6f4ea; color: #057642; border-color: #a5d6a7; }
 
     .card-body {
@@ -295,7 +345,7 @@
       font-weight: 600;
       border-radius: 8px;
       cursor: pointer;
-      border: 1.5px solid #e0e0e0;
+      border: 1.5px solid #e0d9cc;
       background: none;
       color: #555;
       text-align: center;
@@ -304,7 +354,7 @@
     }
     .carousel-action-btn:hover { background: #f5f5f5; }
     .carousel-action-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
-    .carousel-action-btn.primary:hover { background: #5835e0; }
+    .carousel-action-btn.primary:hover { background: #5634e6; }
     .carousel-preview-tag {
       font-size: 12px;
       color: #888;
@@ -314,10 +364,11 @@
 
     /* ── Queue ── */
     .queue-card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      padding: 20px 24px;
+      background: #fffdf8;
+      border: 1px solid #e3ddd0;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
+      padding: 22px 26px;
       margin-top: 24px;
       display: none;
     }
@@ -360,15 +411,15 @@
     .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
     .modal-box label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
     .modal-box input[type=datetime-local] {
-      width: 100%; padding: 10px 13px; border: 1.5px solid #e0e0e0;
+      width: 100%; padding: 10px 13px; border: 1.5px solid #e0d9cc;
       border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
     }
     .modal-box input:focus { border-color: #6c47ff; }
     .modal-hint { font-size: 12px; color: #aaa; margin-top: 6px; margin-bottom: 20px; }
     .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
-    .modal-cancel { background: none; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; }
+    .modal-cancel { background: none; border: 1.5px solid #e0d9cc; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; }
     .modal-confirm { background: #6c47ff; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
-    .modal-confirm:hover { background: #5835e0; }
+    .modal-confirm:hover { background: #5634e6; }
     .modal-confirm:disabled { background: #b0a0e8; cursor: not-allowed; }
 
     /* ── Toast ── */
@@ -421,26 +472,52 @@
 </head>
 <body>
 
-  <!-- Nav -->
-  <nav class="dash-nav">
-    <div class="logo">V<span>oyce</span></div>
-    <div class="nav-right">
-      <span class="nav-user" id="user-tag"></span>
-      <a class="nav-link active">Quick Generate</a>
-      <a class="nav-link" href="/setup">Dashboard</a>
-      <a class="nav-link" onclick="doAppLogout()">Sign Out</a>
-      <button class="li-status-pill" id="li-pill" onclick="handleLiClick()">
+  <div id="toast"></div>
+
+  <div class="app-shell">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo"><span class="logo-mark">V</span>V<span>oyce</span></div>
+    <nav class="side-nav">
+      <a class="side-item active" href="/tool">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
+        <span>Create</span>
+      </a>
+      <a class="side-item" href="/setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 7.5a3 3 0 0 1 0 5.5M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>
+        <span>Profiles &amp; automation</span>
+      </a>
+    </nav>
+    <div class="side-spacer"></div>
+    <a class="side-upsell" href="/setup#upgrade">
+      <h4>⚡ Upgrade to Pro</h4>
+      <p>Unlimited posts and daily auto-posting.</p>
+    </a>
+    <div class="side-foot">
+      <button class="li-status-pill" id="li-pill" onclick="handleLiClick()" style="width:100%;justify-content:center;">
         <span class="dot"></span>
         <span id="li-pill-text">LinkedIn</span>
       </button>
+      <span class="side-user" id="user-tag"></span>
+      <a class="side-item" onclick="doAppLogout()" style="padding:8px 12px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Sign out</span>
+      </a>
     </div>
-  </nav>
+  </aside>
 
-  <div id="toast"></div>
+  <main class="page-body">
+    <!-- Progress strip -->
+    <div class="progress-strip" id="progress-strip">
+      <a class="pstep active" id="pstep-generate" href="#"><span class="pnum">1</span> Generate a post</a>
+      <span class="parrow">→</span>
+      <a class="pstep" id="pstep-linkedin" href="#" onclick="handleLiClick();return false;"><span class="pnum">2</span> Connect LinkedIn</a>
+      <span class="parrow">→</span>
+      <a class="pstep" id="pstep-automate" href="/setup"><span class="pnum">3</span> Set up daily posting</a>
+    </div>
 
-  <div class="page-body">
-    <div class="page-title">Quick Generate</div>
-    <div class="page-sub">Paste content, a URL, or a YouTube link — get LinkedIn posts, carousels & more in seconds. Saved profiles guide the tone automatically.</div>
+    <div class="page-title">Create a post</div>
+    <div class="page-sub">Paste content, a URL, or a YouTube link — get a LinkedIn post, carousel, or image in seconds, in a style that sounds like <em class="you">you</em>.</div>
 
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
@@ -461,10 +538,18 @@
           <span id="carousel-btn-text">⊞ Carousel PDF</span>
           <span id="carousel-btn-loader" style="display:none;">Generating…</span>
         </button>
-        <button class="generate-btn secondary" id="image-btn" onclick="generateImagePost()">
-          <span id="image-btn-text">🖼 Image Post</span>
-          <span id="image-btn-loader" style="display:none;">Generating…</span>
-        </button>
+      </div>
+      <style>
+        .img-src-btn{background:#fff;border:1.5px solid #e4ddd0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#1c1813;cursor:pointer;font-family:inherit;transition:all .12s;}
+        .img-src-btn:hover{border-color:#6c47ff;color:#6c47ff;}
+        .img-src-btn:disabled{opacity:.5;cursor:not-allowed;}
+      </style>
+      <div class="image-post-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;">
+        <span style="font-size:13px;font-weight:600;color:#6b6459;">🖼 Image post:</span>
+        <button type="button" class="img-src-btn" onclick="generateImagePost('illustration')">🎨 AI image</button>
+        <button type="button" class="img-src-btn" onclick="generateImagePost('card')">✍️ Insight card</button>
+        <button type="button" class="img-src-btn" onclick="triggerImageUpload()">📤 Upload your own</button>
+        <input type="file" id="image-upload" accept="image/*" style="display:none" onchange="handleImageUpload(event)" />
       </div>
     </div>
 
@@ -551,11 +636,11 @@
           <div style="flex:0 0 auto;">
             <img id="image-preview" alt="Branded image preview" style="width:240px;max-width:100%;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.12);display:block;" />
           </div>
-          <div class="carousel-post-text" id="image-post-text" style="flex:1;"></div>
+          <div class="carousel-post-text" id="image-post-text" style="flex:1;white-space:pre-wrap;" contenteditable="true" data-hint="Caption — click to edit"></div>
           <div class="carousel-actions">
             <button class="carousel-action-btn" onclick="downloadImagePost()">⬇ Download PNG</button>
             <button class="carousel-action-btn primary" id="post-image-btn" onclick="postImage()">Post to LinkedIn</button>
-            <p class="carousel-preview-tag">1 image · 1080×1080</p>
+            <p class="carousel-preview-tag">1 image · 1080×1350 (4:5) · caption is editable</p>
           </div>
         </div>
       </div>
@@ -566,6 +651,7 @@
       <h3>Scheduled Posts</h3>
       <div id="queue-list"></div>
     </div>
+  </main>
   </div>
 
   <!-- Schedule modal -->
@@ -582,7 +668,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=8"></script>
   <script
     async
     crossorigin="anonymous"

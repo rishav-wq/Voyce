@@ -60,6 +60,28 @@ async function startApp() {
   }
   checkLinkedInStatus();
   loadQueue();
+  updateProgress();
+  applySeedTopic();
+}
+
+// First-run handoff from onboarding: pre-fill the generator with the user's topic
+function applySeedTopic() {
+  const seed = localStorage.getItem("cm_seed_topic");
+  if (!seed) return;
+  localStorage.removeItem("cm_seed_topic");
+  const ta = document.getElementById("content-input");
+  if (!ta) return;
+  // Switch to text mode so the pre-filled brief generates correctly
+  const textTab = document.querySelector('.input-tab[data-type="text"]');
+  if (textTab) {
+    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
+    textTab.classList.add("active");
+    activeType = "text";
+  }
+  ta.value = `Write a specific, useful LinkedIn post about ${seed}.`;
+  ta.focus();
+  ta.scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => toast("We pre-filled your topic — hit Generate to see your first post.", "success"), 600);
 }
 
 window.addEventListener("message", (e) => {
@@ -88,7 +110,21 @@ function updateLiPill(connected) {
   if (!pill) return;
   pill.classList.toggle("connected", connected);
   text.textContent = connected ? "LinkedIn Connected" : "Connect LinkedIn";
+  updateProgress();
 }
+
+// ── Onboarding progress strip ───────────────────────────────────────────────
+function updateProgress() {
+  const gen = document.getElementById("pstep-generate");
+  const li  = document.getElementById("pstep-linkedin");
+  if (!gen || !li) return;
+  const hasGen = localStorage.getItem("cm_generated") === "1";
+  gen.classList.toggle("done", hasGen);
+  gen.classList.toggle("active", !hasGen);
+  li.classList.toggle("done", linkedInConnected);
+  li.classList.toggle("active", hasGen && !linkedInConnected);
+}
+function markGenerated() { localStorage.setItem("cm_generated", "1"); updateProgress(); }
 
 async function handleLiClick() {
   if (linkedInConnected) {
@@ -196,6 +232,7 @@ async function generate() {
     if (!res.ok) throw new Error(data.detail || "Something went wrong.");
     renderOutputs(data);
     document.getElementById("output-section").classList.add("visible");
+    markGenerated();
     document.getElementById("output-section").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (err) {
     showError(err.message);
@@ -375,6 +412,7 @@ async function generateCarousel() {
     postBtn.textContent = "Post to LinkedIn";
     postBtn.disabled = false;
     document.getElementById("carousel-section").classList.add("visible");
+    markGenerated();
     document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
     toast("Carousel ready! Download the PDF to preview.", "success");
   } catch (err) {
@@ -430,25 +468,42 @@ async function postCarousel() {
 
 // ── Image Post ─────────────────────────────────────────────────────────────────
 let _imagePostBase64 = null;
+let _imagePostMime   = "image/png";
 
-async function generateImagePost() {
+function _imgSrcBtns() { return Array.from(document.querySelectorAll(".img-src-btn")); }
+function _imgExt() { return _imagePostMime.includes("jpeg") ? "jpg" : (_imagePostMime.split("/")[1] || "png"); }
+
+function _showImagePost(dataUrl, caption) {
+  document.getElementById("image-preview").src = dataUrl;
+  if (caption !== undefined) document.getElementById("image-post-text").textContent = caption;
+  const postBtn = document.getElementById("post-image-btn");
+  postBtn.textContent = "Post to LinkedIn";
+  postBtn.disabled = false;
+  document.getElementById("image-section").classList.add("visible");
+  markGenerated();
+  document.getElementById("image-section").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// style: "illustration" (flat editorial AI image) | "card" (branded insight card)
+async function generateImagePost(style = "illustration") {
   const content = document.getElementById("content-input").value.trim();
-  if (!content) { showError("Please enter some content first."); return; }
+  if (!content) { showError("Paste or write what the post is about first."); return; }
 
-  const btn     = document.getElementById("image-btn");
-  const btnText = document.getElementById("image-btn-text");
-  const btnLoad = document.getElementById("image-btn-loader");
-
-  btn.disabled = true;
-  btnText.style.display = "none";
-  btnLoad.style.display = "inline";
+  const btns = _imgSrcBtns();
+  btns.forEach(b => b.disabled = true);
   document.getElementById("error-banner").style.display = "none";
   document.getElementById("image-section").classList.remove("visible");
 
-  startGenProgress([
+  startGenProgress(style === "card" ? [
     "Reading your content…",
     "Finding the most quotable idea…",
-    "Designing your branded card…",
+    "Designing your insight card…",
+    "Writing the caption…",
+    "Almost there…",
+  ] : [
+    "Reading your content…",
+    "Finding a strong visual idea…",
+    "Illustrating your image…",
     "Writing the caption…",
     "Almost there…",
   ]);
@@ -457,52 +512,90 @@ async function generateImagePost() {
     const res = await fetch("/generate/image", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: activeType, content })
+      body: JSON.stringify({ input_type: activeType, content, style })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Image generation failed.");
 
     _imagePostBase64 = data.image_base64;
-    document.getElementById("image-preview").src = "data:image/png;base64," + data.image_base64;
-    document.getElementById("image-post-text").textContent = data.post_text || "";
-    const postBtn = document.getElementById("post-image-btn");
-    postBtn.textContent = "Post to LinkedIn";
-    postBtn.disabled = false;
-    document.getElementById("image-section").classList.add("visible");
-    document.getElementById("image-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    _imagePostMime   = "image/png";
+    _showImagePost("data:image/png;base64," + data.image_base64, data.post_text || "");
     toast("Image post ready!", "success");
   } catch (err) {
     showError(err.message);
   } finally {
     stopGenProgress();
-    btn.disabled = false;
-    btnText.style.display = "inline";
-    btnLoad.style.display = "none";
+    btns.forEach(b => b.disabled = false);
+  }
+}
+
+function triggerImageUpload() {
+  const input = document.getElementById("image-upload");
+  if (input) input.click();
+}
+
+async function handleImageUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";  // allow re-selecting the same file later
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { toast("Please choose an image file (PNG or JPG).", "warn"); return; }
+  if (file.size > 8 * 1024 * 1024) { toast("Image is too large — please use one under 8 MB.", "warn"); return; }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+
+  _imagePostBase64 = String(dataUrl).split(",")[1];
+  _imagePostMime   = file.type || "image/png";
+  _showImagePost(dataUrl);  // keep any existing caption
+
+  // Auto-write a caption from the pasted content, if any
+  const content = document.getElementById("content-input").value.trim();
+  const capEl = document.getElementById("image-post-text");
+  if (content) {
+    capEl.textContent = "Writing your caption…";
+    try {
+      const res = await fetch("/generate/caption", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ input_type: activeType, content })
+      });
+      const data = await res.json();
+      capEl.textContent = (res.ok && data.post_text) ? data.post_text : "";
+      if (!res.ok) toast(data.detail || "Couldn't write a caption — type your own.", "warn");
+    } catch (_) { capEl.textContent = ""; }
+  } else {
+    capEl.textContent = "";
+    capEl.focus();
+    toast("Image added — write a caption, or paste content above and re-upload for an auto caption.", "success");
   }
 }
 
 function downloadImagePost() {
-  if (!_imagePostBase64) { toast("Generate an image post first.", "warn"); return; }
+  if (!_imagePostBase64) { toast("Generate or upload an image first.", "warn"); return; }
   const a = document.createElement("a");
-  a.href = "data:image/png;base64," + _imagePostBase64;
-  a.download = "voyce-image-post.png";
+  a.href = "data:" + _imagePostMime + ";base64," + _imagePostBase64;
+  a.download = "voyce-image-post." + _imgExt();
   a.click();
 }
 
 async function postImage() {
   if (!linkedInConnected) { toast("LinkedIn not connected — click the pill in the nav to connect.", "warn"); return; }
-  if (!_imagePostBase64) { toast("Generate an image post first.", "warn"); return; }
+  if (!_imagePostBase64) { toast("Generate or upload an image first.", "warn"); return; }
 
-  const text = document.getElementById("image-post-text").textContent;
+  const text = document.getElementById("image-post-text").innerText.trim();
   const btn  = document.getElementById("post-image-btn");
   btn.disabled = true;
   btn.textContent = "Posting…";
 
   try {
     const imgBytes = Uint8Array.from(atob(_imagePostBase64), c => c.charCodeAt(0));
-    const blob = new Blob([imgBytes], { type: "image/png" });
+    const blob = new Blob([imgBytes], { type: _imagePostMime });
     const formData = new FormData();
-    formData.append("file", blob, "image-post.png");
+    formData.append("file", blob, "image-post." + _imgExt());
     formData.append("text", text);
     formData.append("dry_run", isDryRun() ? "true" : "false");
 

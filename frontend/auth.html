@@ -6,19 +6,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — Sign In</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f0e8; font-family: 'Poppins', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-    .auth-logo { font-size: 28px; font-weight: 800; color: #1c1813; margin-bottom: 6px; text-align: center; }
+    body { background: #f4f0e8; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .auth-logo { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: #1c1813; margin-bottom: 6px; text-align: center; }
     .auth-logo span { color: #6c47ff; }
-    .auth-tagline { font-size: 14px; color: #888; margin-bottom: 32px; text-align: center; }
+    .auth-tagline { font-size: 15px; color: #6f6a5f; margin-bottom: 34px; text-align: center; }
+    .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; color: #1c1813; }
     #clerk-sign-in { width: 100%; max-width: 420px; }
+
+    /* ── Match Clerk widget to the Voyce design system ── */
+    .cl-card, .cl-cardBox {
+      background-color: #fffdf8 !important;
+      border: 1px solid #e3ddd0 !important;
+      border-radius: 18px !important;
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 18px 44px rgba(20,16,10,0.08) !important;
+    }
+    .cl-headerTitle {
+      font-family: 'Space Grotesk', sans-serif !important;
+      font-weight: 700 !important; letter-spacing: -0.02em !important; color: #1c1813 !important;
+    }
+    .cl-headerSubtitle { color: #6f6a5f !important; }
+    .cl-socialButtonsBlockButton {
+      border: 1.5px solid #e0d9cc !important; border-radius: 11px !important;
+      background-color: #ffffff !important;
+    }
+    .cl-socialButtonsBlockButton:hover { background-color: #f7f3ec !important; }
+    .cl-socialButtonsBlockButtonText, .cl-socialButtonsBlockButton * { color: #1c1813 !important; font-weight: 600 !important; }
+    .cl-dividerLine { background-color: #e3ddd0 !important; }
+    .cl-dividerText { color: #a59c8d !important; }
+    .cl-formFieldLabel { color: #444 !important; font-weight: 600 !important; }
+    .cl-formFieldInput {
+      border: 1.5px solid #e0d9cc !important; border-radius: 11px !important;
+      background-color: #ffffff !important; color: #1c1813 !important;
+    }
+    .cl-formFieldInput:focus { border-color: #6c47ff !important; box-shadow: 0 0 0 1px #6c47ff !important; }
+    .cl-formButtonPrimary {
+      background-color: #6c47ff !important; border-radius: 11px !important;
+      font-weight: 700 !important; font-size: 15px !important;
+      text-transform: none !important; letter-spacing: 0 !important; box-shadow: none !important;
+    }
+    .cl-formButtonPrimary:hover { background-color: #5634e6 !important; }
+    .cl-footerActionLink { color: #6c47ff !important; font-weight: 600 !important; }
   </style>
 </head>
 <body>
   <div class="auth-logo">V<span>oyce</span></div>
-  <p class="auth-tagline">LinkedIn posts that sound like you.</p>
+  <p class="auth-tagline">LinkedIn posts that sound like <em class="you">you</em>.</p>
   <div id="clerk-sign-in"></div>
 
   <script>
@@ -36,19 +72,25 @@
             localStorage.setItem("cm_user", JSON.stringify(user));
           }
         } catch (_) {}
-        window.location.href = "/setup";
+        window.location.href = "/tool";
         return;
       }
 
       clerk.mountSignIn(document.getElementById("clerk-sign-in"), {
         routing:        "virtual",
-        afterSignInUrl:  "/setup",
+        afterSignInUrl:  "/tool",
         afterSignUpUrl:  "/onboarding",
         appearance: {
           variables: {
-            colorPrimary: "#6c47ff",
-            fontFamily:   "Poppins, sans-serif",
-            borderRadius: "10px",
+            colorPrimary:         "#6c47ff",
+            colorText:            "#1c1813",
+            colorTextSecondary:   "#6f6a5f",
+            colorBackground:      "#fffdf8",
+            colorInputBackground: "#ffffff",
+            colorInputText:       "#1c1813",
+            colorDanger:          "#c0392b",
+            fontFamily:           "'Inter', sans-serif",
+            borderRadius:         "11px",
           }
         }
       });

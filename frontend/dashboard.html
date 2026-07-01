@@ -6,17 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="/static/confirm.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { background: #f4f0e8; margin: 0; font-family: 'Poppins', sans-serif; }
+    body { background: #f4f0e8; margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    h1, h2, h3, h4, .dash-nav .logo, .sidebar .logo, .section-head h2, .page-intro h1, .stat-value { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+    .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
     /* ── Top nav ── */
     .dash-nav {
-      background: #fff;
+      background: #fffdf8;
       border-bottom: 1px solid #eee;
       padding: 0 32px;
       height: 56px;
@@ -27,7 +30,7 @@
       top: 0;
       z-index: 100;
     }
-    .dash-nav .logo { font-size: 20px; font-weight: 800; color: #1c1813; }
+    .dash-nav .logo { font-size: 20px; font-weight: 700; color: #1c1813; }
     .dash-nav .logo span { color: #6c47ff; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
@@ -44,16 +47,16 @@
       cursor: pointer;
       transition: background 0.15s;
     }
-    .btn-add:hover { background: #5835e0; }
+    .btn-add:hover { background: #5634e6; }
 
     /* ── App shell: sidebar + main ── */
     .app-shell { display: grid; grid-template-columns: 248px 1fr 320px; min-height: 100vh; align-items: start; }
     .sidebar {
-      position: sticky; top: 0; height: 100vh; background: #fff;
+      position: sticky; top: 0; height: 100vh; background: #fffdf8;
       border-right: 1px solid #e4ddd0; padding: 22px 16px;
       display: flex; flex-direction: column; gap: 20px;
     }
-    .sidebar .logo { font-size: 20px; font-weight: 800; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo { font-size: 20px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
     .sidebar .logo .logo-mark { width: 30px; height: 30px; border-radius: 9px; background: #1c1813; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
     .sidebar .logo span { color: #6c47ff; }
     .side-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -69,12 +72,12 @@
     .side-upsell { background: linear-gradient(150deg, #6c47ff, #8a6cff); border-radius: 14px; padding: 16px; color: #fff; }
     .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
     .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0 0 12px; }
-    .side-upsell button { width: 100%; background: #fff; color: #6c47ff; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .side-upsell button { width: 100%; background: #fffdf8; color: #6c47ff; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4ddd0; padding-top: 8px; }
     .side-user { font-size: 12px; color: #a59c8d; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* ── Right rail ── */
     .rail { position: sticky; top: 0; padding: 30px 24px; display: flex; flex-direction: column; gap: 16px; align-self: start; }
-    .rail-card { background: #fff; border: 1px solid #e4ddd0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .rail-card { background: #fffdf8; border: 1px solid #e4ddd0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(20,16,10,0.05); }
     .rail-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 14px; color: #1c1813; }
     .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .ring-cell { text-align: center; }
@@ -98,7 +101,7 @@
 
     /* ── Plan banner ── */
     .plan-banner {
-      background: #fff;
+      background: #fffdf8;
       border: 1.5px solid #e8e4ff;
       border-radius: 12px;
       padding: 14px 20px;
@@ -128,7 +131,7 @@
       cursor: pointer; white-space: nowrap; transition: background 0.15s;
       text-decoration: none; display: inline-block;
     }
-    .plan-upgrade-btn:hover { background: #5835e0; }
+    .plan-upgrade-btn:hover { background: #5634e6; }
 
     /* ── LinkedIn banner ── */
     .li-banner {
@@ -165,13 +168,14 @@
       margin-bottom: 28px;
     }
     .stat-card {
-      background: #fff;
-      border-radius: 12px;
+      background: #fffdf8;
+      border: 1px solid #e3ddd0;
+      border-radius: 14px;
       padding: 18px 20px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
     }
     .stat-label { font-size: 12px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .stat-value { font-size: 26px; font-weight: 800; color: #1c1813; }
+    .stat-value { font-size: 26px; font-weight: 700; color: #1c1813; }
     .stat-sub { font-size: 12px; color: #82828c; margin-top: 4px; }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
@@ -197,14 +201,14 @@
       margin-bottom: 36px;
     }
     .profile-card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 20px 22px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      border: 1.5px solid transparent;
-      transition: border-color 0.15s;
+      background: #fffdf8;
+      border-radius: 16px;
+      padding: 22px 24px;
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
+      border: 1px solid #e3ddd0;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .profile-card:hover { border-color: #e0d9ff; }
+    .profile-card:hover { border-color: #cdbdff; box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 12px 30px rgba(20,16,10,0.07); }
     .profile-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
     .profile-card-name { font-size: 16px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 8px; }
     .badge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 20px; }
@@ -260,7 +264,7 @@
       left: 3px;
       width: 14px;
       height: 14px;
-      background: #fff;
+      background: #fffdf8;
       border-radius: 50%;
       transition: left 0.2s;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -271,7 +275,7 @@
     .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .act-btn {
       background: none;
-      border: 1.5px solid #e0e0e0;
+      border: 1.5px solid #e0d9cc;
       border-radius: 7px;
       padding: 6px 12px;
       font-size: 12px;
@@ -280,9 +284,9 @@
       color: #444;
       transition: all 0.12s;
     }
-    .act-btn:hover { background: #f5f5f5; border-color: #ccc; }
+    .act-btn:hover { background: #f4f0e8; border-color: #d6cdbb; }
     .act-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
-    .act-btn.primary:hover { background: #5835e0; }
+    .act-btn.primary:hover { background: #5634e6; }
     .act-btn.danger { color: #c0392b; border-color: #fdecea; }
     .act-btn.danger:hover { background: #fdecea; }
 
@@ -309,21 +313,22 @@
     .empty-state {
       text-align: center;
       padding: 48px 24px;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      background: #fffdf8;
+      border: 1px solid #e3ddd0;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
     }
     .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
-    .empty-state p { color: #888; font-size: 14px; margin: 0 0 16px; }
+    .empty-state p { color: #82786a; font-size: 14px; margin: 0 0 16px; line-height: 1.6; }
     .empty-hero { padding: 56px 24px 64px; }
     .empty-hero .empty-illustration { width: 220px; max-width: 60%; margin-bottom: 24px; }
-    .empty-hero h3 { font-size: 20px; font-weight: 800; color: #1c1813; margin: 0 0 8px; }
+    .empty-hero h3 { font-size: 21px; font-weight: 700; letter-spacing: -0.03em; color: #1c1813; margin: 0 0 8px; }
     .empty-hero p { max-width: 420px; margin: 0 auto 22px; line-height: 1.6; }
     .empty-hero .empty-cta { font-size: 14px; padding: 12px 24px; border-radius: 10px; }
 
     /* ── Activity log ── */
     .activity-section { margin-top: 8px; }
-    .log-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .log-table { width: 100%; border-collapse: collapse; background: #fffdf8; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(20,16,10,0.05); }
     .log-table th { background: #f9f7ff; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
     .log-table td { padding: 11px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; color: #333; }
     .log-table .status-posted  { color: #057642; font-weight: 600; }
@@ -366,7 +371,7 @@
     }
     .modal-overlay.open { display: flex; }
     .modal-drawer {
-      background: #fff;
+      background: #fffdf8;
       width: 480px;
       height: 100vh;
       overflow-y: auto;
@@ -381,7 +386,7 @@
 
     .mode-tabs { display: flex; background: #f4f2ff; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
     .mode-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: #888; border: none; background: none; transition: all 0.15s; }
-    .mode-tab.active { background: #fff; color: #6c47ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .mode-tab.active { background: #fffdf8; color: #6c47ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .mode-tab span { display: block; font-size: 11px; font-weight: 400; color: #bbb; }
     .mode-tab.active span { color: #bbb; }
 
@@ -427,7 +432,7 @@
     .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
     .optional-tag { font-weight: 400; color: #aaa; font-size: 12px; }
     .form-group input, .form-group select {
-      width: 100%; padding: 10px 13px; border: 1.5px solid #e0e0e0; border-radius: 8px;
+      width: 100%; padding: 10px 13px; border: 1.5px solid #e0d9cc; border-radius: 8px;
       font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s;
     }
     .form-group input:focus, .form-group select:focus { border-color: #6c47ff; }
@@ -440,7 +445,7 @@
     .li-upload-status.ok { color: #057642; }
 
     .submit-btn { width: 100%; padding: 13px; background: #6c47ff; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
-    .submit-btn:hover { background: #5835e0; }
+    .submit-btn:hover { background: #5634e6; }
     .submit-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
 
     /* ── Content Calendar ── */
@@ -521,15 +526,15 @@
   <aside class="sidebar">
     <div class="logo"><span class="logo-mark">V</span>V<span>oyce</span></div>
     <nav class="side-nav">
-      <a class="side-item active" href="/setup">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-        <span>Home</span>
-      </a>
       <a class="side-item" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
-        <span>Quick Generate</span>
+        <span>Create</span>
       </a>
-      <a class="side-item" href="#analytics-section">
+      <a class="side-item active" href="/setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 7.5a3 3 0 0 1 0 5.5M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>
+        <span>Profiles &amp; automation</span>
+      </a>
+      <a class="side-item" id="nav-analytics" href="#analytics-section" style="display:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <span>Analytics</span>
       </a>
@@ -552,6 +557,12 @@
 
   <main class="dash-body">
 
+    <!-- Page intro -->
+    <div class="page-intro" style="margin-bottom:20px;">
+      <h1 style="font-size:clamp(26px,3.5vw,34px);font-weight:700;letter-spacing:-0.04em;line-height:1.05;margin:0 0 6px;color:#1c1813;">Profiles &amp; automation</h1>
+      <p style="font-size:14px;color:#8a8275;margin:0;line-height:1.6;max-width:560px;">Manage who Voyce writes as, set your tone, and turn on automatic daily posting — so every post sounds like <em class="you">you</em>. Just writing a one-off? <a href="/tool" style="color:#6c47ff;font-weight:600;text-decoration:none;">Go to Create →</a></p>
+    </div>
+
     <!-- Plan usage banner -->
     <div class="plan-banner" id="plan-banner">
       <div class="plan-left">
@@ -572,7 +583,7 @@
         <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:13px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
-          <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">$</sup><span id="upgrade-price">9.99</span></div>
+          <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">1,599</span></div>
           <div style="font-size:13px;color:#aaa;margin-top:4px;">31 days of Pro · no auto-charge · renew anytime</div>
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
@@ -583,7 +594,7 @@
           <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
           <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
         </ul>
-        <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#5835e0'" onmouseout="this.style.background='#6c47ff'">
+        <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#5634e6'" onmouseout="this.style.background='#6c47ff'">
           Upgrade now — pay securely →
         </button>
         <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#6c47ff;">need help?</a></div>
@@ -651,6 +662,10 @@
         <h2>Content Calendar</h2>
         <span style="font-size:12px;color:#aaa;" id="cal-subtitle"></span>
       </div>
+      <div id="calendar-empty" class="empty-state" style="display:none;">
+        <div class="empty-icon">🗓️</div>
+        <p>Your 7-day posting plan shows up here once a profile's automation is on.<br>Turn on a profile above to preview what Voyce will post each day.</p>
+      </div>
       <div id="calendar-grid" style="overflow-x:auto;"></div>
     </div>
 
@@ -660,7 +675,12 @@
         <h2>Post Analytics</h2>
         <a class="nav-link" id="analytics-refresh-btn" onclick="refreshAnalytics()">Refresh from LinkedIn</a>
       </div>
-      <div class="analytics-grid">
+      <div id="analytics-empty" class="empty-state" style="display:none;">
+        <div class="empty-icon">📊</div>
+        <p>Likes, comments and reposts appear here after you publish to LinkedIn.<br>Connect LinkedIn and post from Create to start tracking engagement.</p>
+        <a class="nav-link" href="/tool" style="font-weight:600;">Go to Create →</a>
+      </div>
+      <div class="analytics-grid" id="analytics-grid">
         <div style="background:#faf9ff;border-radius:12px;padding:16px;">
           <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;">Engagement by Post (Bar)</div>
           <div style="position:relative;height:180px;">
@@ -674,7 +694,7 @@
           </div>
         </div>
       </div>
-      <div style="display:flex;gap:20px;font-size:12px;color:#888;flex-wrap:wrap;">
+      <div id="analytics-legend" style="display:flex;gap:20px;font-size:12px;color:#888;flex-wrap:wrap;">
         <span><span style="display:inline-block;width:10px;height:10px;background:#6c47ff;border-radius:2px;margin-right:4px;"></span>Carousel</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#06b6d4;border-radius:2px;margin-right:4px;"></span>Text post</span>
         <span style="margin-left:auto;color:#bbb;" id="analytics-hint"></span>
@@ -723,18 +743,18 @@
       <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
 
       <div class="mode-tabs">
-        <button class="mode-tab active" onclick="switchMode('company')">
-          For a Company
-          <span>Brand style from website</span>
-        </button>
-        <button class="mode-tab" onclick="switchMode('personal')">
+        <button class="mode-tab active" onclick="switchMode('personal')">
           For Yourself
           <span>Your personal writing style</span>
+        </button>
+        <button class="mode-tab" onclick="switchMode('company')">
+          For a Company
+          <span>Brand style from website</span>
         </button>
       </div>
 
       <!-- Company form -->
-      <div class="form-panel active" id="panel-company">
+      <div class="form-panel" id="panel-company">
         <form onsubmit="submitProfile(event,'company')">
           <div class="form-group"><label>Company Name *</label><input type="text" id="c-name" placeholder="e.g. Acme Software" required /></div>
           <div class="form-group">
@@ -743,11 +763,11 @@
             <p class="form-hint">Voyce reads this once to learn the products, style, and positioning.</p>
           </div>
           <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="e.g. B2B SaaS, fintech, healthcare" required /><p class="form-hint">Used to find relevant news for posts.</p></div>
-          <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
 
           <details class="adv">
-            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">all optional — smart defaults applied</span></summary>
+            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn, automation — all optional</span></summary>
             <div class="adv-inner">
+              <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
               <div class="form-group"><label>LinkedIn Company Page</label><input type="url" id="c-linkedin" placeholder="https://linkedin.com/company/yourcompany" /></div>
               <div class="form-group"><label>Daily Post Time</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
               <div class="form-group">
@@ -784,34 +804,33 @@
             </div>
           </details>
 
-          <button type="submit" class="submit-btn" id="c-submit-btn">Set Up Company</button>
+          <button type="submit" class="submit-btn" id="c-submit-btn">Create profile →</button>
         </form>
       </div>
 
       <!-- Personal form -->
-      <div class="form-panel" id="panel-personal">
+      <div class="form-panel active" id="panel-personal">
         <form onsubmit="submitProfile(event,'personal')">
           <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Your full name" required /></div>
-          <div class="form-group">
-            <label>Your Designation <span class="optional-tag">(optional)</span></label>
-            <input type="text" id="p-designation" placeholder="e.g. Founder, Head of Product, ML Engineer" />
-          </div>
           <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="e.g. AI, product management, startups" autocomplete="off" required />
             <div class="topic-suggest" id="p-topic-suggest"></div>
             <p class="form-hint">Used to find relevant news and topics for posts.</p>
           </div>
-          <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-
-          <div class="li-upload-box">
-            <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
-            <div class="li-upload-desc">Voyce reads your past posts so new ones sound like you wrote them.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
-            <input type="file" id="p-li-file" accept=".pdf,.zip" />
-            <div class="li-upload-status" id="p-li-status"></div>
+          <div class="form-group">
+            <label>Your Designation <span class="optional-tag">(optional)</span></label>
+            <input type="text" id="p-designation" placeholder="e.g. Founder, Head of Product, ML Engineer" />
           </div>
 
           <details class="adv">
-            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">all optional — smart defaults applied</span></summary>
+            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn voice, automation — all optional</span></summary>
             <div class="adv-inner">
+              <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
+              <div class="li-upload-box">
+                <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
+                <div class="li-upload-desc">Voyce reads your past posts so new ones sound like you wrote them.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
+                <input type="file" id="p-li-file" accept=".pdf,.zip" />
+                <div class="li-upload-status" id="p-li-status"></div>
+              </div>
               <div class="form-group">
                 <label>Website URL</label>
                 <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" />
@@ -857,7 +876,7 @@
             </div>
           </details>
 
-          <button type="submit" class="submit-btn" id="p-submit-btn">Set Up Personal Brand</button>
+          <button type="submit" class="submit-btn" id="p-submit-btn">Create profile →</button>
         </form>
       </div>
     </div>
@@ -877,13 +896,12 @@
       if (!clerk.user) { window.location.href = "/login"; return false; }
       await _refreshToken();
       setInterval(_refreshToken, 50000);
-      const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
-      if (res.ok) {
-        const user = await res.json();
-        localStorage.setItem("cm_user", JSON.stringify(user));
-      } else {
-        window.location.href = "/login"; return false;
-      }
+      // Best-effort profile sync — never force a logout on a transient /auth/me hiccup.
+      // The clerk.user check above is the real auth guard.
+      try {
+        const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
+        if (res.ok) localStorage.setItem("cm_user", JSON.stringify(await res.json()));
+      } catch (_) {}
       return true;
     }
 
@@ -898,6 +916,7 @@
     let liConnected = false;
     let currentProfiles = [];
     let personalToneTouched = false;
+    let _analyticsPosts = null;   // last analytics payload, for race-free empty-state reconciliation
 
     // ── Toast ─────────────────────────────────────────────────────────────────
     let toastTimer;
@@ -916,7 +935,7 @@
       const user = getUser();
       if (user) {
         document.getElementById("nav-user").textContent = user.name || user.email;
-        if (user.account_type === "personal") switchMode("personal");
+        if (user.account_type === "company") switchMode("company");
       }
       loadPlanBanner().then(() => {
         checkLinkedIn();
@@ -977,13 +996,22 @@
 
     // ── Profiles ──────────────────────────────────────────────────────────────
     async function loadProfiles() {
-      const res = await fetch("/companies", { headers: { "x-token": getToken() } });
-      if (!res.ok) { if (res.status===401) window.location.href="/login"; return; }
+      let res = await fetch("/companies", { headers: { "x-token": getToken() } });
+      if (res.status === 401) {
+        // Token may have just been minted — refresh once and retry before giving up.
+        await _refreshToken();
+        res = await fetch("/companies", { headers: { "x-token": getToken() } });
+        if (res.status === 401) { window.location.href = "/login"; return; }
+      }
+      if (!res.ok) return;
       const profiles = await res.json();
       currentProfiles = profiles;
       updateRail();
       renderProfiles(profiles);
       updateStats(profiles);
+      // Now that profile count is known, reconcile the analytics empty state
+      // (it may have loaded before profiles and hidden/shown itself incorrectly).
+      if (_analyticsPosts !== null && !_analyticsPosts.length) renderAnalyticsChart(_analyticsPosts);
     }
 
     function updateStats(profiles) {
@@ -1016,9 +1044,11 @@
       const grid = document.getElementById("profiles-grid");
       const statsRow = document.getElementById("stats-row");
       const profilesHead = document.getElementById("profiles-head");
+      const liBanner = document.getElementById("li-banner");
       if (!profiles.length) {
         statsRow.style.display = "none";
         profilesHead.style.display = "none";
+        if (liBanner) liBanner.style.display = "none";  // connecting LinkedIn comes after you have a profile
         grid.innerHTML = `<div class="empty-state empty-hero" style="grid-column:1/-1">
           <img src="/static/illustrations/work-time.svg" alt="" class="empty-illustration" />
           <h3>Let's get your content engine running</h3>
@@ -1029,6 +1059,7 @@
       }
       statsRow.style.display = "";
       profilesHead.style.display = "";
+      if (liBanner) liBanner.style.display = "";
 
       buildCalendar(profiles);
       grid.innerHTML = profiles.map(p => {
@@ -1182,8 +1213,17 @@
     function buildCalendar(profiles) {
       const active = profiles.filter(p => p.active);
       const section = document.getElementById("calendar-section");
-      if (!active.length) { section.style.display = "none"; return; }
-      section.style.display = "";
+      const empty   = document.getElementById("calendar-empty");
+      const grid    = document.getElementById("calendar-grid");
+      section.style.display = "";  // caller only invokes this when profiles exist
+      if (!active.length) {
+        empty.style.display = "";
+        grid.style.display  = "none";
+        document.getElementById("cal-subtitle").textContent = "";
+        return;
+      }
+      empty.style.display = "none";
+      grid.style.display  = "";
 
       // Build 7 days starting from today
       const today = new Date();
@@ -1256,6 +1296,7 @@
       const res = await fetch("/analytics", { headers: { "x-token": getToken() } });
       if (!res.ok) return;
       const posts = await res.json();
+      _analyticsPosts = posts;
       renderAnalyticsChart(posts);
     }
 
@@ -1266,6 +1307,7 @@
         const res = await fetch("/analytics/refresh", { method: "POST", headers: { "x-token": getToken() } });
         if (!res.ok) throw new Error("Failed");
         const posts = await res.json();
+        _analyticsPosts = posts;
         renderAnalyticsChart(posts);
         toast("Analytics updated!", "success");
       } catch {
@@ -1277,8 +1319,26 @@
 
     function renderAnalyticsChart(posts) {
       const section = document.getElementById("analytics-section");
-      if (!posts.length) { section.style.display = "none"; return; }
+      const empty   = document.getElementById("analytics-empty");
+      const grid    = document.getElementById("analytics-grid");
+      const legend  = document.getElementById("analytics-legend");
+      const nav     = document.getElementById("nav-analytics");
+      // The sidebar "Analytics" link only points somewhere real once posts exist.
+      if (nav) nav.style.display = posts.length ? "" : "none";
+      if (!posts.length) {
+        // No posts yet: show an instructional empty state only once a profile exists;
+        // for a brand-new (zero-profile) account, keep the page focused on the profile CTA.
+        if (!currentProfiles.length) { section.style.display = "none"; return; }
+        section.style.display = "";
+        empty.style.display  = "";
+        grid.style.display   = "none";
+        if (legend) legend.style.display = "none";
+        return;
+      }
       section.style.display = "";
+      empty.style.display  = "none";
+      grid.style.display   = "";
+      if (legend) legend.style.display = "";
 
       const labels = posts.map((p, i) => {
         const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
@@ -1441,7 +1501,7 @@
     }
 
     // ── Modal ─────────────────────────────────────────────────────────────────
-    let currentMode = "company";
+    let currentMode = "personal";
     let _editingId = null;   // null = add mode, string = edit mode
 
     function openUpgradeModal() {
@@ -1611,7 +1671,7 @@
 
     function switchMode(mode) {
       currentMode = mode;
-      document.querySelectorAll(".mode-tab").forEach((t,i) => t.classList.toggle("active", (mode==="company"&&i===0)||(mode==="personal"&&i===1)));
+      document.querySelectorAll(".mode-tab").forEach((t,i) => t.classList.toggle("active", (mode==="personal"&&i===0)||(mode==="company"&&i===1)));
       document.getElementById("panel-company").classList.toggle("active", mode==="company");
       document.getElementById("panel-personal").classList.toggle("active", mode==="personal");
     }

@@ -9,6 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+
+# Load backend/.env explicitly BEFORE importing local modules, so config is correct
+# no matter which directory uvicorn is launched from. Running from the repo root
+# would otherwise pick up the root .env (different key names, missing backend-only
+# settings) and cause every authenticated request to 401. load_dotenv does not
+# override real host env vars, so production (Render) is unaffected.
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
 from processor import process_input
 from generator import generate_content
 from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data
@@ -181,6 +190,7 @@ def _restore_scheduled_jobs():
 class GenerateRequest(BaseModel):
     input_type: str
     content: str
+    style: str = "illustration"   # image posts: "illustration" (AI) | "card" (insight card)
 
 
 class PostRequest(BaseModel):
@@ -544,18 +554,49 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         import base64
-        from carousel import generate_image_post_from_text, render_image_post_png
         profiles = list_companies(user["id"])
         profile = profiles[0] if profiles else None
         context_text = _with_profile_context(user["id"], raw_text)
-        content = generate_image_post_from_text(context_text, company=profile)
-        png_bytes = render_image_post_png(content, profile or {"name": "Voyce"})
+        if request.style == "card":
+            from carousel import generate_image_post_from_text, render_image_post_png
+            content = generate_image_post_from_text(context_text, company=profile)
+            png_bytes = render_image_post_png(content, profile or {"name": "Voyce"})
+            headline = content.get("card_headline", "")
+        else:  # "illustration" — research-grounded flat editorial AI image
+            from carousel import generate_ai_image_post, render_ai_image_png
+            content = generate_ai_image_post(context_text, company=profile)
+            png_bytes = render_ai_image_png(content, profile or {"name": "Voyce"})
+            headline = content.get("alt_text", "")
         auth_module.increment_gens(user["id"])
         return {
             "post_text":    content.get("post_text", ""),
             "image_base64": base64.b64encode(png_bytes).decode(),
-            "headline":     content.get("card_headline", ""),
+            "headline":     headline,
+            "alt_text":     content.get("alt_text", ""),
         }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+
+
+@app.post("/generate/caption")
+async def generate_caption_manual(request: GenerateRequest, x_token: str = Header(None)):
+    """Caption for a user-uploaded image post — no image is generated here."""
+    user = _require_user(x_token)
+    _check_gen_limit(user)
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Add a few words about the image or paste your content.")
+    try:
+        raw_text = process_input(request.input_type, request.content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
+    try:
+        from carousel import generate_caption_from_text
+        profiles = list_companies(user["id"])
+        profile = profiles[0] if profiles else None
+        context_text = _with_profile_context(user["id"], raw_text)
+        data = generate_caption_from_text(context_text, company=profile)
+        auth_module.increment_gens(user["id"])
+        return {"post_text": data.get("post_text", ""), "alt_text": data.get("alt_text", "")}
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
