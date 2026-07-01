@@ -118,17 +118,31 @@ function updateLiPill(connected) {
 // Step 1 reflects the ACTUAL on-screen output (a LinkedIn post draft or a carousel),
 // not a persistent flag — so it stays truthful across generate / clear / refresh.
 function updateProgress() {
-  const gen = document.getElementById("pstep-generate");
-  const li  = document.getElementById("pstep-linkedin");
+  const gen  = document.getElementById("pstep-generate");
+  const li   = document.getElementById("pstep-linkedin");
+  const auto = document.getElementById("pstep-automate");
   if (!gen || !li) return;
   const liText = document.getElementById("linkedin-content");
   const carSec = document.getElementById("carousel-section");
   const hasGen = !!(liText && liText.textContent.trim()) ||
                  !!(carSec && carSec.classList.contains("visible"));
-  gen.classList.toggle("done", hasGen);
-  gen.classList.toggle("active", !hasGen);
-  li.classList.toggle("done", linkedInConnected);
-  li.classList.toggle("active", hasGen && !linkedInConnected);
+
+  // Linear onboarding: a step turns "done" only once it AND every step before it is
+  // complete; the "active" step is always the first one still incomplete. This keeps the
+  // strip truthful — e.g. LinkedIn being connected doesn't jump ahead of an ungenerated post.
+  const step1done = hasGen;
+  const step2done = step1done && linkedInConnected;
+
+  gen.classList.toggle("done", step1done);
+  gen.classList.toggle("active", !step1done);
+
+  li.classList.toggle("done", step2done);
+  li.classList.toggle("active", step1done && !step2done);
+
+  if (auto) {
+    auto.classList.toggle("active", step2done);   // becomes the next step once post + LinkedIn are done
+    auto.classList.remove("done");                // finishing setup is confirmed on /setup, not here
+  }
 }
 function markGenerated() { updateProgress(); }
 
