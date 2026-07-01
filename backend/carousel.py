@@ -928,16 +928,29 @@ def render_image_post_png(content: dict, company: dict) -> bytes:
 _AI_IMAGE_SYSTEM = """You design ONE editorial illustration to accompany a founder's LinkedIn post, plus the caption.
 
 Return JSON:
-image_concept: describe, in 2-3 rich sentences for an illustrator, ONE striking visual scene that
-  captures the post's core idea. Give it a clear FOCAL subject AND supporting detail so the frame feels
-  composed and intentional — never a single tiny object floating in empty space. Specify the subject,
-  the setting/context around it, and the one element that carries the meaning. Think like a New Yorker /
-  Monocle / Stripe-press editorial illustration: conceptual, a little clever, concrete.
-  Example (good): "An oversized brass key, worn smooth from use, lying across a scattered pile of dozens
-  of identical shiny keys — the one that actually fits stands apart by wear, not shine."
-  BE SPECIFIC to THIS post's idea. BAN these tired clichés: lightbulbs, handshakes, chess pieces, gears,
-  rockets/rocketships, ladders, mountains-with-a-flag, two cups, glowing brains, generic upward arrows.
-  NEVER include text, numbers, logos, brand names, charts with labels, or human faces.
+image_concept: FIRST boil the post down to its ONE core message in a short phrase (e.g. "build a button,
+  not a platform", "talk to users instead of just coding", "focus on a single channel"). THEN describe,
+  in 2-3 sentences for an illustrator, a SIMPLE, bold, iconic visual metaphor a reader would INSTANTLY
+  connect to THAT message — a stranger seeing the image beside the post should think "yes, that fits."
+  Compose it like a New Yorker / Monocle / Stripe-press editorial illustration: ONE clear focal subject,
+  a few supporting shapes at most, generous negative space. Conceptual, a little clever, concrete, ON-TOPIC.
+  Example — post about "talk to your users, don't just build": "A lone office chair turned away from a
+  softly glowing desk lamp to face a single empty chair across a small round table."
+  Example — post about "ship one simple thing, not a sprawling platform": "A single oversized, satisfying
+  round button resting alone on a clean pedestal, dwarfing a small tangled heap of disconnected parts
+  pushed to the edge of the frame."
+  HARD RULES:
+  - The metaphor MUST relate to the post's actual subject. If you can't say in one line why it fits, pick another.
+  - KEEP IT SIMPLE AND TEXT-FREE. The illustration tool scrawls gibberish letters onto anything that
+    normally carries text or dense repeated detail — so NEVER feature: screens / monitors / phones showing a
+    UI, dashboards, spreadsheets, charts or graphs, keyboards, circuit boards or breadboards, books,
+    newspapers, documents, letters, signs, price tags, or labelled buttons/keys. Pick clean, textless
+    objects and shapes instead, and keep the scene uncluttered (a few big elements, not a busy detailed one).
+  - Do NOT produce decorative or unrelated scenery — no temples, monuments, landmarks, palaces, cityscapes,
+    landscapes, or pretty buildings — unless the post is literally about that.
+  - BAN tired clichés: lightbulbs, handshakes, chess pieces, gears, rockets, ladders, mountains-with-a-flag,
+    two cups, glowing brains, generic upward arrows.
+  - NEVER include text, numbers, letters, logos, brand names, charts with labels, or human faces.
 alt_text: a short accessibility description of the image (<= 100 chars).
 post_text: the LinkedIn caption. Strong first line (no warm-up), 2-3 short paragraphs, varied rhythm,
   0-3 lowercase hashtags on the final line. Plain text only, no markdown.
@@ -983,15 +996,16 @@ def _palette_words(p: dict) -> str:
 
 def _build_ai_image_prompt(concept: str, p: dict) -> str:
     return (
-        f"Flat editorial illustration for a premium magazine. Concept: {concept}. "
-        f"Style: {_palette_words(p)}. Confident flat vector shapes with subtle texture and soft "
-        "flat shading, clean linework, strong depth and a clear focal point, balanced and fully "
-        "composed (fills the frame with intention — comfortable margins, NOT sparse or empty). "
-        "High contrast, tasteful, restrained, conceptual — like Stripe Press, Monocle, or a New "
-        "Yorker cover. "
-        "Absolutely NO text, NO words, NO letters, NO numbers, NO logos, NO watermark, NO charts. "
-        "NO human faces, NO hands, NO people. NO photorealism, NO 3D render, NO glossy corporate "
-        "stock look, NO cliche startup imagery. Vertical 4:5 poster composition."
+        f"Minimalist flat editorial illustration for a premium magazine cover. Concept: {concept}. "
+        f"Style: {_palette_words(p)}. Bold, simple flat vector shapes with subtle grain and soft flat "
+        "shading, clean confident linework, ONE clear focal subject with generous negative space — keep "
+        "it simple and uncluttered, only a few large elements, NOT busy or finely detailed. High contrast, "
+        "tasteful, restrained, conceptual — like Stripe Press, Monocle, or a New Yorker cover. "
+        "CRITICAL: absolutely NO text, NO words, NO letters, NO numbers, NO gibberish writing, NO labels, "
+        "NO signs, NO logos, NO watermark, NO charts or graphs. Do NOT draw screens or phones with "
+        "interfaces, keyboards, circuit boards, books or documents, or anything that would carry writing. "
+        "NO human faces, NO hands, NO people. NO photorealism, NO 3D render, NO glossy corporate stock "
+        "look, NO cliche startup imagery. Vertical 4:5 poster composition."
     )
 
 

@@ -282,31 +282,39 @@
 
     .card-actions { display: flex; gap: 6px; align-items: center; }
     .action-btn {
-      padding: 5px 12px;
-      font-size: 12px;
+      padding: 6px 14px;
+      font-size: 12.5px;
       font-weight: 600;
-      border-radius: 6px;
+      border-radius: 999px;
       cursor: pointer;
       border: 1.5px solid #e0d9cc;
-      background: none;
-      color: #555;
-      transition: all 0.12s;
+      background: #fff;
+      color: #3a352c;
+      transition: border-color .14s, color .14s, background .14s, transform .1s;
     }
-    .action-btn:hover { background: #f5f5f5; }
+    .action-btn:hover { border-color: #6c47ff; color: #6c47ff; background: #faf8ff; transform: translateY(-1px); }
+    .action-btn:active { transform: translateY(0); }
     .action-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
-    .action-btn.primary:hover { background: #5634e6; }
+    .action-btn.primary:hover { background: #5634e6; border-color: #5634e6; color: #fff; }
     .action-btn.copied { background: #e6f4ea; color: #057642; border-color: #a5d6a7; }
 
     .card-body {
-      padding: 16px;
-      font-size: 13.5px;
-      line-height: 1.65;
-      color: #333;
+      padding: 14px 20px 20px;
+      font-size: 14.5px;
+      line-height: 1.6;
+      color: #1c1813;
       white-space: pre-wrap;
-      max-height: 320px;
+      max-height: 480px;
       overflow-y: auto;
       min-height: 80px;
     }
+    /* Realistic LinkedIn post preview header */
+    .li-preview-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 0; }
+    .li-avatar { width: 44px; height: 44px; border-radius: 50%; background: #6c47ff; color: #fff;
+      display: grid; place-items: center; font-weight: 700; font-size: 17px;
+      font-family: 'Space Grotesk', sans-serif; flex: 0 0 auto; }
+    .li-name { font-size: 14.5px; font-weight: 700; color: #1c1813; line-height: 1.15; }
+    .li-sub { font-size: 12px; color: #8a8275; }
 
     /* Twitter tweets */
     .tweet {
@@ -328,10 +336,12 @@
     }
     .carousel-post-text {
       flex: 1;
-      font-size: 13.5px;
-      line-height: 1.65;
-      color: #333;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1c1813;
       white-space: pre-wrap;
+      max-height: 480px;
+      overflow-y: auto;
     }
     .carousel-actions {
       display: flex;
@@ -340,21 +350,22 @@
       min-width: 140px;
     }
     .carousel-action-btn {
-      padding: 10px 14px;
+      padding: 10px 16px;
       font-size: 13px;
       font-weight: 600;
-      border-radius: 8px;
+      border-radius: 999px;
       cursor: pointer;
       border: 1.5px solid #e0d9cc;
-      background: none;
-      color: #555;
+      background: #fff;
+      color: #3a352c;
       text-align: center;
-      transition: all 0.12s;
+      transition: border-color .14s, color .14s, background .14s, transform .1s;
       white-space: nowrap;
     }
-    .carousel-action-btn:hover { background: #f5f5f5; }
+    .carousel-action-btn:hover { border-color: #6c47ff; color: #6c47ff; background: #faf8ff; transform: translateY(-1px); }
+    .carousel-action-btn:active { transform: translateY(0); }
     .carousel-action-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
-    .carousel-action-btn.primary:hover { background: #5634e6; }
+    .carousel-action-btn.primary:hover { background: #5634e6; border-color: #5634e6; color: #fff; }
     .carousel-preview-tag {
       font-size: 12px;
       color: #888;
@@ -477,7 +488,7 @@
   <div class="app-shell">
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
-    <div class="logo"><span class="logo-mark">V</span>V<span>oyce</span></div>
+    <div class="logo"><span class="logo-mark">V</span><span>oyce</span></div>
     <nav class="side-nav">
       <a class="side-item active" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
@@ -489,7 +500,7 @@
       </a>
     </nav>
     <div class="side-spacer"></div>
-    <a class="side-upsell" href="/setup#upgrade">
+    <a class="side-upsell" href="#" onclick="openUpgradeModal();return false;">
       <h4>⚡ Upgrade to Pro</h4>
       <p>Unlimited posts and daily auto-posting.</p>
     </a>
@@ -529,6 +540,16 @@
         <button class="input-tab" data-type="youtube">YouTube URL</button>
       </div>
       <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="4"></textarea>
+      <div class="img-choice">
+        <label class="img-toggle" title="Also create an on-brand illustration for this post">
+          <input type="checkbox" id="add-image-toggle" />
+          <span class="img-toggle-track"><span class="img-toggle-thumb"></span></span>
+          <span class="img-toggle-text">Add an AI image<span class="img-toggle-sub"> — an on-brand illustration made from your post</span></span>
+        </label>
+        <span class="img-choice-or">or</span>
+        <button type="button" class="img-src-btn" onclick="attachTriggerUpload()">📤 Upload your own</button>
+        <input type="file" id="attach-upload" accept="image/*" hidden onchange="attachHandleUpload(event)" />
+      </div>
       <div class="btn-row">
         <button class="generate-btn" id="generate-btn" onclick="generate()">
           <span id="btn-text">Generate Content</span>
@@ -540,17 +561,39 @@
         </button>
       </div>
       <style>
-        .img-src-btn{background:#fff;border:1.5px solid #e4ddd0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#1c1813;cursor:pointer;font-family:inherit;transition:all .12s;}
-        .img-src-btn:hover{border-color:#6c47ff;color:#6c47ff;}
-        .img-src-btn:disabled{opacity:.5;cursor:not-allowed;}
+        .img-choice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 2px;}
+        .img-choice-or{font-size:12.5px;color:#8a8275;}
+        .img-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+        .img-toggle input{position:absolute;opacity:0;width:0;height:0;}
+        .img-toggle-track{width:38px;height:22px;background:#d9d2c4;border-radius:999px;position:relative;transition:background .15s;flex:none;}
+        .img-toggle-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+        .img-toggle input:checked + .img-toggle-track{background:#6c47ff;}
+        .img-toggle input:checked + .img-toggle-track .img-toggle-thumb{transform:translateX(16px);}
+        .img-toggle input:focus-visible + .img-toggle-track{outline:2px solid #6c47ff;outline-offset:2px;}
+        .img-toggle-text{font-size:14px;font-weight:600;color:#1c1813;}
+        .img-toggle-sub{font-size:12px;color:#8a8275;font-weight:400;}
+        @media (max-width:520px){ .img-toggle-sub{display:none;} }
+        .img-src-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e4ddd0;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:#3a352c;cursor:pointer;font-family:inherit;transition:border-color .14s,color .14s,background .14s,transform .1s;}
+        .img-src-btn:hover{border-color:#6c47ff;color:#6c47ff;background:#faf8ff;transform:translateY(-1px);}
+        .img-src-btn:active{transform:translateY(0);}
+        .img-src-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+        .img-src-btn.danger:hover{border-color:#d64545;color:#d64545;background:#fdf6f5;}
+
+        /* Image rendered full-size inside the post preview (WYSIWYG), with its controls right beneath it */
+        .li-media{display:none;flex-direction:column;align-items:center;gap:11px;padding:10px 20px 2px;}
+        .li-media img{max-width:100%;max-height:470px;border-radius:12px;border:1px solid #e6e0d4;box-shadow:0 2px 10px rgba(20,16,10,.07);}
+        .li-media-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+        .li-attach-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:10px 20px 0;min-height:200px;border:1.5px dashed #ddd5c6;border-radius:12px;background:#faf7f0;color:#8a8275;font-size:13px;}
+        .li-attach-spin{width:22px;height:22px;border:2.5px solid #e3ddd0;border-top-color:#6c47ff;border-radius:50%;animation:liattachspin .7s linear infinite;}
+        @keyframes liattachspin{to{transform:rotate(360deg);}}
+
+        /* LinkedIn-style reaction bar — completes the preview illusion (non-interactive) */
+        .li-reactbar{display:flex;gap:2px;margin:14px 16px 0;padding-top:6px;border-top:1px solid #efe9e0;}
+        .li-react{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 4px;border-radius:8px;color:#8a8275;font-size:13px;font-weight:600;}
+        .li-react svg{width:17px;height:17px;stroke:#8a8275;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+        @media (max-width:560px){ .li-react span{display:none;} .li-react{padding:10px 4px;} }
+
       </style>
-      <div class="image-post-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;">
-        <span style="font-size:13px;font-weight:600;color:#6b6459;">🖼 Image post:</span>
-        <button type="button" class="img-src-btn" onclick="generateImagePost('illustration')">🎨 AI image</button>
-        <button type="button" class="img-src-btn" onclick="generateImagePost('card')">✍️ Insight card</button>
-        <button type="button" class="img-src-btn" onclick="triggerImageUpload()">📤 Upload your own</button>
-        <input type="file" id="image-upload" accept="image/*" style="display:none" onchange="handleImageUpload(event)" />
-      </div>
     </div>
 
     <!-- Generation progress -->
@@ -568,38 +611,42 @@
       <div class="output-grid">
         <div class="output-card" id="card-linkedin">
           <div class="card-header">
-            <div class="platform-badge linkedin">LinkedIn</div>
+            <div class="platform-badge linkedin">LinkedIn preview</div>
             <div class="card-actions">
               <button class="action-btn" onclick="copyContent('linkedin-content')">Copy</button>
-              <button class="action-btn" id="post-now-btn" onclick="postToLinkedIn()">Post Now</button>
               <button class="action-btn" onclick="openSchedule()">Schedule</button>
+              <button class="action-btn primary" id="post-now-btn" onclick="postToLinkedIn()">Post now</button>
+            </div>
+          </div>
+          <div class="li-preview-head">
+            <div class="li-avatar" id="li-avatar">Y</div>
+            <div>
+              <div class="li-name" id="li-name">You</div>
+              <div class="li-sub">now · 🌐 Anyone</div>
             </div>
           </div>
           <div class="card-body" id="linkedin-content"></div>
-        </div>
 
-        <div class="output-card" id="card-twitter">
-          <div class="card-header">
-            <div class="platform-badge twitter">Twitter / X</div>
-            <button class="action-btn" onclick="copyContent('twitter-content')">Copy</button>
+          <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->
+          <div class="li-media" id="li-media">
+            <img id="li-attach-img" alt="Attached image" />
+            <div class="li-media-tools">
+              <button type="button" class="img-src-btn" onclick="attachGenerateImage()">🔄 Regenerate</button>
+              <button type="button" class="img-src-btn danger" onclick="attachRemove()">✕ Remove</button>
+            </div>
           </div>
-          <div class="card-body" id="twitter-content"></div>
-        </div>
+          <div class="li-attach-loading" id="li-attach-loading" style="display:none;">
+            <span class="li-attach-spin"></span>
+            <span>Designing an image for your post…</span>
+          </div>
 
-        <div class="output-card" id="card-email">
-          <div class="card-header">
-            <div class="platform-badge email">Email Newsletter</div>
-            <button class="action-btn" onclick="copyContent('email-content')">Copy</button>
+          <!-- Reaction bar completes the preview -->
+          <div class="li-reactbar" aria-hidden="true">
+            <span class="li-react"><svg viewBox="0 0 24 24"><path d="M7 10v11M2 21h4V10H2zM7 10l4-8a2 2 0 0 1 3 2l-1 6h5a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 19 21H7"/></svg><span>Like</span></span>
+            <span class="li-react"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-4.2A8.4 8.4 0 1 1 21 11.5z"/></svg><span>Comment</span></span>
+            <span class="li-react"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4m14 4v2a4 4 0 0 1-4 4H3"/></svg><span>Repost</span></span>
+            <span class="li-react"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg><span>Send</span></span>
           </div>
-          <div class="card-body" id="email-content"></div>
-        </div>
-
-        <div class="output-card" id="card-blog">
-          <div class="card-header">
-            <div class="platform-badge blog">Blog Intro</div>
-            <button class="action-btn" onclick="copyContent('blog-content')">Copy</button>
-          </div>
-          <div class="card-body" id="blog-content"></div>
         </div>
       </div>
     </div>
@@ -619,28 +666,7 @@
           <div class="carousel-actions">
             <button class="carousel-action-btn" onclick="downloadCarousel()">⬇ Download PDF</button>
             <button class="carousel-action-btn primary" id="post-carousel-btn" onclick="postCarousel()">Post to LinkedIn</button>
-            <p class="carousel-preview-tag">5-slide PDF · 1080×1080</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Image Post Output -->
-    <div class="output-section" id="image-section">
-      <div class="output-section-title">Image Post</div>
-      <div class="output-card" id="card-image">
-        <div class="card-header">
-          <div class="platform-badge" style="background:#e8f5e9;color:#2e7d32;text-transform:none;font-size:13px;">Branded Image</div>
-        </div>
-        <div class="carousel-inner">
-          <div style="flex:0 0 auto;">
-            <img id="image-preview" alt="Branded image preview" style="width:240px;max-width:100%;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.12);display:block;" />
-          </div>
-          <div class="carousel-post-text" id="image-post-text" style="flex:1;white-space:pre-wrap;" contenteditable="true" data-hint="Caption — click to edit"></div>
-          <div class="carousel-actions">
-            <button class="carousel-action-btn" onclick="downloadImagePost()">⬇ Download PNG</button>
-            <button class="carousel-action-btn primary" id="post-image-btn" onclick="postImage()">Post to LinkedIn</button>
-            <p class="carousel-preview-tag">1 image · 1080×1350 (4:5) · caption is editable</p>
+            <p class="carousel-preview-tag">Portrait PDF · 1080×1350</p>
           </div>
         </div>
       </div>
@@ -668,7 +694,8 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=17"></script>
+  <script src="/static/upgrade.js?v=1"></script>
   <script
     async
     crossorigin="anonymous"

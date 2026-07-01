@@ -81,6 +81,11 @@ def _require_pro(user: dict, feature: str):
 
 
 def _friendly_generation_error(exc: Exception) -> str:
+    # Log the real error+traceback to the server console so failures are diagnosable
+    # (the user only ever sees the friendly message below).
+    import traceback
+    print(f"[generation error] {type(exc).__name__}: {exc}", flush=True)
+    traceback.print_exc()
     msg = str(exc)
     low = msg.lower()
     if "rate limit" in low or "rate_limit" in low or "quota" in low or "too many requests" in low:

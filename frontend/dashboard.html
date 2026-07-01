@@ -74,6 +74,12 @@
     .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0 0 12px; }
     .side-upsell button { width: 100%; background: #fffdf8; color: #6c47ff; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4ddd0; padding-top: 8px; }
+    .li-status-pill { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e0d9cc; cursor: pointer; background: none; color: #888; font-family: inherit; transition: all 0.15s; }
+    .li-status-pill:hover { border-color: #6c47ff; color: #6c47ff; }
+    .li-status-pill.connected { border-color: #a5d6a7; color: #057642; background: #e8f5e9; }
+    .li-status-pill.connected:hover { border-color: #057642; }
+    .li-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
+    .li-status-pill.connected .dot { background: #057642; }
     .side-user { font-size: 12px; color: #a59c8d; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* ── Right rail ── */
     .rail { position: sticky; top: 0; padding: 30px 24px; display: flex; flex-direction: column; gap: 16px; align-self: start; }
@@ -524,7 +530,7 @@
   <div class="app-shell">
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
-    <div class="logo"><span class="logo-mark">V</span>V<span>oyce</span></div>
+    <div class="logo"><span class="logo-mark">V</span><span>oyce</span></div>
     <nav class="side-nav">
       <a class="side-item" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
@@ -547,6 +553,10 @@
       <button onclick="openUpgradeModal()">⚡ Upgrade</button>
     </div>
     <div class="side-foot">
+      <button class="li-status-pill" id="li-pill" onclick="handleLiClick()" style="width:100%;justify-content:center;margin-bottom:6px;">
+        <span class="dot"></span>
+        <span id="li-pill-text">Connect LinkedIn</span>
+      </button>
       <span class="side-user" id="nav-user"></span>
       <a class="side-item" onclick="doAppLogout()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -608,13 +618,13 @@
     </div>
 
     <!-- LinkedIn banner -->
-    <div class="li-banner" id="li-banner">
+    <div class="li-banner" id="li-banner" style="display:none;">
       <p>LinkedIn is optional for generating. Connect it when you want to post from Voyce.</p>
       <button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-row" id="stats-row">
+    <!-- Stats (revealed by renderProfiles once profiles load, to avoid a load flash) -->
+    <div class="stats-row" id="stats-row" style="display:none;">
       <div class="stat-card">
         <div class="stat-label">Automation Active</div>
         <div class="stat-value" id="stat-active">—</div>
@@ -738,7 +748,7 @@
     <div class="modal-drawer">
       <button class="modal-close" onclick="closeModal()">✕</button>
       <h2>Add a Profile</h2>
-      <p class="modal-sub">Create a profile for manual generation or daily automation. Free includes 10 total generations/posts.</p>
+      <p class="modal-sub">Create a profile for manual generation or daily automation. Free includes 5 total generations/posts.</p>
 
       <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
 
@@ -963,6 +973,7 @@
       updateRail();
       updateLiBanner(data.connected);
       updateLiStat(data.connected);
+      updateLiSidebar(data.connected);
     }
 
     function updateLiBanner(connected) {
@@ -992,6 +1003,20 @@
       liConnected = false;
       updateLiBanner(false);
       updateLiStat(false);
+      updateLiSidebar(false);
+    }
+
+    function updateLiSidebar(connected) {
+      const pill = document.getElementById("li-pill");
+      const txt = document.getElementById("li-pill-text");
+      if (!pill) return;
+      pill.classList.toggle("connected", connected);
+      if (txt) txt.textContent = connected ? "LinkedIn Connected" : "Connect LinkedIn";
+    }
+
+    function handleLiClick() {
+      if (liConnected) disconnectLinkedIn();
+      else connectLinkedIn();
     }
 
     // ── Profiles ──────────────────────────────────────────────────────────────
@@ -1654,7 +1679,7 @@
       _editingId = null;
       personalToneTouched = false;
       document.querySelector(".modal-drawer h2").textContent = "Add a Profile";
-      document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation or daily automation. Free includes 10 total generations/posts.";
+      document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation or daily automation. Free includes 5 total generations/posts.";
       document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
       document.getElementById("modal-success").style.display = "none";
       document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = false);

@@ -25,12 +25,13 @@ MODEL          = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
 
 
-# gemini-2.5 models are "thinking" models: internal reasoning is billed against
+# gemini-2.5/3.x models are "thinking" models: internal reasoning is billed against
 # max_output_tokens. A small cap can be fully consumed by thinking, leaving zero
-# tokens for the actual answer (finish_reason=MAX_TOKENS, no parts). Floor the cap
-# so there's always room for both. Output length is controlled by the prompt, and
-# you only pay for tokens actually generated, so a generous cap is safe.
-_MIN_OUTPUT_TOKENS = 2048
+# tokens for the actual answer (finish_reason=MAX_TOKENS, no parts → empty response).
+# gemini-3.5-flash reasons more heavily than 2.5, so the floor must be generous.
+# Output length is controlled by the prompt, and you only pay for tokens actually
+# generated, so a high cap is safe (it's headroom, not a target).
+_MIN_OUTPUT_TOKENS = 4096
 
 
 def _safe_text(resp) -> str:

@@ -136,7 +136,7 @@ def get_gen_info(user_id: str) -> dict:
         plan = "free"
         db.users.update_one({"id": user_id}, {"$set": {"plan": "free"}})
     used  = user.get("gens_used", 0)
-    limit = 10 if plan == "free" else -1
+    limit = 5 if plan == "free" else -1
     info = {"used": used, "limit": limit, "plan": plan}
     if plan == "pro" and expires_at:
         info["expires_at"] = expires_at
