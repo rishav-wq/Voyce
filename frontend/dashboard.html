@@ -827,21 +827,27 @@
                   <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#6c47ff;" />
                   <span>Shift my tone toward this <span class="optional-tag">(only if you add past posts)</span></span>
                 </label>
-                <p class="form-hint">Off: Voyce matches your past posts exactly. On: keeps your vocabulary and quirks but deliberately moves the register toward the tone above — for when your old posts don't sound how you want to sound.</p>
+                <p class="form-hint">Keeps your words and quirks, just moves the delivery toward this tone.</p>
               </div>
               <div class="li-upload-box">
-                <div class="li-upload-title">Teach Voyce your voice (recommended)</div>
-                <div class="li-upload-desc">Give it 2-3 past posts and new ones sound like you wrote them. Works for your own voice — or anyone you write for.</div>
-                <label style="font-size:13px;font-weight:600;display:block;margin:10px 0 4px;">Upload screenshots of posts <span class="optional-tag">fastest</span></label>
-                <input type="file" id="p-voice-shots" accept="image/*" multiple />
-                <div class="li-upload-desc" style="margin:6px 0 2px;">Screenshot 2-3 LinkedIn posts and drop them here. Voyce reads the text right out of the images.</div>
-                <label style="font-size:13px;font-weight:600;display:block;margin:12px 0 4px;">Or paste a few recent posts</label>
-                <textarea id="p-voice-posts" rows="4" placeholder="Paste 2-3 recent posts here. Separate each one with a line of --- (three dashes)."></textarea>
-                <details style="margin-top:10px;">
-                  <summary style="font-size:12.5px;color:#8a8275;cursor:pointer;">Have your LinkedIn data archive? (ZIP/PDF)</summary>
-                  <div class="li-upload-desc" style="margin:8px 0 4px;"><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
+                <div class="li-upload-title">Teach Voyce your voice <span class="optional-tag">recommended</span></div>
+                <div class="li-upload-desc">Add 2-3 past posts so new ones sound like you (or whoever you write for).</div>
+                <div style="display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap;" id="p-voice-tabs">
+                  <button type="button" data-pane="shots" onclick="voicePane('shots')" style="padding:7px 14px;border:1.5px solid #6c47ff;border-radius:999px;background:#6c47ff;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📸 Screenshots</button>
+                  <button type="button" data-pane="paste" onclick="voicePane('paste')" style="padding:7px 14px;border:1.5px solid #ddd6c8;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">✍️ Paste text</button>
+                  <button type="button" data-pane="archive" onclick="voicePane('archive')" style="padding:7px 14px;border:1.5px solid #ddd6c8;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📁 Archive</button>
+                </div>
+                <div id="p-voice-pane-shots">
+                  <input type="file" id="p-voice-shots" accept="image/*" multiple />
+                  <p class="form-hint" style="margin-top:6px;">Screenshot 2-3 posts and drop them here — Voyce reads the text from the images.</p>
+                </div>
+                <div id="p-voice-pane-paste" style="display:none;">
+                  <textarea id="p-voice-posts" rows="4" placeholder="Paste 2-3 posts, separated by a line of --- (three dashes)."></textarea>
+                </div>
+                <div id="p-voice-pane-archive" style="display:none;">
                   <input type="file" id="p-li-file" accept=".pdf,.zip" />
-                </details>
+                  <p class="form-hint" style="margin-top:6px;">ZIP: LinkedIn → Settings → Data Privacy → Get a copy (~24h). PDF: your profile → More → Save to PDF.</p>
+                </div>
                 <div class="li-upload-status" id="p-li-status"></div>
               </div>
               <div class="form-group">
@@ -882,6 +888,17 @@
 
           <button type="submit" class="submit-btn" id="p-submit-btn">Create profile →</button>
         </form>
+        <script>
+          function voicePane(m) {
+            ["shots", "paste", "archive"].forEach(k => {
+              document.getElementById("p-voice-pane-" + k).style.display = (k === m) ? "block" : "none";
+              const b = document.querySelector(`#p-voice-tabs [data-pane="${k}"]`);
+              b.style.background  = (k === m) ? "#6c47ff" : "#fff";
+              b.style.color       = (k === m) ? "#fff"    : "#555";
+              b.style.borderColor = (k === m) ? "#6c47ff" : "#ddd6c8";
+            });
+          }
+        </script>
       </div>
     </div>
   </div>
