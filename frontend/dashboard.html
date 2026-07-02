@@ -780,26 +780,6 @@
             <div class="adv-inner">
               <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
               <div class="form-group"><label>Daily Post Time</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
-              <div class="form-group">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                  <input type="checkbox" id="c-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('c-theme-group').style.display=this.checked?'block':'none'" />
-                  <span>Carousel posts <span class="optional-tag">(Pro · automation)</span></span>
-                </label>
-                <p class="form-hint">Only affects daily automation: every other automated day becomes a branded, swipeable PDF carousel instead of a text post. Carousels are LinkedIn's highest-reach format.</p>
-              </div>
-              <div class="form-group" id="c-theme-group" style="display:none;">
-                <label>Carousel Theme</label>
-                <select id="c-theme">
-                  <option value="">Auto (based on industry)</option>
-                  <option value="dark_pro">Dark Pro — Navy + Cyan</option>
-                  <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
-                  <option value="deep_teal">Deep Teal — Teal + Emerald</option>
-                  <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
-                  <option value="clean_light">Clean Light — White + Indigo</option>
-                  <option value="warm_paper">Warm Paper — Cream + Burnt Orange</option>
-                  <option value="electric">Electric — Black + Lime</option>
-                </select>
-              </div>
             </div>
           </details>
 
@@ -864,26 +844,6 @@
               </div>
               <div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8a8275;margin:18px 0 8px;">Daily automation (Pro)</div>
               <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Only used when daily automation is on.</p></div>
-              <div class="form-group">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                  <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
-                  <span>Carousel posts <span class="optional-tag">(Pro · automation)</span></span>
-                </label>
-                <p class="form-hint">Only affects daily automation: every other automated day becomes a branded, swipeable PDF carousel instead of a text post. Carousels are LinkedIn's highest-reach format.</p>
-              </div>
-              <div class="form-group" id="p-theme-group" style="display:none;">
-                <label>Carousel Theme</label>
-                <select id="p-theme">
-                  <option value="">Auto (based on industry)</option>
-                  <option value="dark_pro">Dark Pro — Navy + Cyan</option>
-                  <option value="warm_dark">Warm Dark — Charcoal + Amber</option>
-                  <option value="deep_teal">Deep Teal — Teal + Emerald</option>
-                  <option value="deep_indigo">Deep Indigo — Indigo + Violet</option>
-                  <option value="clean_light">Clean Light — White + Indigo</option>
-                  <option value="warm_paper">Warm Paper — Cream + Burnt Orange</option>
-                  <option value="electric">Electric — Black + Lime</option>
-                </select>
-              </div>
             </div>
           </details>
 
@@ -1137,6 +1097,11 @@
             <span class="carousel-toggle-label">Carousel posts <span style="font-weight:400;color:#b3aa9b;">(automation)</span></span>
           </label>
           <div style="font-size:11px;color:#a29a8c;margin:-6px 0 12px 46px;line-height:1.4;">On: every other automated day posts a swipeable PDF carousel instead of a text post.</div>
+          ${p.carousel_enabled ? `<div style="margin:-6px 0 12px 46px;">
+            <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
+              ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
+            </select>
+          </div>` : ""}
 
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${voiceTag}</div>
 
@@ -1211,6 +1176,24 @@
       if (labelEl && labelEl.setAttribute) labelEl.setAttribute("aria-checked", data.carousel_enabled);
       sw.classList.toggle("on", data.carousel_enabled);
       toast(data.carousel_enabled ? "Carousels on — alternating automated days will post PDF carousels." : "Carousel posts disabled.", "success");
+      loadProfiles();  // re-render so the theme picker appears/disappears
+    }
+
+    const CAROUSEL_THEMES = [
+      ["", "Auto (based on industry)"],
+      ["dark_pro", "Dark Pro — Navy + Cyan"],
+      ["warm_dark", "Warm Dark — Charcoal + Amber"],
+      ["deep_teal", "Deep Teal — Teal + Emerald"],
+      ["deep_indigo", "Deep Indigo — Indigo + Violet"],
+      ["clean_light", "Clean Light — White + Indigo"],
+      ["warm_paper", "Warm Paper — Cream + Burnt Orange"],
+      ["electric", "Electric — Black + Lime"],
+    ];
+
+    async function setCarouselTheme(id, theme) {
+      const res = await fetch(`/companies/${id}/carousel`, { method: "PATCH", headers: ah(), body: JSON.stringify({ theme }) });
+      if (res.ok) toast("Carousel theme updated.", "success");
+      else toast("Couldn't update the theme — try again.", "warn");
     }
 
     async function deleteProfile(id) {
@@ -1759,9 +1742,6 @@
             const wtVal = p.website_type || "own";
             const wtRadio = document.querySelector(`input[name="p-website-type"][value="${wtVal}"]`);
             if (wtRadio) wtRadio.checked = true;
-            document.getElementById("p-carousel").checked = !!p.carousel_enabled;
-            document.getElementById("p-theme").value = p.carousel_theme || "";
-            document.getElementById("p-theme-group").style.display = p.carousel_enabled ? "block" : "none";
             
             document.getElementById("p-submit-btn").textContent = "Save Changes";
           } else {
@@ -1770,9 +1750,6 @@
             document.getElementById("c-industry").value = p.industry || "";
             document.getElementById("c-tone").value     = p.tone || "professional";
             document.getElementById("c-time").value     = p.post_time || "09:00";
-            document.getElementById("c-carousel").checked = !!p.carousel_enabled;
-            document.getElementById("c-theme").value = p.carousel_theme || "";
-            document.getElementById("c-theme-group").style.display = p.carousel_enabled ? "block" : "none";
             
             document.getElementById("c-submit-btn").textContent = "Save Changes";
           }
@@ -1802,8 +1779,6 @@
         tone: document.getElementById("p-tone").value,
         post_time: document.getElementById("p-time").value,
         profile_type: "personal",
-        carousel_enabled: document.getElementById("p-carousel").checked,
-        carousel_theme: document.getElementById("p-theme").value,
         voice_posts: (document.getElementById("p-voice-posts")?.value || ""),
         tone_shift: (document.getElementById("p-tone-shift")?.checked || false),
       } : {
@@ -1813,8 +1788,6 @@
         tone: document.getElementById("c-tone").value,
         post_time: document.getElementById("c-time").value,
         profile_type: "company",
-        carousel_enabled: document.getElementById("c-carousel").checked,
-        carousel_theme: document.getElementById("c-theme").value,
       };
 
       try {

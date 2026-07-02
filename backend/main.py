@@ -794,18 +794,26 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
     return {"active": request.active}
 
 
+class CarouselPatch(BaseModel):
+    theme: str | None = None
+
+
 @app.patch("/companies/{company_id}/carousel")
-def toggle_carousel(company_id: str, x_token: str = Header(None)):
+def toggle_carousel(company_id: str, request: CarouselPatch | None = None, x_token: str = Header(None)):
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
+    import db as _db
+    # With a theme in the body this sets the theme; with no body it toggles on/off.
+    if request is not None and request.theme is not None:
+        _db.companies.update_one({"id": company_id}, {"$set": {"carousel_theme": request.theme}})
+        return {"carousel_enabled": company.get("carousel_enabled", False), "carousel_theme": request.theme}
     new_val = not company.get("carousel_enabled", False)
     if new_val:
         _require_pro(user, "carousel")
-    import db as _db
     _db.companies.update_one({"id": company_id}, {"$set": {"carousel_enabled": new_val}})
-    return {"carousel_enabled": new_val}
+    return {"carousel_enabled": new_val, "carousel_theme": company.get("carousel_theme", "")}
 
 
 @app.post("/companies/{company_id}/preview")

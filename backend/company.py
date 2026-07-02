@@ -47,6 +47,7 @@ def save_company(profile: dict) -> dict:
         "created_at":       datetime.now().isoformat(),
         "active":           profile.get("active", True),
         "carousel_enabled": profile.get("carousel_enabled", False),
+        "carousel_theme":   profile.get("carousel_theme", ""),
         "designation":      profile.get("designation", ""),
         "allowed_hooks":    profile.get("allowed_hooks", []),
         "tone_shift":       profile.get("tone_shift", False),
@@ -74,9 +75,10 @@ def update_company(company_id: str, data: dict) -> dict | None:
     if not c:
         return None
 
+    # carousel_enabled/carousel_theme are managed solely by the card's PATCH endpoint,
+    # so a form edit can never silently reset them.
     for field in ("name", "industry", "tone", "post_time", "linkedin_url",
-                  "website_type", "carousel_enabled", "designation", "carousel_theme",
-                  "allowed_hooks", "tone_shift"):
+                  "website_type", "designation", "allowed_hooks", "tone_shift"):
         if field in data:
             c[field] = data[field]
 
