@@ -16,6 +16,12 @@ def _strip_markdown(text: str) -> str:
     text = re.sub(r"\*(.+?)\*", r"\1", text)
     # Inline code backticks render as literal junk on LinkedIn
     text = text.replace("`", "")
+    # Em/en-dashes are the #1 AI tell. Keep them ONLY inside number ranges (e.g. 85-90%);
+    # everywhere else convert to a comma so the post reads like a human typed it.
+    text = re.sub(r"(?<=\d)[ \t]*[—–][ \t]*(?=\d)", "-", text)   # 85–90% -> 85-90%
+    text = re.sub(r"[ \t]*[—–][ \t]*", ", ", text)               # word — word -> word, word
+    text = re.sub(r"[ \t]+,", ",", text)                          # tidy stray " ,"
+    text = re.sub(r",[ \t]*,", ", ", text)                        # collapse ",,"
     return text
 
 SYSTEM_PROMPT = """You are an elite ghostwriter. You write social content that sounds like a specific
@@ -98,25 +104,29 @@ NEVER USE (instant AI tells):
 - game-changer, landscape, unlock, leverage, dive deep, revolutionize, thrilled, excited
   to share, in today's fast-paced world, at the end of the day, paradigm, synergy,
   move the needle, learnings, impactful, groundbreaking, "the future of X is here"
-- Starting consecutive paragraphs with the same word"""
+- Starting consecutive paragraphs with the same word
+- Em-dashes (—) or en-dashes (–): the SINGLE biggest AI tell. Use commas, periods, or
+  parentheses instead. A plain hyphen is fine only inside a number range (e.g. 85-90%)."""
 
 
 HUMANIZE_PROMPT = """You are the final editor before publishing. Your only job: remove every
 trace of AI writing from this LinkedIn post while keeping its substance and voice.
 
 Hunt and fix:
-1. "It's not X. It's Y." constructions — rewrite as a direct statement.
-2. Relentless staccato (every sentence under 10 words) — merge some into natural longer sentences.
-3. Rule-of-three tics (triads in every paragraph) — break the pattern.
-4. Directive engagement-bait ("Comment YES", "Tag someone who…", "Agree?", "Repost if…",
-   "Let that sink in", "What do you think?") — LinkedIn suppresses these. Replace with either
+1. EM-DASHES and en-dashes (— –): the biggest AI tell of all. Replace EVERY one with a comma,
+   a period, or parentheses. A plain hyphen is fine only inside a number range like 85-90%.
+2. "It's not X. It's Y." constructions: rewrite as a direct statement.
+3. Relentless staccato (every sentence under 10 words): merge some into natural longer sentences.
+4. Rule-of-three tics (triads in every paragraph): break the pattern.
+5. Directive engagement-bait ("Comment YES", "Tag someone who…", "Agree?", "Repost if…",
+   "Let that sink in", "What do you think?"): LinkedIn suppresses these. Replace with either
    a genuine open question a relevant peer would actually answer, or just end on the takeaway.
-5. Banned vocabulary: game-changer, unlock, leverage, landscape, dive deep, thrilled,
+6. Banned vocabulary: game-changer, unlock, leverage, landscape, dive deep, thrilled,
    excited, paradigm, synergy, learnings, impactful, groundbreaking.
-6. Generic platitudes / quote-style filler ("consistency is key", "success takes hard work")
-   and any sentence that could appear in any post about any topic — make it specific or cut it.
-7. Consecutive paragraphs opening with the same word.
-8. Promotional URLs in the body — remove them (they drag reach); keep the post self-contained.
+7. Generic platitudes / quote-style filler ("consistency is key", "success takes hard work")
+   and any sentence that could appear in any post about any topic: make it specific or cut it.
+8. Consecutive paragraphs opening with the same word.
+9. Promotional URLs in the body: remove them (they drag reach); keep the post self-contained.
 
 Preserve:
 - The opening line's claim (you may sharpen its wording, not change its idea)
