@@ -8,7 +8,7 @@ import zipfile
 import pdfplumber
 from dotenv import load_dotenv
 
-from llm import generate_json
+from llm import generate_json, generate_vision, _extract_json
 
 load_dotenv()
 
@@ -148,6 +148,35 @@ def parse_pasted_posts(text: str) -> dict:
     combined = "\n\n---\n\n".join(posts)
     return {
         "type": "pasted",
+        "top_posts": posts,
+        "analysis": _analyze_linkedin_data(combined[:6000], "recent posts"),
+    }
+
+
+# ── Post screenshots (vision) — screenshot 2-3 posts instead of copying text ───
+
+def parse_post_screenshots(images: list[bytes]) -> dict:
+    """Read the post text straight out of LinkedIn-post screenshots (vision model),
+    ignoring UI chrome, then analyze the writing style like any other voice source."""
+    prompt = """These images are screenshots of LinkedIn posts (possibly cropped).
+Transcribe the BODY TEXT of each post exactly as written, preserving line breaks.
+IGNORE everything that is not the post body: author name/headline, timestamps,
+"...see more" / "Follow" buttons, reaction counts, comment sections, and any other UI text.
+If a post is cut off mid-sentence, transcribe what is visible.
+Return ONLY JSON: {"posts": ["full text of post 1", "full text of post 2", ...]}"""
+    try:
+        raw = generate_vision(prompt, images, json_mode=True, max_tokens=4096, temperature=0.1)
+        data = _extract_json(raw)
+        posts = [p.strip() for p in (data.get("posts") or [])
+                 if isinstance(p, str) and len(p.strip()) >= 40][:10]
+    except Exception:
+        posts = []
+    if not posts:
+        return {"type": "screenshots", "posts_found": 0, "top_posts": [], "analysis": {}}
+    combined = "\n\n---\n\n".join(posts)
+    return {
+        "type": "screenshots",
+        "posts_found": len(posts),
         "top_posts": posts,
         "analysis": _analyze_linkedin_data(combined[:6000], "recent posts"),
     }

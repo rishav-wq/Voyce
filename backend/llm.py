@@ -114,6 +114,37 @@ def generate_json(prompt: str, system: str = None, max_tokens: int = 2048,
         return _extract_json(text)
 
 
+def generate_vision(prompt: str, images: list[bytes], system: str = None,
+                    max_tokens: int = 2048, temperature: float = 0.2,
+                    json_mode: bool = False) -> str:
+    """Run a multimodal prompt over one or more images (e.g. screenshots).
+    Same primary→fallback handling as generate()."""
+    def _sniff(b: bytes) -> str:
+        if b[:8] == b"\x89PNG\r\n\x1a\n":
+            return "image/png"
+        if b[:3] == b"\xff\xd8\xff":
+            return "image/jpeg"
+        if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+            return "image/webp"
+        return "image/png"
+    parts = [{"mime_type": _sniff(b), "data": b} for b in images]
+
+    def _vcall(model_name: str) -> str:
+        model = genai.GenerativeModel(model_name, system_instruction=system or None)
+        config = genai.GenerationConfig(
+            max_output_tokens=max(max_tokens, _MIN_OUTPUT_TOKENS),
+            temperature=temperature,
+            response_mime_type="application/json" if json_mode else "text/plain",
+        )
+        resp = model.generate_content([prompt, *parts], generation_config=config)
+        return _safe_text(resp)
+
+    try:
+        return _vcall(MODEL)
+    except _gexc.ResourceExhausted:
+        return _vcall(FALLBACK_MODEL)
+
+
 IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 

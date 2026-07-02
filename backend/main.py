@@ -22,7 +22,7 @@ from processor import process_input
 from generator import generate_content
 from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data
 from autonomous import run_for_company, get_post_log, save_post_log
-from linkedin_data import parse_linkedin_upload, parse_pasted_posts
+from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_screenshots
 import linkedin as li
 import auth as auth_module
 import payments
@@ -936,5 +936,41 @@ async def upload_linkedin_data(company_id: str, file: UploadFile = File(...), x_
         "status": "ok",
         "type": result["type"],
         "posts_found": result.get("posts_found", 0),
+        "analysis": result.get("analysis", {}),
+    }
+
+
+@app.post("/companies/{company_id}/upload-post-screenshots")
+async def upload_post_screenshots(company_id: str, files: list[UploadFile] = File(...),
+                                  x_token: str = Header(None)):
+    """Learn a voice from screenshots of LinkedIn posts (yours or a prospect's)."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    images = []
+    for f in files[:8]:  # cap: 8 screenshots is plenty for a voice
+        if not (f.content_type or "").startswith("image/"):
+            raise HTTPException(status_code=400, detail="Upload image screenshots (PNG or JPG)")
+        data = await f.read()
+        if len(data) > 8 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Each screenshot must be under 8 MB")
+        images.append(data)
+    if not images:
+        raise HTTPException(status_code=400, detail="No screenshots received")
+
+    try:
+        result = parse_post_screenshots(images)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if not result.get("top_posts"):
+        raise HTTPException(status_code=422, detail="Couldn't read post text from those screenshots. Try clearer full-post screenshots, or paste the text instead.")
+
+    save_linkedin_data(company_id, result)
+    return {
+        "status": "ok",
+        "type": "screenshots",
+        "posts_found": result["posts_found"],
         "analysis": result.get("analysis", {}),
     }
