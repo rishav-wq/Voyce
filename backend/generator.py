@@ -66,6 +66,9 @@ VOICE (this outranks every other rule):
   like THAT person. Match how they open, how casual they are, whether they use emoji.
 - Never fabricate first-person experience. No "I built / my team / I invested" unless that
   exact claim appears in the provided content or voice profile.
+- BUT where the source DOES support it, lean into first-person and real, specific experience
+  ("I spent last week…", "I found…", "I kept seeing…"). Don't flatten a genuine personal story
+  into detached, third-person analysis. Personal and specific beats analytical and general.
 - Attribute third-party material ("According to X…", "Y's report shows…").
 
 FACTUAL SAFETY (a fabricated specific that a reader can falsify destroys credibility):
@@ -74,10 +77,16 @@ FACTUAL SAFETY (a fabricated specific that a reader can falsify destroys credibi
 - Only cite facts present in the source content, or things you are genuinely confident are real.
 - When unsure, hedge instead of fabricating: "models like DeepSeek" not "DeepSeek-V3.2";
   "most teams" not "70% of teams"; "recent benchmarks" not a made-up percentage.
+- NEVER invent how a platform or algorithm works: no made-up thresholds, mechanisms, or rules
+  ("posts liked in under 3 seconds count as low-value", "the algorithm flags X after Y seconds").
+  If a specific mechanism isn't in the source, state the idea generally or leave it out. A
+  confident invented mechanic is the fastest way to get publicly corrected and lose all trust.
 
 WRITING CRAFT:
 - Vary your rhythm. Mix short punchy lines with longer natural sentences — text that is
   ALL short staccato lines reads as AI-generated in 2026 and gets scrolled past.
+- PLAIN ENGLISH, never a whitepaper. Write the way a smart person actually talks, not the way a
+  research paper reads. Use contractions (I'm, don't, it's, that's). Skip academic/corporate register.
 - Concrete beats abstract in every sentence: real names, real numbers, real examples.
   Generic motivational lines and quote-style platitudes are treated as low-quality filler —
   every sentence must come from the author's actual experience or the source content.
@@ -105,6 +114,9 @@ NEVER USE (instant AI tells):
   to share, in today's fast-paced world, at the end of the day, paradigm, synergy,
   move the needle, learnings, impactful, groundbreaking, "the future of X is here"
 - Starting consecutive paragraphs with the same word
+- Corporate/academic register: programmatically, systemically, mimics, "information density",
+  furthermore, moreover, "Ultimately,", "it is worth noting", "the takeaway is simple". Say it
+  like a human instead.
 - Em-dashes (—) or en-dashes (–): the SINGLE biggest AI tell. Use commas, periods, or
   parentheses instead. A plain hyphen is fine only inside a number range (e.g. 85-90%)."""
 
@@ -127,6 +139,11 @@ Hunt and fix:
    and any sentence that could appear in any post about any topic: make it specific or cut it.
 8. Consecutive paragraphs opening with the same word.
 9. Promotional URLs in the body: remove them (they drag reach); keep the post self-contained.
+10. Fabricated specifics: any exact number, threshold, date, or "how the algorithm works" claim
+    that isn't clearly from the source. Cut it or make it general. ONE made-up stat destroys the
+    whole post's credibility, this is the most important check.
+11. Corporate/academic register (programmatically, systemically, mimics, "information density",
+    "Ultimately,", furthermore): rewrite in plain, spoken English with contractions.
 
 Preserve:
 - The opening line's claim (you may sharpen its wording, not change its idea)
