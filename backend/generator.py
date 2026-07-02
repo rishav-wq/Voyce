@@ -94,12 +94,17 @@ WRITING CRAFT:
   LinkedIn distributes): one idea per line, blank line between paragraphs, generous whitespace,
   and a shape that keeps pulling the eye down — a narrative arc, a numbered list of specifics,
   or a clear before→after. No wall of text.
-- SKIMMABLE STRUCTURE (default to this): a 1-2 line hook at the top, then the core points as a
-  clean NUMBERED LIST or short bullet lines (one idea each, NOT buried inside paragraphs), then a
-  1-2 line takeaway, then the closing question. Use this list shape whenever the post has 2+ tips,
-  steps, findings, or reasons. Each list item = a bold-ish label line + at most one short
-  supporting line. EXCEPTION: a single personal story or narrative flows better as short
-  paragraphs — never force a list onto a story.
+- FIRST PICK THE SHAPE, then write to it. Decide by the content:
+    • LIST post (multiple parallel items: tips, steps, findings, reasons, a framework):
+      hook (1-2 lines) -> the points as a clean NUMBERED LIST or short bullet lines (one idea
+      each, a short bold-ish label + at most one supporting line, NOT buried in paragraphs) ->
+      1-2 line takeaway -> closing question.
+    • STORY post (ONE experience unfolding over time: a failure, a lesson, a moment, a
+      before/after journey): write it as flowing SHORT PARAGRAPHS. Do NOT chop it into a numbered
+      list. Let it breathe: tension, then the turn, then the lesson. A story forced into "1, 2, 3"
+      loses all its power.
+  Multiple parallel items = LIST. One thing happening over time = STORY. VARY the shape across
+  posts, never make every post the same numbered-list template (LinkedIn demotes templated formats).
 - LENGTH: there is no magic word count — write exactly as long as the idea needs and not one
   line longer. Cut every sentence that doesn't add a specific. A tight 90-word post beats a
   padded 300-word one; a rich story can run long if every line earns its place. Never pad.
