@@ -785,7 +785,7 @@
                   <input type="checkbox" id="c-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('c-theme-group').style.display=this.checked?'block':'none'" />
                   <span>Carousel posts <span class="optional-tag">(Pro · automation)</span></span>
                 </label>
-                <p class="form-hint">On carousel days Voyce designs a branded PDF slide deck and posts it as a LinkedIn document.</p>
+                <p class="form-hint">Only affects daily automation: every other automated day becomes a branded, swipeable PDF carousel instead of a text post. Carousels are LinkedIn's highest-reach format.</p>
               </div>
               <div class="form-group" id="c-theme-group" style="display:none;">
                 <label>Carousel Theme</label>
@@ -869,7 +869,7 @@
                   <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
                   <span>Carousel posts <span class="optional-tag">(Pro · automation)</span></span>
                 </label>
-                <p class="form-hint">On carousel days Voyce designs a branded PDF slide deck and posts it as a LinkedIn document.</p>
+                <p class="form-hint">Only affects daily automation: every other automated day becomes a branded, swipeable PDF carousel instead of a text post. Carousels are LinkedIn's highest-reach format.</p>
               </div>
               <div class="form-group" id="p-theme-group" style="display:none;">
                 <label>Carousel Theme</label>
@@ -1134,8 +1134,9 @@
             <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}">
               <div class="carousel-toggle-knob"></div>
             </div>
-            <span class="carousel-toggle-label">Carousel posts</span>
+            <span class="carousel-toggle-label">Carousel posts <span style="font-weight:400;color:#b3aa9b;">(automation)</span></span>
           </label>
+          <div style="font-size:11px;color:#a29a8c;margin:-6px 0 12px 46px;line-height:1.4;">On: every other automated day posts a swipeable PDF carousel instead of a text post.</div>
 
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${voiceTag}</div>
 
@@ -1209,7 +1210,7 @@
       const data = await res.json();
       if (labelEl && labelEl.setAttribute) labelEl.setAttribute("aria-checked", data.carousel_enabled);
       sw.classList.toggle("on", data.carousel_enabled);
-      toast(data.carousel_enabled ? "Carousel posts enabled." : "Carousel posts disabled.", "success");
+      toast(data.carousel_enabled ? "Carousels on — alternating automated days will post PDF carousels." : "Carousel posts disabled.", "success");
     }
 
     async function deleteProfile(id) {
