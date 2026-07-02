@@ -186,7 +186,13 @@ def _build_voice_block(company: dict | None) -> str:
 
     top_posts = company.get("linkedin_top_posts", [])
     if top_posts:
-        parts.append("\nREAL POSTS BY THIS AUTHOR — match this voice exactly:")
+        if company.get("tone_shift") and company.get("tone"):
+            # Deliberate, user-requested shift: keep the person, move the register.
+            parts.append(f"\nREAL POSTS BY THIS AUTHOR — keep their vocabulary, quirks, and "
+                         f"signature moves, but the author has asked to shift their register "
+                         f"toward '{company['tone']}'. Write like these posts, dialed toward that tone:")
+        else:
+            parts.append("\nREAL POSTS BY THIS AUTHOR — match this voice exactly:")
         for i, post in enumerate(top_posts[:5], 1):
             parts.append(f"--- Example {i} ---\n{post[:600]}")
 

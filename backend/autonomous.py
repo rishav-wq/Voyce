@@ -640,7 +640,11 @@ def _build_company_brief(company: dict) -> str:
 
     top_posts = company.get("linkedin_top_posts", [])
     if top_posts:
-        parts.append("\n--- REAL POSTS BY THIS AUTHOR (match this voice exactly — rhythm, vocabulary, quirks) ---")
+        if company.get("tone_shift") and company.get("tone"):
+            parts.append(f"\n--- REAL POSTS BY THIS AUTHOR (keep their vocabulary and quirks, but "
+                         f"they have asked to shift their register toward '{company['tone']}') ---")
+        else:
+            parts.append("\n--- REAL POSTS BY THIS AUTHOR (match this voice exactly — rhythm, vocabulary, quirks) ---")
         for i, post in enumerate(top_posts[:5], 1):
             parts.append(f"Example {i}:\n{post[:600]}")
 

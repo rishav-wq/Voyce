@@ -834,7 +834,13 @@
           <details class="adv">
             <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn voice, automation — all optional</span></summary>
             <div class="adv-inner">
-              <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
+              <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-weight:400;font-size:13px;">
+                  <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#6c47ff;" />
+                  <span>Shift my tone toward this <span class="optional-tag">(only if you add past posts)</span></span>
+                </label>
+                <p class="form-hint">Off: Voyce matches your past posts exactly. On: keeps your vocabulary and quirks but deliberately moves the register toward the tone above — for when your old posts don't sound how you want to sound.</p>
+              </div>
               <div class="li-upload-box">
                 <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
                 <div class="li-upload-desc">Voyce reads your past posts so new ones sound like you wrote them.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
@@ -1805,6 +1811,7 @@
         carousel_theme: document.getElementById("p-theme").value,
         allowed_hooks: pHooks,
         voice_posts: (document.getElementById("p-voice-posts")?.value || ""),
+        tone_shift: (document.getElementById("p-tone-shift")?.checked || false),
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,

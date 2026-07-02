@@ -223,6 +223,7 @@ class CompanyRequest(BaseModel):
     carousel_theme: str = ""
     allowed_hooks: list[str] = []
     voice_posts: str = ""   # pasted recent posts -> voice examples (fastest way to match a voice)
+    tone_shift: bool = False  # opt-in: keep the voice from examples but shift register toward `tone`
 
 
 class ToggleRequest(BaseModel):
