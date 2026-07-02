@@ -840,6 +840,10 @@
                 <div class="li-upload-desc">Voyce reads your past posts so new ones sound like you wrote them.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
                 <input type="file" id="p-li-file" accept=".pdf,.zip" />
                 <div class="li-upload-status" id="p-li-status"></div>
+                <div style="text-align:center;font-size:12px;color:#8a8275;margin:10px 0 6px;">— or, faster —</div>
+                <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Paste a few recent posts</label>
+                <textarea id="p-voice-posts" rows="5" placeholder="Paste 2-3 recent posts here. Separate each one with a line of --- (three dashes).&#10;&#10;No 24h wait, no download. Works for your own voice — or anyone you're writing for."></textarea>
+                <div class="li-upload-desc" style="margin-top:6px;">Voyce reads these to match the writing style. Great for writing in a client's or prospect's voice too.</div>
               </div>
               <div class="form-group">
                 <label>Website URL</label>
@@ -1797,6 +1801,7 @@
         carousel_enabled: document.getElementById("p-carousel").checked,
         carousel_theme: document.getElementById("p-theme").value,
         allowed_hooks: pHooks,
+        voice_posts: (document.getElementById("p-voice-posts")?.value || ""),
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,

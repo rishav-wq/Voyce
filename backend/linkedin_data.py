@@ -130,6 +130,29 @@ Return ONLY valid JSON, no explanation."""
         return {}
 
 
+# ── Pasted posts (fastest voice input — works for your own or a prospect's) ────
+
+def parse_pasted_posts(text: str) -> dict:
+    """Turn a blob of pasted LinkedIn posts into voice examples + a style analysis.
+    Posts should be separated by a divider line (---) or a big gap; if none is found,
+    the whole blob is used as a single voice example (still captures the style)."""
+    text = (text or "").strip()
+    if len(text) < 20:
+        return {"type": "pasted", "top_posts": [], "analysis": {}}
+    # Split on a divider line (--- === ___) or 3+ consecutive newlines.
+    chunks = re.split(r"\n\s*[-=_]{3,}\s*\n|\n{3,}", text)
+    posts = [c.strip() for c in chunks if len(c.strip()) >= 40]
+    if not posts:
+        posts = [text]
+    posts = posts[:10]
+    combined = "\n\n---\n\n".join(posts)
+    return {
+        "type": "pasted",
+        "top_posts": posts,
+        "analysis": _analyze_linkedin_data(combined[:6000], "recent posts"),
+    }
+
+
 # ── Unified entry point ───────────────────────────────────────────────────────
 
 def parse_linkedin_upload(filename: str, file_bytes: bytes) -> dict:

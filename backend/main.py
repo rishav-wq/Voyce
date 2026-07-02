@@ -22,7 +22,7 @@ from processor import process_input
 from generator import generate_content
 from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data
 from autonomous import run_for_company, get_post_log, save_post_log
-from linkedin_data import parse_linkedin_upload
+from linkedin_data import parse_linkedin_upload, parse_pasted_posts
 import linkedin as li
 import auth as auth_module
 import payments
@@ -222,6 +222,7 @@ class CompanyRequest(BaseModel):
     designation: str = ""
     carousel_theme: str = ""
     allowed_hooks: list[str] = []
+    voice_posts: str = ""   # pasted recent posts -> voice examples (fastest way to match a voice)
 
 
 class ToggleRequest(BaseModel):
@@ -675,6 +676,20 @@ def cancel_scheduled(job_id: str, x_token: str = Header(None)):
 
 
 # ── Company / Profile Management ───────────────────────────────────────────────
+def _apply_voice_posts(company_id: str, voice_posts: str) -> dict | None:
+    """Parse pasted recent posts into voice examples + a style analysis and store them."""
+    if not (voice_posts or "").strip():
+        return None
+    try:
+        result = parse_pasted_posts(voice_posts)
+        if result.get("top_posts"):
+            save_linkedin_data(company_id, result)
+            return result
+    except Exception:
+        pass
+    return None
+
+
 @app.post("/companies")
 def create_company(request: CompanyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
@@ -693,6 +708,10 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
             data["active"] = False
             data["carousel_enabled"] = False
         company = save_company(data)
+        vp = _apply_voice_posts(company["id"], request.voice_posts)
+        if vp:
+            company["linkedin_top_posts"] = vp["top_posts"]
+            company["linkedin_analysis"] = vp["analysis"]
         if company.get("active", True):
             _setup_company_cron(company)
         return company
@@ -724,6 +743,10 @@ def edit_company(company_id: str, request: CompanyRequest, x_token: str = Header
         if not _is_pro(user):
             data["carousel_enabled"] = False
         updated = update_company(company_id, data)
+        vp = _apply_voice_posts(company_id, request.voice_posts)
+        if vp and updated:
+            updated["linkedin_top_posts"] = vp["top_posts"]
+            updated["linkedin_analysis"] = vp["analysis"]
         if updated and updated.get("active", True):
             _setup_company_cron(updated)
         return updated
