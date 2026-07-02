@@ -633,6 +633,7 @@
       <div class="stat-card">
         <div class="stat-label">Next Post Type</div>
         <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-next-type">—</div>
+        <div style="font-size:11px;color:#a29a8c;margin-top:3px;line-height:1.4;" id="stat-next-desc"></div>
         <div class="stat-sub" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center;" id="stat-recent-types"></div>
       </div>
       <div class="stat-card">
@@ -1058,12 +1059,14 @@
       const mainProfile = profiles.find(p => p.active) || profiles[0];
       if (mainProfile && mainProfile.next_post_type) {
         document.getElementById("stat-next-type").textContent = mainProfile.next_post_type;
+        document.getElementById("stat-next-desc").textContent = mainProfile.next_post_type_desc || "";
         const recentHtml = (mainProfile.recent_post_types || []).map(rt => 
           `<span style="background:#f0eeff;color:#6c47ff;font-size:9px;padding:3px 6px;border-radius:4px;font-weight:700;">${rt}</span>`
         ).join("");
         document.getElementById("stat-recent-types").innerHTML = recentHtml ? `<span style="font-size:10px;color:#aaa;margin-right:2px;">Recent:</span>${recentHtml}` : `<span style="font-size:10px;color:#aaa;">No recent posts</span>`;
       } else {
         document.getElementById("stat-next-type").textContent = "—";
+        document.getElementById("stat-next-desc").textContent = "";
         document.getElementById("stat-recent-types").innerHTML = "";
       }
 
@@ -1120,7 +1123,7 @@
             <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
             <div class="meta-item"><div class="meta-key">Tone</div><div class="meta-val">${p.tone}</div></div>
             <div class="meta-item"><div class="meta-key">Post Time</div><div class="meta-val">${p.post_time} daily</div></div>
-            <div class="meta-item"><div class="meta-key">Next Type</div><div class="meta-val">${p.next_post_type || "—"}</div></div>
+            <div class="meta-item"><div class="meta-key">Next Type</div><div class="meta-val" title="${p.next_post_type_desc || ''}">${p.next_post_type || "—"}${p.next_post_type_desc ? `<div style="font-size:10.5px;color:#a29a8c;font-weight:400;line-height:1.35;margin-top:2px;">${p.next_post_type_desc}</div>` : ""}</div></div>
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
           </div>
 
@@ -1290,6 +1293,7 @@
           const pyDay = jsDay === 0 ? 6 : jsDay - 1;
           // Real per-day plan from the backend; weekday map only as legacy fallback
           const type  = (p.week_plan && p.week_plan[i]) || schedule[pyDay];
+          const desc  = (p.post_type_descriptions && p.post_type_descriptions[type]) || "";
           const isToday = d.toDateString() === todayStr;
           // Approximate carousel alternation: even offset days = carousel if enabled
           const isCarousel = p.carousel_enabled && (i % 2 === 1);
@@ -1298,6 +1302,7 @@
             : "";
           return `<td class="${isToday ? 'today-col' : ''}">
             <div class="cal-cell-type">${type}</div>
+            ${desc ? `<div style="font-size:10.5px;color:#a29a8c;line-height:1.35;margin-top:2px;">${desc}</div>` : ""}
             ${badge}
             <div class="cal-time">${p.post_time}</div>
           </td>`;
@@ -1313,7 +1318,7 @@
 
       document.getElementById("calendar-grid").innerHTML = `
         <table class="cal-table">
-          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;border-bottom:1px solid #f0eeff;padding:8px 12px;">Next 7 days</th></tr>
+          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;font-weight:400;border-bottom:1px solid #f0eeff;padding:8px 12px;">Next 7 days — Voyce rotates post styles through the week so your feed never looks templated</th></tr>
           <tr>${headerCells}</tr></thead>
           <tbody>${profileRows}</tbody>
         </table>`;

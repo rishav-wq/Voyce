@@ -704,9 +704,11 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     try:
         data = request.model_dump()
         data["user_id"] = user["id"]
+        # Daily automation is an explicit opt-in: every new profile starts paused so
+        # nothing ever auto-posts before the user deliberately turns it on.
+        data["active"] = False
         if not pro:
-            # Daily automation and automated carousels are Pro features
-            data["active"] = False
+            # Automated carousels are a Pro feature
             data["carousel_enabled"] = False
         company = save_company(data)
         vp = _apply_voice_posts(company["id"], request.voice_posts)
@@ -724,12 +726,14 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
 def get_companies(x_token: str = Header(None)):
     user = _require_user(x_token)
     companies = list_companies(user["id"])
-    from autonomous import get_post_type_info, get_week_plan
+    from autonomous import get_post_type_info, get_week_plan, POST_TYPE_DESCRIPTIONS
     for c in companies:
         info = get_post_type_info(c)
         c["next_post_type"] = info["next_post_type"]
+        c["next_post_type_desc"] = info.get("next_post_type_desc", "")
         c["recent_post_types"] = info["recent_post_types"]
         c["week_plan"] = get_week_plan(c)
+        c["post_type_descriptions"] = POST_TYPE_DESCRIPTIONS
     return companies
 
 

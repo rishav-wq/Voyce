@@ -65,6 +65,28 @@ POST_TYPE_LABELS = {
     "open_question":     "Open Question",
 }
 
+# One-line, plain-English explanations shown in the dashboard (keyed by LABEL, since
+# the API and post log both speak labels).
+POST_TYPE_DESCRIPTIONS = {
+    "Trend Commentary":  "your take on a real industry news item",
+    "Expert Insight":    "a counterintuitive truth only an insider would know",
+    "Product Spotlight": "a customer problem and how you solve it, told as a story",
+    "Industry Stat":     "a striking statistic and what it really means",
+    "Case Study / Story": "a customer challenge, what changed, and the result",
+    "Playbook / How-To": "concrete steps to solve one painful problem",
+    "Myth vs Reality":   "a belief most people hold, debunked with evidence",
+    "Trend Reaction":    "your honest take on today's industry news",
+    "Hot Take":          "a bold opinion that makes readers nod or argue",
+    "Lesson Learned":    "a mistake or realisation and what it taught you",
+    "Stat Reaction":     "a surprising number and your read on it",
+    "Personal Story":    "a real moment told as a short narrative",
+    "How-To / Playbook": "your method for solving one specific problem",
+    "Listicle":          "a tight, save-worthy list of specific insights",
+    "Teardown":          "a sharp breakdown of a real company's move",
+    "Prediction":        "a bold, checkable call about where things are heading",
+    "Open Question":     "a genuine dilemma posed to start a discussion",
+}
+
 # ── Hook style hints (from the profile's allowed_hooks setting) ───────────────
 _HOOK_STYLE_HINTS = {
     "specific_number": "leading with a striking, specific number or percentage",
@@ -279,13 +301,22 @@ QUALITY RULES (non-negotiable):
   ("models like DeepSeek", "most teams") rather than fabricate a specific a reader can falsify.
 - Vary your rhythm: mix short punchy lines with longer natural sentences. A post where
   every sentence is under 10 words reads as AI-generated and gets scrolled past.
-- LENGTH: target 200-350 words (~1,300-2,300 characters) — this length earns the most
-  engagement on LinkedIn. Don't pad, but don't ship a thin snippet either.
+- PLAIN ENGLISH, never a whitepaper: write the way a smart person talks. Use contractions
+  (I'm, don't, that's). No corporate/academic register: programmatically, systemically,
+  mimics, "information density", furthermore, "Ultimately,", "it is worth noting".
+- LENGTH: there is no magic word count — write exactly as long as the idea needs, then cut
+  every line that doesn't add a specific. A tight 90-word post beats a padded 300-word one.
+- HOLD ATTENTION (dwell time is a confirmed reach signal): one idea per line, whitespace,
+  and a shape that pulls the eye down — a narrative arc, a numbered list, or a before→after.
 - SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a numbered
   list of specifics, a checklist, or a clear before→after. A save drives far more reach than
   a like, so make the post reference-worthy, not just agreeable.
+- NEVER invent how a platform or algorithm works: no made-up thresholds, mechanisms, or
+  rules. If a mechanism isn't in the provided context, state the idea generally or drop it.
 - End however fits the post: a takeaway, a sharp specific question, or just the last point
-  landing. Do NOT bolt a generic engagement question onto every post.
+  landing. NEVER directive engagement-bait ("Comment YES", "Tag someone", "Agree?",
+  "Repost if…") — LinkedIn auto-suppresses it. One genuine open question is fine.
+- No promotional URLs in the body — off-platform links drag reach.
 - Hashtags: 0-3 lowercase on the last line, only if genuinely relevant. None is fine.
 
 FORMATTING:
@@ -304,6 +335,8 @@ NEVER USE (instant AI tells — automatic fail):
   day, in today's fast-paced world, I read something this week, thrilled to announce,
   excited to share, synergy, paradigm shift, move the needle, circle back, learnings,
   impactful, groundbreaking.
+- Em-dashes (—) or en-dashes (–): the single biggest AI tell. Use commas, periods, or
+  parentheses. A plain hyphen is fine only inside a number range (e.g. 85-90%).
 """
 
 _COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT")
@@ -421,7 +454,7 @@ AUTHOR CONTEXT:
 
 Write a Stat Reaction post in first person:
 
-Hook (1 line): Drop the stat immediately — cold, no warm-up. E.g. "43% of AI projects fail at deployment. Not ideation. Deployment." Then one word or phrase: "Let that sink in."
+Hook (1 line): Drop the stat immediately — cold, no warm-up. E.g. "43% of AI projects fail at deployment. Not ideation. Deployment."
 
 Your read (2 paragraphs):
 - What this number actually means (not just restating it)
@@ -723,6 +756,7 @@ def get_post_type_info(company: dict) -> dict:
 
     return {
         "next_post_type": next_type_label,
+        "next_post_type_desc": POST_TYPE_DESCRIPTIONS.get(next_type_label, ""),
         "recent_post_types": recent
     }
 
