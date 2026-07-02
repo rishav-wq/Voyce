@@ -778,7 +778,6 @@
             <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn, automation — all optional</span></summary>
             <div class="adv-inner">
               <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-              <div class="form-group"><label>LinkedIn Company Page</label><input type="url" id="c-linkedin" placeholder="https://linkedin.com/company/yourcompany" /></div>
               <div class="form-group"><label>Daily Post Time</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
               <div class="form-group">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -842,29 +841,33 @@
                 <p class="form-hint">Off: Voyce matches your past posts exactly. On: keeps your vocabulary and quirks but deliberately moves the register toward the tone above — for when your old posts don't sound how you want to sound.</p>
               </div>
               <div class="li-upload-box">
-                <div class="li-upload-title">Upload your LinkedIn data (recommended)</div>
-                <div class="li-upload-desc">Voyce reads your past posts so new ones sound like you wrote them.<br><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
-                <input type="file" id="p-li-file" accept=".pdf,.zip" />
-                <div class="li-upload-status" id="p-li-status"></div>
-                <div style="text-align:center;font-size:12px;color:#8a8275;margin:10px 0 6px;">— or, faster —</div>
-                <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Upload screenshots of posts</label>
+                <div class="li-upload-title">Teach Voyce your voice (recommended)</div>
+                <div class="li-upload-desc">Give it 2-3 past posts and new ones sound like you wrote them. Works for your own voice — or anyone you write for.</div>
+                <label style="font-size:13px;font-weight:600;display:block;margin:10px 0 4px;">Upload screenshots of posts <span class="optional-tag">fastest</span></label>
                 <input type="file" id="p-voice-shots" accept="image/*" multiple />
-                <div class="li-upload-desc" style="margin:6px 0 10px;">Screenshot 2-3 LinkedIn posts (yours, or anyone you're writing for) and drop them here. Voyce reads the text right out of the images.</div>
-                <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Or paste a few recent posts</label>
-                <textarea id="p-voice-posts" rows="5" placeholder="Paste 2-3 recent posts here. Separate each one with a line of --- (three dashes)."></textarea>
-                <div class="li-upload-desc" style="margin-top:6px;">Voyce reads these to match the writing style. Great for writing in a client's or prospect's voice too.</div>
+                <div class="li-upload-desc" style="margin:6px 0 2px;">Screenshot 2-3 LinkedIn posts and drop them here. Voyce reads the text right out of the images.</div>
+                <label style="font-size:13px;font-weight:600;display:block;margin:12px 0 4px;">Or paste a few recent posts</label>
+                <textarea id="p-voice-posts" rows="4" placeholder="Paste 2-3 recent posts here. Separate each one with a line of --- (three dashes)."></textarea>
+                <details style="margin-top:10px;">
+                  <summary style="font-size:12.5px;color:#8a8275;cursor:pointer;">Have your LinkedIn data archive? (ZIP/PDF)</summary>
+                  <div class="li-upload-desc" style="margin:8px 0 4px;"><strong>ZIP:</strong> LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive (~24h)<br><strong>PDF:</strong> Your profile → More → Save to PDF</div>
+                  <input type="file" id="p-li-file" accept=".pdf,.zip" />
+                </details>
+                <div class="li-upload-status" id="p-li-status"></div>
               </div>
               <div class="form-group">
                 <label>Website URL</label>
-                <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" />
-                <div style="display:flex;gap:16px;margin-top:8px;">
-                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> My site / blog</label>
-                  <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> External reference</label>
+                <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" oninput="document.getElementById('p-website-type-row').style.display=this.value.trim()?'block':'none'" />
+                <div id="p-website-type-row" style="display:none;">
+                  <div style="display:flex;gap:16px;margin-top:8px;">
+                    <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> My site / blog</label>
+                    <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> External reference</label>
+                  </div>
+                  <p class="form-hint">My site → treated as your experience. External → treated as material to react to.</p>
                 </div>
-                <p class="form-hint">My site → treated as your experience. External → treated as material to react to.</p>
               </div>
-              <div class="form-group"><label>Your LinkedIn URL</label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/your-profile" /></div>
-              <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
+              <div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8a8275;margin:18px 0 8px;">Daily automation (Pro)</div>
+              <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Only used when daily automation is on.</p></div>
               <div class="form-group">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                   <input type="checkbox" id="p-carousel" style="width:auto;accent-color:#6c47ff;" onchange="document.getElementById('p-theme-group').style.display=this.checked?'block':'none'" />
@@ -1746,8 +1749,9 @@
           if (isPersonal) {
             document.getElementById("p-name").value        = p.name || "";
             document.getElementById("p-designation").value = p.designation || "";
-            document.getElementById("p-website").value     = p.website_url || "";
-            document.getElementById("p-linkedin").value = p.linkedin_url || "";
+            const pw = document.getElementById("p-website");
+            pw.value = p.website_url || "";
+            pw.dispatchEvent(new Event("input"));
             document.getElementById("p-industry").value = p.industry || "";
             document.getElementById("p-tone").value     = p.tone || "conversational";
             document.getElementById("p-time").value     = p.post_time || "09:00";
@@ -1765,7 +1769,6 @@
           } else {
             document.getElementById("c-name").value     = p.name || "";
             document.getElementById("c-website").value  = p.website_url || "";
-            document.getElementById("c-linkedin").value = p.linkedin_url || "";
             document.getElementById("c-industry").value = p.industry || "";
             document.getElementById("c-tone").value     = p.tone || "professional";
             document.getElementById("c-time").value     = p.post_time || "09:00";
@@ -1802,7 +1805,6 @@
         designation: document.getElementById("p-designation").value || "",
         website_url: document.getElementById("p-website").value || "",
         website_type: wtEl ? wtEl.value : "own",
-        linkedin_url: document.getElementById("p-linkedin").value || "",
         industry: document.getElementById("p-industry").value,
         tone: document.getElementById("p-tone").value,
         post_time: document.getElementById("p-time").value,
@@ -1815,7 +1817,6 @@
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,
-        linkedin_url: document.getElementById("c-linkedin").value || "",
         industry: document.getElementById("c-industry").value,
         tone: document.getElementById("c-tone").value,
         post_time: document.getElementById("c-time").value,
