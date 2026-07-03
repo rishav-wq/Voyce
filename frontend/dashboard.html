@@ -1081,7 +1081,7 @@
 
           <div class="profile-meta-grid">
             <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
-            <div class="meta-item"><div class="meta-key">Tone</div><div class="meta-val">${p.tone}</div></div>
+            <div class="meta-item"><div class="meta-key">${(p.linkedin_analysis && p.linkedin_analysis.writing_style) ? "Voice ✦ learned from posts" : "Tone"}</div><div class="meta-val" ${(p.linkedin_analysis && p.linkedin_analysis.writing_style) ? `title="${String(p.linkedin_analysis.writing_style).replace(/"/g, "&quot;")}" style="font-weight:400;font-size:12px;line-height:1.4;"` : ""}>${(p.linkedin_analysis && p.linkedin_analysis.writing_style) ? ((s => s.length > 80 ? s.slice(0, 80) + "…" : s)(String(p.linkedin_analysis.writing_style))) : p.tone}</div></div>
             <div class="meta-item"><div class="meta-key">Post Time</div><div class="meta-val">${p.post_time} daily</div></div>
             <div class="meta-item"><div class="meta-key">Next Type</div><div class="meta-val" title="${p.next_post_type_desc || ''}">${p.next_post_type || "—"}${p.next_post_type_desc ? `<div style="font-size:10.5px;color:#a29a8c;font-weight:400;line-height:1.35;margin-top:2px;">${p.next_post_type_desc}</div>` : ""}</div></div>
             ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
@@ -1109,16 +1109,16 @@
             <button class="act-btn primary" onclick="runNow('${p.id}')">▶ Run Now</button>
             ${automationButton}
             <button class="act-btn" onclick="editProfile('${p.id}')">Edit</button>
-            <button class="act-btn" onclick="toggleLiPanel('${p.id}')">+ LinkedIn Data</button>
+            <button class="act-btn" onclick="toggleLiPanel('${p.id}')">↻ Update voice</button>
             <button class="act-btn danger" onclick="deleteProfile('${p.id}')">Delete</button>
           </div>
 
           <div class="card-li-panel" id="li-panel-${p.id}">
-            <p><strong>Upload LinkedIn PDF or data export ZIP</strong> to learn their writing style.<br>
-            ZIP: LinkedIn → Settings → Data Privacy → Get a copy → Posts → Request archive<br>
-            PDF: Profile → More → Save to PDF</p>
+            <p><strong>Refresh this voice with recent posts.</strong><br>
+            Fastest: screenshots of 2-3 LinkedIn posts (Voyce reads the text from the images).<br>
+            Or a LinkedIn archive ZIP / profile PDF.</p>
             <div class="card-li-row">
-              <input type="file" id="li-file-${p.id}" accept=".pdf,.zip" />
+              <input type="file" id="li-file-${p.id}" accept=".pdf,.zip,image/*" multiple />
               <button class="card-li-up-btn" id="li-btn-${p.id}" onclick="uploadLinkedIn('${p.id}')">Upload</button>
             </div>
             <div class="card-li-status" id="li-status-${p.id}"></div>
@@ -1211,12 +1211,23 @@
       const fileInput = document.getElementById(`li-file-${id}`);
       const btn       = document.getElementById(`li-btn-${id}`);
       const status    = document.getElementById(`li-status-${id}`);
-      if (!fileInput.files[0]) { toast("Choose a file first.", "warn"); return; }
+      const files     = Array.from(fileInput.files || []);
+      if (!files.length) { toast("Choose a file first.", "warn"); return; }
+      const images   = files.filter(f => (f.type || "").startsWith("image/"));
+      const archives = files.filter(f => /\.(pdf|zip)$/i.test(f.name));
+      if (images.length && archives.length) { toast("Upload either screenshots OR one ZIP/PDF, not both at once.", "warn"); return; }
       btn.disabled = true; btn.textContent = "Uploading...";
       const form = new FormData();
-      form.append("file", fileInput.files[0]);
+      let url;
+      if (images.length) {
+        images.forEach(f => form.append("files", f));
+        url = `/companies/${id}/upload-post-screenshots`;
+      } else {
+        form.append("file", archives[0] || files[0]);
+        url = `/companies/${id}/upload-linkedin`;
+      }
       try {
-        const res  = await fetch(`/companies/${id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
+        const res  = await fetch(url, { method:"POST", body:form, headers:{"x-token":getToken()} });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         const n = data.posts_found ? ` · ${data.posts_found} posts analysed` : "";
