@@ -949,6 +949,14 @@ image_concept: FIRST boil the post down to its ONE core message in a short phras
   Example — post about "ship one simple thing, not a sprawling platform": "A single oversized, satisfying
   round button resting alone on a clean pedestal, dwarfing a small tangled heap of disconnected parts
   pushed to the edge of the frame."
+  LITERAL vs METAPHOR — choose deliberately:
+  - If the post is about TANGIBLE, PHYSICAL work (farming, logistics, food, manufacturing,
+    construction, retail, healthcare...), paint a REAL SCENE from that world: its actual places,
+    tools, vehicles, crops, materials. A post about farmers wants a field at dawn or a loaded
+    truck on a wet rural road, NOT a clever object metaphor. Literal, specific, alive.
+  - Reserve conceptual metaphors for ABSTRACT topics (strategy, mindset, code, money, careers)
+    where there is nothing physical to show.
+  - If an AUTHOR'S WORLD is given, set the scene inside that world.
   HARD RULES:
   - The metaphor MUST relate to the post's actual subject. If you can't say in one line why it fits, pick another.
   - KEEP IT SIMPLE AND TEXT-FREE. The illustration tool scrawls gibberish letters onto anything that
@@ -1014,7 +1022,8 @@ def _build_ai_image_prompt(concept: str, p: dict) -> str:
         "CRITICAL: absolutely NO text, NO words, NO letters, NO numbers, NO gibberish writing, NO labels, "
         "NO signs, NO logos, NO watermark, NO charts or graphs. Do NOT draw screens or phones with "
         "interfaces, keyboards, circuit boards, books or documents, or anything that would carry writing. "
-        "NO human faces, NO hands, NO people. NO photorealism, NO 3D render, NO glossy corporate stock "
+        "NO close-up faces or detailed hands (small, distant human figures whose faces aren't visible are "
+        "fine and add life to a scene). NO photorealism, NO 3D render, NO glossy corporate stock "
         "look, NO cliche startup imagery. Vertical 4:5 poster composition."
     )
 
@@ -1060,11 +1069,14 @@ def generate_ai_image_post(raw_text: str, company: dict = None) -> dict:
         vb = _build_voice_block(company)
         if vb:
             voice_section = f"\n\nVOICE PROFILE:\n{vb[:1200]}"
+    industry = (company or {}).get("industry", "").strip()
+    world = f"\nAUTHOR'S WORLD: {industry} — set the visual inside this world." if industry else ""
     prompt = f"""Content to turn into ONE editorial illustration + caption:
 
-{raw_text[:2000]}{voice_section}
+{raw_text[:2000]}{voice_section}{world}
 
-Choose the single strongest idea and design a concrete visual metaphor for it.
+Choose the single strongest idea and design the visual for it (a real scene from the post's
+world if the topic is physical/tangible; a concrete metaphor only if the topic is abstract).
 
 Return ONLY valid JSON:
 {{"image_concept": "...", "alt_text": "...", "post_text": "..."}}"""
