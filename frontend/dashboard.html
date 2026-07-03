@@ -877,6 +877,8 @@
       if (!clerk.user) { window.location.href = "/login"; return false; }
       await _refreshToken();
       setInterval(_refreshToken, 50000);
+      window.addEventListener("focus", _refreshToken);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) _refreshToken(); });
       // Best-effort profile sync — never force a logout on a transient /auth/me hiccup.
       // The clerk.user check above is the real auth guard.
       try {

@@ -11,6 +11,10 @@ async function initClerk() {
   if (!clerk.user) { window.location.href = "/login"; return false; }
   await _refreshToken();
   setInterval(_refreshToken, 50000);
+  // Background tabs get their timers throttled and sleep pauses them entirely,
+  // so also refresh the moment the user comes back to the tab.
+  window.addEventListener("focus", _refreshToken);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) _refreshToken(); });
   try {
     const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
     if (res.ok) localStorage.setItem("cm_user", JSON.stringify(await res.json()));
@@ -220,6 +224,7 @@ function stopGenProgress() {
 async function generate() {
   const content = document.getElementById("content-input").value.trim();
   if (!content) { showError("Please enter some content first."); return; }
+  await _refreshToken();  // token may be stale after sleep/background throttling
 
   const btn     = document.getElementById("generate-btn");
   const btnText = document.getElementById("btn-text");
@@ -351,6 +356,7 @@ async function postToLinkedIn() {
   if (!linkedInConnected) { toast("Connect LinkedIn first — opening the connect window…", "warn"); connectLinkedIn(); return; }
   const text = document.getElementById("linkedin-content").textContent;
   if (!text) { toast("Generate content first.", "warn"); return; }
+  await _refreshToken();
 
   const btn = document.getElementById("post-now-btn");
   btn.disabled = true;
@@ -405,6 +411,7 @@ function closeScheduleIfBg(e) {
 async function confirmSchedule() {
   const val = document.getElementById("schedule-time").value;
   if (!val) { toast("Pick a time first.", "warn"); return; }
+  await _refreshToken();
 
   const btn = document.getElementById("confirm-schedule-btn");
   btn.disabled = true; btn.textContent = "Scheduling…";
@@ -472,6 +479,7 @@ let _carouselPdfBase64 = null;
 async function generateCarousel() {
   const content = document.getElementById("content-input").value.trim();
   if (!content) { showError("Please enter some content first."); return; }
+  await _refreshToken();
 
   const btn     = document.getElementById("carousel-btn");
   const btnText = document.getElementById("carousel-btn-text");
@@ -600,6 +608,7 @@ async function attachGenerateImage() {
   const source = post || document.getElementById("content-input").value.trim();
   if (!source) { toast("Generate or write a post first.", "warn"); return; }
 
+  await _refreshToken();
   _attachState("loading");
   try {
     const res = await fetch("/generate/image", {
