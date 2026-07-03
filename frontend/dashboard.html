@@ -1056,7 +1056,9 @@
         </div>`;
         return;
       }
-      statsRow.style.display = "";
+      // Automation telemetry (stats + calendar) only exists once something can actually post.
+      const anyActive = profiles.some(p => p.active);
+      statsRow.style.display = anyActive ? "" : "none";
       profilesHead.style.display = "";
       if (liBanner) liBanner.style.display = "";
 
@@ -1065,10 +1067,10 @@
         const isPersonal = p.profile_type === "personal";
         const typeLabel  = isPersonal ? "Personal" : "Company";
         const typeClass  = isPersonal ? "personal" : "company";
-        const hasVoice   = p.linkedin_analysis && p.linkedin_analysis.writing_style;
-        const voiceTag   = hasVoice ? `<span class="voice-tag">✦ Writing style learned</span>` : "";
-        const statusBadge = p.active ? `<span class="badge-active">Active</span>` : `<span class="badge-paused">Paused</span>`;
-        const automationButton = `<button class="act-btn" onclick="toggleProfile('${p.id}', ${!p.active})">${p.active ? "Pause" : "Resume"}</button>`;
+        const style      = p.linkedin_analysis && p.linkedin_analysis.writing_style;
+        const voiceLine  = style
+          ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span>`
+          : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#6c47ff;">add past posts to learn the real voice</a>`;
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
@@ -1076,38 +1078,45 @@
               ${p.name}
               <span class="badge-type ${typeClass}">${typeLabel}</span>
             </div>
-            ${statusBadge}
+            ${p.active ? `<span class="badge-active">Auto-posting on</span>` : ""}
           </div>
 
-          <div class="profile-meta-grid">
-            <div class="meta-item"><div class="meta-key">Industry</div><div class="meta-val">${p.industry}</div></div>
-            <div class="meta-item"><div class="meta-key">${(p.linkedin_analysis && p.linkedin_analysis.writing_style) ? "Voice ✦ learned from posts" : "Tone"}</div><div class="meta-val" ${(p.linkedin_analysis && p.linkedin_analysis.writing_style) ? `title="${String(p.linkedin_analysis.writing_style).replace(/"/g, "&quot;")}" style="font-weight:400;font-size:12px;line-height:1.4;"` : ""}>${(p.linkedin_analysis && p.linkedin_analysis.writing_style) ? ((s => s.length > 80 ? s.slice(0, 80) + "…" : s)(String(p.linkedin_analysis.writing_style))) : p.tone}</div></div>
-            <div class="meta-item"><div class="meta-key">Post Time</div><div class="meta-val">${p.post_time} daily</div></div>
-            <div class="meta-item"><div class="meta-key">Next Type</div><div class="meta-val" title="${p.next_post_type_desc || ''}">${p.next_post_type || "—"}${p.next_post_type_desc ? `<div style="font-size:10.5px;color:#a29a8c;font-weight:400;line-height:1.35;margin-top:2px;">${p.next_post_type_desc}</div>` : ""}</div></div>
-            ${p.pages_scraped ? `<div class="meta-item"><div class="meta-key">Pages Scraped</div><div class="meta-val">${p.pages_scraped}</div></div>` : ""}
+          <div style="font-size:12.5px;color:#6b6355;line-height:1.5;margin:2px 0 14px;">
+            ${voiceLine}<br>
+            <span style="color:#a29a8c;">Posts about:</span> ${p.industry}
           </div>
 
-          <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.carousel_enabled}"
-                 aria-label="Carousel posts for ${p.name}"
-                 onclick="toggleCarousel('${p.id}', this)"
-                 onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleCarousel('${p.id}', this);}">
-            <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}">
-              <div class="carousel-toggle-knob"></div>
-            </div>
-            <span class="carousel-toggle-label">Carousel posts <span style="font-weight:400;color:#b3aa9b;">(automation)</span></span>
-          </label>
-          <div style="font-size:11px;color:#a29a8c;margin:-6px 0 12px 46px;line-height:1.4;">On: every other automated day posts a swipeable PDF carousel instead of a text post.</div>
-          ${p.carousel_enabled ? `<div style="margin:-6px 0 12px 46px;">
-            <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
-              ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
-            </select>
-          </div>` : ""}
-
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${voiceTag}</div>
+          <div style="border:1px solid #efe9e0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+            <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.active}" style="margin-bottom:${p.active ? "10px" : "0"};"
+                   aria-label="Daily auto-posting for ${p.name}"
+                   onclick="toggleProfile('${p.id}', ${!p.active})"
+                   onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleProfile('${p.id}', ${!p.active});}">
+              <div class="carousel-toggle-switch ${p.active ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
+              <span class="carousel-toggle-label">Daily auto-posting${p.active ? ` · every day at ${p.post_time}` : ""}</span>
+            </label>
+            ${p.active ? `
+              <div style="font-size:11.5px;color:#a29a8c;margin:0 0 10px 46px;line-height:1.45;">
+                Next up: <strong style="color:#6b6355;">${p.next_post_type || "—"}</strong>${p.next_post_type_desc ? ` — ${p.next_post_type_desc}` : ""}
+              </div>
+              <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.carousel_enabled}" style="margin-bottom:6px;"
+                     aria-label="Carousel posts for ${p.name}"
+                     onclick="toggleCarousel('${p.id}', this)"
+                     onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleCarousel('${p.id}', this);}">
+                <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}"><div class="carousel-toggle-knob"></div></div>
+                <span class="carousel-toggle-label" style="font-weight:400;">Alternate days as PDF carousels <span style="color:#b3aa9b;">(highest-reach format)</span></span>
+              </label>
+              ${p.carousel_enabled ? `<div style="margin:0 0 6px 46px;">
+                <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
+                  ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
+                </select>
+              </div>` : ""}
+              <div style="margin:8px 0 0 46px;"><button class="act-btn" onclick="runNow('${p.id}')">▶ Post one now (test)</button></div>
+            ` : `
+              <div style="font-size:11.5px;color:#a29a8c;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#b3aa9b;">(Pro)</span></div>
+            `}
+          </div>
 
           <div class="profile-actions">
-            <button class="act-btn primary" onclick="runNow('${p.id}')">▶ Run Now</button>
-            ${automationButton}
             <button class="act-btn" onclick="editProfile('${p.id}')">Edit</button>
             <button class="act-btn" onclick="toggleLiPanel('${p.id}')">↻ Update voice</button>
             <button class="act-btn danger" onclick="deleteProfile('${p.id}')">Delete</button>
@@ -1155,7 +1164,7 @@
         }
         return;
       }
-      toast(active ? "Profile resumed." : "Profile paused.", "success");
+      toast(active ? "Daily auto-posting is on." : "Daily auto-posting is off.", "success");
       loadProfiles();
     }
 
@@ -1282,13 +1291,12 @@
       const section = document.getElementById("calendar-section");
       const empty   = document.getElementById("calendar-empty");
       const grid    = document.getElementById("calendar-grid");
-      section.style.display = "";  // caller only invokes this when profiles exist
+      // The calendar is the automation schedule — it only exists when something will post.
       if (!active.length) {
-        empty.style.display = "";
-        grid.style.display  = "none";
-        document.getElementById("cal-subtitle").textContent = "";
+        section.style.display = "none";
         return;
       }
+      section.style.display = "";
       empty.style.display = "none";
       grid.style.display  = "";
 
@@ -1328,9 +1336,8 @@
           const badge = p.carousel_enabled
             ? `<div class="cal-cell-badge ${isCarousel ? 'carousel' : 'text'}">${isCarousel ? '▤ Carousel' : '✎ Text'}</div>`
             : "";
-          return `<td class="${isToday ? 'today-col' : ''}">
+          return `<td class="${isToday ? 'today-col' : ''}" ${desc ? `title="${desc}"` : ""}>
             <div class="cal-cell-type">${type}</div>
-            ${desc ? `<div style="font-size:10.5px;color:#a29a8c;line-height:1.35;margin-top:2px;">${desc}</div>` : ""}
             ${badge}
             <div class="cal-time">${p.post_time}</div>
           </td>`;
