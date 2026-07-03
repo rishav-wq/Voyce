@@ -278,6 +278,25 @@
     .carousel-toggle-switch.on .carousel-toggle-knob { left: 19px; }
     .carousel-toggle-label { font-size: 13px; font-weight: 600; color: #555; }
 
+    /* Automation status bar (replaces the old 4-card stats row) */
+    .stats-row { display: block; }
+    .status-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+      background: #fffdf8; border: 1px solid #e3ddd0; border-radius: 12px;
+      padding: 12px 16px; font-size: 13px; color: #3a352c; }
+    .sb-sep { color: #d8d1c2; }
+    .sb-dim { color: #a29a8c; }
+
+    /* Calendar status chips — history + plan in one strip */
+    .cal-chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 999px; margin-bottom: 5px; white-space: nowrap; }
+    .cal-chip.ok    { background: #e6f4ea; color: #057642; }
+    .cal-chip.fail  { background: #fdeceb; color: #c0392b; }
+    .cal-chip.sched { background: #f0eeff; color: #6c47ff; }
+    .cal-chip.none  { background: #f2efe8; color: #b3aa9b; }
+    td.cal-st-ok    { box-shadow: inset 3px 0 0 #18a07a; }
+    td.cal-st-fail  { box-shadow: inset 3px 0 0 #e05555; }
+    td.cal-st-sched { box-shadow: inset 3px 0 0 #cdbdff; }
+
     .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .act-btn {
       background: none;
@@ -623,29 +642,9 @@
       <button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>
     </div>
 
-    <!-- Stats (revealed by renderProfiles once profiles load, to avoid a load flash) -->
+    <!-- Automation status bar (revealed once a profile is actively auto-posting) -->
     <div class="stats-row" id="stats-row" style="display:none;">
-      <div class="stat-card">
-        <div class="stat-label">Automation Active</div>
-        <div class="stat-value" id="stat-active">—</div>
-        <div class="stat-sub" id="stat-total"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Next Post Type</div>
-        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-next-type">—</div>
-        <div style="font-size:11px;color:#a29a8c;margin-top:3px;line-height:1.4;" id="stat-next-desc"></div>
-        <div class="stat-sub" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center;" id="stat-recent-types"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Next Post</div>
-        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-next">—</div>
-        <div class="stat-sub" id="stat-next-who"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">LinkedIn</div>
-        <div class="stat-value" style="font-size:16px;margin-top:4px;" id="stat-li">—</div>
-        <div class="stat-sub" id="stat-li-sub"></div>
-      </div>
+      <div class="status-bar" id="status-bar"></div>
     </div>
 
     <!-- Profile cards -->
@@ -960,9 +959,7 @@
     }
 
     function updateLiStat(connected) {
-      document.getElementById("stat-li").textContent = connected ? "✓ Connected" : "Not Connected";
-      document.getElementById("stat-li").style.color = connected ? "#057642" : "#c0392b";
-      document.getElementById("stat-li-sub").textContent = connected ? "Scheduled posting ready" : "Connect before posting";
+      _setSbLi(connected);
     }
 
     function connectLinkedIn() {
@@ -1004,6 +1001,7 @@
       const profiles = await res.json();
       currentProfiles = profiles;
       updateRail();
+      _logCache = null;  // refetch the post log so calendar history stays current
       renderProfiles(profiles);
       updateStats(profiles);
       // Now that profile count is known, reconcile the analytics empty state
@@ -1012,31 +1010,29 @@
     }
 
     function updateStats(profiles) {
-      const active = profiles.filter(p => p.active).length;
-      document.getElementById("stat-active").textContent = active;
-      document.getElementById("stat-total").textContent = `of ${profiles.length} total`;
-
-      const mainProfile = profiles.find(p => p.active) || profiles[0];
-      if (mainProfile && mainProfile.next_post_type) {
-        document.getElementById("stat-next-type").textContent = mainProfile.next_post_type;
-        document.getElementById("stat-next-desc").textContent = mainProfile.next_post_type_desc || "";
-        const recentHtml = (mainProfile.recent_post_types || []).map(rt => 
-          `<span style="background:#f0eeff;color:#6c47ff;font-size:9px;padding:3px 6px;border-radius:4px;font-weight:700;">${rt}</span>`
-        ).join("");
-        document.getElementById("stat-recent-types").innerHTML = recentHtml ? `<span style="font-size:10px;color:#aaa;margin-right:2px;">Recent:</span>${recentHtml}` : `<span style="font-size:10px;color:#aaa;">No recent posts</span>`;
-      } else {
-        document.getElementById("stat-next-type").textContent = "—";
-        document.getElementById("stat-next-desc").textContent = "";
-        document.getElementById("stat-recent-types").innerHTML = "";
+      const bar = document.getElementById("status-bar");
+      if (!bar) return;
+      const active = profiles.filter(p => p.active);
+      if (!active.length) { bar.innerHTML = ""; return; }
+      const next = [...active].sort((a, b) => a.post_time.localeCompare(b.post_time))[0];
+      const parts = [
+        `<span><span style="color:#18a07a;">●</span> Auto-posting <strong>${active.length} profile${active.length > 1 ? "s" : ""}</strong></span>`,
+      ];
+      if (next && next.next_post_type) {
+        parts.push(`<span>Next: <strong>${next.next_post_type}</strong> · ${next.post_time} · as ${next.name}</span>`);
+        if (next.next_post_type_desc) parts.push(`<span class="sb-dim">${next.next_post_type_desc}</span>`);
       }
+      parts.push(`<span id="sb-li" class="sb-dim">LinkedIn: checking…</span>`);
+      bar.innerHTML = parts.join(`<span class="sb-sep">·</span>`);
+      if (typeof liConnected === "boolean") _setSbLi(liConnected);
+    }
 
-      const next = profiles.filter(p=>p.active).sort((a,b)=>a.post_time.localeCompare(b.post_time))[0];
-      if (next) {
-        document.getElementById("stat-next").textContent = next.post_time;
-        document.getElementById("stat-next-who").textContent = next.name;
-      } else {
-        document.getElementById("stat-next").textContent = "—";
-      }
+    function _setSbLi(connected) {
+      const el = document.getElementById("sb-li");
+      if (!el) return;
+      el.innerHTML = connected
+        ? `<span style="color:#057642;font-weight:600;">✓ LinkedIn connected</span>`
+        : `<span style="color:#c0392b;font-weight:600;">⚠ LinkedIn not connected</span>`;
     }
 
     function renderProfiles(profiles) {
@@ -1074,7 +1070,8 @@
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
-            <div class="profile-card-name">
+            <div class="profile-card-name" style="display:flex;align-items:center;gap:10px;">
+              <span style="width:38px;height:38px;border-radius:50%;background:${isPersonal ? '#6c47ff' : '#1c1813'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>
               ${p.name}
               <span class="badge-type ${typeClass}">${typeLabel}</span>
             </div>
@@ -1300,46 +1297,78 @@
       empty.style.display = "none";
       grid.style.display  = "";
 
-      // Build 7 days starting from today
+      _getLog().then(log => {
+        // Index the newest log entry per company per day (log arrives newest-first)
+        const byDay = {};
+        for (const e of (log || [])) {
+          const key = `${e.company_id}|${String(e.timestamp || "").slice(0, 10)}`;
+          if (!byDay[key]) byDay[key] = e;
+        }
+        _renderCalendarGrid(active, byDay);
+      });
+    }
+
+    let _logCache = null;
+    async function _getLog() {
+      if (_logCache) return _logCache;
+      try {
+        const r = await fetch("/companies/log", { headers: { "x-token": getToken() } });
+        _logCache = r.ok ? await r.json() : [];
+      } catch (_) { _logCache = []; }
+      return _logCache;
+    }
+
+    function _localISO(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function _renderCalendarGrid(active, byDay) {
+      // One strip, two jobs: the last 3 days (what actually happened) + today and
+      // the 3 days ahead (what's planned). History builds trust in the automation.
       const today = new Date();
       const days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(today);
-        d.setDate(today.getDate() + i);
+        d.setDate(today.getDate() + i - 3);
         return d;
       });
-
       const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      const todayStr = today.toDateString();
 
-      // Header row
-      const headerCells = days.map(d => {
-        const isToday = d.toDateString() === todayStr;
+      const headerCells = days.map((d, i) => {
+        const isToday = i === 3;
         const label = isToday ? "Today" : DAY_SHORT[d.getDay()];
         const date  = `${d.getMonth()+1}/${d.getDate()}`;
         return `<th class="${isToday ? 'today-col' : ''}">${label}<br><span style="font-weight:400;font-size:11px;">${date}</span></th>`;
       }).join("");
 
-      // Profile rows
       const profileRows = active.map(p => {
         const isPersonal = p.profile_type === "personal";
-        const schedule   = isPersonal ? PERSONAL_SCHEDULE : COMPANY_SCHEDULE;
-
         const cells = days.map((d, i) => {
-          const jsDay = d.getDay();
-          const pyDay = jsDay === 0 ? 6 : jsDay - 1;
-          // Real per-day plan from the backend; weekday map only as legacy fallback
-          const type  = (p.week_plan && p.week_plan[i]) || schedule[pyDay];
-          const desc  = (p.post_type_descriptions && p.post_type_descriptions[type]) || "";
-          const isToday = d.toDateString() === todayStr;
-          // Approximate carousel alternation: even offset days = carousel if enabled
-          const isCarousel = p.carousel_enabled && (i % 2 === 1);
-          const badge = p.carousel_enabled
+          const isToday   = i === 3;
+          const futureIdx = i - 3;                       // week_plan[0] = today
+          const entry     = byDay[`${p.id}|${_localISO(d)}`];
+          const planType  = futureIdx >= 0 ? ((p.week_plan && p.week_plan[futureIdx]) || "") : "";
+
+          let st, chip, type;
+          if (entry && (entry.status === "posted" || entry.status === "dry_run_fired")) {
+            st = "ok"; chip = "✓ Posted"; type = entry.post_type || planType;
+          } else if (entry) {
+            st = "fail"; chip = "✗ Failed"; type = entry.post_type || planType;
+          } else if (futureIdx < 0) {
+            st = "none"; chip = "No post"; type = "";
+          } else {
+            st = "sched"; chip = `🕐 ${p.post_time}`; type = planType;
+          }
+
+          const desc = type && p.post_type_descriptions ? (p.post_type_descriptions[type] || "") : "";
+          const isCarousel = p.carousel_enabled && futureIdx >= 0 && (futureIdx % 2 === 1);
+          const badge = (st === "sched" && p.carousel_enabled)
             ? `<div class="cal-cell-badge ${isCarousel ? 'carousel' : 'text'}">${isCarousel ? '▤ Carousel' : '✎ Text'}</div>`
             : "";
-          return `<td class="${isToday ? 'today-col' : ''}" ${desc ? `title="${desc}"` : ""}>
-            <div class="cal-cell-type">${type}</div>
+
+          return `<td class="${isToday ? 'today-col' : ''} cal-st-${st}" ${desc ? `title="${desc}"` : ""}>
+            <span class="cal-chip ${st}">${chip}</span>
+            ${type ? `<div class="cal-cell-type">${type}</div>` : ""}
             ${badge}
-            <div class="cal-time">${p.post_time}</div>
           </td>`;
         }).join("");
 
@@ -1353,13 +1382,11 @@
 
       document.getElementById("calendar-grid").innerHTML = `
         <table class="cal-table">
-          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;font-weight:400;border-bottom:1px solid #f0eeff;padding:8px 12px;">Next 7 days — Voyce rotates post styles through the week so your feed never looks templated</th></tr>
+          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;font-weight:400;border-bottom:1px solid #f0eeff;padding:8px 12px;">Last 3 days + the week ahead — Voyce rotates post styles so your feed never looks templated</th></tr>
           <tr>${headerCells}</tr></thead>
           <tbody>${profileRows}</tbody>
         </table>`;
 
-      // Subtitle
-      // Subtitle
       const types = [...new Set(active.map(p => p.next_post_type))].filter(Boolean);
       document.getElementById("cal-subtitle").textContent = types.length ? `Next: ${types.join(" · ")}` : "";
     }
