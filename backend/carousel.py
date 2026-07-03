@@ -169,10 +169,16 @@ def _get_palette(company: dict) -> dict:
     if theme and theme in PALETTES:
         return PALETTES[theme]
 
-    # 3. Industry keyword match
+    # 3. Industry keyword match — on word boundaries, so short keys like "ai"
+    # can't match inside words ("chain", "training").
     industry = company.get("industry", "").lower()
+    words = re.findall(r"[a-z]+", industry)
     for key, palette_name in _INDUSTRY_MAP.items():
-        if key in industry:
+        if " " in key:
+            if key in industry:
+                return PALETTES[palette_name]
+        elif any(w == key or (len(key) >= 4 and w.startswith(key)) for w in words):
+            # prefix match only for longer keys ("agri" -> agritech), never "ai" -> "aid"
             return PALETTES[palette_name]
 
     # 4. Default → Voyce brand: warm beige + violet (on-brand, high contrast, light)
