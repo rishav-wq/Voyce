@@ -584,8 +584,9 @@
         .li-media img{width:100%;max-height:540px;object-fit:cover;display:block;}
         .li-media-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:0 20px;}
 
-        /* "…see more" fold — the preview truncates exactly like the real feed */
-        .card-body.li-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+        /* "…see more" fold — height clamp + fade, so blank lines never produce stray dots */
+        .card-body.li-clamp{overflow:hidden;position:relative;}
+        .card-body.li-clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.7em;background:linear-gradient(to bottom, rgba(255,253,248,0), #fffdf8);pointer-events:none;}
         .li-see-more{background:none;border:none;color:#8a8275;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 20px 0;text-align:left;align-self:flex-start;}
         .li-see-more:hover{color:#6c47ff;}
         .li-attach-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:10px 20px 0;min-height:200px;border:1.5px dashed #ddd5c6;border-radius:12px;background:#faf7f0;color:#8a8275;font-size:13px;}
@@ -700,7 +701,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=19"></script>
+  <script src="/static/app.js?v=20"></script>
   <script src="/static/upgrade.js?v=1"></script>
   <script
     async

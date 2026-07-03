@@ -310,20 +310,30 @@ function restoreDraft() {
 
 // Simulate LinkedIn's "...see more" fold so the preview shows exactly what
 // survives in the feed before a tap — the hook test, live.
+function _foldHeight(el) {
+  const cs = getComputedStyle(el);
+  const lh = parseFloat(cs.lineHeight) || 23;
+  const pt = parseFloat(cs.paddingTop) || 0;
+  return Math.round(lh * 3 + pt + 2);   // ~3 text lines, like the real feed
+}
 function _applyFold() {
   const el  = document.getElementById("linkedin-content");
   const btn = document.getElementById("li-see-more");
   if (!el || !btn) return;
   el.classList.add("li-clamp");
+  el.style.maxHeight = _foldHeight(el) + "px";
   btn.textContent = "…see more";
   requestAnimationFrame(() => {
-    btn.style.display = el.scrollHeight > el.clientHeight + 2 ? "" : "none";
+    const folded = el.scrollHeight > el.clientHeight + 4;
+    btn.style.display = folded ? "" : "none";
+    if (!folded) { el.classList.remove("li-clamp"); el.style.maxHeight = ""; }
   });
 }
 function toggleFold() {
   const el  = document.getElementById("linkedin-content");
   const btn = document.getElementById("li-see-more");
   const nowClamped = el.classList.toggle("li-clamp");
+  el.style.maxHeight = nowClamped ? _foldHeight(el) + "px" : "";
   btn.textContent = nowClamped ? "…see more" : "see less";
 }
 
