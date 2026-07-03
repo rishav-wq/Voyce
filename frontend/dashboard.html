@@ -1207,6 +1207,39 @@
       document.getElementById(`li-panel-${id}`).classList.toggle("open");
     }
 
+    // Shared by create AND edit: pushes any files chosen in the voice tabs to the backend.
+    async function _uploadVoiceInputs(id, isPersonal) {
+      if (!isPersonal || !id) return;
+      const st = document.getElementById("p-li-status");
+      const liFile = document.getElementById("p-li-file")?.files[0];
+      if (liFile) {
+        if (st) st.textContent = "Uploading LinkedIn data...";
+        const form = new FormData();
+        form.append("file", liFile);
+        const r = await fetch(`/companies/${id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
+        if (r.ok && st) { st.textContent = "✓ Style learned"; st.className = "li-upload-status ok"; }
+      }
+      const shots = document.getElementById("p-voice-shots")?.files;
+      if (shots && shots.length) {
+        if (st) st.textContent = "Reading your screenshots…";
+        const form = new FormData();
+        for (const f of shots) form.append("files", f);
+        try {
+          const r = await fetch(`/companies/${id}/upload-post-screenshots`, { method:"POST", body:form, headers:{"x-token":getToken()} });
+          if (r.ok) {
+            const d = await r.json();
+            if (st) { st.textContent = `✓ Style learned from ${d.posts_found} post${d.posts_found > 1 ? "s" : ""}`; st.className = "li-upload-status ok"; }
+            toast(`Writing style learned from ${d.posts_found} screenshot post${d.posts_found > 1 ? "s" : ""}.`, "success");
+          } else {
+            const err = await r.json().catch(() => ({}));
+            toast(err.detail || "Couldn't read those screenshots — try the paste box instead.", "warn");
+          }
+        } catch (_) {
+          toast("Couldn't read those screenshots — try the paste box instead.", "warn");
+        }
+      }
+    }
+
     async function uploadLinkedIn(id) {
       const fileInput = document.getElementById(`li-file-${id}`);
       const btn       = document.getElementById(`li-btn-${id}`);
@@ -1807,6 +1840,7 @@
           res = await fetch(`/companies/${_editingId}`, { method: "PUT", headers: ah(), body: JSON.stringify(payload) });
           if (!res.ok) throw new Error(await res.text());
           created = await res.json();
+          await _uploadVoiceInputs(_editingId, isPersonal);   // screenshots/archive added during edit
           toast(`${payload.name} updated!`, "success");
           closeModal();
           loadProfiles();
@@ -1824,37 +1858,7 @@
           }
           created = await res.json();
 
-          const liFile = isPersonal ? document.getElementById("p-li-file").files[0] : null;
-          if (liFile && created.id) {
-            document.getElementById("p-li-status").textContent = "Uploading LinkedIn data...";
-            const form = new FormData();
-            form.append("file", liFile);
-            const upRes = await fetch(`/companies/${created.id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
-            if (upRes.ok) { document.getElementById("p-li-status").textContent = "✓ Style learned"; document.getElementById("p-li-status").className = "li-upload-status ok"; }
-          }
-
-          // Voice from post screenshots (vision) — works for your own posts or a prospect's
-          const shots = isPersonal ? document.getElementById("p-voice-shots")?.files : null;
-          if (shots && shots.length && created.id) {
-            const st = document.getElementById("p-li-status");
-            st.textContent = "Reading your screenshots…";
-            const form = new FormData();
-            for (const f of shots) form.append("files", f);
-            try {
-              const shotRes = await fetch(`/companies/${created.id}/upload-post-screenshots`, { method:"POST", body:form, headers:{"x-token":getToken()} });
-              if (shotRes.ok) {
-                const d = await shotRes.json();
-                st.textContent = `✓ Style learned from ${d.posts_found} post${d.posts_found > 1 ? "s" : ""}`;
-                st.className = "li-upload-status ok";
-                toast(`Writing style learned from ${d.posts_found} screenshot post${d.posts_found > 1 ? "s" : ""}.`, "success");
-              } else {
-                const err = await shotRes.json().catch(() => ({}));
-                toast(err.detail || "Couldn't read those screenshots — try the paste box instead.", "warn");
-              }
-            } catch (_) {
-              toast("Couldn't read those screenshots — try the paste box instead.", "warn");
-            }
-          }
+          await _uploadVoiceInputs(created.id, isPersonal);
 
           document.getElementById(isPersonal ? "p-time" : "c-time").value = "09:00";
           const successEl = document.getElementById("modal-success");
