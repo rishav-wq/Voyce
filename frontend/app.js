@@ -297,6 +297,7 @@ function restoreDraft() {
   const el = document.getElementById("linkedin-content");
   if (!d || !d.post || !el) return;
   el.textContent = d.post;
+  _applyFold();
   _setPreviewAuthor();
   if (d.img) {
     _attachB64 = d.img; _attachMime = d.mime || "image/png";
@@ -307,8 +308,28 @@ function restoreDraft() {
   updateProgress();
 }
 
+// Simulate LinkedIn's "...see more" fold so the preview shows exactly what
+// survives in the feed before a tap — the hook test, live.
+function _applyFold() {
+  const el  = document.getElementById("linkedin-content");
+  const btn = document.getElementById("li-see-more");
+  if (!el || !btn) return;
+  el.classList.add("li-clamp");
+  btn.textContent = "…see more";
+  requestAnimationFrame(() => {
+    btn.style.display = el.scrollHeight > el.clientHeight + 2 ? "" : "none";
+  });
+}
+function toggleFold() {
+  const el  = document.getElementById("linkedin-content");
+  const btn = document.getElementById("li-see-more");
+  const nowClamped = el.classList.toggle("li-clamp");
+  btn.textContent = nowClamped ? "…see more" : "see less";
+}
+
 function renderOutputs(data) {
   document.getElementById("linkedin-content").textContent = data.linkedin_post || "";
+  _applyFold();
   _setPreviewAuthor();
   if (!_attachIsUpload) attachRemove();   // keep a user-uploaded image; clear AI-generated ones
   saveDraft();
@@ -627,7 +648,9 @@ async function attachHandleUpload(event) {
 // ── Copy ──────────────────────────────────────────────────────────────────────
 function copyContent(id) {
   const el = document.getElementById(id);
-  navigator.clipboard.writeText(el.innerText).then(() => {
+  // textContent, not innerText: the clamped preview visually hides lines, but the
+  // clipboard must always get the full post.
+  navigator.clipboard.writeText(el.textContent).then(() => {
     const btn = el.closest(".output-card").querySelector(".action-btn");
     btn.textContent = "Copied!";
     btn.classList.add("copied");
