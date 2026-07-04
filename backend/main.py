@@ -105,11 +105,19 @@ def _friendly_fetch_error(exc: Exception, input_type: str) -> str:
     return "Could not read that content. Please try again."
 
 
-def _with_profile_context(user_id: str, raw_text: str) -> str:
+def _resolve_profile(user_id: str, profile_id: str = ""):
+    """The profile to write as: the explicit valid choice if given, else the first one."""
     profiles = list_companies(user_id)
-    if not profiles:
+    if profile_id:
+        for p in profiles:
+            if p.get("id") == profile_id:
+                return p
+    return profiles[0] if profiles else None
+
+
+def _with_profile_context(profile: dict | None, raw_text: str) -> str:
+    if not profile:
         return raw_text
-    profile = profiles[0]
     context = [
         "Saved profile context for tone and relevance:",
         f"Name: {profile.get('name', '')}",
@@ -196,6 +204,7 @@ class GenerateRequest(BaseModel):
     input_type: str
     content: str
     style: str = "illustration"   # image posts: "illustration" (AI) | "card" (insight card)
+    profile_id: str = ""          # which saved profile to write as (defaults to the first)
 
 
 class PostRequest(BaseModel):
@@ -507,9 +516,8 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
-        profiles = list_companies(user["id"])
-        profile = profiles[0] if profiles else None
-        context_text = _with_profile_context(user["id"], raw_text)
+        profile = _resolve_profile(user["id"], request.profile_id)
+        context_text = _with_profile_context(profile, raw_text)
         result = generate_content(context_text, company=profile)
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
@@ -534,9 +542,8 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
     try:
         import base64
         from carousel import generate_carousel_from_text, render_carousel_pdf
-        profiles = list_companies(user["id"])
-        profile = profiles[0] if profiles else None
-        context_text = _with_profile_context(user["id"], raw_text)
+        profile = _resolve_profile(user["id"], request.profile_id)
+        context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
@@ -561,9 +568,8 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         import base64
-        profiles = list_companies(user["id"])
-        profile = profiles[0] if profiles else None
-        context_text = _with_profile_context(user["id"], raw_text)
+        profile = _resolve_profile(user["id"], request.profile_id)
+        context_text = _with_profile_context(profile, raw_text)
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
             content = generate_image_post_from_text(context_text, company=profile)
@@ -598,9 +604,8 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         from carousel import generate_caption_from_text
-        profiles = list_companies(user["id"])
-        profile = profiles[0] if profiles else None
-        context_text = _with_profile_context(user["id"], raw_text)
+        profile = _resolve_profile(user["id"], request.profile_id)
+        context_text = _with_profile_context(profile, raw_text)
         data = generate_caption_from_text(context_text, company=profile)
         auth_module.increment_gens(user["id"])
         return {"post_text": data.get("post_text", ""), "alt_text": data.get("alt_text", "")}

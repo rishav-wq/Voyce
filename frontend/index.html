@@ -534,6 +534,11 @@
 
     <!-- Input card -->
     <div class="input-card">
+      <div id="writing-as" style="display:none;align-items:center;gap:8px;margin-bottom:14px;font-size:13.5px;font-weight:600;color:#6b6355;">
+        ✍️ Writing as
+        <select id="profile-picker" onchange="setActiveProfile(this.value)" style="font-family:inherit;font-size:13.5px;font-weight:600;color:#1c1813;padding:6px 10px;border:1.5px solid #e0d9cc;border-radius:8px;background:#fff;cursor:pointer;">
+        </select>
+      </div>
       <div class="input-tabs">
         <button class="input-tab active" data-type="text">Paste Text</button>
         <button class="input-tab" data-type="url">Website URL</button>
@@ -701,7 +706,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=21"></script>
+  <script src="/static/app.js?v=22"></script>
   <script src="/static/upgrade.js?v=1"></script>
   <script
     async

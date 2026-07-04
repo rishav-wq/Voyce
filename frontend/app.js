@@ -23,6 +23,28 @@ async function initClerk() {
 }
 
 function getToken() { return _clerkToken; }
+
+// ── Writing-as profile picker ────────────────────────────────────────────────
+let _profiles = [];
+function getActiveProfileId() { return localStorage.getItem("cm_profile_id") || ""; }
+function setActiveProfile(id) { localStorage.setItem("cm_profile_id", id); }
+async function loadProfilePicker() {
+  try {
+    const res = await fetch("/companies", { headers: { "x-token": getToken() } });
+    if (!res.ok) return;
+    _profiles = await res.json();
+    const wrap = document.getElementById("writing-as");
+    const sel  = document.getElementById("profile-picker");
+    if (!wrap || !sel || _profiles.length < 2) return;  // nothing to choose with 0-1 profiles
+    let active = getActiveProfileId();
+    if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
+    setActiveProfile(active);
+    sel.innerHTML = _profiles.map(p =>
+      `<option value="${p.id}" ${p.id === active ? "selected" : ""}>${p.name}${p.profile_type === "personal" ? "" : " · company"}</option>`
+    ).join("");
+    wrap.style.display = "flex";
+  } catch (_) {}
+}
 function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
 function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
 
@@ -57,6 +79,7 @@ function showError(msg) {
 // ── Init (called by Clerk script onload) ─────────────────────────────────────
 async function startApp() {
   if (!(await initClerk())) return;
+  loadProfilePicker();
   const user = getUser();
   if (user) {
     const tag = document.getElementById("user-tag");
@@ -252,7 +275,7 @@ async function generate() {
     const res = await fetch("/generate", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: activeType, content })
+      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Something went wrong.");
@@ -503,7 +526,7 @@ async function generateCarousel() {
     const res = await fetch("/generate/carousel", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: activeType, content })
+      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Carousel generation failed.");
@@ -614,7 +637,7 @@ async function attachGenerateImage() {
     const res = await fetch("/generate/image", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: "text", content: source, style: "illustration" })
+      body: JSON.stringify({ input_type: "text", content: source, style: "illustration", profile_id: getActiveProfileId() })
     });
     const data = await res.json();
     if (!res.ok) {
