@@ -1137,7 +1137,8 @@
 
     async function runNow(id) {
       if (!liConnected) { toast("LinkedIn not connected. Connect it first from the banner above.", "warn"); return; }
-      if (!(await voyceConfirm("Generate and post to LinkedIn right now?", { title: "Run now", confirmText: "Post now" }))) return;
+      const rp = (currentProfiles || []).find(x => x.id === id);
+      if (!(await voyceConfirm(`Generate a post and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`, { title: "Run now", confirmText: "Post now" }))) return;
       toast("Generating and posting...");
       const res  = await fetch(`/companies/${id}/run`, { method:"POST", headers: {"x-token": getToken()} });
       const data = await res.json();
@@ -1152,6 +1153,16 @@
     }
 
     async function toggleProfile(id, active) {
+      if (active) {
+        // Arming unattended publishing deserves one explicit, unmissable confirmation.
+        const p = (currentProfiles || []).find(x => x.id === id);
+        const who = p ? p.name : "this profile";
+        const ok = await voyceConfirm(
+          `Voyce will write AND publish to your connected LinkedIn account as "${who}" every day at ${p?.post_time || "the scheduled time"}, with no review step. If this is a demo or prospect profile, keep it off.`,
+          { title: "Turn on daily auto-posting?", confirmText: "Turn on auto-posting" }
+        );
+        if (!ok) return;
+      }
       const res = await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
