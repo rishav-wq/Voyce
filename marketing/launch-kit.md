@@ -128,4 +128,7 @@ Check back weekly; some send an approval email you must click.
 
 | Directory | Date | Status | Listing URL |
 |---|---|---|---|
-|  |  |  |  |
+| SaaSHub | 2026-07-05 | Submitted + profile fully built (features, pricing, Q&A, competitors: Taplio/Buffer/Hypefury; alternative on Suma AI, Brand Me, LinkedIn AI Post Editor, LinkedinspeakTranslator, Hootsuite). Free queue ≤32 days. | saashub.com/voyce-alternatives |
+| Toolify | 2026-07-05 | SKIPPED — submission is paid-only now ($99) | — |
+| AlternativeTo | 2026-07-05 | DEFERRED — submissions paused on weekends; **submit Monday 7/6** (highest-intent listing: alternative to Taplio/Supergrow/AuthoredUp) | — |
+| Futurepedia, TopAI, AITools.fyi, Aixploria, Tier 1b | — | TODO next session | — |
