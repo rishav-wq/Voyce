@@ -72,19 +72,29 @@ Screenshot tips: full-browser width, light theme page as-is, hide bookmarks bar 
 
 ## 3. The directory list (work top to bottom)
 
-### Tier 1 — AI tool directories (evergreen traffic)
+### Tier 1 — AI tool directories (evergreen traffic; statuses verified Jul 2026)
 | # | Directory | URL | Notes |
 |---|---|---|---|
-| 1 | Toolify | toolify.ai | free submit, big catalog |
-| 2 | TopAI.tools | topai.tools | free submit |
-| 3 | AITools.fyi | aitools.fyi | free submit |
-| 4 | Aixploria | aixploria.com | free submit |
-| 5 | Futurepedia | futurepedia.io | free queue (slow) or paid fast-track — take the queue |
-| 6 | There's An AI For That | theresanaiforthat.com | usually PAID now — check, skip if so |
-| 7 | AI Scout | aiscout.net | free submit |
-| 8 | EliteAI Tools | eliteai.tools | free submit |
-| 9 | Easy With AI | easywithai.com | free/queue |
-| 10 | FindMyAITool | findmyaitool.com | free submit |
+| 1 | Toolify | toolify.ai | FREE queue confirmed (2-4 weeks; the ~$100 Express is not worth it) — dofollow |
+| 2 | Futurepedia | futurepedia.io | FREE, human review 3-7 days — dofollow |
+| 3 | SaaSHub | saashub.com | FREE — dofollow |
+| 4 | AlternativeTo | alternativeto.net | FREE — dofollow; list as alternative to Taplio, Supergrow, AuthoredUp |
+| 5 | TopAI.tools | topai.tools | free submit |
+| 6 | AITools.fyi | aitools.fyi | free submit |
+| 7 | Aixploria | aixploria.com | free submit |
+| 8 | There's An AI For That | theresanaiforthat.com | lists fast (24-48h) but check price at submit; skip if paid |
+| 9 | AI Scout | aiscout.net | free submit |
+| 10 | EliteAI Tools | eliteai.tools | free submit |
+
+### Tier 1b — confirmed-free quick wins (5 min each, backlinks)
+| # | Directory | URL |
+|---|---|---|
+| a | Submit AI Tools | submitaitools.org/submit-your-ai-tool |
+| b | AI Toolz Dir | aitoolzdir.com |
+| c | Dofollow.Tools | dofollow.tools |
+| d | Best of Web | bestofweb.site |
+| e | Startuplist.in | startuplist.in (India startups — good fit) |
+| f | AiToolex | aitoolex.com |
 
 ### Tier 2 — SaaS/startup directories (intent + backlinks)
 | # | Directory | URL | Notes |
