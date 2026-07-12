@@ -4,142 +4,108 @@
 
 ## One-liner
 
-**Voyce learns your writing style and posts to LinkedIn every day — automatically.**
-
----
-
-## The Problem
-
-LinkedIn is the #1 platform for B2B leads, hiring, and personal brand building.  
-Everyone knows they should post. Almost no one does.
-
-**Why:**
-- Writing one good post takes 30–60 minutes
-- You have to do it every single day to see results
-- Generic AI tools (ChatGPT, etc.) still require you to prompt, write, edit, copy-paste — every day
-- Ghostwriters cost ₹40,000–₹1,50,000/month
-- Scheduling tools (Buffer, Hootsuite) only schedule — they don't write
-
-**The result:** Founders, sales professionals, and consultants with real expertise stay invisible on LinkedIn because posting is too much work.
-
----
-
-## The Solution — Voyce
-
-Set up once in 3 minutes. Voyce posts every day, forever.
-
-- Learns your voice from your past LinkedIn posts
-- Finds today's relevant news in your industry
-- Generates a post that sounds like you wrote it
-- Posts it at your chosen time — automatically
-
-No prompting. No copy-pasting. No ghostwriter.
+**Voyce writes and posts your LinkedIn content every day, on autopilot — in your voice — so consultants who win clients on LinkedIn stay visible without writing a word.**
 
 ---
 
 ## Who It's For
 
-| Audience | Pain | What Voyce solves |
-|---|---|---|
-| **Founders / CEOs** | Want LinkedIn presence, no time | Daily posts without writing |
-| **Sales professionals** | Need personal brand for pipeline | Consistent thought leadership, automated |
-| **Consultants / Freelancers** | Visibility = income, but writing is slow | Posts every day in their expert voice |
-| **Agencies** | Managing 5–10 client LinkedIn pages | Multi-profile automation from one dashboard |
-| **Content marketers** | Repurposing content is tedious | URL/YouTube → 5 formats in 10 seconds |
+**Primary ICP: independent B2B consultants, fractional executives, and coaches who get clients from LinkedIn.**
+
+For this person, LinkedIn visibility *is* pipeline. A quiet month on the feed is a quiet month of inbound. But writing a good post daily takes 30–60 minutes they don't have between client work — so they post in bursts, go silent for weeks, and the pipeline dries up. That inconsistency is the specific, expensive problem Voyce removes: one client won from one post pays for a year of Voyce many times over.
+
+*Also works for (secondary, not the wedge): startup founders building a personal brand, sales professionals, agencies managing multiple client pages, and content marketers repurposing long-form into LinkedIn. We lead with consultants because that's where "not posting" has the clearest, most immediate revenue cost.*
+
+---
+
+## The Problem
+
+For a consultant, LinkedIn is the cheapest client-acquisition channel there is — and the one they neglect most.
+
+**Why:**
+- Writing one good post takes 30–60 minutes, and it has to be consistent to compound
+- Between billable client work, "write today's post" is always the thing that slips
+- Generic AI tools (ChatGPT, LinkedIn's own AI writer) still make you prompt, edit, and copy-paste — every day
+- Ghostwriters cost ₹40,000–₹1,50,000/month and still need managing
+- Scheduling tools (Buffer, Hootsuite) only schedule — you still have to write everything first
+
+**The result:** consultants with genuine expertise post in bursts, go quiet for weeks, and stay invisible exactly when they need pipeline.
+
+---
+
+## The Solution — Voyce
+
+Set up once in 3 minutes. Voyce runs the entire loop, every day, unattended:
+
+1. **Finds** today's relevant news in your niche (live web search)
+2. **Writes** a post about it in your voice — learned from your past posts
+3. **Publishes** it to LinkedIn at your chosen time — automatically
+
+No prompting. No copy-pasting. No ghostwriter. You open LinkedIn to replies, not a blank composer.
+
+**What makes this different from everything else:** other tools generate a draft you still have to review, schedule, and post. Voyce is the only one that closes the loop end-to-end — news → voice-matched post → published — with you out of the workflow entirely. (And when you *do* want control, the manual tool and preview mode are one click away — see Trust & Safety.)
 
 ---
 
 ## Features
 
 ### 1. Autonomous Daily Posting
-- Set a post time once — Voyce posts every day at that time
+- Set a post time once — Voyce writes and posts every day at that time, unattended
 - Rotating content schedule: Trend Reaction, Hot Take, Lesson Learned, Expert Insight, Stat Reaction, Personal Story — never repetitive
-- Pulls fresh news from the web every day using Tavily Search API
-- Works for both **company pages** and **personal brands**
+- Pulls fresh news from the web every day (Tavily Search API) so posts are timely, not evergreen filler
+- Works for both personal brands and company pages
 
 ### 2. Voice Learning
-- Upload your LinkedIn data export (ZIP) or profile PDF
-- Voyce reads your past posts and learns your exact writing style, vocabulary, sentence length, and tone
-- All future posts are generated in your voice — not generic AI voice
+- Upload your LinkedIn data export (ZIP) or profile PDF, paste recent posts, or drop screenshots
+- Voyce reads your past posts and learns your vocabulary, sentence length, and tone
+- Every post is generated in *your* voice — not generic AI voice
 
 ### 3. Carousel PDF Generation
-- Generates branded 5-slide LinkedIn carousel documents (1080×1080)
-- Posted directly as LinkedIn documents — performs 3× better than text posts
-- Available in both manual tool and autonomous posting
-- Alternates with text posts automatically (carousel one day, text next day)
+- Branded 5-slide LinkedIn carousels (1080×1080), posted as native LinkedIn documents
+- Alternates automatically with text posts (carousel one day, text the next)
 
 ### 4. Manual Content Tool
-- Paste text, drop a website URL, or share a YouTube link
-- Voyce extracts key insights and generates:
-  - **LinkedIn post** (long-form, ready to post)
-  - **Twitter/X thread** (multi-tweet format)
-  - **Email newsletter snippet**
-  - **Blog intro paragraph**
-  - **Carousel PDF**
-- Post directly to LinkedIn or schedule for later from the tool
+- Paste text, a URL, or a YouTube link → LinkedIn post, X/Twitter thread, email snippet, blog intro, or carousel
+- Post directly or schedule for later
 
-### 5. Content Calendar
-- 7-day visual calendar showing what type of post is scheduled each day
-- Shows text vs carousel alternation per profile
-- Updates in real-time when profiles are added or edited
+### 5. Content Calendar & Analytics
+- 7-day visual calendar of what's scheduled per profile
+- Engagement tracking (likes, comments, reposts) via the official LinkedIn API, charted over your last 14 posts
 
-### 6. Post Analytics
-- Full history of every post generated and posted
-- Engagement tracking (likes, comments, reposts) via LinkedIn API
-- Bar chart showing performance over last 14 posts
-- Colour-coded by format: purple = carousel, teal = text
-
-### 7. Multiple Profiles
-- Company profile: scraped from website, professional voice
-- Personal brand: learns from LinkedIn data upload, first-person voice
-- Each profile has its own schedule, tone, industry, and post time
-- Manage multiple profiles from one dashboard
-- *(Per-plan profile limits enforced post-Stripe integration)*
-
-### 8. Designation / Authority Context
-- For personal profiles: add your title (e.g. "Head of Product at Knowella")
-- AI uses this to write from the right level of authority
-- Posts sound like they come from someone with real credibility
-
-### 9. Onboarding Flow
-- 3-step guided setup: Connect LinkedIn → Create profile → Preview your content calendar
-- New users are live in under 3 minutes
-
-### 10. Free Plan with Generation Limit
-- 3 free generations — no credit card required
-- Dashboard shows generations remaining with progress bar
-- Upgrade prompt when limit is hit
+### 6. Multiple Profiles & Authority Context
+- Add your title (e.g. "Fractional CMO") so posts write from the right level of authority
+- Manage multiple profiles, each with its own schedule, tone, and niche
 
 ---
 
-## How the Tech Works (for technical audiences)
+## Trust & Safety (why autopilot is safe for your name)
 
-| Layer | Technology |
-|---|---|
-| **Backend** | Python / FastAPI |
-| **AI generation** | Groq API (LLaMA 3.3 70B) with JSON mode — fast, reliable |
-| **News search** | Tavily Search API — real-time web search |
-| **Web scraping** | BeautifulSoup — scrapes company website for voice/context |
-| **Carousel PDFs** | Pillow (Python image library) — 1080×1080 slides rendered server-side |
-| **LinkedIn posting** | Official LinkedIn OAuth + REST API (v202503) |
-| **Scheduling** | APScheduler — cron jobs per profile, fires at exact post time |
-| **Auth** | Token-based auth, bcrypt-equivalent password hashing |
-| **Frontend** | Vanilla HTML/CSS/JS — zero frameworks, fast load |
+Autopilot posts to *your* professional identity, so trust is the whole game. Voyce is built for it:
+
+- **Preview before you commit** — run any profile with "preview"/dry-run to see exactly what it would post, before arming autopilot. Watch it for a few days, then let it run.
+- **Every post is logged** — the manual tool and activity log show every post generated and published, with the news source it used. Nothing happens you can't see.
+- **Edit or pause anytime** — one click pauses a profile; the manual tool lets you generate, edit, then post when you'd rather steer.
+- **Official LinkedIn API** — Voyce posts through LinkedIn's official OAuth + REST API (the same mechanism Buffer/Hootsuite use), not browser automation or cookie scraping. No account-safety gray area.
+
+*Roadmap: an optional approval queue ("review each post before it goes live") for users who want autopilot's convenience with a final human check.*
 
 ---
 
-## Competitive Landscape
+## Competitive Landscape (honest, 2026)
 
-| Tool | Price | Writes for you | Auto-posts | Learns your voice | Carousel |
+The LinkedIn-tools space is crowded. Here's where Voyce actually stands — including the tools that beat it on price:
+
+| Tool | Price | Writes for you | Learns your voice | Carousels | **Fully autonomous daily posting** |
 |---|---|---|---|---|---|
-| **Buffer / Hootsuite** | $15–99/mo | ✗ | ✓ (manual queue) | ✗ | ✗ |
-| **Taplio** | $49/mo | Partial | ✗ | ✗ | ✗ |
-| **Authory** | $49/mo | ✗ | ✗ | ✗ | ✗ |
-| **ChatGPT** | $20/mo | ✓ | ✗ | ✗ | ✗ |
-| **Ghostwriter** | $500–2000/mo | ✓ | ✓ | ✓ | Sometimes |
-| **Voyce** | $29/mo | ✓ | ✓ | ✓ | ✓ |
+| LinkedIn native AI | Premium | Draft only | ✗ | ✗ | ✗ |
+| ChatGPT | $20/mo | ✓ (you prompt) | ✗ | ✗ | ✗ |
+| Buffer / Hootsuite | $15–99/mo | ✗ | ✗ | ✗ | ✗ (schedule only) |
+| Taplio | $39–199/mo | ✓ | ✗ | Partial | ✗ (queue) |
+| **Supergrow** | **$19/mo** | ✓ | ✓ | ✓ | ✗ (queue) |
+| Ghostwriter | $500–2000/mo | ✓ | ✓ | Sometimes | ✓ (human) |
+| **Voyce** | **$29/mo** | ✓ | ✓ | ✓ | **✓ (software)** |
 
-**Key differentiator:** Voyce is the only tool that combines voice learning + daily auto-posting + carousel generation at under $30/month.
+**Honest read:** Voyce is *not* the cheapest — Supergrow does voice + carousels at $19. Voyce's real, defensible edge is the one column nobody else in software fills: it runs the whole loop unattended, daily, pulling live news and publishing on its own. Everyone else hands you a draft or a scheduled queue you still operate. Voyce is the only tool that replaces the *habit*, not just the *writing* — at 1/20th the cost of the one alternative that also does (a human ghostwriter).
 
 ---
 
@@ -147,82 +113,70 @@ No prompting. No copy-pasting. No ghostwriter.
 
 | Plan | Price | Key limits |
 |---|---|---|
-| **Free** | $0 | 3 generations to try, manual tool only |
-| **Pro** | $29/mo | Unlimited, 3 profiles, full automation, carousels, analytics |
-| **Agency** | $79/mo | Unlimited, 10 profiles, priority support |
+| **Free** | $0 | 5 generations to try, manual tool only |
+| **Pro** | $29/mo | Unlimited, 3 profiles, full autopilot, carousels, analytics |
+| **Agency** *(coming soon)* | $79/mo | Unlimited, 10 profiles, priority support |
 
-**Unit economics (Pro):**
-- Replaces ~2 hours of writing/week = $80–200 in time saved
-- Replaces a ghostwriter = $500–2000/month saved
-- ROI is immediate at $29/month
+**Value framing (Pro):** For a consultant, the comparison isn't "$29 vs a cheaper tool" — it's "$29 vs one more silent month of pipeline." One post that lands one discovery call pays for a year. Against a ghostwriter ($500–2000/mo) doing the same job, it's a rounding error.
 
 ---
 
-## Demo Flow (5 minutes)
+## How the Tech Works
 
-**Open with the problem (30 seconds):**
-> "How many of you know you should post on LinkedIn more but just don't? The writing takes too long. Voyce fixes that."
-
-**Step 1 — Show the landing page** (30 sec)
-- Open `localhost:8000` — show the hero, features, pricing
-- "3-minute setup, posts every day, learns your voice"
-
-**Step 2 — Show the dashboard** (1 min)
-- Profile card with industry, tone, post time
-- Content calendar — "it already knows what to post every day this week"
-- Plan banner showing generations used
-
-**Step 3 — Run Now** (1.5 min)
-- Click "Run Now" on the profile
-- Wait 10–15 seconds
-- Show the generated post in Recent Activity
-- Click through to LinkedIn to show it was actually posted
-
-**Step 4 — Show the manual tool** (1 min)
-- Go to Manual Tool, paste a URL (any article)
-- Click "Generate Content" — show LinkedIn, Twitter, Email, Blog outputs
-- Click "Carousel PDF" — download and open the PDF
-
-**Step 5 — Close with pricing** (30 sec)
-> "Free to try — 3 generations, no card. $29/month for full automation. At 30 minutes saved per day, that's ROI in the first hour."
+| Layer | Technology |
+|---|---|
+| **Backend** | Python / FastAPI |
+| **AI generation** | Groq (LLaMA 3.3 70B) / Gemini, JSON mode |
+| **News search** | Tavily Search API — real-time web search |
+| **Carousel PDFs** | Pillow — 1080×1080 slides rendered server-side |
+| **LinkedIn posting** | Official LinkedIn OAuth + REST API (v202503) |
+| **Scheduling** | APScheduler — cron per profile, on an always-on instance |
+| **Auth / billing** | Clerk (auth) · Razorpay (payments) · MongoDB |
+| **Frontend** | Vanilla HTML/CSS/JS — zero frameworks, fast load |
 
 ---
 
 ## Common Objections & Responses
 
-**"Won't LinkedIn detect this and ban my account?"**
-> Voyce uses LinkedIn's official OAuth API — the same way Buffer and Hootsuite work. LinkedIn explicitly allows third-party posting apps. Millions of posts go through the API daily.
+**"Won't LinkedIn ban my account?"**
+> Voyce uses LinkedIn's official OAuth API — the same way Buffer and Hootsuite work. No browser automation, no cookie scraping.
 
-**"The content will sound generic / AI-ish"**
-> Upload your LinkedIn data export and Voyce reads your actual past posts to match your vocabulary and style. You can also add your designation so it writes from the right level of authority.
+**"I don't trust an AI to post to my profile unattended."**
+> Start in preview mode — watch exactly what it would post for a few days before arming autopilot. Every post is logged with its source, you can edit or pause anytime, and an optional approve-before-post queue is on the roadmap.
 
-**"I need to review posts before they go live"**
-> The manual tool is exactly for that — generate, edit, then post or schedule. The autonomous mode is for people who trust the output and want full hands-off automation.
+**"The content will sound generic."**
+> Voyce learns from your actual past posts (upload, paste, or screenshots) and your stated title, so it writes in your voice at your level of authority.
 
-**"What if the news context it finds is wrong or irrelevant?"**
-> Voyce uses Tavily, a real-time web search API. It queries specifically for your industry + today's date. The post always includes what news was used, visible in your activity log.
+**"I can get voice + carousels cheaper (Supergrow is $19)."**
+> True — if you want a tool that hands you drafts to schedule. Voyce is for the consultant who doesn't want to open the app at all: it finds the news, writes, and posts on its own. You're paying for the habit being gone, not for a better editor.
 
-**"I already use ChatGPT for this"**
-> ChatGPT requires you to prompt it, read the output, edit it, open LinkedIn, paste it — every single day. Voyce does that entire chain automatically at your scheduled time.
-
-**"$29 is too expensive"**
-> One LinkedIn post leading to one client call or one hire pays for a year of Voyce. And it replaces 2+ hours of writing per week.
+**"I already use ChatGPT."**
+> ChatGPT makes you prompt, read, edit, open LinkedIn, and paste — every day. That's the daily friction that makes you stop. Voyce does the whole chain automatically at your scheduled time.
 
 ---
 
-## What's Next (Roadmap to share)
+## Demo Flow (5 minutes)
 
-- **Stripe payments** — live billing, plan upgrades in-app
-- **Profile limits enforcement** — cap profiles per plan tier (1 / 3 / 10)
-- **MongoDB migration** — for scale, concurrent users, persistent deployment
-- **Twitter/X auto-posting** — same autonomous pipeline for X
-- **Approval queue** — optional "review before post" mode for cautious users
-- **Team collaboration** — multiple users managing the same profile
+1. **Landing page** (30s) — hero, features, pricing
+2. **Dashboard** (1m) — profile card, content calendar ("it already knows what to post this week"), plan banner
+3. **Run Now** (1.5m) — click Run, wait ~15s, show the generated post in Recent Activity, click through to the live LinkedIn post
+4. **Manual tool** (1m) — paste a URL → LinkedIn/Twitter/email/blog outputs; download a carousel PDF
+5. **Close on pricing** (30s) — "Free to try, no card. $29/mo for full autopilot. One client from one post pays for the year."
+
+---
+
+## What's Next (Roadmap)
+
+- **Approval queue** — optional "review before post" mode for cautious users (trust feature; priority)
+- **Always-on infrastructure** — move off Render free tier so daily autopilot never misses a slot *(see note below)*
+- **Stripe** — international billing alongside Razorpay
+- **Twitter/X auto-posting** — same autonomous loop for X
+- **Profile-limit enforcement** per plan tier
 - **LinkedIn analytics deep-dive** — follower growth, reach, profile views
 
 ---
 
 ## Contact
 
-Built by **Rishav Agarwal**  
+Built by **Rishav Agarwal**
 Email: r65581350@gmail.com

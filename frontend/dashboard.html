@@ -612,7 +612,7 @@
         <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:13px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
-          <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">1,599</span></div>
+          <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">2,499</span></div>
           <div style="font-size:13px;color:#aaa;margin-top:4px;">31 days of Pro · no auto-charge · renew anytime</div>
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
@@ -790,13 +790,13 @@
       <div class="form-panel active" id="panel-personal">
         <form onsubmit="submitProfile(event,'personal')">
           <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Your full name" required /></div>
-          <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="e.g. AI, product management, startups" autocomplete="off" required />
+          <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="e.g. leadership, B2B marketing, consulting" autocomplete="off" required />
             <div class="topic-suggest" id="p-topic-suggest"></div>
             <p class="form-hint">Used to find relevant news and topics for posts.</p>
           </div>
           <div class="form-group">
             <label>Your Designation <span class="optional-tag">(optional)</span></label>
-            <input type="text" id="p-designation" placeholder="e.g. Founder, Head of Product, ML Engineer" />
+            <input type="text" id="p-designation" placeholder="e.g. Fractional CMO, Leadership Coach, Independent Consultant" />
           </div>
 
           <details class="adv">
@@ -964,8 +964,21 @@
       _setSbLi(connected);
     }
 
-    function connectLinkedIn() {
-      window.open(`/auth/linkedin?token=${getToken()}`, "linkedin-auth", "width=600,height=700,scrollbars=yes");
+    async function connectLinkedIn() {
+      // Open the popup synchronously (preserves the user-gesture context), then
+      // navigate it once /auth/linkedin/start returns the URL. The session token
+      // is sent in a header, never in the query string.
+      const popup = window.open("", "linkedin-auth", "width=600,height=700,scrollbars=yes");
+      if (!popup) { toast("Popup blocked — please allow popups for this site.", "warn"); return; }
+      try {
+        const res = await fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken() } });
+        if (!res.ok) throw new Error();
+        const { auth_url } = await res.json();
+        popup.location.href = auth_url;
+      } catch {
+        popup.close();
+        toast("Could not start LinkedIn connect. Please try again.", "warn");
+      }
     }
 
     async function disconnectLinkedIn() {

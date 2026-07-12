@@ -56,6 +56,7 @@ def exchange_code_for_token(code: str) -> dict:
             "client_secret": CLIENT_SECRET,
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=15,
     )
     response.raise_for_status()
     return response.json()
@@ -110,6 +111,7 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
         "https://api.linkedin.com/rest/documents?action=initializeUpload",
         json={"initializeUploadRequest": {"owner": f"urn:li:person:{person_id}"}},
         headers={**headers_base, "Content-Type": "application/json"},
+        timeout=15,
     )
     if not init_res.ok:
         raise ValueError(f"LinkedIn document init failed {init_res.status_code}: {init_res.text}")
@@ -120,7 +122,8 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
 
     # Step 2: Upload PDF binary
     requests.put(upload_url, data=pdf_bytes,
-                 headers={"Content-Type": "application/octet-stream"}).raise_for_status()
+                 headers={"Content-Type": "application/octet-stream"},
+                 timeout=30).raise_for_status()
 
     # Step 3: Create document post
     payload = {
@@ -140,6 +143,7 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
         "https://api.linkedin.com/rest/posts",
         json=payload,
         headers={**headers_base, "Content-Type": "application/json"},
+        timeout=15,
     )
     if not post_res.ok:
         raise ValueError(f"LinkedIn post failed {post_res.status_code}: {post_res.text}")
@@ -163,6 +167,7 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
         "https://api.linkedin.com/rest/images?action=initializeUpload",
         json={"initializeUploadRequest": {"owner": f"urn:li:person:{person_id}"}},
         headers={**headers_base, "Content-Type": "application/json"},
+        timeout=15,
     )
     if not init_res.ok:
         raise ValueError(f"LinkedIn image init failed {init_res.status_code}: {init_res.text}")
@@ -172,7 +177,8 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
 
     # Step 2: Upload image binary
     requests.put(upload_url, data=image_bytes,
-                 headers={"Content-Type": "application/octet-stream"}).raise_for_status()
+                 headers={"Content-Type": "application/octet-stream"},
+                 timeout=30).raise_for_status()
 
     # Step 3: Create image post
     payload = {
@@ -192,6 +198,7 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
         "https://api.linkedin.com/rest/posts",
         json=payload,
         headers={**headers_base, "Content-Type": "application/json"},
+        timeout=15,
     )
     if not post_res.ok:
         raise ValueError(f"LinkedIn image post failed {post_res.status_code}: {post_res.text}")
@@ -211,6 +218,7 @@ def get_post_engagement(user_id: str, post_urn: str) -> dict:
             "LinkedIn-Version": "202503",
             "X-Restli-Protocol-Version": "2.0.0",
         },
+        timeout=15,
     )
     if not r.ok:
         return {}
@@ -250,6 +258,7 @@ def post_to_linkedin(user_id: str, text: str) -> dict:
             "X-Restli-Protocol-Version": "2.0.0",
             "Content-Type": "application/json",
         },
+        timeout=15,
     )
     response.raise_for_status()
     return {"status": "posted", "id": response.headers.get("x-restli-id", "")}

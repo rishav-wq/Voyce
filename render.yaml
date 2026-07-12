@@ -5,6 +5,14 @@ services:
   - type: web
     name: voyce
     runtime: python
+    # NOTE: 'free' web services sleep after ~15 min idle, which would stop the
+    # in-process APScheduler and halt autopilot. Kept alive with an external
+    # UptimeRobot monitor pinging /health every 5 min. Caveats that keepalive
+    # does NOT cover: (1) platform restarts/deploys landing on a post-time can
+    # silently skip that day's daily post (in-memory jobstore re-registers to
+    # the next slot) — needs startup catch-up logic; (2) UptimeRobot itself is
+    # then a silent point of failure; (3) ~750h/mo free cap fits ONE always-on
+    # service only. Upgrade to 'starter' (~$7/mo) removes all three.
     plan: free
     region: singapore            # closest to India; change if you prefer
     buildCommand: "pip install -r requirements.txt"
@@ -32,10 +40,14 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      # Required for webhook-based Pro activation — the signature check fails
+      # CLOSED without it, so payment webhooks are silently rejected until set.
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
       - key: ADMIN_EMAILS
         sync: false
       # ── Deploy-specific: set AFTER you know your render URL ──
       - key: ALLOWED_ORIGINS
-        sync: false             # e.g. https://voyce.onrender.com
+        sync: false             # production domain, e.g. https://voyce.co.in
       - key: REDIRECT_URI
-        sync: false             # e.g. https://voyce.onrender.com/auth/linkedin/callback
+        sync: false             # must match LinkedIn app + this domain, e.g. https://voyce.co.in/auth/linkedin/callback

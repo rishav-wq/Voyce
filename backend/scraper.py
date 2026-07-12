@@ -4,10 +4,10 @@ import re
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse
 
-import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+import net_guard
 from llm import generate_json
 
 load_dotenv()
@@ -19,7 +19,7 @@ PRIORITY_PATHS = ["/about", "/products", "/services", "/solutions",
 
 def _fetch_text(url: str, max_chars: int = 3000) -> str:
     try:
-        r = requests.get(url, headers=HEADERS, timeout=8)
+        r = net_guard.safe_get(url, headers=HEADERS, timeout=8)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
@@ -36,7 +36,7 @@ def _get_sitemap_urls(base_url: str) -> list[str]:
     urls = []
     for path in ["/sitemap.xml", "/sitemap_index.xml", "/sitemap"]:
         try:
-            r = requests.get(base_url.rstrip("/") + path, headers=HEADERS, timeout=6)
+            r = net_guard.safe_get(base_url.rstrip("/") + path, headers=HEADERS, timeout=6)
             if r.status_code == 200 and "xml" in r.headers.get("content-type", ""):
                 root = ET.fromstring(r.text)
                 ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
@@ -66,7 +66,7 @@ def _discover_priority_pages(base_url: str, sitemap_urls: list[str]) -> list[str
         url = base + path
         if url not in found:
             try:
-                r = requests.head(url, headers=HEADERS, timeout=4, allow_redirects=True)
+                r = net_guard.safe_head(url, headers=HEADERS, timeout=4)
                 if r.status_code == 200:
                     found.add(url)
             except Exception:
@@ -74,7 +74,7 @@ def _discover_priority_pages(base_url: str, sitemap_urls: list[str]) -> list[str
 
     # Crawl homepage links
     try:
-        r = requests.get(base_url, headers=HEADERS, timeout=8)
+        r = net_guard.safe_get(base_url, headers=HEADERS, timeout=8)
         soup = BeautifulSoup(r.text, "html.parser")
         for a in soup.find_all("a", href=True):
             href = urljoin(base_url, a["href"])
@@ -105,7 +105,7 @@ def _get_blog_posts(base_url: str, sitemap_urls: list[str]) -> list[str]:
         for path in ["/blog", "/news", "/insights"]:
             try:
                 listing_url = base_url.rstrip("/") + path
-                r = requests.get(listing_url, headers=HEADERS, timeout=8)
+                r = net_guard.safe_get(listing_url, headers=HEADERS, timeout=8)
                 if r.status_code != 200:
                     continue
                 soup = BeautifulSoup(r.text, "html.parser")
@@ -187,7 +187,7 @@ def scrape_company(base_url: str, company_name: str) -> dict:
     scraped = {}
     brand_color = ""
     try:
-        homepage_r = requests.get(base_url, headers=HEADERS, timeout=8)
+        homepage_r = net_guard.safe_get(base_url, headers=HEADERS, timeout=8)
         homepage_r.raise_for_status()
         brand_color = _extract_brand_color(homepage_r.text)
         soup = BeautifulSoup(homepage_r.text, "html.parser")

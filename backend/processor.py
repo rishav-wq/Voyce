@@ -1,7 +1,8 @@
-import requests
 from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
+
+import net_guard
 
 
 def process_text(text: str) -> str:
@@ -14,7 +15,7 @@ def process_url(url: str) -> str:
                       "(KHTML, like Gecko) Chrome/122.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
-    response = requests.get(url, headers=headers, timeout=10)
+    response = net_guard.safe_get(url, headers=headers, timeout=10)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")

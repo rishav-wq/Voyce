@@ -1,10 +1,10 @@
 import os
 import secrets
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -26,6 +26,7 @@ from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_
 import linkedin as li
 import auth as auth_module
 import payments
+import ratelimit
 import db
 
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +34,11 @@ app = FastAPI()
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+if _allowed_origins == ["*"]:
+    logging.warning(
+        "CORS is open to ALL origins because ALLOWED_ORIGINS is unset. "
+        "Set ALLOWED_ORIGINS to your real domain(s) before serving production traffic."
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -69,6 +75,24 @@ def _check_gen_limit(user: dict):
             status_code=402,
             detail=f"LIMIT_REACHED"
         )
+
+
+def _rate_limit(key: str, limit: int, window: float = 60.0):
+    """Coarse per-key throttle for cost-incurring / abuse-prone endpoints.
+    Raises 429 when exceeded. Complements _check_gen_limit (which caps free
+    users by total gens but leaves Pro users and non-gen LLM calls unbounded)."""
+    if not ratelimit.allow(key, limit, window):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please wait a minute and try again.",
+        )
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 def _is_pro(user: dict) -> bool:
@@ -165,6 +189,18 @@ def _refresh_all_crons():
 def startup():
     _refresh_all_crons()
     _restore_scheduled_jobs()
+    # Fire a catch-up sweep shortly after boot (off the startup thread, so the
+    # health check responds immediately). This covers daily posts missed while
+    # the instance was down — e.g. a redeploy or free-tier recycle landing on a
+    # profile's post-time, which the in-memory cron would otherwise skip since it
+    # only re-registers the NEXT slot on boot.
+    scheduler.add_job(
+        _catch_up_missed_posts,
+        trigger="date",
+        run_date=datetime.now() + timedelta(seconds=15),
+        id="catchup_startup",
+        replace_existing=True,
+    )
 
 
 def _do_scheduled_post(text: str, job_id: str, dry_run: bool = False, user_id: str = ""):
@@ -197,6 +233,70 @@ def _restore_scheduled_jobs():
             id=entry["id"],
             replace_existing=True,
         )
+
+
+# ── Startup catch-up for missed daily posts ────────────────────────────────────
+# Tunables: how late a missed post may still fire (no 3am posts), and how recent
+# a successful post counts as "today already covered".
+CATCHUP_MAX_LATE_HOURS = 6
+CATCHUP_RECENT_POST_HOURS = 18
+
+
+def _posted_within(log: list, company_id: str, now_naive: datetime, hours: int) -> bool:
+    """True if this company has a successful/dry-run post logged within `hours`.
+    Compares naive-to-naive against the server clock (post_log timestamps are
+    written with datetime.now()), so it's timezone-agnostic (a duration)."""
+    cutoff = now_naive - timedelta(hours=hours)
+    for e in log:
+        if e.get("company_id") != company_id:
+            continue
+        if e.get("status") not in ("posted", "dry_run_fired"):
+            continue
+        try:
+            ts = datetime.fromisoformat(e.get("timestamp", ""))
+        except Exception:
+            continue
+        if ts.tzinfo:
+            ts = ts.astimezone().replace(tzinfo=None)
+        if ts >= cutoff:
+            return True
+    return False
+
+
+def _catch_up_missed_posts():
+    """Fire any active profile's daily post whose scheduled time passed today but
+    didn't go out. Guards: only within CATCHUP_MAX_LATE_HOURS of the slot (avoids
+    off-hours posting), and skipped if a post already went out in the last
+    CATCHUP_RECENT_POST_HOURS (avoids double-posting). run_for_company itself
+    still enforces gen limits and LinkedIn-connected, so this can't post for a
+    user who isn't set up."""
+    # post_time is interpreted in Asia/Kolkata, matching the cron trigger.
+    try:
+        from zoneinfo import ZoneInfo
+        now_sched = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        now_sched = datetime.now()  # fallback: treat the server clock as the schedule clock
+    now_naive = datetime.now()
+    log = get_post_log()
+    for company in list_companies():
+        if not company.get("active"):
+            continue
+        try:
+            hh, mm = (int(x) for x in company.get("post_time", "").split(":"))
+        except Exception:
+            continue
+        scheduled = now_sched.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if now_sched < scheduled:
+            continue  # today's slot hasn't arrived — the normal cron will fire it
+        if (now_sched - scheduled) > timedelta(hours=CATCHUP_MAX_LATE_HOURS):
+            continue  # too late to post today without looking odd — leave it for tomorrow
+        if _posted_within(log, company.get("id"), now_naive, CATCHUP_RECENT_POST_HOURS):
+            continue  # already covered today
+        try:
+            logging.info(f"[Catch-up] Missed daily post for {company.get('name')} — firing now")
+            run_for_company(company)
+        except Exception:
+            logging.exception(f"[Catch-up] failed for {company.get('name')}")
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -301,7 +401,8 @@ class WaitlistRequest(BaseModel):
     plan: str = "pro"
 
 @app.post("/waitlist")
-def join_waitlist(req: WaitlistRequest):
+def join_waitlist(req: WaitlistRequest, request: Request):
+    _rate_limit(f"waitlist:{_client_ip(request)}", 5, 3600)
     import db
     email = req.email.strip().lower()
     if not email or "@" not in email:
@@ -348,7 +449,8 @@ _topic_cache: dict[str, list] = {}
 
 @app.post("/topics/suggest")
 def suggest_topics(req: TopicSuggestRequest, x_token: str = Header(None)):
-    _require_user(x_token)
+    user = _require_user(x_token)
+    _rate_limit(f"topics:{user['id']}", 12)
     designation = req.designation.strip()
     if len(designation) < 3:
         return {"topics": []}
@@ -456,15 +558,19 @@ async def payments_webhook(request: Request):
 
 
 # ── LinkedIn OAuth ─────────────────────────────────────────────────────────────
-@app.get("/auth/linkedin")
-def linkedin_login(token: str = ""):
-    # token = the user's app session token, passed as query param from the popup
-    user = auth_module.get_user_by_token(token)
-    if not user:
-        return HTMLResponse("Not authenticated", status_code=401)
+@app.post("/auth/linkedin/start")
+def linkedin_start(x_token: str = Header(None)):
+    """Begin the LinkedIn OAuth handshake.
+
+    The app session token is read from the X-Token header — never a query
+    string, which would leak the token into access logs, browser history, and
+    the Referer sent to LinkedIn on the redirect. We map a fresh one-time state
+    to the user and hand the frontend the authorization URL to open in a popup.
+    """
+    user = _require_user(x_token)
     state = secrets.token_urlsafe(16)
     li.register_state(state, user["id"])
-    return RedirectResponse(li.get_auth_url(state))
+    return {"auth_url": li.get_auth_url(state)}
 
 
 @app.get("/auth/linkedin/callback")
@@ -503,6 +609,7 @@ def linkedin_logout(x_token: str = Header(None)):
 def generate(request: GenerateRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
     _check_gen_limit(user)
+    _rate_limit(f"gen:{user['id']}", 20)
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Content cannot be empty")
     if request.input_type not in ("text", "url", "youtube"):
@@ -533,6 +640,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
 async def generate_carousel_manual(request: GenerateRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
     _check_gen_limit(user)
+    _rate_limit(f"gen:{user['id']}", 20)
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Content cannot be empty")
     try:
@@ -560,6 +668,7 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
 async def generate_image_manual(request: GenerateRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
     _check_gen_limit(user)
+    _rate_limit(f"gen:{user['id']}", 20)
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Content cannot be empty")
     try:
@@ -596,6 +705,7 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
     """Caption for a user-uploaded image post — no image is generated here."""
     user = _require_user(x_token)
     _check_gen_limit(user)
+    _rate_limit(f"gen:{user['id']}", 20)
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Add a few words about the image or paste your content.")
     try:
@@ -625,8 +735,9 @@ def post_linkedin(request: PostRequest, x_token: str = Header(None)):
         return {"status": "dry_run", "preview": text}
     try:
         return li.post_to_linkedin(user["id"], text)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to post: {str(e)}")
+    except Exception:
+        logging.exception("LinkedIn text post failed")
+        raise HTTPException(status_code=502, detail="Failed to post to LinkedIn. Please reconnect LinkedIn and try again.")
 
 
 # ── Scheduled Posts ────────────────────────────────────────────────────────────
@@ -723,8 +834,9 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
         if company.get("active", True):
             _setup_company_cron(company)
         return company
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logging.exception("company save failed")
+        raise HTTPException(status_code=500, detail="Could not save the profile. Please try again.")
 
 
 @app.get("/companies")
@@ -760,8 +872,9 @@ def edit_company(company_id: str, request: CompanyRequest, x_token: str = Header
         if updated and updated.get("active", True):
             _setup_company_cron(updated)
         return updated
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logging.exception("company save failed")
+        raise HTTPException(status_code=500, detail="Could not save the profile. Please try again.")
 
 
 @app.delete("/companies/{company_id}")
@@ -836,14 +949,16 @@ def preview_post(company_id: str, x_token: str = Header(None)):
         news_context = format_news_context(news_results)
         post_text = generate_autonomous_post(company, news_context, post_type)
         return {"post": post_text, "post_type": POST_TYPE_LABELS.get(post_type, post_type)}
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except Exception:
+        logging.exception("preview generation failed")
+        raise HTTPException(status_code=502, detail="Could not generate a preview. Please try again.")
 
 
 @app.post("/companies/{company_id}/run")
 def run_company_now(company_id: str, x_token: str = Header(None)):
     user = _require_user(x_token)
     _check_gen_limit(user)
+    _rate_limit(f"gen:{user['id']}", 20)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
@@ -908,8 +1023,9 @@ async def post_linkedin_carousel(
         return {"status": "dry_run", "preview": text}
     try:
         return li.upload_and_post_carousel(user["id"], pdf_bytes, text)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to post carousel: {str(e)}")
+    except Exception:
+        logging.exception("LinkedIn carousel post failed")
+        raise HTTPException(status_code=502, detail="Failed to post the carousel to LinkedIn. Please reconnect LinkedIn and try again.")
 
 
 @app.post("/post/linkedin/image")
@@ -928,8 +1044,9 @@ async def post_linkedin_image(
         return {"status": "dry_run", "preview": text}
     try:
         return li.upload_and_post_image(user["id"], image_bytes, text)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to post image: {str(e)}")
+    except Exception:
+        logging.exception("LinkedIn image post failed")
+        raise HTTPException(status_code=502, detail="Failed to post the image to LinkedIn. Please reconnect LinkedIn and try again.")
 
 
 @app.post("/companies/{company_id}/upload-linkedin")
@@ -946,8 +1063,11 @@ async def upload_linkedin_data(company_id: str, file: UploadFile = File(...), x_
     file_bytes = await file.read()
     try:
         result = parse_linkedin_upload(filename, file_bytes)
-    except Exception as e:
+    except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        logging.exception("LinkedIn data parse failed")
+        raise HTTPException(status_code=422, detail="Could not read that file. Try a LinkedIn profile PDF or the data-export ZIP, or paste your posts instead.")
 
     save_linkedin_data(company_id, result)
     return {
@@ -980,8 +1100,11 @@ async def upload_post_screenshots(company_id: str, files: list[UploadFile] = Fil
 
     try:
         result = parse_post_screenshots(images)
-    except Exception as e:
+    except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        logging.exception("screenshot parse failed")
+        raise HTTPException(status_code=422, detail="Couldn't read those screenshots. Try clearer full-post images, or paste the text instead.")
     if not result.get("top_posts"):
         raise HTTPException(status_code=422, detail="Couldn't read post text from those screenshots. Try clearer full-post screenshots, or paste the text instead.")
 

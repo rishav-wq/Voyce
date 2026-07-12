@@ -185,9 +185,21 @@ async function handleLiClick() {
   }
 }
 
-function connectLinkedIn() {
-  const popup = window.open(`/auth/linkedin?token=${getToken()}`, "linkedin-auth", "width=600,height=700,scrollbars=yes");
-  if (!popup) toast("Popup blocked — please allow popups for this site.", "warn");
+async function connectLinkedIn() {
+  // Open the popup synchronously so the browser keeps the user-gesture context
+  // (a popup opened after an awaited fetch would be blocked). The session token
+  // goes in a header via /auth/linkedin/start — never in the URL.
+  const popup = window.open("", "linkedin-auth", "width=600,height=700,scrollbars=yes");
+  if (!popup) { toast("Popup blocked — please allow popups for this site.", "warn"); return; }
+  try {
+    const res = await fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken() } });
+    if (!res.ok) throw new Error();
+    const { auth_url } = await res.json();
+    popup.location.href = auth_url;
+  } catch {
+    popup.close();
+    toast("Could not start LinkedIn connect. Please try again.", "warn");
+  }
 }
 
 // ── Input tabs ────────────────────────────────────────────────────────────────
