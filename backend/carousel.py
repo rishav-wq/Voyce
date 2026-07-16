@@ -1329,9 +1329,18 @@ def render_ai_image_png(content: dict, company: dict) -> bytes:
         return buf.getvalue()
     if fmt == "tweet_card" and (content.get("card_headline") or content.get("key_line")):
         handle = "@" + re.sub(r"[^a-z0-9]+", "", (brand or "voyce").lower())[:24]
+        # Real photo avatar by convention: backend/assets/avatars/<name-slug>.png
+        avatar_img = None
+        try:
+            slug = re.sub(r"[^a-z0-9]+", "-", (brand or "").lower()).strip("-")
+            av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatars", f"{slug}.png")
+            if slug and os.path.exists(av_path):
+                avatar_img = Image.open(av_path)
+        except Exception:
+            avatar_img = None
         img = _slide_tweet_card(
             content.get("card_headline") or content.get("key_line", ""), brand, handle, p,
-            rw=IMG_POST_W * _SCALE)
+            rw=IMG_POST_W * _SCALE, avatar=avatar_img)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
