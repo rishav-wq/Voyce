@@ -1816,6 +1816,31 @@ Return ONLY valid JSON:
 "card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...",
 "card_points": ["...", "..."], "alt_text": "...", "key_line": "...", "post_text": "..."}}"""
     result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1600, temperature=0.85)
+
+    # ENFORCE the caption rule: the card carries the claim, the caption makes the case.
+    # If the caption opens with the same words as the card, force one rewrite.
+    def _overlap(a: str, b: str) -> float:
+        wa = set(re.findall(r"[a-z']+", (a or "").lower()))
+        wb = set(re.findall(r"[a-z']+", (b or "").lower()))
+        return len(wa & wb) / max(1, min(len(wa), len(wb)))
+    card_line = (result.get("card_headline") or result.get("key_line") or "").strip()
+    first_line = next((l.strip() for l in (result.get("post_text") or "").splitlines() if l.strip()), "")
+    if card_line and first_line and _overlap(card_line, first_line) > 0.6:
+        fix = generate_json(
+            f"""This LinkedIn caption OPENS with the same words that already appear on the attached
+image card. Rewrite ONLY the caption so it opens differently and EXPANDS the claim with a
+story, example, or specifics instead of repeating it. Keep the same voice, length, and rules.
+
+CARD TEXT: {card_line}
+
+CAPTION TO REWRITE:
+{result.get("post_text", "")}
+
+Return ONLY JSON: {{"post_text": "..."}}""",
+            system=_AI_IMAGE_SYSTEM, max_tokens=900, temperature=0.8)
+        if (fix.get("post_text") or "").strip():
+            result["post_text"] = fix["post_text"]
+
     fmt = (result.get("format") or "").strip().lower()
     if fmt not in ("scene", "quote_card", "list_card", "tweet_card"):
         fmt = "scene" if (result.get("image_concept") or "").strip() else "quote_card"

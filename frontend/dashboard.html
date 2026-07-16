@@ -1388,9 +1388,13 @@
 
           const desc = type && p.post_type_descriptions ? (p.post_type_descriptions[type] || "") : "";
           const isCarousel = p.carousel_enabled && futureIdx >= 0 && (futureIdx % 2 === 1);
-          const badge = (st === "sched" && p.carousel_enabled)
-            ? `<div class="cal-cell-badge ${isCarousel ? 'carousel' : 'text'}">${isCarousel ? '▤ Carousel' : '✎ Text'}</div>`
-            : "";
+          const isCard = ["hot take", "prediction", "stat reaction"].includes((type || "").toLowerCase());
+          let badge = "";
+          if (st === "sched") {
+            if (isCarousel)   badge = `<div class="cal-cell-badge carousel">▤ Carousel</div>`;
+            else if (isCard)  badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
+            else if (p.carousel_enabled) badge = `<div class="cal-cell-badge text">✎ Text</div>`;
+          }
 
           return `<td class="${isToday ? 'today-col' : ''} cal-st-${st}" ${desc ? `title="${desc}"` : ""}>
             <span class="cal-chip ${st}">${chip}</span>

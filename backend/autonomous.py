@@ -783,6 +783,40 @@ def _revise_post(draft: str, industry: str) -> str:
         return draft  # fall back to original if revision fails
 
 
+# Claim-shaped post types automatically ship with a tweet card: the hook line rendered
+# as the social-screenshot image (deterministic typography — no AI-image lottery, safe
+# to run unattended). Scene illustrations remain manual-only by design.
+TWEET_CARD_TYPES = ("hot_take", "prediction", "stat_reaction")
+
+
+def _tweet_card_for(post_text: str, company: dict):
+    """Render the post's hook line as a tweet-card PNG. Fail-open: any problem -> None
+    and the post ships as plain text."""
+    try:
+        from carousel import _slide_tweet_card, _get_palette, IMG_POST_W, _SCALE
+        from PIL import Image
+        import io as _io
+        hook = next((l.strip() for l in post_text.splitlines() if l.strip()), "")
+        if not (10 <= len(hook) <= 180):
+            return None
+        name = company.get("name", "") or "Voyce"
+        handle = "@" + re.sub(r"[^a-z0-9]+", "", name.lower())[:24]
+        avatar = None
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "assets", "avatars", f"{slug}.png")
+        if slug and os.path.exists(av_path):
+            avatar = Image.open(av_path)
+        img = _slide_tweet_card(hook, name, handle, _get_palette(company),
+                                rw=IMG_POST_W * _SCALE, avatar=avatar)
+        buf = _io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"[Autonomous] tweet card render failed, posting plain text: {e}")
+        return None
+
+
 def generate_autonomous_post(company: dict, news_context: str, post_type: str) -> str:
     is_personal = company.get("profile_type") == "personal"
     industry    = company["industry"]
@@ -936,7 +970,18 @@ def run_for_company(company: dict, allow_free_manual: bool = False) -> dict:
         else:
             post_text = generate_autonomous_post(company, news_context, post_type)
             log_entry["post_text"] = post_text
-            result = li.post_to_linkedin(user_id, post_text)
+            card_png = _tweet_card_for(post_text, company) if post_type in TWEET_CARD_TYPES else None
+            if card_png:
+                # The card already displays the hook line — don't repeat it as the text opener.
+                lines = post_text.splitlines()
+                first_idx = next((i for i, l in enumerate(lines) if l.strip()), 0)
+                rest = "\n".join(lines[first_idx + 1:]).strip()
+                text_for_post = rest if len(rest.split()) >= 40 else post_text
+                result = li.upload_and_post_image(
+                    user_id, card_png, text_for_post,
+                    alt_text=(lines[first_idx].strip()[:120] if lines else "post card"))
+            else:
+                result = li.post_to_linkedin(user_id, post_text)
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
             auth_module.increment_gens(user_id)
