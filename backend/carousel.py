@@ -85,6 +85,29 @@ PALETTES = {
 }
 
 # ── Industry → palette mapping ────────────────────────────────────────────────
+# Secondary "electric" accent per palette — the two-tone pop (purple+lime energy).
+# Used for highlight pills, alternating labels, and outline numerals.
+_ACCENT2 = {
+    "dark_pro":    (163, 230, 53),    # navy/cyan  + lime
+    "warm_dark":   (56, 189, 248),    # charcoal/amber + sky
+    "deep_teal":   (251, 191, 36),    # teal/emerald + amber
+    "deep_indigo": (163, 230, 53),    # indigo/violet + lime
+    "clean_light": (249, 115, 22),    # white/indigo + orange
+    "warm_paper":  (13, 148, 136),    # cream/orange + deep teal
+    "electric":    (167, 139, 250),   # black/lime + violet
+    "warm_violet": (163, 230, 53),    # beige/violet + lime
+}
+
+
+for _k, _v in _ACCENT2.items():
+    if _k in PALETTES:
+        PALETTES[_k]["accent2"] = _v
+
+
+def _a2(p: dict) -> tuple:
+    return p.get("accent2", (163, 230, 53))
+
+
 _INDUSTRY_MAP = {
     "technology":    "dark_pro",
     "software":      "dark_pro",
@@ -294,6 +317,14 @@ def _fit_text_to_box(draw, text: str, max_w: int, max_h: int, sizes: list[int], 
 
 # ── Visual helper utilities ───────────────────────────────────────────────────
 
+def _font_black(size: int) -> ImageFont.FreeTypeFont:
+    """Inter Black (900) — the display weight for covers; falls back to Bold."""
+    try:
+        return ImageFont.truetype(os.path.join(_FONTS_DIR, "Inter-Black.ttf"), int(size))
+    except Exception:
+        return _font(size, bold=True)
+
+
 def _draw_gradient_bg(img: Image.Image, top_color: tuple, bot_color: tuple):
     """Vertical gradient fill over the full image in-place."""
     w, h = img.size
@@ -336,8 +367,445 @@ def _draw_corner_arc(draw: ImageDraw.Draw, cx: int, cy: int,
 
 # ── Premium slide renderers ───────────────────────────────────────────────────
 
+def _split_hook_pill(headline: str) -> tuple:
+    """Pull a short kicker phrase out of the headline to render as a highlight pill.
+    'Stop building apps for farmers. Do this instead.' -> ('Stop building apps for farmers.',
+    'Do this instead'). Falls back to the last two words when they're short enough."""
+    hl = (headline or "").strip()
+    parts = re.split(r"(?<=[.!?])\s+", hl)
+    if len(parts) >= 2 and 3 <= len(parts[-1].rstrip(".!?")) <= 30:
+        return " ".join(parts[:-1]).strip(), parts[-1].rstrip(".!?").strip()
+    words = hl.split()
+    if len(words) > 5:
+        cand = " ".join(words[-2:]).rstrip(".!?")
+        if len(cand) <= 22:
+            return " ".join(words[:-2]).strip(), cand
+    return hl, ""
+
+
+def _slide_hook_number_block(n_text: str, rest: str, kicker: str, subtext: str,
+                             total: int, p: dict, brand: str = "") -> Image.Image:
+    """Number-block cover: ink band with the giant count ('3 WAYS') stacked on an
+    accent2 block with mixed-scale headline + outlined kicker pill + arrow. The
+    highest-energy cover in the kit — auto-used when the hook leads with a number."""
+    ink = (18, 16, 24)
+    img = Image.new("RGB", (_RW, _RH), _mix(p["bg"], ink, 0.5))
+    _draw_gradient_bg(img, _mix(p["bg"], ink, 0.35), _mix(p["bg"], ink, 0.65))
+    draw = ImageDraw.Draw(img)
+
+    a2 = _a2(p)
+    m = int(90 * _SCALE)
+    block_l, block_r = m, _RW - m
+
+    # Measure pieces to center the stack
+    f_band = _font(120 * _SCALE, bold=True)
+    band_txt = n_text.upper()[:12]
+    band_h = draw.textbbox((0, 0), band_txt, font=f_band)[3] + int(56 * _SCALE)
+
+    pad_in = int(44 * _SCALE)
+    inner_w = block_r - block_l - pad_in * 2
+    f_small = _font(34 * _SCALE, semi=True)
+    rest_fit, f_rest, h_rest = _fit_text_to_box(
+        draw, rest.upper(), inner_w, int(_RH * 0.28), [88, 78, 70, 62, 54], gap=int(10 * _SCALE), max_lines=3)
+    small_h = draw.textbbox((0, 0), "X", font=f_small)[3]
+
+    f_kick = _font(26 * _SCALE, bold=True)
+    kick_h = (draw.textbbox((0, 0), kicker, font=f_kick)[3] + int(28 * _SCALE)) if kicker else 0
+
+    yellow_h = pad_in + small_h + int(20 * _SCALE) + h_rest + (int(34 * _SCALE) + kick_h if kicker else 0) + pad_in
+    total_h = band_h + yellow_h
+    y0 = max(int(130 * _SCALE), (_RH - total_h - int(120 * _SCALE)) // 2)
+
+    # Ink band with the count
+    draw.rectangle([block_l, y0, block_r, y0 + band_h], fill=ink)
+    bw = _tw(draw, band_txt, f_band)
+    draw.text((block_l + (block_r - block_l - bw) // 2, y0 + int(20 * _SCALE)),
+              band_txt, font=f_band, fill=(255, 255, 255))
+
+    # Accent2 block
+    by0 = y0 + band_h
+    draw.rectangle([block_l, by0, block_r, by0 + yellow_h], fill=a2)
+    ty = by0 + pad_in
+    sub_line = (subtext or "").upper()[:44]
+    if sub_line:
+        sw = _tw(draw, sub_line, f_small)
+        draw.text((block_l + (block_r - block_l - sw) // 2, ty), sub_line, font=f_small, fill=ink)
+    ty += small_h + int(20 * _SCALE)
+    for line in _wrap(draw, rest_fit, f_rest, inner_w):
+        lw = _tw(draw, line, f_rest)
+        draw.text((block_l + (block_r - block_l - lw) // 2, ty), line, font=f_rest, fill=ink)
+        ty += draw.textbbox((0, 0), line, font=f_rest)[3] + int(10 * _SCALE)
+    if kicker:
+        ty += int(24 * _SCALE)
+        kw = _tw(draw, kicker, f_kick)
+        kick_pad = int(26 * _SCALE)
+        kx = block_l + (block_r - block_l - kw - kick_pad * 2) // 2
+        kh = draw.textbbox((0, 0), kicker, font=f_kick)[3] + int(24 * _SCALE)
+        _draw_rounded_rect(draw, kx, ty, kx + kw + kick_pad * 2, ty + kh, kh // 2, a2)
+        draw.rounded_rectangle([kx, ty, kx + kw + kick_pad * 2, ty + kh], radius=kh // 2,
+                               outline=ink, width=max(3, int(4 * _SCALE)))
+        draw.text((kx + kick_pad, ty + int(11 * _SCALE)), kicker, font=f_kick, fill=ink)
+
+    # Brand chip + swipe arrow + counter
+    f_chip = _font(24 * _SCALE, bold=True)
+    _draw_circle(draw, m + int(8 * _SCALE), int(72 * _SCALE), int(7 * _SCALE), a2)
+    if brand:
+        draw.text((m + int(26 * _SCALE), int(58 * _SCALE)), brand[:26], font=f_chip, fill=(210, 205, 220))
+    ar = int(34 * _SCALE)
+    _draw_circle(draw, _RW - m - ar, _RH - int(130 * _SCALE), ar, a2)
+    f_ar = _font(40 * _SCALE, bold=True)
+    aw = _tw(draw, "→", f_ar)
+    draw.text((_RW - m - ar - aw // 2, _RH - int(130 * _SCALE) - int(26 * _SCALE)), "→", font=f_ar, fill=ink)
+    f_sm = _font(21 * _SCALE)
+    draw.text((m, _RH - int(120 * _SCALE)), f"1 / {total}", font=f_sm, fill=(160, 155, 170))
+
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_hook_editorial(headline: str, subtext: str, total: int, p: dict,
+                          brand: str = "", n_steps: int = 0) -> Image.Image:
+    """The approved v3 cover, ported: ink canvas, white bold headline with the kicker
+    phrase in an accent2 marker block, gray sub, outlined promise chip, accent2 arrow
+    button, progress dashes. Restrained and editorial — lime as a scalpel, not a slab."""
+    ink = (23, 21, 31)
+    a2 = _a2(p)
+    img = Image.new("RGB", (_RW, _RH), ink)
+    _draw_gradient_bg(img, ink, _mix(ink, p["accent"], 0.10))
+    draw = ImageDraw.Draw(img)
+
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+
+    # Brand chip
+    f_chip = _font(26 * _SCALE, bold=True)
+    _draw_circle(draw, m + int(8 * _SCALE), int(86 * _SCALE), int(8 * _SCALE), a2)
+    if brand:
+        draw.text((m + int(28 * _SCALE), int(70 * _SCALE)), brand[:26], font=f_chip, fill=(164, 157, 179))
+
+    # Kicker chip: when the hook leads with a count, the chip IS the count ("3 RULES") in
+    # accent2 — the slab's glanceable what-you're-getting clarity, editorial delivery.
+    n_txt, n_rest = _split_number_hook(headline)
+    if n_txt:
+        kick_txt, kick_bg, kick_fg = n_txt.upper(), a2, ink
+        f_kick = _font(34 * _SCALE, bold=True)
+        headline_for_body = n_rest
+    else:
+        kick_txt, kick_bg, kick_fg = ("THE PLAYBOOK" if n_steps >= 3 else "READ THIS"), p["accent"], (255, 255, 255)
+        f_kick = _font(24 * _SCALE, bold=True)
+        headline_for_body = headline
+    kw = _tw(draw, kick_txt, f_kick)
+    kx, ky = m, int(180 * _SCALE)
+    kh = draw.textbbox((0, 0), kick_txt, font=f_kick)[3] + int(20 * _SCALE)
+    _draw_rounded_rect(draw, kx, ky, kx + kw + int(36 * _SCALE), ky + kh, int(10 * _SCALE), kick_bg)
+    draw.text((kx + int(18 * _SCALE), ky + int(9 * _SCALE)), kick_txt, font=f_kick, fill=kick_fg)
+
+    # Headline: Inter-Black display weight, main lines white, kicker phrase as a
+    # slightly TILTED accent2 marker block with ink text (the v3 signature).
+    head_main, marked = _split_hook_pill(headline_for_body)
+    head_gap = int(14 * _SCALE)
+    y = ky + kh + int(48 * _SCALE)
+    sizes_black = [120, 110, 100, 92, 84]
+    f_head = None
+    for s in sizes_black:
+        f_try = _font_black(s * _SCALE)
+        if _wrap_height(draw, _wrap(draw, head_main, f_try, max_w), f_try, head_gap) <= int(_RH * 0.36) \
+           and len(_wrap(draw, head_main, f_try, max_w)) <= 3:
+            f_head = f_try
+            break
+    f_head = f_head or _font_black(sizes_black[-1] * _SCALE)
+    for line in _wrap(draw, head_main, f_head, max_w):
+        draw.text((m, y), line, font=f_head, fill=(255, 253, 248))
+        y += draw.textbbox((0, 0), line, font=f_head)[3] + head_gap
+    if marked:
+        y += int(8 * _SCALE)
+        mk_pad_x, mk_pad_y = int(24 * _SCALE), int(12 * _SCALE)
+        mk_txt = marked + "."
+        mw = _tw(draw, mk_txt, f_head)
+        mh = draw.textbbox((0, 0), mk_txt, font=f_head)[3] + mk_pad_y * 2
+        pad_rot = int(30 * _SCALE)
+        chip = Image.new("RGBA", (mw + mk_pad_x * 2 + pad_rot * 2, mh + pad_rot * 2), (0, 0, 0, 0))
+        cd = ImageDraw.Draw(chip)
+        _draw_rounded_rect(cd, pad_rot, pad_rot, pad_rot + mw + mk_pad_x * 2, pad_rot + mh,
+                           int(14 * _SCALE), a2)
+        cd.text((pad_rot + mk_pad_x, pad_rot + mk_pad_y - int(2 * _SCALE)), mk_txt, font=f_head, fill=ink)
+        chip = chip.rotate(-1.5, expand=True, resample=Image.BICUBIC)
+        img.paste(chip, (m - pad_rot, y - pad_rot), chip)
+        y += mh + int(10 * _SCALE)
+    y += int(40 * _SCALE)
+
+    # Sub
+    f_sub = _font(34 * _SCALE)
+    sub_fit, f_sub, _ = _fit_text_to_box(
+        draw, (subtext or "")[:160], int(max_w * 0.9), int(_RH * 0.14), [36, 33, 30], gap=int(9 * _SCALE), max_lines=3)
+    for line in _wrap(draw, sub_fit, f_sub, int(max_w * 0.9)):
+        draw.text((m, y), line, font=f_sub, fill=(164, 157, 179))
+        y += draw.textbbox((0, 0), line, font=f_sub)[3] + int(9 * _SCALE)
+
+    # Promise chip (outlined)
+    y += int(34 * _SCALE)
+    f_pr = _font(25 * _SCALE, bold=True)
+    n_part = f"{n_steps} rules · " if n_steps >= 3 else ""
+    pr_txt = f"{n_part}2 min read · save it"
+    pw = _tw(draw, pr_txt, f_pr)
+    ph = draw.textbbox((0, 0), pr_txt, font=f_pr)[3] + int(24 * _SCALE)
+    draw.rounded_rectangle([m, y, m + pw + int(44 * _SCALE), y + ph], radius=ph // 2,
+                           outline=(74, 69, 88), width=max(3, int(3 * _SCALE)))
+    draw.text((m + int(22 * _SCALE), y + int(11 * _SCALE)), pr_txt, font=f_pr, fill=(207, 200, 221))
+
+    # Arrow button + progress dashes + counter
+    ar = int(40 * _SCALE)
+    _draw_circle(draw, _RW - m - ar, _RH - int(150 * _SCALE), ar, a2)
+    f_ar = _font(44 * _SCALE, bold=True)
+    aw = _tw(draw, "→", f_ar)
+    draw.text((_RW - m - ar - aw // 2, _RH - int(150 * _SCALE) - int(30 * _SCALE)), "→", font=f_ar, fill=ink)
+    dy = _RH - int(96 * _SCALE)
+    for i in range(4):
+        col = a2 if i == 0 else (74, 69, 88)
+        draw.rounded_rectangle([m + i * int(46 * _SCALE), dy, m + i * int(46 * _SCALE) + int(34 * _SCALE),
+                                dy + int(7 * _SCALE)], radius=int(3 * _SCALE), fill=col)
+    f_sm = _font(22 * _SCALE)
+    cw = _tw(draw, f"1 / {total}", f_sm)
+    draw.text((_RW - m - cw, dy - int(4 * _SCALE)), f"1 / {total}", font=f_sm, fill=(140, 134, 155))
+
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+_INK_V3 = (23, 21, 31)
+_CREAM_V3 = (244, 240, 232)
+
+
+def _chip_v3(draw, brand: str, p: dict, on_dark: bool, m: int):
+    if not brand:
+        return
+    f_chip = _font(24 * _SCALE, bold=True)
+    fg = (164, 157, 179) if on_dark else (122, 114, 99)
+    _draw_circle(draw, m + int(8 * _SCALE), int(82 * _SCALE), int(7 * _SCALE), _a2(p))
+    draw.text((m + int(26 * _SCALE), int(68 * _SCALE)), brand[:26], font=f_chip, fill=fg)
+
+
+def _footer_v3(draw, num: int, total: int, p: dict, on_dark: bool, m: int, teaser: str = ""):
+    a2 = _a2(p)
+    dim = (74, 69, 88) if on_dark else (214, 207, 194)
+    txt = (207, 200, 221) if on_dark else (122, 114, 99)
+    if teaser:
+        f_t = _font(24 * _SCALE, bold=True)
+        ty = _RH - int(158 * _SCALE)
+        draw.text((m, ty), "→", font=f_t, fill=a2)
+        draw.text((m + int(34 * _SCALE), ty), f"next: {teaser[:52]}", font=f_t, fill=txt)
+    dy = _RH - int(96 * _SCALE)
+    on_idx = 0 if total <= 1 else round((num - 1) / (total - 1) * 3)
+    for i in range(4):
+        col = a2 if i == on_idx else dim
+        draw.rounded_rectangle([m + i * int(46 * _SCALE), dy,
+                                m + i * int(46 * _SCALE) + int(34 * _SCALE), dy + int(7 * _SCALE)],
+                               radius=int(3 * _SCALE), fill=col)
+    f_sm = _font(22 * _SCALE)
+    ctr = f"{num} / {total}"
+    draw.text((_RW - m - _tw(draw, ctr, f_sm), dy - int(4 * _SCALE)), ctr, font=f_sm, fill=txt)
+
+
+def _slide_body_v3(title: str, body: str, num: int, total: int, brand: str, p: dict,
+                   label: str = "", step: int = None, teaser: str = "") -> Image.Image:
+    """Cream editorial body slide: outlined giant numeral, ink label pill, black-weight
+    headline, body in a white card with an ink border and hard accent offset-shadow."""
+    img = Image.new("RGB", (_RW, _RH), _CREAM_V3)
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+
+    if step:
+        f_giant = _font_black(300 * _SCALE)
+        pn = str(step).zfill(2)
+        draw.text((_RW - m - _tw(draw, pn, f_giant) + int(40 * _SCALE), -int(50 * _SCALE)), pn,
+                  font=f_giant, fill=_CREAM_V3, stroke_width=max(3, int(3 * _SCALE)),
+                  stroke_fill=(217, 210, 196))
+    _chip_v3(draw, brand, p, on_dark=False, m=m)
+
+    y = int(_RH * 0.20)
+    lab = (label or (f"RULE {step}" if step else "START HERE")).upper()[:22]
+    f_lab = _font(24 * _SCALE, bold=True)
+    lw = _tw(draw, lab, f_lab)
+    lh = draw.textbbox((0, 0), lab, font=f_lab)[3] + int(18 * _SCALE)
+    _draw_rounded_rect(draw, m, y, m + lw + int(32 * _SCALE), y + lh, lh // 2, _INK_V3)
+    draw.text((m + int(16 * _SCALE), y + int(8 * _SCALE)), lab, font=f_lab, fill=_a2(p))
+    y += lh + int(34 * _SCALE)
+
+    head_gap = int(12 * _SCALE)
+    t_fit, f_title, h_t = _fit_text_to_box(
+        draw, title, max_w, int(_RH * 0.20), [72, 66, 60, 54, 48], gap=head_gap, max_lines=2)
+    f_title = _font_black(f_title.size)
+    for line in _wrap(draw, t_fit, f_title, max_w):
+        draw.text((m, y), line, font=f_title, fill=_INK_V3)
+        y += draw.textbbox((0, 0), line, font=f_title)[3] + head_gap
+    y += int(40 * _SCALE)
+
+    # White card + accent offset shadow
+    pad = int(34 * _SCALE)
+    body_gap = int(13 * _SCALE)
+    text_w = max_w - pad * 2
+    avail = _RH - int(190 * _SCALE) - y - pad * 2
+    b_fit, f_body, _ = _fit_text_to_box(
+        draw, body[:260], text_w, max(int(120 * _SCALE), avail), [40, 37, 34, 31, 28], gap=body_gap, max_lines=6)
+    lines = _wrap(draw, b_fit, f_body, text_w)
+    card_h = _wrap_height(draw, lines, f_body, body_gap) + pad * 2
+    off = int(9 * _SCALE)
+    r = int(20 * _SCALE)
+    _draw_rounded_rect(draw, m + off, y + off, m + max_w + off, y + card_h + off, r, p["accent"])
+    _draw_rounded_rect(draw, m, y, m + max_w, y + card_h, r, (255, 253, 248))
+    draw.rounded_rectangle([m, y, m + max_w, y + card_h], radius=r, outline=_INK_V3,
+                           width=max(3, int(3 * _SCALE)))
+    ty = y + pad
+    for line in lines:
+        draw.text((m + pad, ty), line, font=f_body, fill=(58, 53, 70))
+        ty += draw.textbbox((0, 0), line, font=f_body)[3] + body_gap
+
+    _footer_v3(draw, num, total, p, on_dark=False, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_stat_v3(stat: str, title: str, body: str, num: int, total: int,
+                   brand: str, p: dict, teaser: str = "") -> Image.Image:
+    """Accent color-block stat slide: giant accent2 numeral, bold what-line, soft why-line."""
+    img = Image.new("RGB", (_RW, _RH), p["accent"])
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    # Ghost ring bottom-right
+    for rr in (int(300 * _SCALE),):
+        draw.ellipse([_RW - rr, _RH - rr, _RW + rr // 2, _RH + rr // 2],
+                     outline=_mix(p["accent"], (255, 255, 255), 0.14), width=int(40 * _SCALE))
+    _chip_v3(draw, brand, p, on_dark=True, m=m)
+
+    f_stat = None
+    for s in [170, 150, 130, 110, 90]:
+        f_try = _font_black(s * _SCALE)
+        if len(_wrap(draw, stat, f_try, max_w)) <= 2:
+            f_stat = f_try
+            break
+    f_stat = f_stat or _font_black(90 * _SCALE)
+    st_lines = _wrap(draw, stat, f_stat, max_w)
+    h_stat = _wrap_height(draw, st_lines, f_stat, int(6 * _SCALE))
+
+    f_what = _font(42 * _SCALE, bold=True)
+    what_fit, f_what, h_what = _fit_text_to_box(
+        draw, title, max_w, int(_RH * 0.16), [44, 40, 36, 32], gap=int(10 * _SCALE), max_lines=3)
+    f_why = _font(30 * _SCALE)
+    why_fit, f_why, h_why = _fit_text_to_box(
+        draw, body[:180], int(max_w * 0.92), int(_RH * 0.14), [31, 29, 27], gap=int(9 * _SCALE), max_lines=3)
+
+    block = h_stat + int(26 * _SCALE) + h_what + int(22 * _SCALE) + h_why
+    y = max(int(_RH * 0.18), (_RH - int(190 * _SCALE) - block) // 2)
+    for line in st_lines:
+        draw.text((m, y), line, font=f_stat, fill=_a2(p))
+        y += draw.textbbox((0, 0), line, font=f_stat)[3] + int(6 * _SCALE)
+    y += int(26 * _SCALE)
+    for line in _wrap(draw, what_fit, f_what, max_w):
+        draw.text((m, y), line, font=f_what, fill=(255, 255, 255))
+        y += draw.textbbox((0, 0), line, font=f_what)[3] + int(10 * _SCALE)
+    y += int(22 * _SCALE)
+    soft = _mix(p["accent"], (255, 255, 255), 0.62)
+    for line in _wrap(draw, why_fit, f_why, int(max_w * 0.92)):
+        draw.text((m, y), line, font=f_why, fill=soft)
+        y += draw.textbbox((0, 0), line, font=f_why)[3] + int(9 * _SCALE)
+
+    _footer_v3(draw, num, total, p, on_dark=True, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_recap_v3(title: str, bullets: list, num: int, total: int,
+                    brand: str, p: dict) -> Image.Image:
+    """Cream recap: black-weight title + accent2-check list."""
+    img = Image.new("RGB", (_RW, _RH), _CREAM_V3)
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    _chip_v3(draw, brand, p, on_dark=False, m=m)
+
+    y = int(_RH * 0.16)
+    t_fit, f_t, _ = _fit_text_to_box(draw, title, max_w, int(_RH * 0.16),
+                                     [64, 58, 52, 46], gap=int(12 * _SCALE), max_lines=2)
+    f_t = _font_black(f_t.size)
+    for line in _wrap(draw, t_fit, f_t, max_w):
+        draw.text((m, y), line, font=f_t, fill=_INK_V3)
+        y += draw.textbbox((0, 0), line, font=f_t)[3] + int(12 * _SCALE)
+    y += int(44 * _SCALE)
+
+    items = [str(b).strip() for b in (bullets or []) if str(b).strip()][:5]
+    f_b = _font(36 * _SCALE, semi=True)
+    ck_r = int(22 * _SCALE)
+    tx = m + ck_r * 2 + int(26 * _SCALE)
+    text_w = _RW - m - tx
+    for it in items:
+        lines = _wrap(draw, it[:110], f_b, text_w)
+        ih = _wrap_height(draw, lines, f_b, int(8 * _SCALE))
+        if y + ih > _RH - int(190 * _SCALE):
+            break
+        _draw_circle(draw, m + ck_r, y + int(24 * _SCALE), ck_r, _a2(p))
+        ckw = max(3, int(5 * _SCALE))
+        cx, cy = m + ck_r, y + int(24 * _SCALE)
+        draw.line([(cx - int(10 * _SCALE), cy), (cx - int(3 * _SCALE), cy + int(8 * _SCALE)),
+                   (cx + int(11 * _SCALE), cy - int(8 * _SCALE))], fill=_INK_V3, width=ckw)
+        ty = y
+        for line in lines:
+            draw.text((tx, ty), line, font=f_b, fill=(58, 53, 70))
+            ty += draw.textbbox((0, 0), line, font=f_b)[3] + int(8 * _SCALE)
+        y += ih + int(30 * _SCALE)
+
+    _footer_v3(draw, num, total, p, on_dark=False, m=m)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_cta_v3(headline: str, cta: str, total: int, brand: str, p: dict) -> Image.Image:
+    """Ink CTA: centered black-weight headline, accent2 pill button, save line."""
+    img = Image.new("RGB", (_RW, _RH), _INK_V3)
+    _draw_gradient_bg(img, _INK_V3, _mix(_INK_V3, p["accent"], 0.14))
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    _draw_circle(draw, -int(60 * _SCALE), -int(60 * _SCALE), int(220 * _SCALE),
+                 _mix(_INK_V3, p["accent"], 0.55))
+    _chip_v3(draw, brand, p, on_dark=True, m=m)
+
+    h_fit, f_h, h_h = _fit_text_to_box(draw, headline, max_w, int(_RH * 0.26),
+                                       [84, 76, 68, 60, 52], gap=int(12 * _SCALE), max_lines=3)
+    f_h = _font_black(f_h.size)
+    f_cta = _font(34 * _SCALE, bold=True)
+    cta_txt = (cta or "").strip()[:48]
+    ch = draw.textbbox((0, 0), cta_txt, font=f_cta)[3] + int(38 * _SCALE)
+    save_txt = "Save this for your next content sprint"
+    f_sv = _font(26 * _SCALE)
+    block = h_h + int(52 * _SCALE) + ch + int(28 * _SCALE) + draw.textbbox((0, 0), save_txt, font=f_sv)[3]
+    y = max(int(_RH * 0.2), (_RH - int(160 * _SCALE) - block) // 2)
+
+    for line in _wrap(draw, h_fit, f_h, max_w):
+        lw = _tw(draw, line, f_h)
+        draw.text(((_RW - lw) // 2, y), line, font=f_h, fill=(255, 253, 248))
+        y += draw.textbbox((0, 0), line, font=f_h)[3] + int(12 * _SCALE)
+    y += int(40 * _SCALE)
+    if cta_txt:
+        cw = _tw(draw, cta_txt, f_cta)
+        cx0 = (_RW - cw - int(80 * _SCALE)) // 2
+        _draw_rounded_rect(draw, cx0, y, cx0 + cw + int(80 * _SCALE), y + ch, ch // 2, _a2(p))
+        draw.text((cx0 + int(40 * _SCALE), y + int(17 * _SCALE)), cta_txt, font=f_cta, fill=_INK_V3)
+        y += ch + int(28 * _SCALE)
+    sw = _tw(draw, save_txt, f_sv)
+    draw.text(((_RW - sw) // 2, y), save_txt, font=f_sv, fill=(164, 157, 179))
+
+    _footer_v3(draw, total, total, p, on_dark=True, m=m)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _split_number_hook(headline: str) -> tuple:
+    """'3 ways to make your brand stand out' -> ('3 WAYS', 'to make your brand stand out').
+    Returns ('', '') when the hook doesn't lead with a count."""
+    mm = re.match(r"^\s*(\d{1,2})\s+(\w+)\s+(.{8,})$", (headline or "").strip())
+    if mm and int(mm.group(1)) <= 20:
+        return f"{mm.group(1)} {mm.group(2)}", mm.group(3).strip(" .")
+    return "", ""
+
+
 def _slide_hook(headline: str, subtext: str, num: int, total: int,
-                p: dict) -> Image.Image:
+                p: dict, brand: str = "") -> Image.Image:
     """Hook slide: diagonal gradient + geometric circle + bold headline + pill counter."""
     # Gradient: bg → slightly accent-tinted
     top_c = p["bg"]
@@ -372,17 +840,46 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
     gap_after_head = int(22 * _SCALE)
     gap_before_sub = int(18 * _SCALE)
 
+    head_main, pill_phrase = _split_hook_pill(headline)
     hook_text, f_head, h_head = _fit_text_to_box(
-        draw, headline, max_w, int(safe_h * 0.65), [112, 104, 96, 88, 80, 72], gap=head_gap, max_lines=6
+        draw, head_main, max_w, int(safe_h * 0.58), [112, 104, 96, 88, 80, 72], gap=head_gap, max_lines=5
     )
     sub_text, f_sub, h_sub = _fit_text_to_box(
-        draw, subtext[:180], max_w, int(safe_h * 0.30), [38, 36, 34, 32, 30, 28], gap=sub_gap, max_lines=4
+        draw, subtext[:180], max_w, int(safe_h * 0.26), [38, 36, 34, 32, 30, 28], gap=sub_gap, max_lines=4
     )
-    block_h = h_head + gap_after_head + divider_h + gap_before_sub + h_sub
+    # Highlight pill sizing (the two-tone kicker chip)
+    pill_block_h = 0
+    f_pill = _font(44 * _SCALE, bold=True)
+    pill_pad_x, pill_pad_y = int(30 * _SCALE), int(14 * _SCALE)
+    gap_before_pill = int(26 * _SCALE)
+    if pill_phrase:
+        pill_txt_h = draw.textbbox((0, 0), pill_phrase, font=f_pill)[3]
+        pill_block_h = gap_before_pill + pill_txt_h + pill_pad_y * 2
+
+    block_h = h_head + pill_block_h + gap_after_head + divider_h + gap_before_sub + h_sub
     y = max(margin, (_RH - footer_reserved - block_h) // 2)
+
+    # Brand chip top-left (small dot + name)
+    if brand:
+        f_chip = _font(24 * _SCALE, bold=True)
+        chip_y = margin + int(10 * _SCALE)
+        _draw_circle(draw, text_x + int(7 * _SCALE), chip_y + int(14 * _SCALE), int(7 * _SCALE), _a2(p))
+        draw.text((text_x + int(26 * _SCALE), chip_y), brand[:26], font=f_chip, fill=p["subtitle"])
 
     # Headline
     y += _put_text(draw, hook_text, f_head, text_x, y, max_w, p["title"], gap=head_gap)
+
+    # Highlight pill: the kicker phrase in the electric secondary color
+    if pill_phrase:
+        y += gap_before_pill
+        tw_pill = _tw(draw, pill_phrase, f_pill)
+        pill_txt_h = draw.textbbox((0, 0), pill_phrase, font=f_pill)[3]
+        ph = pill_txt_h + pill_pad_y * 2
+        _draw_rounded_rect(draw, text_x, y, text_x + tw_pill + pill_pad_x * 2, y + ph,
+                           ph // 2, _a2(p))
+        draw.text((text_x + pill_pad_x, y + pill_pad_y - int(2 * _SCALE)), pill_phrase,
+                  font=f_pill, fill=(15, 15, 18))
+        y += ph
     y += gap_after_head
 
     # Accent divider line (wider)
@@ -411,7 +908,8 @@ def _slide_hook(headline: str, subtext: str, num: int, total: int,
 
 
 def _slide_content(title: str, body: str, num: int, total: int,
-                   brand: str, p: dict, label: str = "", step_index: int = None) -> Image.Image:
+                   brand: str, p: dict, label: str = "", step_index: int = None,
+                   teaser: str = "") -> Image.Image:
     """Content slide: split layout — giant clipped number left, accent panel right.
     step_index is the 1-based content-step number for the giant numeral/label (defaults to num-1)."""
     step = step_index if step_index is not None else num - 1
@@ -432,11 +930,17 @@ def _slide_content(title: str, body: str, num: int, total: int,
     content_x = PAD
     max_w = _RW - PAD * 2
 
-    # ── Giant faded step number, top-left as a background accent ──
+    # ── Giant step number, top-left. Alternate treatment per step for deck variety:
+    # odd steps = solid faded accent fill, even steps = electric accent2 OUTLINE numeral.
     f_giant = _font(300 * _SCALE, bold=True)
     point_num = str(step).zfill(2)
-    draw.text((PAD - int(6 * _SCALE), int(_RH * 0.085)), point_num,
-              font=f_giant, fill=_mix(bg2, p["accent"], 0.20))
+    if step % 2 == 0:
+        draw.text((PAD - int(6 * _SCALE), int(_RH * 0.085)), point_num, font=f_giant,
+                  fill=bg2, stroke_width=max(2, int(3 * _SCALE)),
+                  stroke_fill=_mix(bg2, _a2(p), 0.75))
+    else:
+        draw.text((PAD - int(6 * _SCALE), int(_RH * 0.085)), point_num,
+                  font=f_giant, fill=_mix(bg2, p["accent"], 0.20))
 
     f_label = _font(24 * _SCALE, bold=True)
     f_sm    = _font(22 * _SCALE)
@@ -445,11 +949,21 @@ def _slide_content(title: str, body: str, num: int, total: int,
     # ── Content: label → underline → title → body, full width, lower half ──
     content_y = int(_RH * 0.40)
 
+    accent_this = _a2(p) if step % 2 == 0 else p["accent"]
     label_text = (label or f"STEP {step}").upper()[:24]
-    draw.text((content_x, content_y), label_text, font=f_label, fill=p["accent"])
+    # Label as a small filled pill on even steps (the two-tone treatment)
+    if step % 2 == 0:
+        lw = _tw(draw, label_text, f_label)
+        lph, lpv = int(18 * _SCALE), int(8 * _SCALE)
+        lth = draw.textbbox((0, 0), label_text, font=f_label)[3]
+        _draw_rounded_rect(draw, content_x, content_y - lpv, content_x + lw + lph * 2,
+                           content_y + lth + lpv, (lth + lpv * 2) // 2, accent_this)
+        draw.text((content_x + lph, content_y), label_text, font=f_label, fill=(15, 15, 18))
+    else:
+        draw.text((content_x, content_y), label_text, font=f_label, fill=accent_this)
     content_y += int(38 * _SCALE)
     draw.rectangle([content_x, content_y, content_x + int(56 * _SCALE),
-                    content_y + int(5 * _SCALE)], fill=p["accent"])
+                    content_y + int(5 * _SCALE)], fill=accent_this)
     content_y += int(5 * _SCALE) + int(26 * _SCALE)
 
     # Title — big, full width
@@ -470,14 +984,22 @@ def _slide_content(title: str, body: str, num: int, total: int,
         draw, body_source, text_w, available_h, [42, 38, 34, 32, 30, 28, 26], gap=body_gap, max_lines=6
     )
     body_lines_h = _text_block_height(draw, fitted_body, f_body, text_w, gap=body_gap)
-    box_bg = _mix(bg2, p["accent"], 0.13)
+    box_bg = _mix(bg2, accent_this, 0.13)
     box_top = content_y - box_pad
     box_bot = content_y + body_lines_h + box_pad
     radius = int(16 * _SCALE)
     _draw_rounded_rect(draw, content_x, box_top, content_x + max_w, box_bot, radius, box_bg)
     draw.rectangle([content_x, box_top + radius, content_x + int(7 * _SCALE), box_bot - radius],
-                   fill=p["accent"])
+                   fill=accent_this)
     _put_text(draw, fitted_body, f_body, content_x + box_pad, content_y, text_w, p["body"], gap=body_gap)
+
+    # ── Cliffhanger teaser: the swipe-completion engine ──
+    if teaser:
+        f_tease = _font(24 * _SCALE, bold=True)
+        tease_txt = f"next: {teaser[:52]}"
+        ty2 = footer_y - int(46 * _SCALE)
+        draw.text((PAD, ty2), "→", font=f_tease, fill=_a2(p))
+        draw.text((PAD + int(34 * _SCALE), ty2), tease_txt, font=f_tease, fill=p["subtitle"])
 
     # ── Footer: divider + counter (no logo on assets) ──
     draw.rectangle([PAD, footer_y, _RW - PAD, footer_y + int(1 * _SCALE)], fill=p["muted"])
@@ -1604,23 +2126,38 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     total = 1 + (1 if context else 0) + len(c_slides) + (1 if recap else 0) + 1
     p = _get_palette(company)
 
-    slides = [_slide_hook(hook["headline"], hook["subtext"], 1, total, p)]
+    name = (company or {}).get("name", "")
+    # Cover rotation: number-led decks alternate between the editorial cover and the
+    # high-energy number-slab, so consecutive carousels never wear the same face.
+    n_txt, n_rest = _split_number_hook(hook["headline"])
+    use_slab = bool(n_txt) and (len(hook["headline"]) % 2 == 0)
+    if use_slab:
+        slides = [_slide_hook_number_block(n_txt, n_rest, "~2 min read · save it",
+                                           hook.get("subtext", ""), total, p, brand=name)]
+    else:
+        slides = [_slide_hook_editorial(hook["headline"], hook["subtext"], total, p, brand=name,
+                                        n_steps=len(c_slides))]
     num = 2
     if context:
-        slides.append(_slide_context(context["title"], context["body"], num, total, brand, p))
+        first_teaser = c_slides[0].get("title", "") if c_slides else ""
+        slides.append(_slide_body_v3(context["title"], context["body"], num, total, name, p,
+                                     label="START HERE", teaser=first_teaser))
         num += 1
     for i, s in enumerate(c_slides):
+        # Auto-teaser from the NEXT slide's title — every swipe leaves an open loop
+        nxt = c_slides[i + 1].get("title", "") if i + 1 < len(c_slides) else ("the recap" if recap else "")
         if s.get("kind") == "stat" and s.get("stat"):
-            slides.append(_slide_stat(s["stat"], s.get("title", ""), s.get("body", ""),
-                                      num, total, brand, p))
+            slides.append(_slide_stat_v3(s["stat"], s.get("title", ""), s.get("body", ""),
+                                         num, total, name, p, teaser=nxt))
         else:
-            slides.append(_slide_content(s.get("title", ""), s.get("body", ""), num, total,
-                                         brand, p, label=s.get("label", ""), step_index=i + 1))
+            slides.append(_slide_body_v3(s.get("title", ""), s.get("body", ""), num, total,
+                                         name, p, label=s.get("label", ""), step=i + 1,
+                                         teaser=nxt))
         num += 1
     if recap:
-        slides.append(_slide_recap(recap["title"], recap["bullets"], num, total, brand, p))
+        slides.append(_slide_recap_v3(recap["title"], recap["bullets"], num, total, name, p))
         num += 1
-    slides.append(_slide_cta(cta["headline"], cta["cta"], total, total, brand, p))
+    slides.append(_slide_cta_v3(cta["headline"], cta["cta"], total, name, p))
 
     buf = io.BytesIO()
     slides[0].save(buf, format="PDF", save_all=True, append_images=slides[1:], resolution=300)

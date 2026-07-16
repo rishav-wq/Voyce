@@ -9,18 +9,21 @@
 
 ## Week 1 — Prove it on yourself + build the list
 
-### Step 1: You are user #1
-- Arm Voyce on Rishav's own LinkedIn, autopilot on, consultant-positioned.
-- Post daily. This is simultaneously your proof asset, your demo, and your warmest lead source (people asking "how are you posting daily?" are pre-qualified).
+> **Reality check:** the founder has NO warm consultant/coach network, so acquisition is 100% COLD. That means (a) a bigger top-of-funnel is needed, and (b) the concierge "I set it up free, nothing posts without your OK" offer matters even more — it's the only trust you've got with a cold contact.
 
-### Step 2: Build a list of 40 target consultants
+### Step 1: You are user #1 (proof, not lead source)
+- Arm Voyce on Rishav's own LinkedIn, autopilot on, consultant-positioned.
+- Post daily. With no consultant network it won't *generate* leads, but it's still your **proof asset** — screenshot it running on your own profile and drop that into outreach ("here it is running on mine").
+
+### Step 2: Build a cold list of ~80–100 target consultants (Apollo)
 Screen for all three: (a) gets or wants clients from LinkedIn, (b) posts *inconsistently* (active enough to care, erratic enough to need it), (c) solo — no marketing team.
 
-| Source | How to find them | Target |
-|---|---|---|
-| Your 1st/2nd-degree network | LinkedIn search your connections for title: "fractional", "consultant", "advisor", "coach". Prioritize ones who already post occasionally. | 15 |
-| LinkedIn cold (2nd/3rd degree) | Search "fractional CMO/CFO/COO", "independent consultant", "solo consultant". Filter to people who post ~1–4×/month (the inconsistency is the buying signal). | 15 |
-| Communities | Fractionals United, r/consulting, r/Entrepreneur, solopreneur Slacks/Discords, On Deck alumni networks. Look for people who *complain* about visibility or "I should post more." | 10 |
+| Source | How to find them | Channel | Target |
+|---|---|---|---|
+| **Apollo (primary)** | Filter title = fractional / independent consultant / advisor / coach; seniority = owner/self-employed; team size 1. Grab name, title, company, LinkedIn URL, **email**. | Cold email | 60–80 |
+| Communities | Fractionals United, r/consulting, r/Entrepreneur, solopreneur Slacks/Discords. Look for people who *complain* about visibility or "I should post more." | Comment/DM | 20 |
+
+**Cold funnel math (why ~80–100):** cold email replies ~5–15% → concierge activation ~30–50% of repliers → paid ~30–50% of activated. To land **5 paying**, plan to reach **~80–100 well-targeted, personalized** contacts. Warm would've needed ~40; cold needs roughly double.
 
 Log each into the tracker (bottom of this doc) before contacting.
 

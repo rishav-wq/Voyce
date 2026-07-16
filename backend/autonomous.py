@@ -804,7 +804,44 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
     draft = _format_linkedin_post(
         llm_generate(prompt, max_tokens=1024, temperature=0.85)
     )
-    return _revise_post(draft, industry)
+    post = _revise_post(draft, industry)
+
+    # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
+    # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
+    verdict = _value_gate(post, industry)
+    if not verdict.get("passes", True):
+        retry = prompt + (
+            f"\n\nYOUR PREVIOUS DRAFT FAILED REVIEW.\nWeakness: {verdict.get('reason', '')}\n"
+            "Rewrite the post fixing exactly that weakness. Keep every quality rule."
+        )
+        post2 = _revise_post(_format_linkedin_post(
+            llm_generate(retry, max_tokens=1024, temperature=0.9)), industry)
+        v2 = _value_gate(post2, industry)
+        if v2.get("score", 0) >= verdict.get("score", 0):
+            return post2
+    return post
+
+
+def _value_gate(post: str, industry: str) -> dict:
+    """Score a finished post as a busy reader would. Fail-open: gate errors never block posting."""
+    from llm import generate_json
+    prompt = f"""You are a brutal, busy LinkedIn reader in the {industry} space, scrolling fast.
+
+POST:
+{post}
+
+Judge ONLY value delivered: does this teach, reveal, or argue something specific that a busy
+professional would be glad they read? Generic filler, vague motivation, obvious advice, or a
+post that says nothing a reader can use = fail.
+
+Return ONLY JSON: {{"score": 1-10, "passes": true or false (passes means score >= 7),
+"reason": "one line naming the biggest weakness"}}"""
+    try:
+        v = generate_json(prompt, max_tokens=300, temperature=0.2)
+        return {"score": int(v.get("score", 7)), "passes": bool(v.get("passes", True)),
+                "reason": str(v.get("reason", ""))[:200]}
+    except Exception:
+        return {"score": 7, "passes": True, "reason": ""}
 
 
 def _format_linkedin_post(text: str) -> str:
