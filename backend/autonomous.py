@@ -285,9 +285,9 @@ Return ONLY the post text.""",
 # ── Shared quality rules ──────────────────────────────────────────────────────
 _PERSONAL_QUALITY_RULES = """
 QUALITY RULES (non-negotiable):
-- Line 1 is the ONLY thing visible before "...see more" — and only ~140 characters show on
-  mobile. It must be a complete, self-contained hook within ~140 characters that creates
-  tension on its own. Write it the way THIS author would say it, not like a marketer.
+- Line 1 is the ONLY thing visible before "...see more". HARD RULE: max 60 characters,
+  self-contained, an open loop the reader needs closed. Short + tension stops the scroll.
+  Write it the way THIS author would say it, not like a marketer.
 - If voice examples are provided in AUTHOR CONTEXT, match their rhythm, vocabulary, and
   quirks exactly — voice outranks every other rule.
 - Be specific. Name the actual company, report, or statistic. "AI is changing things" = fail.
@@ -304,8 +304,11 @@ QUALITY RULES (non-negotiable):
 - PLAIN ENGLISH, never a whitepaper: write the way a smart person talks. Use contractions
   (I'm, don't, that's). No corporate/academic register: programmatically, systemically,
   mimics, "information density", furthermore, "Ultimately,", "it is worth noting".
-- LENGTH: there is no magic word count — write exactly as long as the idea needs, then cut
-  every line that doesn't add a specific. A tight 90-word post beats a padded 300-word one.
+- SIMPLICITY IS A HARD RULE: every word one a 15-year-old uses daily ("use" not "utilize").
+  Most sentences under 12 words. If a sentence needs a second read, rewrite it.
+- LENGTH — HARD DEFAULT: 60-120 words total. Past 150 only when every extra line carries a
+  fact. When in doubt, the shorter version ships. Never end on a self-summary or a restated
+  hook — end on the strongest sentence.
 - HOLD ATTENTION (dwell time is a confirmed reach signal): one idea per line, whitespace,
   and a shape that pulls the eye down — a narrative arc, a numbered list, or a before→after.
 - SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a numbered

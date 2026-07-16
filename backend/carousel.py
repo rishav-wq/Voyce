@@ -1048,8 +1048,9 @@ card_emphasis: the 1-4 word phrase WITHIN card_headline that carries the punch �
   highlighted in color. MUST be an exact substring of card_headline (e.g. "predictive").
 card_subtext: one supporting line that adds tension or a specific fact. Max 14 words.
   Optional — use "" if the headline stands strongest alone.
-post_text: the LinkedIn caption. Hook first, no warm-up. 2-3 short paragraphs expanding the
-  idea, varied rhythm. 0-3 lowercase hashtags on the last line.
+post_text: the LinkedIn caption. Hook first (max 60 characters, self-contained, open loop),
+  no warm-up. 60-120 words total. Plain words a 15-year-old uses daily, most sentences under
+  12 words. 2-3 short paragraphs, varied rhythm. 0-3 lowercase hashtags on the last line.
 
 VOICE: if a voice/author profile is provided, write the way that author talks.
 FACTUAL SAFETY: never invent exact stats, product version numbers, dates, or named studies —
@@ -1172,8 +1173,9 @@ alt_text: a short accessibility description of the image (<= 100 chars).
 CAPTION RULE: the image carries the CLAIM; post_text makes the CASE. post_text must NOT open
 with or repeat the card_headline/key_line — it expands the claim with a story, example, or
 specifics, and may end with one genuine question. Card and caption together, never twice the same line.
-post_text: the LinkedIn caption. Strong first line (no warm-up), 2-3 short paragraphs, varied rhythm,
-  0-3 lowercase hashtags on the final line. Plain text only, no markdown.
+post_text: the LinkedIn caption. First line max 60 characters, self-contained, open loop, no
+  warm-up. 60-120 words total, plain words a 15-year-old uses daily, most sentences under 12
+  words, varied rhythm. 0-3 lowercase hashtags on the final line. Plain text only, no markdown.
 
 VOICE: if a voice/author profile is provided, write the caption the way that author talks.
 FACTUAL SAFETY: never invent exact stats, product versions, dates, or named studies.
@@ -1444,8 +1446,9 @@ OUTPUT HYGIENE (strict):
   in today's world, the future is here, are you ready, I'm excited, at the end of the day,
   paradigm shift, move the needle, let that sink in.
 
-post_text: the LinkedIn caption. Hook first, no warm-up. 3-4 short paragraphs, varied rhythm.
-0-3 lowercase hashtags on the last line, only if relevant.
+post_text: the LinkedIn caption. Hook first (max 60 characters, self-contained, open loop),
+no warm-up. 60-120 words total, plain words a 15-year-old uses daily, most sentences under
+12 words, varied rhythm. 0-3 lowercase hashtags on the last line, only if relevant.
 
 Return ONLY valid JSON."""
 
