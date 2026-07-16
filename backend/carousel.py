@@ -847,6 +847,192 @@ def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
     return img.resize((rw // _SCALE, rh // _SCALE), Image.LANCZOS)
 
 
+def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
+                      rw: int = _RW, rh: int = 0, avatar: Image.Image = None) -> Image.Image:
+    """Social-screenshot style, matched to the real genre: pure-black frame CROPPED TO
+    CONTENT (dynamic height, like an actual screenshot), regular-weight statement text,
+    author row with avatar + verified mark + gray handle, subtle overflow dots top-right.
+    Always the AUTHOR's own words and name. rh is ignored — height follows content."""
+    pad_x = int(76 * _SCALE)
+    inner_w = rw - pad_x * 2
+    scratch = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+
+    # Statement: regular weight, sized so lines run ~45 chars like a real tweet screenshot
+    # (bigger text reads as "designed graphic"; smaller-with-air reads as "captured post")
+    body_gap = int(16 * _SCALE)
+    para_gap = int(38 * _SCALE)
+    paras = [s.strip() for s in re.split(r"\n\s*\n|\n", text or "") if s.strip()] or [""]
+    joined = " ".join(paras)
+    sizes = [41, 39, 37, 35, 33]
+    f_body = None
+    for s in sizes:
+        f_try = _font(s * _SCALE)
+        total = sum(_wrap_height(scratch, _wrap(scratch, pa, f_try, inner_w), f_try, body_gap) for pa in paras)
+        if total <= int(1100 * _SCALE) and len(_wrap(scratch, joined, f_try, inner_w)) <= 12:
+            f_body = f_try
+            break
+    f_body = f_body or _font(sizes[-1] * _SCALE)
+    para_lines = [_wrap(scratch, pa, f_body, inner_w) for pa in paras]
+    h_body = sum(_wrap_height(scratch, ls, f_body, body_gap) for ls in para_lines)
+    h_body += para_gap * max(0, len(para_lines) - 1)
+
+    # Screenshot-crop dimensions: height follows content
+    av_r = int(40 * _SCALE)
+    head_h = av_r * 2
+    gap_head_body = int(48 * _SCALE)
+    top = int(80 * _SCALE)
+    bottom = int(88 * _SCALE)
+    rh_dyn = top + head_h + gap_head_body + h_body + bottom
+
+    img = Image.new("RGB", (rw, rh_dyn), (5, 5, 6))
+    draw = ImageDraw.Draw(img)
+
+    # Author row
+    ax, ay = pad_x, top
+    if avatar is not None:
+        av = avatar.convert("RGB").resize((av_r * 2, av_r * 2), Image.LANCZOS)
+        mask = Image.new("L", (av_r * 2, av_r * 2), 0)
+        ImageDraw.Draw(mask).ellipse([0, 0, av_r * 2, av_r * 2], fill=255)
+        img.paste(av, (ax, ay), mask)
+    else:
+        _draw_circle(draw, ax + av_r, ay + av_r, av_r, tuple(p["accent"]))
+        initial = (name or "V")[0].upper()
+        f_init = _font(40 * _SCALE, bold=True)
+        iw = _tw(draw, initial, f_init)
+        ih = draw.textbbox((0, 0), initial, font=f_init)[3]
+        draw.text((ax + av_r - iw // 2, ay + av_r - ih // 2 - int(4 * _SCALE)), initial,
+                  font=f_init, fill=(255, 255, 255))
+
+    f_name = _font(34 * _SCALE, bold=True)
+    f_handle = _font(29 * _SCALE)
+    tx = ax + av_r * 2 + int(26 * _SCALE)
+    name_txt = (name or "")[:28]
+    draw.text((tx, ay + int(2 * _SCALE)), name_txt, font=f_name, fill=(255, 255, 255))
+    nw = _tw(draw, name_txt, f_name)
+    # Verified seal: the scalloped 8-lobed starburst, not a plain circle
+    vb_r = int(17 * _SCALE)
+    vb_cx = tx + nw + int(18 * _SCALE) + vb_r
+    vb_cy = ay + int(2 * _SCALE) + draw.textbbox((0, 0), name_txt, font=f_name)[3] // 2 + int(3 * _SCALE)
+    import math
+    # Soft rosette: 8 overlapping petal circles + core — matches the real seal's rounded lobes
+    blue = (29, 155, 240)
+    petal_r = vb_r * 0.50
+    orbit = vb_r * 0.56
+    for i in range(8):
+        ang = math.pi * i / 4 + math.pi / 8
+        px = vb_cx + orbit * math.cos(ang)
+        py = vb_cy + orbit * math.sin(ang)
+        _draw_circle(draw, int(px), int(py), int(petal_r), blue)
+    _draw_circle(draw, vb_cx, vb_cy, int(vb_r * 0.88), blue)
+    ck = int(vb_r * 0.48)
+    draw.line([(vb_cx - ck, vb_cy + int(1 * _SCALE)), (vb_cx - ck // 3, vb_cy + ck * 2 // 3),
+               (vb_cx + ck, vb_cy - ck // 2)], fill=(255, 255, 255),
+              width=max(4, int(vb_r * 0.28)), joint="curve")
+    draw.text((tx, ay + int(50 * _SCALE)), (handle or "")[:32], font=f_handle, fill=(113, 118, 123))
+
+    # Overflow dots top-right (subtle platform chrome)
+    dots_y = ay + int(18 * _SCALE)
+    for i in range(3):
+        _draw_circle(draw, rw - pad_x - i * int(16 * _SCALE), dots_y, int(3.5 * _SCALE), (113, 118, 123))
+
+    # The statement
+    y = top + head_h + gap_head_body
+    for pi, lines in enumerate(para_lines):
+        for line in lines:
+            draw.text((pad_x, y), line, font=f_body, fill=(231, 233, 234))
+            y += draw.textbbox((0, 0), line, font=f_body)[3] + body_gap
+        if pi < len(para_lines) - 1:
+            y += para_gap - body_gap
+
+    return img.resize((rw // _SCALE, rh_dyn // _SCALE), Image.LANCZOS)
+
+
+def _slide_list_card(tag: str, headline: str, emphasis: str, points: list, brand: str, p: dict,
+                     rw: int = _RW, rh: int = _RH) -> Image.Image:
+    """Branded 'framework' card: headline + numbered value points. The information-dense
+    counterpart to _slide_quote — for posts whose payload is a list, steps, or rules."""
+    img = Image.new("RGB", (rw, rh), p["bg"])
+    _draw_gradient_bg(img, p["bg"], _mix(p["bg"], p["accent"], 0.22))
+    draw = ImageDraw.Draw(img)
+    _draw_circle(draw, -int(140 * _SCALE), rh + int(120 * _SCALE),
+                 int(520 * _SCALE), _mix(p["bg"], p["accent"], 0.10))
+    _draw_dot_grid(draw, rw - int(250 * _SCALE), int(120 * _SCALE),
+                   5, 3, int(42 * _SCALE), int(5 * _SCALE), _mix(p["bg"], p["accent"], 0.18))
+
+    cx = rw // 2
+    pad_x = int(100 * _SCALE)
+    max_w = rw - pad_x * 2
+
+    # Top pill tag
+    tag = (tag or "").strip().upper()[:22]
+    y = int(110 * _SCALE)
+    if tag:
+        f_tag = _font(28 * _SCALE, bold=True)
+        tw = _tw(draw, tag, f_tag)
+        ph, pv = int(26 * _SCALE), int(13 * _SCALE)
+        th = draw.textbbox((0, 0), tag, font=f_tag)[3]
+        px = cx - (tw + ph * 2) // 2
+        _draw_rounded_rect(draw, px, y, px + tw + ph * 2, y + th + pv * 2, (th + pv * 2) // 2,
+                           _mix(p["bg"], p["accent"], 0.28))
+        draw.text((px + ph, y + pv), tag, font=f_tag, fill=p["accent"])
+        y += th + pv * 2 + int(46 * _SCALE)
+
+    # Measure everything first, then vertically center the whole block (headline + points)
+    head_gap = int(12 * _SCALE)
+    hook_text, f_head, _ = _fit_text_to_box(
+        draw, headline, max_w, int(rh * 0.24), [72, 64, 58, 52, 46], gap=head_gap, max_lines=3)
+    h_head = _wrap_height(draw, _wrap(draw, hook_text, f_head, max_w), f_head, head_gap)
+    gap_after_head = int(56 * _SCALE)
+
+    pts = [str(pt).strip() for pt in (points or []) if str(pt).strip()][:4]
+    f_num = _font(40 * _SCALE, bold=True)
+    body_sizes = [40, 38, 36, 34] if len(pts) <= 3 else [36, 34, 32, 30]
+    item_gap = int(8 * _SCALE)
+    item_spacing = int(44 * _SCALE)
+    bottom_limit = rh - int(150 * _SCALE)
+    num_w = _tw(draw, "01", f_num) + int(28 * _SCALE)
+    text_w = max_w - num_w
+
+    items = []
+    for pt in pts:
+        body, f_body, _ = _fit_text_to_box(
+            draw, pt, text_w, int(rh * 0.14), body_sizes, gap=item_gap, max_lines=3)
+        lines = _wrap(draw, body, f_body, text_w)
+        items.append((lines, f_body, _wrap_height(draw, lines, f_body, item_gap)))
+
+    total_h = h_head + gap_after_head + sum(h for _, _, h in items) + item_spacing * max(0, len(items) - 1)
+    y += max(0, (bottom_limit - y - total_h) // 2)
+
+    y = _draw_centered_emphasis(draw, hook_text, f_head, cx, y, max_w,
+                                p["title"], p["accent"], emphasis, head_gap)
+    y += gap_after_head - head_gap
+
+    for i, (lines, f_body, item_h) in enumerate(items):
+        if y + item_h > bottom_limit:
+            break
+        draw.text((pad_x, y), f"{i + 1:02d}", font=f_num, fill=p["accent"])
+        ty = y
+        for line in lines:
+            draw.text((pad_x + num_w, ty), line, font=f_body, fill=p["body"])
+            ty += draw.textbbox((0, 0), line, font=f_body)[3] + item_gap
+        y += item_h + item_spacing
+        if i < len(items) - 1:
+            draw.rectangle([pad_x + num_w, y - int(22 * _SCALE), rw - pad_x, y - int(22 * _SCALE) + int(2 * _SCALE)],
+                           fill=_mix(p["bg"], p["accent"], 0.16))
+
+    # Brand bottom-center
+    f_brand = _font(26 * _SCALE, bold=True)
+    bw = _tw(draw, brand, f_brand)
+    dot_r = int(7 * _SCALE)
+    gap = int(14 * _SCALE)
+    bx = cx - (dot_r * 2 + gap + bw) // 2
+    by = rh - int(96 * _SCALE)
+    _draw_circle(draw, bx + dot_r, by + int(16 * _SCALE), dot_r, p["accent"])
+    draw.text((bx + dot_r * 2 + gap, by), brand, font=f_brand, fill=p["subtitle"])
+
+    return img.resize((rw // _SCALE, rh // _SCALE), Image.LANCZOS)
+
+
 # ── Single image post (branded quote card) ───────────────────────────────────
 
 _IMAGE_POST_SYSTEM = """You create a single branded 'poster' image post for LinkedIn — a designed
@@ -935,7 +1121,20 @@ def render_image_post_png(content: dict, company: dict) -> bytes:
 # faces/hands (the #1 credibility killer and "AI slop" tell), never model-rendered text
 # (garbles). So we generate a clean, muted, flat illustration and add any text ourselves.
 
-_AI_IMAGE_SYSTEM = """You design ONE editorial illustration to accompany a founder's LinkedIn post, plus the caption.
+_AI_IMAGE_SYSTEM = """You design the VISUAL for a founder's LinkedIn post, plus the caption.
+
+FORMAT — decide this FIRST. Images on LinkedIn earn attention by carrying INFORMATION, not decoration:
+- "list_card": the post's payload is a list, framework, steps, rules, or lessons → a designed
+  card with the headline + 2-4 numbered points (fill card_points). DEFAULT for abstract
+  professional topics with enumerable substance.
+- "quote_card": the post's power is ONE sharp quotable claim → a designed poster of that line
+  (fill card_headline/card_emphasis/card_subtext). Use when there's a killer one-liner but no list.
+- "tweet_card": the claim is a HOT TAKE — contrarian, spicy, a little confrontational → a
+  social-screenshot style card of that line (fill card_headline with the take, max ~30 words).
+  Reads as a captured opinion, not marketing. Use for the boldest, most argument-starting claims.
+- "scene": ONLY for tangible, physical, visual topics (farming, logistics, food, manufacturing,
+  travel...) where a real scene from the post's world adds feeling that text cannot. A decorative
+  metaphor for an abstract topic is NOT a scene — abstract topics take a card.
 
 Return JSON:
 image_concept: FIRST boil the post down to its ONE core message in a short phrase (e.g. "build a button,
@@ -970,6 +1169,9 @@ image_concept: FIRST boil the post down to its ONE core message in a short phras
     two cups, glowing brains, generic upward arrows.
   - NEVER include text, numbers, letters, logos, brand names, charts with labels, or human faces.
 alt_text: a short accessibility description of the image (<= 100 chars).
+CAPTION RULE: the image carries the CLAIM; post_text makes the CASE. post_text must NOT open
+with or repeat the card_headline/key_line — it expands the claim with a story, example, or
+specifics, and may end with one genuine question. Card and caption together, never twice the same line.
 post_text: the LinkedIn caption. Strong first line (no warm-up), 2-3 short paragraphs, varied rhythm,
   0-3 lowercase hashtags on the final line. Plain text only, no markdown.
 
@@ -1078,12 +1280,31 @@ def generate_ai_image_post(raw_text: str, company: dict = None) -> dict:
 Choose the single strongest idea and design the visual for it (a real scene from the post's
 world if the topic is physical/tangible; a concrete metaphor only if the topic is abstract).
 
+RELEVANCE GATE: before answering, check your concept against the post's core claim. A reader
+scrolling past must connect the image to the post's point INSTANTLY, with zero explanation.
+If the connection needs a caption to make sense, discard the concept and pick a more literal one.
+
+Also return "key_line": the single most quotable line from the post itself (max 12 words,
+verbatim or lightly trimmed) — punchy enough to stand alone on a typographic card.
+
 Return ONLY valid JSON:
-{{"image_concept": "...", "alt_text": "...", "post_text": "..."}}"""
-    result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1200, temperature=0.85)
+{{"format": "list_card|quote_card|tweet_card|scene", "image_concept": "... (scene only)",
+"card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...",
+"card_points": ["...", "..."], "alt_text": "...", "key_line": "...", "post_text": "..."}}"""
+    result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1600, temperature=0.85)
+    fmt = (result.get("format") or "").strip().lower()
+    if fmt not in ("scene", "quote_card", "list_card", "tweet_card"):
+        fmt = "scene" if (result.get("image_concept") or "").strip() else "quote_card"
     return {
+        "format":        fmt,
         "image_concept": (result.get("image_concept") or "").strip(),
+        "card_tag":      (result.get("card_tag") or "").strip(),
+        "card_headline": (result.get("card_headline") or "").strip(),
+        "card_emphasis": (result.get("card_emphasis") or "").strip(),
+        "card_subtext":  (result.get("card_subtext") or "").strip(),
+        "card_points":   [str(x).strip() for x in (result.get("card_points") or []) if str(x).strip()][:4],
         "alt_text":      (result.get("alt_text") or "").strip(),
+        "key_line":      (result.get("key_line") or "").strip(),
         "post_text":     _strip_markdown(result.get("post_text", "") or ""),
     }
 
@@ -1095,7 +1316,42 @@ def render_ai_image_png(content: dict, company: dict) -> bytes:
     p = _get_palette(company)
     brand = (company or {}).get("name", "Voyce")
     concept = (content.get("image_concept") or "").strip()
-    img_bytes = generate_image(_build_ai_image_prompt(concept, p)) if concept else None
+    fmt = (content.get("format") or "scene").strip().lower()
+
+    # Designed value cards: information over decoration. Rendered by us — always crisp, always relevant.
+    if fmt == "list_card" and content.get("card_points"):
+        img = _slide_list_card(
+            content.get("card_tag", ""), content.get("card_headline") or content.get("key_line", ""),
+            content.get("card_emphasis", ""), content.get("card_points"), brand, p,
+            rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    if fmt == "tweet_card" and (content.get("card_headline") or content.get("key_line")):
+        handle = "@" + re.sub(r"[^a-z0-9]+", "", (brand or "voyce").lower())[:24]
+        img = _slide_tweet_card(
+            content.get("card_headline") or content.get("key_line", ""), brand, handle, p,
+            rw=IMG_POST_W * _SCALE)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    if fmt == "quote_card" and (content.get("card_headline") or content.get("key_line")):
+        card = {
+            "card_headline": content.get("card_headline") or content.get("key_line", ""),
+            "card_subtext": content.get("card_subtext", ""),
+            "card_emphasis": content.get("card_emphasis", ""),
+            "card_tag": content.get("card_tag", ""),
+        }
+        return render_image_post_png(card, company)
+
+    # Transient API failures are common enough to deserve one retry before falling back.
+    img_bytes = None
+    if concept:
+        rendered_prompt = _build_ai_image_prompt(concept, p)
+        for _ in range(2):
+            img_bytes = generate_image(rendered_prompt)
+            if img_bytes:
+                break
     if img_bytes:
         try:
             canvas = _cover_crop(Image.open(io.BytesIO(img_bytes)), IMG_POST_W, IMG_POST_H)
@@ -1104,9 +1360,13 @@ def render_ai_image_png(content: dict, company: dict) -> bytes:
             return buf.getvalue()
         except Exception:
             pass
-    # Graceful fallback: the branded insight card (still on-brand, still 4:5)
+
+    # Graceful fallback: the branded insight card. Its headline must be a line FROM THE POST
+    # (key_line), never alt_text — alt_text is a scene description and reads as nonsense on a card.
+    post_text = (content.get("post_text") or "").strip()
+    first_sentence = re.split(r"(?<=[.!?])\s+", post_text)[0][:90] if post_text else ""
     card = {
-        "card_headline": content.get("card_headline") or content.get("alt_text") or brand,
+        "card_headline": content.get("card_headline") or content.get("key_line") or first_sentence or brand,
         "card_subtext": "", "card_emphasis": "", "card_tag": "",
     }
     return render_image_post_png(card, company)
