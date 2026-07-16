@@ -293,6 +293,11 @@ QUALITY RULES (non-negotiable):
 - Be specific. Name the actual company, report, or statistic. "AI is changing things" = fail.
 - Never fabricate personal history. Do NOT claim the author did/used/built/invested in
   something unless that is explicitly in AUTHOR CONTEXT.
+- NO STORY WITHOUT A REAL STORY: if AUTHOR CONTEXT contains no lived events for this topic,
+  do NOT write a first-person narrative — no invented timelines, dashboards, user counts,
+  launches, or pivots. Write an opinion, observation, or teaching post instead. A fabricated
+  "here's what happened to me" post published under the author's real name is the worst
+  possible failure of this system.
 - If evidence is from external reference material, attribute it ("X reports...", "Y's case
   shows...") instead of "I did...".
 - FACTUAL SAFETY: never invent exact statistics, product version numbers ("DeepSeek-V3.2",
