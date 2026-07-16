@@ -42,9 +42,10 @@ phrased this way before. Find the most surprising, specific, or contrarian angle
 source content and build everything around it.
 
 OPENING LINE (the only text visible before "...see more" — decides whether the rest is read):
-- Only ~140 characters show on mobile before truncation. The first line MUST be a complete,
-  self-contained hook within ~140 characters — it has to make total sense and create tension
-  on its own, before any "see more" click.
+- HARD RULE: the first line is AT MOST 60 characters, short enough to hit like a slap.
+  "I deleted my best-performing post." beats "I recently made a decision about my content
+  strategy that surprised me." Short first line + tension = the brain stops scrolling.
+- It must make total sense alone and leave an open loop the reader needs closed.
 - Two hook shapes proven to pull readers past the fold (pick whichever the source content
   actually supports — never force one):
     1. CONTRARIAN — position the author against conventional wisdom. Patterns:
@@ -87,6 +88,10 @@ WRITING CRAFT:
   ALL short staccato lines reads as AI-generated in 2026 and gets scrolled past.
 - PLAIN ENGLISH, never a whitepaper. Write the way a smart person actually talks, not the way a
   research paper reads. Use contractions (I'm, don't, it's, that's). Skip academic/corporate register.
+- SIMPLICITY IS A HARD RULE, not a style preference: every word must be one a 15-year-old uses
+  daily. If a simpler word exists, the simpler word wins ("use" not "utilize", "help" not
+  "facilitate", "big" not "substantial"). Most sentences under 12 words. One idea per sentence.
+  If a sentence needs a second read, rewrite it. Readers give you seconds, not effort.
 - Concrete beats abstract in every sentence: real names, real numbers, real examples.
   Generic motivational lines and quote-style platitudes are treated as low-quality filler —
   every sentence must come from the author's actual experience or the source content.
@@ -105,9 +110,11 @@ WRITING CRAFT:
       loses all its power.
   Multiple parallel items = LIST. One thing happening over time = STORY. VARY the shape across
   posts, never make every post the same numbered-list template (LinkedIn demotes templated formats).
-- LENGTH: there is no magic word count — write exactly as long as the idea needs and not one
-  line longer. Cut every sentence that doesn't add a specific. A tight 90-word post beats a
-  padded 300-word one; a rich story can run long if every line earns its place. Never pad.
+- LENGTH — HARD DEFAULT: 60-120 words. That is the whole post. Going past 150 words is allowed
+  ONLY for a story so specific that cutting any line loses a fact (not a phrase — a fact).
+  When in doubt, the shorter version ships. Cut every sentence that doesn't add a specific.
+  A tight 90-word post beats a padded 300-word one. Never pad, never summarize yourself at
+  the end, never restate the hook as a closer.
 - SAVE-WORTHY: build the post so a reader thinks "I need this later" — a usable framework, a
   checklist, a concrete before→after. That reader keeps reading (dwell) and comes back.
 - Keep it self-contained: no promotional URLs in the body (off-platform links drag reach —
@@ -155,6 +162,13 @@ Hunt and fix:
     whole post's credibility, this is the most important check.
 11. Corporate/academic register (programmatically, systemically, mimics, "information density",
     "Ultimately,", furthermore): rewrite in plain, spoken English with contractions.
+12. LENGTH BLOAT: if the post runs past ~150 words without a specific fact justifying every
+    line, cut it toward 60-120 words. Delete self-summaries, restated hooks, and any closing
+    line that just rephrases the point. End on the strongest sentence, not a wind-down.
+13. COMPLEX SENTENCES: any sentence over ~18 words or needing a second read gets split or
+    simplified. Any word a 15-year-old wouldn't use daily gets swapped for the plain one.
+14. WEAK HOOK: if the first line runs past ~60 characters, tighten it until it hits. Move the
+    tension forward; cut wind-up words.
 
 Preserve:
 - The opening line's claim (you may sharpen its wording, not change its idea)
