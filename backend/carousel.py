@@ -520,14 +520,19 @@ def _slide_hook_editorial(headline: str, subtext: str, total: int, p: dict,
         y += int(8 * _SCALE)
         mk_pad_x, mk_pad_y = int(24 * _SCALE), int(12 * _SCALE)
         mk_txt = marked + "."
-        mw = _tw(draw, mk_txt, f_head)
-        mh = draw.textbbox((0, 0), mk_txt, font=f_head)[3] + mk_pad_y * 2
+        # Shrink the marker font until the whole chip fits inside the slide width —
+        # otherwise long phrases ("commercial reality") overflow and clip on the cover.
+        f_mark = f_head
+        while (_tw(draw, mk_txt, f_mark) + mk_pad_x * 2) > max_w and f_mark.size > int(44 * _SCALE):
+            f_mark = _font_black(f_mark.size - int(6 * _SCALE))
+        mw = _tw(draw, mk_txt, f_mark)
+        mh = draw.textbbox((0, 0), mk_txt, font=f_mark)[3] + mk_pad_y * 2
         pad_rot = int(30 * _SCALE)
         chip = Image.new("RGBA", (mw + mk_pad_x * 2 + pad_rot * 2, mh + pad_rot * 2), (0, 0, 0, 0))
         cd = ImageDraw.Draw(chip)
         _draw_rounded_rect(cd, pad_rot, pad_rot, pad_rot + mw + mk_pad_x * 2, pad_rot + mh,
                            int(14 * _SCALE), a2)
-        cd.text((pad_rot + mk_pad_x, pad_rot + mk_pad_y - int(2 * _SCALE)), mk_txt, font=f_head, fill=ink)
+        cd.text((pad_rot + mk_pad_x, pad_rot + mk_pad_y - int(2 * _SCALE)), mk_txt, font=f_mark, fill=ink)
         chip = chip.rotate(-1.5, expand=True, resample=Image.BICUBIC)
         img.paste(chip, (m - pad_rot, y - pad_rot), chip)
         y += mh + int(10 * _SCALE)
@@ -769,8 +774,12 @@ def _slide_cta_v3(headline: str, cta: str, total: int, brand: str, p: dict) -> I
     h_fit, f_h, h_h = _fit_text_to_box(draw, headline, max_w, int(_RH * 0.26),
                                        [84, 76, 68, 60, 52], gap=int(12 * _SCALE), max_lines=3)
     f_h = _font_black(f_h.size)
+    cta_txt = (cta or "").strip()
+    # Shrink the CTA font so the whole pill fits within the slide — never hard-truncate
+    # mid-word (that produced "...GTM campa" clipped on the final slide).
     f_cta = _font(34 * _SCALE, bold=True)
-    cta_txt = (cta or "").strip()[:48]
+    while (_tw(draw, cta_txt, f_cta) + int(80 * _SCALE)) > max_w and f_cta.size > int(20 * _SCALE):
+        f_cta = _font(f_cta.size - int(2 * _SCALE), bold=True)
     ch = draw.textbbox((0, 0), cta_txt, font=f_cta)[3] + int(38 * _SCALE)
     save_txt = "Save this for your next content sprint"
     f_sv = _font(26 * _SCALE)
