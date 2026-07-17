@@ -954,15 +954,21 @@ def preview_post(company_id: str, x_token: str = Header(None)):
         raise HTTPException(status_code=502, detail="Could not generate a preview. Please try again.")
 
 
+class RunNowRequest(BaseModel):
+    post_type: str = ""   # optional override — e.g. "hot_take" to force a tweet-card day
+
+
 @app.post("/companies/{company_id}/run")
-def run_company_now(company_id: str, x_token: str = Header(None)):
+def run_company_now(company_id: str, request: RunNowRequest | None = None,
+                    x_token: str = Header(None)):
     user = _require_user(x_token)
     _check_gen_limit(user)
     _rate_limit(f"gen:{user['id']}", 20)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
-    result = run_for_company(company, allow_free_manual=True)
+    override = (request.post_type if request else "") or ""
+    result = run_for_company(company, allow_free_manual=True, post_type_override=override)
     return result
 
 

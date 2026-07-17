@@ -920,10 +920,18 @@ def _should_post_carousel(company: dict) -> bool:
     return bool(company.get("carousel_enabled"))
 
 
-def run_for_company(company: dict, allow_free_manual: bool = False) -> dict:
+def run_for_company(company: dict, allow_free_manual: bool = False,
+                    post_type_override: str = "") -> dict:
     company_id = company["id"]
-    post_type  = _get_post_type(company)
-    do_carousel = _should_post_carousel(company)
+    is_personal = company.get("profile_type") == "personal"
+    valid_types = set((PERSONAL_ROTATION if is_personal else COMPANY_ROTATION).values())
+    if post_type_override and post_type_override in valid_types:
+        post_type = post_type_override
+        # An explicit type choice is a text-post intent — don't surprise with a carousel.
+        do_carousel = False
+    else:
+        post_type  = _get_post_type(company)
+        do_carousel = _should_post_carousel(company)
 
     log_entry = {
         "company_id":   company_id,

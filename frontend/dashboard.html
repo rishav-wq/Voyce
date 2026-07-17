@@ -1122,7 +1122,23 @@
                   ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
                 </select>
               </div>` : ""}
-              <div style="margin:8px 0 0 46px;"><button class="act-btn" onclick="runNow('${p.id}')">▶ Post one now (test)</button></div>
+              <div style="margin:8px 0 0 46px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+                  <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
+                  <option value="hot_take">Hot Take · with tweet card</option>
+                  <option value="prediction">Prediction · with tweet card</option>
+                  <option value="stat_reaction">Stat Reaction · with tweet card</option>
+                  <option value="lesson_learned">Lesson Learned</option>
+                  <option value="how_to">How-To / Playbook</option>
+                  <option value="listicle">Listicle</option>
+                  <option value="teardown">Teardown</option>
+                  <option value="trend_reaction">Trend Reaction</option>
+                  <option value="personal_story">Personal Story</option>
+                  <option value="open_question">Open Question</option>
+                  <option value="expert_insight_p">Expert Insight</option>
+                </select>
+                <button class="act-btn" onclick="runNow('${p.id}')">▶ Post now</button>
+              </div>
             ` : `
               <div style="font-size:11.5px;color:#a29a8c;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#b3aa9b;">(Pro)</span></div>
             `}
@@ -1151,9 +1167,15 @@
     async function runNow(id) {
       if (!liConnected) { toast("LinkedIn not connected. Connect it first from the banner above.", "warn"); return; }
       const rp = (currentProfiles || []).find(x => x.id === id);
-      if (!(await voyceConfirm(`Generate a post and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`, { title: "Run now", confirmText: "Post now" }))) return;
+      const typeSel = document.getElementById(`runtype-${id}`);
+      const chosenType = typeSel ? typeSel.value : "";
+      const typeLabel = chosenType && typeSel ? typeSel.options[typeSel.selectedIndex].text.split("·")[0].trim() : "";
+      const what = typeLabel ? `a ${typeLabel} post` : "a post";
+      if (!(await voyceConfirm(`Generate ${what} and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`, { title: "Run now", confirmText: "Post now" }))) return;
       toast("Generating and posting...");
-      const res  = await fetch(`/companies/${id}/run`, { method:"POST", headers: {"x-token": getToken()} });
+      const res  = await fetch(`/companies/${id}/run`, { method:"POST",
+        headers: {"Content-Type": "application/json", "x-token": getToken()},
+        body: JSON.stringify({ post_type: chosenType }) });
       const data = await res.json();
       loadLog();
       if (data.status === "posted") { toast("Posted successfully!", "success"); loadAnalytics(); }
