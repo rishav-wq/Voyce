@@ -488,6 +488,8 @@
     .cal-table td.today-col { background: #faf9ff; border-color: #d4caff; }
     .cal-profile-name { font-size: 11px; font-weight: 700; color: #888; padding: 8px 12px 4px; }
     .cal-cell-type { font-size: 12px; color: #444; font-weight: 500; line-height: 1.3; }
+    .cal-plan { margin-top: 6px; width: 100%; font-size: 10.5px; padding: 3px 4px; border: 1px solid #e0d9cc;
+      border-radius: 5px; background: #fff; color: #555; font-family: inherit; cursor: pointer; }
     .cal-cell-badge {
       display: inline-block; margin-top: 4px;
       font-size: 10px; font-weight: 700; border-radius: 4px;
@@ -1371,6 +1373,32 @@
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
 
+    const CAL_PLAN_OPTIONS = [
+      ["", "Auto (planned)"],
+      ["hot_take", "Hot Take · tweet"],
+      ["prediction", "Prediction · tweet"],
+      ["stat_reaction", "Stat Reaction · tweet"],
+      ["lesson_learned", "Lesson Learned"],
+      ["how_to", "How-To"],
+      ["listicle", "Listicle"],
+      ["teardown", "Teardown"],
+      ["personal_story", "Personal Story"],
+      ["open_question", "Open Question"],
+      ["__carousel__", "Carousel (PDF)"],
+    ];
+
+    async function setDayPlan(profileId, dateISO, postType) {
+      try {
+        const r = await fetch(`/companies/${profileId}/schedule`, {
+          method: "PATCH", headers: ah(),
+          body: JSON.stringify({ date: dateISO, post_type: postType }),
+        });
+        if (!r.ok) throw new Error();
+        toast(postType ? "Post plan set for that day." : "Back to auto for that day.", "success");
+        loadProfiles();
+      } catch (_) { toast("Couldn't update the plan — try again.", "warn"); }
+    }
+
     function _renderCalendarGrid(active, byDay) {
       // One strip, two jobs: the last 3 days (what actually happened) + today and
       // the 3 days ahead (what's planned). History builds trust in the automation.
@@ -1408,20 +1436,38 @@
             st = "sched"; chip = `🕐 ${p.post_time}`; type = planType;
           }
 
+          const dISO = _localISO(d);
+          const planned = (p.scheduled_types || {})[dISO] || "";   // user-set override for this day
+          if (st === "sched" && planned) {
+            const opt = CAL_PLAN_OPTIONS.find(o => o[0] === planned);
+            type = planned === "__carousel__" ? "Carousel" : (opt ? opt[1].split(" · ")[0] : type);
+          }
           const desc = type && p.post_type_descriptions ? (p.post_type_descriptions[type] || "") : "";
-          const isCarousel = p.carousel_enabled && futureIdx >= 0 && (futureIdx % 2 === 1);
-          const isCard = ["hot take", "prediction", "stat reaction"].includes((type || "").toLowerCase());
+          const claimTypes = ["hot_take", "prediction", "stat_reaction"];
+          // format follows: explicit claim-type override = tweet card; __carousel__ = carousel;
+          // otherwise the auto alternate-day carousel logic.
+          const isCarousel = planned === "__carousel__" ||
+            (!planned && p.carousel_enabled && futureIdx >= 0 && (futureIdx % 2 === 1));
+          const isCard = claimTypes.includes(planned) ||
+            (!planned && ["hot take", "prediction", "stat reaction"].includes((type || "").toLowerCase()));
           let badge = "";
           if (st === "sched") {
-            if (isCarousel)   badge = `<div class="cal-cell-badge carousel">▤ Carousel</div>`;
-            else if (isCard)  badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
+            if (isCard)          badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
+            else if (isCarousel) badge = `<div class="cal-cell-badge carousel">▤ Carousel</div>`;
             else if (p.carousel_enabled) badge = `<div class="cal-cell-badge text">✎ Text</div>`;
           }
+
+          // Future scheduled cells get a per-day picker; the autopilot honors the choice.
+          const picker = (st === "sched" && futureIdx >= 0) ? `
+            <select class="cal-plan" onchange="setDayPlan('${p.id}','${dISO}',this.value)">
+              ${CAL_PLAN_OPTIONS.map(([v,l]) => `<option value="${v}" ${planned===v?'selected':''}>${l}</option>`).join("")}
+            </select>` : "";
 
           return `<td class="${isToday ? 'today-col' : ''} cal-st-${st}" ${desc ? `title="${desc}"` : ""}>
             <span class="cal-chip ${st}">${chip}</span>
             ${type ? `<div class="cal-cell-type">${type}</div>` : ""}
             ${badge}
+            ${picker}
           </td>`;
         }).join("");
 

@@ -925,10 +925,22 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
     company_id = company["id"]
     is_personal = company.get("profile_type") == "personal"
     valid_types = set((PERSONAL_ROTATION if is_personal else COMPANY_ROTATION).values())
+    # A per-day plan set from the calendar takes precedence over the rotation (unless a
+    # manual "Post now" passed an explicit override, which wins over everything).
+    if not post_type_override:
+        plan = (company.get("scheduled_types") or {}).get(date.today().isoformat())
+        if plan == "__carousel__":
+            post_type_override = ""  # keep rotation type, but force carousel below
+        elif plan in valid_types:
+            post_type_override = plan
+    else:
+        plan = None
     if post_type_override and post_type_override in valid_types:
         post_type = post_type_override
-        # An explicit type choice is a text-post intent — don't surprise with a carousel.
-        do_carousel = False
+        do_carousel = False  # an explicit type choice is a text/tweet intent, never a carousel
+    elif plan == "__carousel__":
+        post_type = _get_post_type(company)
+        do_carousel = True
     else:
         post_type  = _get_post_type(company)
         do_carousel = _should_post_carousel(company)

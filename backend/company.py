@@ -110,6 +110,21 @@ def toggle_company(company_id: str, active: bool):
     db.companies.update_one({"id": company_id}, {"$set": {"active": active}})
 
 
+def set_scheduled_type(company_id: str, day: str, post_type: str) -> bool:
+    """Set (or clear) a per-day post-type override for the calendar. Empty post_type clears
+    that day back to the automatic rotation. Stored as scheduled_types: {date: type}."""
+    c = db.companies.find_one({"id": company_id}, _P)
+    if not c:
+        return False
+    sched = c.get("scheduled_types", {}) or {}
+    if post_type:
+        sched[day] = post_type
+    else:
+        sched.pop(day, None)
+    db.companies.update_one({"id": company_id}, {"$set": {"scheduled_types": sched}})
+    return True
+
+
 def save_linkedin_data(company_id: str, linkedin_result: dict):
     result = db.companies.update_one(
         {"id": company_id},

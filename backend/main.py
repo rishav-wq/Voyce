@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 import logging
 from datetime import datetime, timedelta
@@ -20,7 +21,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 from processor import process_input
 from generator import generate_content
-from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data
+from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data, set_scheduled_type
 from autonomous import run_for_company, get_post_log, save_post_log
 from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_screenshots
 import linkedin as li
@@ -970,6 +971,23 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     override = (request.post_type if request else "") or ""
     result = run_for_company(company, allow_free_manual=True, post_type_override=override)
     return result
+
+
+class SchedulePlanRequest(BaseModel):
+    date: str          # "YYYY-MM-DD"
+    post_type: str = ""  # a rotation type, "__carousel__", or "" to clear back to auto
+
+
+@app.patch("/companies/{company_id}/schedule")
+def set_schedule(company_id: str, request: SchedulePlanRequest, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", request.date or ""):
+        raise HTTPException(status_code=400, detail="Bad date")
+    set_scheduled_type(company_id, request.date, (request.post_type or "").strip())
+    return {"ok": True}
 
 
 @app.get("/companies/log")
