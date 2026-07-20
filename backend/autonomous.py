@@ -301,10 +301,15 @@ QUALITY RULES (non-negotiable):
   possible failure of this system.
 - If evidence is from external reference material, attribute it ("X reports...", "Y's case
   shows...") instead of "I did...".
-- FACTUAL SAFETY: never invent exact statistics, product version numbers ("DeepSeek-V3.2",
-  "GPT-5.1"), dates, or named studies just to sound authoritative. Use only facts from the
-  provided context or things you're genuinely confident are real. When unsure, hedge
-  ("models like DeepSeek", "most teams") rather than fabricate a specific a reader can falsify.
+- FACTUAL SAFETY (HARD BAN — this is the #1 credibility killer): never state a specific,
+  checkable fact unless it appears verbatim in the AUTHOR CONTEXT / news provided. In particular:
+  - NO financial figures about named companies ("Elastic grew 20%", "trades at a 6x multiple",
+    "raised $40M") unless that exact figure is in the provided news.
+  - NO round invented percentages ("92% of SaaS startups run on AI", "70% of teams") — these
+    read as made up and a reader will call them out. Say "most" / "a growing share" instead.
+  - NO product versions, dates, or named studies you can't source.
+  A single checkable stat that turns out wrong destroys the whole post's credibility, on the
+  author's REAL profile. When in doubt, drop the number and make the point qualitatively.
 - Vary your rhythm: mix short punchy lines with longer natural sentences. A post where
   every sentence is under 10 words reads as AI-generated and gets scrolled past.
 - PLAIN ENGLISH, never a whitepaper: write the way a smart person talks. Use contractions
@@ -843,7 +848,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
 
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
-    verdict = _value_gate(post, industry)
+    verdict = _value_gate(post, industry, news_context)
     if not verdict.get("passes", True):
         retry = prompt + (
             f"\n\nYOUR PREVIOUS DRAFT FAILED REVIEW.\nWeakness: {verdict.get('reason', '')}\n"
@@ -851,26 +856,35 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
         )
         post2 = _revise_post(_format_linkedin_post(
             llm_generate(retry, max_tokens=1024, temperature=0.9)), industry)
-        v2 = _value_gate(post2, industry)
+        v2 = _value_gate(post2, industry, news_context)
         if v2.get("score", 0) >= verdict.get("score", 0):
             return post2
     return post
 
 
-def _value_gate(post: str, industry: str) -> dict:
-    """Score a finished post as a busy reader would. Fail-open: gate errors never block posting."""
+def _value_gate(post: str, industry: str, news_context: str = "") -> dict:
+    """Score a finished post as a busy reader would AND catch unverifiable stats before they
+    reach the author's real profile. Fail-open: gate errors never block posting."""
     from llm import generate_json
-    prompt = f"""You are a brutal, busy LinkedIn reader in the {industry} space, scrolling fast.
+    prompt = f"""You are a brutal, busy LinkedIn reader in the {industry} space, scrolling fast,
+who also fact-checks reflexively.
 
 POST:
 {post}
 
-Judge ONLY value delivered: does this teach, reveal, or argue something specific that a busy
-professional would be glad they read? Generic filler, vague motivation, obvious advice, or a
-post that says nothing a reader can use = fail.
+SOURCE NEWS the post was allowed to draw from (the ONLY place checkable facts may come from):
+{news_context or "(none provided)"}
 
-Return ONLY JSON: {{"score": 1-10, "passes": true or false (passes means score >= 7),
-"reason": "one line naming the biggest weakness"}}"""
+Judge on TWO axes:
+1. VALUE — does it teach, reveal, or argue something specific a busy pro is glad they read?
+   Generic filler, vague motivation, or obvious advice = fail.
+2. FACTUAL SAFETY — does it state any specific checkable fact (a named company's financials,
+   a precise percentage like "92%", a funding number, a product version, a study) that is NOT
+   present in the source news above? If yes, that is an automatic FAIL — those are fabrications
+   on the author's real profile.
+
+Return ONLY JSON: {{"score": 1-10, "passes": true or false (passes = score >= 7 AND no
+unverifiable stat), "reason": "one line naming the biggest problem (name the fabricated stat if any)"}}"""
     try:
         v = generate_json(prompt, max_tokens=300, temperature=0.2)
         return {"score": int(v.get("score", 7)), "passes": bool(v.get("passes", True)),
