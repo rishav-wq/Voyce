@@ -10,7 +10,7 @@
 | Tony Dinh's $22K week | Came from a launch tweet to **76K followers built over 2.5 years** | Not a 90-day outcome |
 | Tweet Hunter's $3K→$20K jump | Gave influencer J.K. Molina **up to 25% equity** to launch to his audience | Borrowed audience, not posting volume |
 
-**Day-90 success for Voyce = single-digit paying customers (~5-25 at ₹1,599) and a visibly
+**Day-90 success for Voyce = single-digit paying customers (~5-25 at ₹4,199) and a visibly
 more founder-heavy follower base.** Anyone promising faster is selling a course.
 
 ## What verifiably converts (in order of evidence strength)

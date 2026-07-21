@@ -14,8 +14,8 @@ RAZORPAY_KEY_ID        = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET    = os.getenv("RAZORPAY_KEY_SECRET", "")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
 
-# Amount in the currency's smallest unit (paise for INR). Default ₹2,499 ≈ $29.
-PRO_PRICE_AMOUNT   = int(os.getenv("PRO_PRICE_AMOUNT", "249900"))
+# Amount in the currency's smallest unit (paise for INR). Default ₹4,199 ≈ $49.
+PRO_PRICE_AMOUNT   = int(os.getenv("PRO_PRICE_AMOUNT", "419900"))
 PRO_PRICE_CURRENCY = os.getenv("PRO_PRICE_CURRENCY", "INR")
 PRO_DURATION_DAYS  = int(os.getenv("PRO_DURATION_DAYS", "31"))
 

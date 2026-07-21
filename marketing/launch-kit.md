@@ -41,8 +41,9 @@ free queues are fine. (Directory pricing changes often — if a site now demands
 **Categories/tags:** AI writing assistant · Social media · LinkedIn · Content generation ·
 Marketing · Personal branding · Copywriting
 
-**Pricing:** Freemium — Free: 5 generations. Pro: ₹1,599/month (~$19): unlimited generations,
-daily auto-posting, automated carousels.
+**Pricing:** Freemium — Free: 5 generations. Pro: ₹4,199/month (~$49): unlimited generations,
+auto-posting on your schedule, automated carousels. No auto-renewal — renew when you choose.
+*(Anchor in copy: a human LinkedIn ghostwriter runs $1,000–$5,000/month; never compare against $19 draft tools.)*
 
 **Founder:** Rishav Raj — https://www.linkedin.com/in/rishav-raj-177610262
 **Contact email:** rishav@knowella.com   (or the founder email you prefer public)

@@ -135,7 +135,8 @@ NEVER USE (instant AI tells):
 - Three-item lists in every paragraph (the rule-of-three tic)
 - game-changer, landscape, unlock, leverage, dive deep, revolutionize, thrilled, excited
   to share, in today's fast-paced world, at the end of the day, paradigm, synergy,
-  move the needle, learnings, impactful, groundbreaking, "the future of X is here"
+  move the needle, learnings, impactful, groundbreaking, "the future of X is here",
+  unleash, supercharge, 10x, "this will change everything"
 - Starting consecutive paragraphs with the same word
 - Corporate/academic register: programmatically, systemically, mimics, "information density",
   furthermore, moreover, "Ultimately,", "it is worth noting", "the takeaway is simple". Say it

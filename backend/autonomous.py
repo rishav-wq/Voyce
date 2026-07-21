@@ -348,9 +348,17 @@ NEVER USE (instant AI tells — automatic fail):
   bright, game-changer, dive deep, landscape, leverage, unlock potential, at the end of the
   day, in today's fast-paced world, I read something this week, thrilled to announce,
   excited to share, synergy, paradigm shift, move the needle, circle back, learnings,
-  impactful, groundbreaking.
+  impactful, groundbreaking, revolutionize, revolutionary, unleash, supercharge, 10x,
+  "this will change everything", "went viral" as a boast.
 - Em-dashes (—) or en-dashes (–): the single biggest AI tell. Use commas, periods, or
   parentheses. A plain hyphen is fine only inside a number range (e.g. 85-90%).
+
+THE BAR (what readers reward — aim every post at it):
+- One real datapoint: a specific fact from TODAY'S NEWS or the provided context, never invented.
+- One honest opinion: a take a reasonable peer could disagree with, not a platitude.
+- One lived detail: ONLY if AUTHOR CONTEXT supplies one (an experience, a project, a number
+  from their work). NEVER fabricate personal experience — if context has none, skip the
+  lived detail rather than invent it.
 """
 
 _COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT")

@@ -40,7 +40,7 @@ Send the message below. The offer *is* the trust mitigation: you do the setup, t
 >
 > Voyce learns your writing voice and posts for you daily — pulling real news in your space so it's never generic filler. I'm hand-onboarding a few founding users.
 >
-> Can I set it up in your voice and show you a week of posts it *would* publish? Free, and nothing goes live without your OK. If you like it, it's $29/mo locked as a founding member. No pitch — I just want you to see the output.
+> Can I set it up in your voice and show you a week of posts it *would* publish? Free, and nothing goes live without your OK. If you like it, it's $49/mo locked as a founding member. No pitch — I just want you to see the output.
 
 ### Email (cold / 2nd-degree)
 > **Subject: keeping your LinkedIn from going quiet (without writing it)**
@@ -51,7 +51,7 @@ Send the message below. The offer *is* the trust mitigation: you do the setup, t
 >
 > I built Voyce for exactly that: it learns your voice from your past posts, finds today's relevant news in your niche, and posts in your voice every day, on autopilot. The "never go quiet again" button.
 >
-> I'm hand-onboarding a handful of founding users. I'll set it up in your voice and show you a full week of posts it *would* publish — free, nothing goes live unless you say so. If it's good, $29/mo as a founding member, that price locked for you.
+> I'm hand-onboarding a handful of founding users. I'll set it up in your voice and show you a full week of posts it *would* publish — free, nothing goes live unless you say so. If it's good, $49/mo as a founding member, that price locked for you.
 >
 > Worth a 15-min setup? I do the work; you just tell me if the posts sound like you.
 >
@@ -65,9 +65,9 @@ Send the message below. The offer *is* the trust mitigation: you do the setup, t
 
 ## Week 3 — Convert to paid + harvest objections
 
-Move activated users to paying at $29 (founding-member framing). For **every** person, ask these two questions and record the **verbatim** answer — the wording is the data:
+Move activated users to paying at $49 (founding-member framing). For **every** person, ask these two questions and record the **verbatim** answer — the wording is the data:
 
-1. "Would you pay $29/mo for this?"
+1. "Would you pay $49/mo for this?"
 2. "Would you let it post *without* you approving each one first?"
 
 **Goal: 5 paying consultants.**
@@ -80,13 +80,13 @@ Move activated users to paying at $29 (founding-member framing). For **every** p
 |---|---|---|
 | ≥5 paid + most OK with unattended | Demand + trust validated. Customer score 🟡→🟢, panel ~10/12 | Build scale channels: `/money-seo` + `/money-content` |
 | They pay but won't allow unattended | Autopilot is the wrong hero | Approval queue becomes priority #1; reposition to "one-tap approve" |
-| They won't pay $29 | It's trust or ICP, not price | Read the objections; may need `/money-review-customer` or a different ICP |
+| They won't pay $49 | It's trust or ICP, not price | Read the objections; may need `/money-review-customer` or a different ICP |
 
 ---
 
 ## Tracker
 
-| # | Name | Source | Contacted | Activated | Sample shown | Paid? | "Would you pay $29?" (verbatim) | "Allow unattended?" (Y/N + verbatim) |
+| # | Name | Source | Contacted | Activated | Sample shown | Paid? | "Would you pay $49?" (verbatim) | "Allow unattended?" (Y/N + verbatim) |
 |---|------|--------|-----------|-----------|--------------|-------|-------------------------------|--------------------------------------|
 | 1 | | | | | | | | |
 | 2 | | | | | | | | |

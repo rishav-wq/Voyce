@@ -4,7 +4,7 @@
 
 ## One-liner
 
-**Voyce writes and posts your LinkedIn content every day, on autopilot — in your voice — so consultants who win clients on LinkedIn stay visible without writing a word.**
+**The AI ghostwriter that actually posts.** Every other tool hands you a draft. Voyce finds today's news in your niche, writes your take in your voice, and hits publish on schedule — while you're with clients. $49/mo, against the $1,000–$5,000/mo a human ghostwriter charges for the same outcome.
 
 ---
 
@@ -12,9 +12,13 @@
 
 **Primary ICP: independent B2B consultants, fractional executives, and coaches who get clients from LinkedIn.**
 
+**Beachhead within the beachhead: fractional executives.** ~110,000 LinkedIn profiles mention fractional leadership (up from ~2,000 in 2022), they're searchable by title, priced out of $800–1,500/mo solo-tier ghostwriters, and temperamentally delegators — the psychology that accepts "it's handled" over a draft queue. Outbound order: fractional execs → solo consultants → coaches. Founders are secondary: convert them when they arrive, never target them.
+
 For this person, LinkedIn visibility *is* pipeline. A quiet month on the feed is a quiet month of inbound. But writing a good post daily takes 30–60 minutes they don't have between client work — so they post in bursts, go silent for weeks, and the pipeline dries up. That inconsistency is the specific, expensive problem Voyce removes: one client won from one post pays for a year of Voyce many times over.
 
-*Also works for (secondary, not the wedge): startup founders building a personal brand, sales professionals, agencies managing multiple client pages, and content marketers repurposing long-form into LinkedIn. We lead with consultants because that's where "not posting" has the clearest, most immediate revenue cost.*
+*Also works for (secondary, not the wedge): startup founders building a personal brand and content marketers repurposing long-form into LinkedIn. We lead with consultants because that's where "not posting" has the clearest, most immediate revenue cost.*
+
+**Anti-ICP — who we say no to:** people who enjoy writing and want a better editor (keep your copilot — it's good at that); personal-story-heavy creators (autonomy can't source lived experience); corporate or regulated executives whose employer must review every post; employed salespeople (the budget holder is the employer, compliance kills unreviewed posting); agencies — *not yet*, until the approval queue ships; and anyone wanting engagement automation. No auto-DMs, no auto-connects, no pods, ever — that's the ban-risk category we position against.
 
 ---
 
@@ -26,7 +30,7 @@ For a consultant, LinkedIn is the cheapest client-acquisition channel there is �
 - Writing one good post takes 30–60 minutes, and it has to be consistent to compound
 - Between billable client work, "write today's post" is always the thing that slips
 - Generic AI tools (ChatGPT, LinkedIn's own AI writer) still make you prompt, edit, and copy-paste — every day
-- Ghostwriters cost ₹40,000–₹1,50,000/month and still need managing
+- Human LinkedIn ghostwriters run $1,000–$5,000/month (median $2–5K) — and still demand your interview time every week
 - Scheduling tools (Buffer, Hootsuite) only schedule — you still have to write everything first
 
 **The result:** consultants with genuine expertise post in bursts, go quiet for weeks, and stay invisible exactly when they need pipeline.
@@ -43,14 +47,14 @@ Set up once in 3 minutes. Voyce runs the entire loop, every day, unattended:
 
 No prompting. No copy-pasting. No ghostwriter. You open LinkedIn to replies, not a blank composer.
 
-**What makes this different from everything else:** other tools generate a draft you still have to review, schedule, and post. Voyce is the only one that closes the loop end-to-end — news → voice-matched post → published — with you out of the workflow entirely. (And when you *do* want control, the manual tool and preview mode are one click away — see Trust & Safety.)
+**What makes this different from everything else:** other tools generate a draft you still have to review, schedule, and post. Voyce is the only software that closes the loop on **today's news, unattended** — same-day niche news → voice-matched post → published, zero keystrokes. (ViralBrain auto-publishes, but only a pre-approved 30-day evergreen queue — it structurally can't react to yesterday's news. Autoposting.ai can auto-post but is multi-platform and dev-facing.) Voyce replaces the *habit*, not just the writing — and when you *do* want control, the manual tool and preview mode are one click away (see Trust & Safety).
 
 ---
 
 ## Features
 
-### 1. Autonomous Daily Posting
-- Set a post time once — Voyce writes and posts every day at that time, unattended
+### 1. Autonomous Posting, On Your Schedule
+- Set a post time once — Voyce writes and posts at that time, unattended
 - Rotating content schedule: Trend Reaction, Hot Take, Lesson Learned, Expert Insight, Stat Reaction, Personal Story — never repetitive
 - Pulls fresh news from the web every day (Tavily Search API) so posts are timely, not evergreen filler
 - Works for both personal brands and company pages
@@ -102,10 +106,11 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 | Buffer / Hootsuite | $15–99/mo | ✗ | ✗ | ✗ | ✗ (schedule only) |
 | Taplio | $39–199/mo | ✓ | ✗ | Partial | ✗ (queue) |
 | **Supergrow** | **$19/mo** | ✓ | ✓ | ✓ | ✗ (queue) |
-| Ghostwriter | $500–2000/mo | ✓ | ✓ | Sometimes | ✓ (human) |
-| **Voyce** | **$29/mo** | ✓ | ✓ | ✓ | **✓ (software)** |
+| ViralBrain | €69/mo (auto tier) | ✓ | ✓ | ✗ | Partial (pre-approved evergreen queue only — no live news) |
+| Ghostwriter | $1,000–5,000/mo | ✓ | ✓ | Sometimes | ✓ (human) |
+| **Voyce** | **$49/mo** | ✓ | ✓ | ✓ | **✓ (software, on today's news)** |
 
-**Honest read:** Voyce is *not* the cheapest — Supergrow does voice + carousels at $19. Voyce's real, defensible edge is the one column nobody else in software fills: it runs the whole loop unattended, daily, pulling live news and publishing on its own. Everyone else hands you a draft or a scheduled queue you still operate. Voyce is the only tool that replaces the *habit*, not just the *writing* — at 1/20th the cost of the one alternative that also does (a human ghostwriter).
+**Honest read:** Voyce is *not* the cheapest — Supergrow does voice + carousels at $19, and price is never our pillar. Voyce's real, defensible edge is the one column nobody else in software fills: it closes the whole loop on **today's news, unattended** — finds it, writes your take, publishes on schedule. Everyone else hands you a draft or a queue you still operate (ViralBrain auto-publishes only pre-approved evergreen content). Voyce is the only tool that replaces the *habit*, not just the *writing* — $49/mo against the $1,000–$5,000/mo of the one alternative that also removes you from the loop: a human ghostwriter, who still demands your interview time every week.
 
 ---
 
@@ -114,10 +119,10 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 | Plan | Price | Key limits |
 |---|---|---|
 | **Free** | $0 | 5 generations to try, manual tool only |
-| **Pro** | $29/mo | Unlimited, 3 profiles, full autopilot, carousels, analytics |
+| **Pro** | $49/mo (₹4,199) | Unlimited, 3 profiles, full autopilot, carousels, analytics — no auto-renewal, renew when you choose |
 | **Agency** *(coming soon)* | $79/mo | Unlimited, 10 profiles, priority support |
 
-**Value framing (Pro):** For a consultant, the comparison isn't "$29 vs a cheaper tool" — it's "$29 vs one more silent month of pipeline." One post that lands one discovery call pays for a year. Against a ghostwriter ($500–2000/mo) doing the same job, it's a rounding error.
+**Value framing (Pro):** For a consultant, the comparison isn't "$49 vs a cheaper tool" — it's "$49 vs one more silent month of pipeline." A dry pipeline this quarter is a decision made three months ago, one skipped post at a time. One post that lands one discovery call pays for a year. Against a ghostwriter ($1,000–5,000/mo) doing the same job, it's a rounding error — the ghostwriter outcome without the ghostwriter invoice.
 
 ---
 
@@ -161,7 +166,7 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 2. **Dashboard** (1m) — profile card, content calendar ("it already knows what to post this week"), plan banner
 3. **Run Now** (1.5m) — click Run, wait ~15s, show the generated post in Recent Activity, click through to the live LinkedIn post
 4. **Manual tool** (1m) — paste a URL → LinkedIn/Twitter/email/blog outputs; download a carousel PDF
-5. **Close on pricing** (30s) — "Free to try, no card. $29/mo for full autopilot. One client from one post pays for the year."
+5. **Close on pricing** (30s) — "Free to try, no card. $49/mo for full autopilot. One client from one post pays for the year."
 
 ---
 
