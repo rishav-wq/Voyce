@@ -1082,7 +1082,7 @@
         const typeClass  = isPersonal ? "personal" : "company";
         const style      = p.linkedin_analysis && p.linkedin_analysis.writing_style;
         const voiceLine  = style
-          ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span>`
+          ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#a29a8c;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
           : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#6c47ff;">add past posts to learn the real voice</a>`;
 
         return `<div class="profile-card" id="card-${p.id}">
@@ -1262,6 +1262,13 @@
 
     function toggleLiPanel(id) {
       document.getElementById(`li-panel-${id}`).classList.toggle("open");
+    }
+
+    async function resetVoice(id) {
+      if (!(await voyceConfirm("Clear this profile's learned voice? New posts will use the selected tone until you add fresh past posts.", { title: "Reset voice", confirmText: "Reset" }))) return;
+      await fetch(`/companies/${id}/voice`, { method:"DELETE", headers: {"x-token": getToken()} });
+      toast("Learned voice cleared — posts fall back to your selected tone.", "");
+      loadProfiles();
     }
 
     // Shared by create AND edit: pushes any files chosen in the voice tabs to the backend.

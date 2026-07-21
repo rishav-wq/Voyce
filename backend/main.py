@@ -840,6 +840,20 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
         raise HTTPException(status_code=500, detail="Could not save the profile. Please try again.")
 
 
+@app.delete("/companies/{company_id}/voice")
+def reset_company_voice(company_id: str, x_token: str = Header(None)):
+    """Clear a profile's learned voice (style analysis + stored sample posts).
+
+    Posts fall back to the selected tone until the user teaches a fresh voice —
+    the escape hatch for voice trained on posts the user regrets."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    save_linkedin_data(company_id, {})
+    return {"ok": True}
+
+
 @app.get("/companies")
 def get_companies(x_token: str = Header(None)):
     user = _require_user(x_token)
