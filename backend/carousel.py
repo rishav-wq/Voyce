@@ -1970,7 +1970,9 @@ HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formul
 - Curiosity + pain:   "X mistakes quietly killing your Y"
 - Result + timeframe: "How I did X in Y days/weeks"
 - Framework promise:  "The X framework that got Y"
-- Data authority:     "I analyzed X. Here's what wins."
+- Data authority:     "New data: X. Here's what wins." — ONLY with a real, named source in the
+  deck; NEVER first-person research claims ("I analyzed", "I studied", "my data") unless the
+  provided content proves the author actually did it.
 Make it specific (use a real number/name where you can). NEVER generic titles like "Tips for X",
 "X Is Important", "Why X Matters", "The Future of X". subtext adds a fact or the promise — never
 restates the headline.
@@ -1992,8 +1994,10 @@ penalizes it. Never stack multiple asks.
 VOICE: if a voice/author profile is provided, write every slide the way that author talks.
 
 NEVER FABRICATE: do not invent first-person claims ("My conversion jumped", "I built", "we
-grew") unless that exact claim appears in the provided content or author profile. Attribute
-third-party results to their source ("Razorpay's report found...", "Founders interviewed said...").
+grew", "I analyzed") unless that exact claim appears in the provided content or author profile.
+Attribute third-party results to their source ("Razorpay's report found...", "Founders
+interviewed said..."). Any stat anywhere in the deck must name its source on the same slide or
+be cut — an unverifiable number is worse than no number.
 
 OUTPUT HYGIENE (strict):
 - No markdown (**, ##, backticks), no placeholder tokens like [X] or [Company], no numbered
