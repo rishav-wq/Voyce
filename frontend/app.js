@@ -643,17 +643,26 @@ async function attachGenerateImage() {
   const source = post || document.getElementById("content-input").value.trim();
   if (!source) { toast("Generate or write a post first.", "warn"); return; }
 
+  const imgStyle = (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration";
+  // Source cards render from the article's own page — they need the URL, not the post text.
+  const articleUrl = activeType === "url" ? document.getElementById("content-input").value.trim() : "";
+  if (imgStyle === "source" && !articleUrl) {
+    toast("Source cards need an article link — paste it in the Website URL tab first.", "warn");
+    _attachState(_attachB64 ? "has" : "empty");
+    return;
+  }
+
   await _refreshToken();
   _attachState("loading");
   try {
     const res = await fetch("/generate/image", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({
-        input_type: "text", content: source,
-        style: (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration",
-        profile_id: getActiveProfileId()
-      })
+      body: JSON.stringify(
+        imgStyle === "source"
+          ? { input_type: "url", content: articleUrl, style: "source", post_text: source, profile_id: getActiveProfileId() }
+          : { input_type: "text", content: source, style: imgStyle, profile_id: getActiveProfileId() }
+      )
     });
     const data = await res.json();
     if (!res.ok) {

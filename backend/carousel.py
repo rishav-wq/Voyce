@@ -1951,6 +1951,136 @@ def generate_caption_from_text(raw_text: str, company: dict = None) -> dict:
     return {"post_text": data.get("post_text", ""), "alt_text": data.get("alt_text", "")}
 
 
+def _capture_page_screenshot(url: str) -> Image.Image | None:
+    """Full-viewport capture of the article page via microlink (keyless free tier).
+    Returns a PIL image or None on any failure — never raises."""
+    import httpx
+    try:
+        r = httpx.get("https://api.microlink.io",
+                      params={"url": url, "screenshot": True, "meta": False}, timeout=25)
+        if r.status_code != 200:
+            return None
+        shot = ((r.json().get("data") or {}).get("screenshot") or {}).get("url")
+        if not shot:
+            return None
+        img = httpx.get(shot, timeout=20, follow_redirects=True)
+        if img.status_code == 200 and (img.headers.get("content-type") or "").startswith("image"):
+            return Image.open(io.BytesIO(img.content)).convert("RGB")
+    except Exception:
+        return None
+    return None
+
+
+def capture_source_receipt(url: str, post_text: str = "") -> bytes | None:
+    """Real-page citation receipt: capture the article -> Gemini-vision picks the most
+    relevant region (a chart the post cites, else the headline block) -> fixed top-crop
+    when vision is unavailable. None when the page couldn't be captured at all
+    (callers fall back to the rendered citation card)."""
+    page = _capture_page_screenshot(url)
+    if page is None:
+        return None
+    w, h = page.size
+
+    crop = None
+    try:
+        from llm import pick_image_region
+        buf = io.BytesIO()
+        page.save(buf, format="PNG")
+        box = pick_image_region(buf.getvalue(), post_text)
+        if box:
+            l, r_ = int(box["left"] * w), int(box["right"] * w)
+            t, b = int(box["top"] * h), int(box["bottom"] * h)
+            # Sanity: wide enough to read, tall enough to mean something, short enough
+            # to stay a receipt rather than a page dump.
+            if (r_ - l) >= w * 0.4 and h * 0.10 <= (b - t) <= h * 0.65:
+                crop = page.crop((l, t, r_, b))
+    except Exception:
+        crop = None
+
+    if crop is None:
+        # Headline-zone default: masthead + headline + byline live in the top ~37%.
+        crop = page.crop((0, 0, w, int(h * 0.375)))
+
+    buf = io.BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def render_source_card_png(meta: dict, company: dict = None) -> bytes:
+    """Citation receipt for the article a post reacts to — clipping style: black masthead
+    with the publication name, headline on paper, byline/date. Replaces hand-cropped
+    screenshots of the source and puts per-post provenance on the post itself.
+    meta: {publication, headline, author, date, domain}"""
+    rw = IMG_POST_W * _SCALE
+    pad_x = int(84 * _SCALE)
+    inner = rw - pad_x * 2
+    scratch = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+
+    pub      = (meta.get("publication") or meta.get("domain") or "Source").strip()[:42]
+    headline = (meta.get("headline") or "").strip()[:220] or "Untitled article"
+    author   = (meta.get("author") or "").strip()[:60]
+    date_s   = (meta.get("date") or "").strip()[:24]
+    domain   = (meta.get("domain") or "").strip()[:60]
+
+    # Headline: the biggest size that fits in ≤6 lines
+    f_head, head_lines = None, []
+    for s in (66, 60, 54, 48, 44):
+        f_try = _font(s * _SCALE, bold=True)
+        lines = _wrap(scratch, headline, f_try, inner)
+        if len(lines) <= 6:
+            f_head, head_lines = f_try, lines
+            break
+    if f_head is None:
+        f_head = _font(44 * _SCALE, bold=True)
+        head_lines = _wrap(scratch, headline, f_head, inner)[:6]
+    head_gap = int(14 * _SCALE)
+    h_head = _wrap_height(scratch, head_lines, f_head, head_gap)
+
+    mast_h   = int(120 * _SCALE)
+    gap_top  = int(72 * _SCALE)
+    kick_h   = int(30 * _SCALE)
+    gap_kick = int(44 * _SCALE)
+    gap_by   = int(58 * _SCALE)
+    by_h     = int(36 * _SCALE)
+    bottom   = int(84 * _SCALE)
+    rh = mast_h + gap_top + kick_h + gap_kick + h_head + gap_by + by_h + bottom
+
+    paper = (250, 247, 240)
+    ink   = (24, 21, 16)
+    gray  = (122, 115, 102)
+    img  = Image.new("RGB", (rw, rh), paper)
+    draw = ImageDraw.Draw(img)
+
+    # Masthead: black bar, publication name centered in white
+    draw.rectangle([0, 0, rw, mast_h], fill=(10, 10, 10))
+    f_pub = _font(46 * _SCALE, bold=True)
+    pw = _tw(draw, pub, f_pub)
+    ph = draw.textbbox((0, 0), pub, font=f_pub)[3]
+    draw.text(((rw - pw) // 2, (mast_h - ph) // 2 - int(4 * _SCALE)), pub,
+              font=f_pub, fill=(255, 255, 255))
+
+    y = mast_h + gap_top
+    f_kick = _font(26 * _SCALE, bold=True)
+    kick = "REPORTED" + (f"  ·  {date_s}" if date_s else "")
+    draw.text((pad_x, y), kick, font=f_kick, fill=gray)
+    y += kick_h + gap_kick
+    for ln in head_lines:
+        draw.text((pad_x, y), ln, font=f_head, fill=ink)
+        y += draw.textbbox((0, 0), ln, font=f_head)[3] + head_gap
+    y += gap_by - head_gap
+    f_by = _font(28 * _SCALE)
+    if author:
+        draw.text((pad_x, y), "By " + author, font=f_by, fill=gray)
+    if domain:
+        dw = _tw(draw, domain, f_by)
+        draw.text((rw - pad_x - dw, y), domain, font=f_by, fill=gray)
+
+    img = img.resize((IMG_POST_W, rh // _SCALE), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 # ── Manual carousel (from pasted content) ────────────────────────────────────
 
 _CAROUSEL_SYSTEM = """You are a world-class LinkedIn carousel strategist for founders and creators.

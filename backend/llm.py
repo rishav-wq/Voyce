@@ -148,6 +148,45 @@ def generate_vision(prompt: str, images: list[bytes], system: str = None,
 IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 
+def pick_image_region(image_bytes: bytes, post_text: str = "", model_name: str = None) -> dict | None:
+    """Vision: fractional bounding box of the page region that makes the best citation
+    receipt for a post — a chart/graphic the post cites when one is clearly present and
+    readable, else the headline block (masthead + headline + byline).
+    Returns {"top","bottom","left","right"} (0..1 floats) or None on any failure —
+    callers fall back to a fixed top-crop, so this can never break the feature."""
+    prompt = f"""This is a screenshot of an article web page. A LinkedIn post reacts to this article.
+
+POST (for relevance):
+{(post_text or "").strip()[:600] or "(not provided — default to the headline block)"}
+
+Pick ONE region to crop as the post's citation receipt image:
+- If the post's claim clearly cites a chart, table, or data graphic that is visible and
+  readable in the screenshot, choose that graphic's region.
+- Otherwise choose the headline block: publication masthead/name + headline + byline/date.
+Rules: keep full width unless a graphic is clearly bounded; region height between 15% and
+60% of the page; never include cookie banners, popups, video players, or unrelated sidebars.
+
+Return ONLY JSON: {{"top": 0.0, "bottom": 0.35, "left": 0.0, "right": 1.0}}"""
+    for attempt_model in ((model_name or MODEL), FALLBACK_MODEL):
+        try:
+            model = genai.GenerativeModel(attempt_model)
+            config = genai.GenerationConfig(max_output_tokens=_MIN_OUTPUT_TOKENS, temperature=0.1,
+                                            response_mime_type="application/json")
+            resp = model.generate_content(
+                [{"mime_type": "image/png", "data": image_bytes}, prompt],
+                generation_config=config, request_options={"timeout": 25})
+            raw = _safe_text(resp)
+            if not raw:
+                continue
+            data = json.loads(re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.M).strip())
+            box = {k: float(data[k]) for k in ("top", "bottom", "left", "right")}
+            if 0 <= box["top"] < box["bottom"] <= 1 and 0 <= box["left"] < box["right"] <= 1:
+                return box
+        except Exception:
+            continue
+    return None
+
+
 def generate_image(prompt: str, model_name: str = None) -> bytes:
     """Generate a single image from a text prompt using a Gemini image model.
     Returns raw image bytes (PNG/JPEG), or None if generation fails or is unavailable

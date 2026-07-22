@@ -306,6 +306,8 @@ class GenerateRequest(BaseModel):
     content: str
     style: str = "illustration"   # image posts: "illustration" (AI) | "card" (insight card)
     profile_id: str = ""          # which saved profile to write as (defaults to the first)
+    post_text: str = ""           # source cards: the post's text, so the smart crop knows
+                                  # which region of the article page the post actually cites
 
 
 class PostRequest(BaseModel):
@@ -665,6 +667,51 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
 
+def _fetch_article_meta(url: str) -> dict:
+    """og-tag scrape for the source-card receipt: publication, headline, author, date, domain."""
+    import html as _html
+    from urllib.parse import urlparse
+    import httpx
+    resp = httpx.get(url, follow_redirects=True, timeout=12,
+                     headers={"User-Agent": "Mozilla/5.0 (compatible; Voyce/1.0; +https://voyce.co.in)"})
+    resp.raise_for_status()
+    page = resp.text[:400_000]
+
+    def meta_tag(*names):
+        for n in names:
+            for pat in (
+                rf'<meta[^>]+(?:property|name)=["\']{n}["\'][^>]*content=["\']([^"\']+)',
+                rf'<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\']{n}["\']',
+            ):
+                m = re.search(pat, page, re.I)
+                if m:
+                    return _html.unescape(m.group(1)).strip()
+        return ""
+
+    headline = meta_tag("og:title", "twitter:title")
+    if not headline:
+        m = re.search(r"<title[^>]*>([^<]+)</title>", page, re.I)
+        headline = _html.unescape(m.group(1)).strip() if m else ""
+    # Publication titles often ride along as "Headline | Site" — strip the tail.
+    headline = re.split(r"\s+[|–—-]\s+(?=[A-Z][\w .]{2,30}$)", headline)[0].strip()
+
+    host = (urlparse(url).netloc or "").replace("www.", "")
+    publication = meta_tag("og:site_name") or host.split(".")[0].capitalize()
+    date_raw = meta_tag("article:published_time", "og:article:published_time", "date", "publishdate")[:10]
+    date_h = date_raw
+    try:
+        date_h = datetime.strptime(date_raw, "%Y-%m-%d").strftime("%b %d, %Y")
+    except ValueError:
+        pass
+    return {
+        "publication": publication,
+        "headline": headline,
+        "author": meta_tag("author", "article:author", "parsely-author"),
+        "date": date_h,
+        "domain": host,
+    }
+
+
 @app.post("/generate/image")
 async def generate_image_manual(request: GenerateRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
@@ -672,6 +719,38 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
     _rate_limit(f"gen:{user['id']}", 20)
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+    # "source" — citation receipt: real capture of the article page (vision-cropped to the
+    # most relevant region), falling back to a card rendered from the page's own metadata.
+    if request.style == "source":
+        target = request.content.strip()
+        if request.input_type != "url" or not target.lower().startswith("http"):
+            raise HTTPException(status_code=400,
+                                detail="Source cards need an article link — use the Website URL tab.")
+        import base64
+        from carousel import capture_source_receipt, render_source_card_png
+        try:
+            png_bytes = capture_source_receipt(target, request.post_text or "")
+        except Exception:
+            png_bytes = None
+        try:
+            meta = _fetch_article_meta(target)
+        except Exception:
+            meta = {}
+        if not png_bytes:
+            if not meta.get("headline"):
+                raise HTTPException(status_code=502,
+                                    detail="Couldn't read that article page for the source card.")
+            profile = _resolve_profile(user["id"], request.profile_id)
+            png_bytes = render_source_card_png(meta, profile or {"name": "Voyce"})
+        auth_module.increment_gens(user["id"])
+        return {
+            "post_text": "",
+            "image_base64": base64.b64encode(png_bytes).decode(),
+            "headline": meta.get("headline", ""),
+            "alt_text": f"Article headline from {meta.get('publication') or meta.get('domain') or 'the source'}",
+        }
+
     try:
         raw_text = process_input(request.input_type, request.content)
     except Exception as e:
