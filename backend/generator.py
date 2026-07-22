@@ -166,6 +166,10 @@ Hunt and fix:
 10. Fabricated specifics: any exact number, threshold, date, or "how the algorithm works" claim
     that isn't clearly from the source. Cut it or make it general. ONE made-up stat destroys the
     whole post's credibility, this is the most important check.
+10b. Borrowed authority: when the input is someone else's article, report, or data, the post
+    must NAME the source in the body ("Forbes' breakdown...", "per HubSpot's report"). Stating
+    another outlet's findings in the author's own voice, as if they discovered it, reads as
+    stolen expertise the moment anyone checks. Name the source once, naturally, no URL needed.
 11. Corporate/academic register (programmatically, systemically, mimics, "information density",
     "Ultimately,", furthermore): rewrite in plain, spoken English with contractions.
 12. LENGTH BLOAT: if the post runs past ~150 words without a specific fact justifying every
