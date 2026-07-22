@@ -734,7 +734,7 @@ def _get_post_type(company: dict) -> str:
         1 for e in log
         if e.get("company_id") == company_id
         and e.get("timestamp", "").startswith(today_str)
-        and e.get("status") in ("posted", "dry_run_fired")
+        and e.get("status") in ("posted", "dry_run_fired", "pending_approval")
     )
 
     # Use a hash of (company_id + date + runs_today) to pick from rotation
@@ -778,7 +778,7 @@ def get_post_type_info(company: dict) -> dict:
     # log is sorted chronologically (oldest to newest usually, or we can reverse it)
     # let's iterate in reverse
     for entry in reversed(log):
-        if entry.get("company_id") == company_id and entry.get("status") in ("posted", "dry_run_fired"):
+        if entry.get("company_id") == company_id and entry.get("status") in ("posted", "dry_run_fired", "pending_approval"):
             pt_label = entry.get("post_type", "")
             if pt_label:
                 recent.append(pt_label)
@@ -953,7 +953,7 @@ def _should_post_carousel(company: dict) -> bool:
 
 
 def run_for_company(company: dict, allow_free_manual: bool = False,
-                    post_type_override: str = "") -> dict:
+                    post_type_override: str = "", respect_approval: bool = True) -> dict:
     company_id = company["id"]
     is_personal = company.get("profile_type") == "personal"
     valid_types = set((PERSONAL_ROTATION if is_personal else COMPANY_ROTATION).values())
@@ -1008,20 +1008,17 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         )
         news_context = format_news_context(news_results)
 
+        import base64 as _b64
         if do_carousel:
             from carousel import generate_carousel_content, render_carousel_pdf
             content   = generate_carousel_content(company, news_context, post_type)
             pdf_bytes = render_carousel_pdf(content, company)
             post_text = content.get("post_text", "")
-            log_entry["post_text"] = post_text
-            result = li.upload_and_post_carousel(user_id, pdf_bytes, post_text, title=company["name"])
-            log_entry["post_urn"] = result.get("id", "")
-            log_entry["status"] = "posted"
-            auth_module.increment_gens(user_id)
-            logger.info(f"[Autonomous] Carousel posted for {company['name']}")
+            payload = {"format": "carousel", "post_text": post_text, "publish_text": post_text,
+                       "asset_b64": _b64.b64encode(pdf_bytes).decode(), "alt_text": "",
+                       "title": company["name"]}
         else:
             post_text = generate_autonomous_post(company, news_context, post_type)
-            log_entry["post_text"] = post_text
             card_png = _tweet_card_for(post_text, company) if post_type in TWEET_CARD_TYPES else None
             if card_png:
                 # The card already displays the hook line — don't repeat it as the text opener.
@@ -1029,15 +1026,28 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
                 first_idx = next((i for i, l in enumerate(lines) if l.strip()), 0)
                 rest = "\n".join(lines[first_idx + 1:]).strip()
                 text_for_post = rest if len(rest.split()) >= 40 else post_text
-                result = li.upload_and_post_image(
-                    user_id, card_png, text_for_post,
-                    alt_text=(lines[first_idx].strip()[:120] if lines else "post card"))
+                payload = {"format": "tweet_card", "post_text": post_text, "publish_text": text_for_post,
+                           "asset_b64": _b64.b64encode(card_png).decode(),
+                           "alt_text": (lines[first_idx].strip()[:120] if lines else "post card"),
+                           "title": company["name"]}
             else:
-                result = li.post_to_linkedin(user_id, post_text)
+                payload = {"format": "text", "post_text": post_text, "publish_text": post_text,
+                           "asset_b64": "", "alt_text": "", "title": company["name"]}
+
+        log_entry["post_text"] = payload["post_text"]
+        if respect_approval and company.get("approval_mode"):
+            pending_id = _save_pending(company, post_type, payload)
+            log_entry["status"] = "pending_approval"
+            log_entry["pending_id"] = pending_id
+            auth_module.increment_gens(user_id)
+            logger.info(f"[Autonomous] {POST_TYPE_LABELS.get(post_type, post_type)} held for approval "
+                        f"({company['name']})")
+        else:
+            result = _publish_payload(user_id, payload)
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
             auth_module.increment_gens(user_id)
-            logger.info(f"[Autonomous] {POST_TYPE_LABELS[post_type]} posted for {company['name']}")
+            logger.info(f"[Autonomous] {POST_TYPE_LABELS.get(post_type, post_type)} posted for {company['name']}")
 
     except Exception as e:
         log_entry["error"] = str(e)
@@ -1045,6 +1055,97 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
 
     _append_log(log_entry)
     return log_entry
+
+
+# ── Approval queue ────────────────────────────────────────────────────────────
+# "Ask me before it posts": scheduled runs generate the full post (news, text,
+# card/carousel asset) and hold it here instead of publishing. The user approves
+# or discards from the dashboard. News posts go stale, so unapproved items
+# expire after PENDING_TTL_HOURS rather than publishing outdated takes.
+
+PENDING_TTL_HOURS = 48
+
+
+def _publish_payload(user_id: str, payload: dict) -> dict:
+    """Publish a generated payload to LinkedIn — the single publish path shared by
+    immediate posting and later approval."""
+    import base64 as _b64
+    fmt = payload.get("format", "text")
+    if fmt == "carousel":
+        pdf = _b64.b64decode(payload.get("asset_b64", ""))
+        return li.upload_and_post_carousel(user_id, pdf, payload.get("publish_text", ""),
+                                           title=payload.get("title", ""))
+    if fmt == "tweet_card":
+        png = _b64.b64decode(payload.get("asset_b64", ""))
+        return li.upload_and_post_image(user_id, png, payload.get("publish_text", ""),
+                                        alt_text=payload.get("alt_text", "post card"))
+    return li.post_to_linkedin(user_id, payload.get("publish_text", ""))
+
+
+def _save_pending(company: dict, post_type: str, payload: dict) -> str:
+    """Store a held post. One pending item per profile: a fresh generation supersedes
+    any older unapproved one (yesterday's news post shouldn't linger as an option)."""
+    import uuid
+    db.pending_posts.update_many(
+        {"company_id": company["id"], "status": "pending"},
+        {"$set": {"status": "superseded"}})
+    pend = {
+        "id":           uuid.uuid4().hex[:12],
+        "user_id":      company.get("user_id", ""),
+        "company_id":   company["id"],
+        "company_name": company.get("name", ""),
+        "post_type":    POST_TYPE_LABELS.get(post_type, post_type),
+        "status":       "pending",
+        "created_at":   datetime.now().isoformat(),
+        **payload,
+    }
+    db.pending_posts.insert_one({**pend})
+    return pend["id"]
+
+
+def list_pending_posts(user_id: str) -> list:
+    """Pending items for the dashboard queue (assets excluded — they're big).
+    Lazily expires stale items first."""
+    cutoff = (datetime.now() - timedelta(hours=PENDING_TTL_HOURS)).isoformat()
+    db.pending_posts.update_many(
+        {"user_id": user_id, "status": "pending", "created_at": {"$lt": cutoff}},
+        {"$set": {"status": "expired"}})
+    return list(db.pending_posts.find(
+        {"user_id": user_id, "status": "pending"},
+        {"_id": 0, "asset_b64": 0}).sort("created_at", -1))
+
+
+def approve_pending_post(pending_id: str, user_id: str) -> dict:
+    """Publish a held post through the normal publish path. On publish failure the
+    item stays pending so the user can retry."""
+    pend = db.pending_posts.find_one({"id": pending_id, "user_id": user_id}, {"_id": 0})
+    if not pend or pend.get("status") != "pending":
+        return {"error": "not_found"}
+    result = _publish_payload(user_id, pend)  # raises on failure → item stays pending
+    db.pending_posts.update_one(
+        {"id": pending_id},
+        {"$set": {"status": "approved", "approved_at": datetime.now().isoformat()},
+         "$unset": {"asset_b64": ""}})
+    _append_log({
+        "company_id":   pend.get("company_id", ""),
+        "company_name": pend.get("company_name", ""),
+        "post_type":    pend.get("post_type", ""),
+        "post_format":  "carousel" if pend.get("format") == "carousel" else "text",
+        "timestamp":    datetime.now().isoformat(),
+        "status":       "posted",
+        "post_text":    pend.get("post_text", ""),
+        "post_urn":     result.get("id", ""),
+        "error":        "",
+    })
+    logger.info(f"[Approval] Pending post {pending_id} approved and published")
+    return {"status": "posted", "post_urn": result.get("id", "")}
+
+
+def discard_pending_post(pending_id: str, user_id: str) -> dict:
+    r = db.pending_posts.update_one(
+        {"id": pending_id, "user_id": user_id, "status": "pending"},
+        {"$set": {"status": "discarded"}, "$unset": {"asset_b64": ""}})
+    return {"ok": r.modified_count > 0}
 
 
 def _append_log(entry: dict):

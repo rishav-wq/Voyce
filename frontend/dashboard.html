@@ -713,6 +713,15 @@
       </div>
     </div>
 
+    <!-- Approval queue: posts Voyce wrote and is holding for the user's OK -->
+    <div id="pending-section" style="display:none;">
+      <div class="section-head">
+        <h2>Waiting for your approval</h2>
+        <a class="nav-link" onclick="loadPending()">Refresh</a>
+      </div>
+      <div id="pending-container"></div>
+    </div>
+
     <!-- Activity log -->
     <div class="activity-section">
       <div class="section-head">
@@ -925,6 +934,7 @@
       loadPlanBanner().then(() => {
         checkLinkedIn();
         loadProfiles();
+        loadPending();
       });
       if (window.location.hash === "#upgrade") openUpgradeModal();
       document.getElementById("p-tone").addEventListener("change", () => { personalToneTouched = true; });
@@ -1124,6 +1134,13 @@
                   ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
                 </select>
               </div>` : ""}
+              <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${!!p.approval_mode}" style="margin-bottom:6px;"
+                     aria-label="Approval queue for ${p.name}"
+                     onclick="toggleApproval('${p.id}')"
+                     onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleApproval('${p.id}');}">
+                <div class="carousel-toggle-switch ${p.approval_mode ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
+                <span class="carousel-toggle-label" style="font-weight:400;">Ask me before it posts <span style="color:#b3aa9b;">(writes on schedule, waits for your OK)</span></span>
+              </label>
               <div style="margin:8px 0 0 46px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
@@ -1262,6 +1279,64 @@
 
     function toggleLiPanel(id) {
       document.getElementById(`li-panel-${id}`).classList.toggle("open");
+    }
+
+    async function toggleApproval(id) {
+      await fetch(`/companies/${id}/approval`, { method: "PATCH", headers: { "x-token": getToken() } });
+      loadProfiles();
+    }
+
+    function _escHtml(s) {
+      return String(s || "").replace(/[&<>"']/g,
+        c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function loadPending() {
+      const section = document.getElementById("pending-section");
+      const box = document.getElementById("pending-container");
+      if (!section || !box) return;
+      let items = [];
+      try {
+        const res = await fetch("/pending", { headers: { "x-token": getToken() } });
+        if (res.ok) items = await res.json();
+      } catch (e) { /* leave hidden */ }
+      if (!items.length) { section.style.display = "none"; box.innerHTML = ""; return; }
+      section.style.display = "";
+      box.innerHTML = items.map(p => `
+        <div id="pending-${p.id}" style="border:1px solid #e8d9a0;background:#fffdf4;border-radius:12px;padding:16px 18px;margin-bottom:12px;">
+          <div style="font-size:12px;color:#a29a8c;margin-bottom:8px;">
+            <strong style="color:#6b6355;">${_escHtml(p.company_name)}</strong>
+            · ${_escHtml(p.post_type)} · ${p.format === "carousel" ? "PDF carousel" : p.format === "tweet_card" ? "text + tweet card" : "text post"}
+            · written ${new Date(p.created_at).toLocaleString()}
+          </div>
+          <div style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:12px;">${_escHtml(p.post_text)}</div>
+          <div style="display:flex;gap:8px;">
+            <button class="act-btn" style="background:#1c1813;color:#fff;" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
+            <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>
+          </div>
+        </div>`).join("");
+    }
+
+    async function approvePending(id, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = "Posting…"; }
+      try {
+        const res = await fetch(`/pending/${id}/approve`, { method: "POST", headers: { "x-token": getToken() } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "Publish failed — the post is still in your queue.");
+        toast("Approved — posted to LinkedIn.", "success");
+        loadPending();
+        loadLog();
+      } catch (err) {
+        toast(err.message, "error");
+        if (btn) { btn.disabled = false; btn.textContent = "✓ Approve & post"; }
+      }
+    }
+
+    async function discardPending(id) {
+      if (!(await voyceConfirm("Discard this post? Voyce will write a fresh one at the next scheduled run.", { title: "Discard post", confirmText: "Discard" }))) return;
+      await fetch(`/pending/${id}/discard`, { method: "POST", headers: { "x-token": getToken() } });
+      toast("Discarded.", "");
+      loadPending();
     }
 
     async function resetVoice(id) {

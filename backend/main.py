@@ -251,7 +251,9 @@ def _posted_within(log: list, company_id: str, now_naive: datetime, hours: int) 
     for e in log:
         if e.get("company_id") != company_id:
             continue
-        if e.get("status") not in ("posted", "dry_run_fired"):
+        # pending_approval counts as covered: the post was generated and is waiting on
+        # the user — a redeploy/catch-up must not regenerate and supersede it.
+        if e.get("status") not in ("posted", "dry_run_fired", "pending_approval"):
             continue
         try:
             ts = datetime.fromisoformat(e.get("timestamp", ""))
@@ -1030,6 +1032,48 @@ def toggle_carousel(company_id: str, request: CarouselPatch | None = None, x_tok
     return {"carousel_enabled": new_val, "carousel_theme": company.get("carousel_theme", "")}
 
 
+@app.patch("/companies/{company_id}/approval")
+def toggle_approval(company_id: str, x_token: str = Header(None)):
+    """Toggle 'ask me before it posts': scheduled runs hold posts for approval
+    instead of publishing. Managed by the card, like carousel settings."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    new_val = not company.get("approval_mode", False)
+    db.companies.update_one({"id": company_id}, {"$set": {"approval_mode": new_val}})
+    return {"approval_mode": new_val}
+
+
+@app.get("/pending")
+def pending_posts(x_token: str = Header(None)):
+    user = _require_user(x_token)
+    from autonomous import list_pending_posts
+    return list_pending_posts(user["id"])
+
+
+@app.post("/pending/{pending_id}/approve")
+def approve_pending(pending_id: str, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    from autonomous import approve_pending_post
+    try:
+        result = approve_pending_post(pending_id, user["id"])
+    except Exception:
+        logging.exception("pending approve failed")
+        raise HTTPException(status_code=502,
+                            detail="LinkedIn publish failed — the post is still in your queue; try again.")
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail="That post is no longer pending.")
+    return result
+
+
+@app.post("/pending/{pending_id}/discard")
+def discard_pending(pending_id: str, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    from autonomous import discard_pending_post
+    return discard_pending_post(pending_id, user["id"])
+
+
 @app.post("/companies/{company_id}/preview")
 def preview_post(company_id: str, x_token: str = Header(None)):
     """Generate a sample post for onboarding preview — does not count against gen limit, does not post."""
@@ -1064,7 +1108,9 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     override = (request.post_type if request else "") or ""
-    result = run_for_company(company, allow_free_manual=True, post_type_override=override)
+    # Manual "Post now" is explicit intent — it publishes immediately even in approval mode.
+    result = run_for_company(company, allow_free_manual=True, post_type_override=override,
+                             respect_approval=False)
     return result
 
 

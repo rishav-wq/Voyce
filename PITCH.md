@@ -89,9 +89,8 @@ Autopilot posts to *your* professional identity, so trust is the whole game. Voy
 - **Preview before you commit** — run any profile with "preview"/dry-run to see exactly what it would post, before arming autopilot. Watch it for a few days, then let it run.
 - **Every post is logged** — the manual tool and activity log show every post generated and published, with the news source it used. Nothing happens you can't see.
 - **Edit or pause anytime** — one click pauses a profile; the manual tool lets you generate, edit, then post when you'd rather steer.
+- **Approval queue ("ask me before it posts")** — flip one switch and Voyce still writes on your schedule, but holds each post for your one-tap OK instead of publishing. Approve it, discard it, or let it expire (held posts auto-expire after 48h so stale news never ships). Autopilot's convenience, your final say.
 - **Official LinkedIn API** — Voyce posts through LinkedIn's official OAuth + REST API (the same mechanism Buffer/Hootsuite use), not browser automation or cookie scraping. No account-safety gray area.
-
-*Roadmap: an optional approval queue ("review each post before it goes live") for users who want autopilot's convenience with a final human check.*
 
 ---
 
@@ -147,7 +146,7 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 > Voyce uses LinkedIn's official OAuth API — the same way Buffer and Hootsuite work. No browser automation, no cookie scraping.
 
 **"I don't trust an AI to post to my profile unattended."**
-> Start in preview mode — watch exactly what it would post for a few days before arming autopilot. Every post is logged with its source, you can edit or pause anytime, and an optional approve-before-post queue is on the roadmap.
+> Then don't — turn on "ask me before it posts." Voyce writes on your schedule and holds every post for your one-tap approval. Every post is logged with its source, you can edit or pause anytime, and when you're ready, full autopilot is one switch away.
 
 **"The content will sound generic."**
 > Voyce learns from your actual past posts (upload, paste, or screenshots) and your stated title, so it writes in your voice at your level of authority.
@@ -172,7 +171,6 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 
 ## What's Next (Roadmap)
 
-- **Approval queue** — optional "review before post" mode for cautious users (trust feature; priority)
 - **Always-on infrastructure** — move off Render free tier so daily autopilot never misses a slot *(see note below)*
 - **Stripe** — international billing alongside Razorpay
 - **Twitter/X auto-posting** — same autonomous loop for X
