@@ -1795,8 +1795,10 @@ def _with_brand_mark(img: Image.Image, brand: str, p: dict) -> Image.Image:
     return Image.alpha_composite(base, overlay).convert("RGB")
 
 
-def generate_ai_image_post(raw_text: str, company: dict = None) -> dict:
-    """LLM: pick the strongest idea → a concrete visual concept + caption for an AI illustration."""
+def generate_ai_image_post(raw_text: str, company: dict = None, force_format: str = None) -> dict:
+    """LLM: pick the strongest idea → a concrete visual concept + caption for an AI illustration.
+    force_format pins the output to one of scene|quote_card|list_card|tweet_card when the
+    user chose the format explicitly instead of letting the model pick."""
     from generator import _strip_markdown
     voice_section = ""
     if company:
@@ -1819,7 +1821,9 @@ If the connection needs a caption to make sense, discard the concept and pick a 
 
 Also return "key_line": the single most quotable line from the post itself (max 12 words,
 verbatim or lightly trimmed) — punchy enough to stand alone on a typographic card.
-
+{f'''
+REQUIRED FORMAT: "{force_format}" — the user chose this format explicitly. Design for exactly
+this format and set "format" to this value.''' if force_format in ("scene", "quote_card", "list_card", "tweet_card") else ""}
 Return ONLY valid JSON:
 {{"format": "list_card|quote_card|tweet_card|scene", "image_concept": "... (scene only)",
 "card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...",
@@ -1851,6 +1855,8 @@ Return ONLY JSON: {{"post_text": "..."}}""",
             result["post_text"] = fix["post_text"]
 
     fmt = (result.get("format") or "").strip().lower()
+    if force_format in ("scene", "quote_card", "list_card", "tweet_card"):
+        fmt = force_format
     if fmt not in ("scene", "quote_card", "list_card", "tweet_card"):
         fmt = "scene" if (result.get("image_concept") or "").strip() else "quote_card"
     return {

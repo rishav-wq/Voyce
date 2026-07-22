@@ -649,7 +649,11 @@ async function attachGenerateImage() {
     const res = await fetch("/generate/image", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: "text", content: source, style: "illustration", profile_id: getActiveProfileId() })
+      body: JSON.stringify({
+        input_type: "text", content: source,
+        style: (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration",
+        profile_id: getActiveProfileId()
+      })
     });
     const data = await res.json();
     if (!res.ok) {

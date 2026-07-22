@@ -546,14 +546,18 @@
       </div>
       <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="4"></textarea>
       <div class="img-choice">
-        <label class="img-toggle" title="Also create an on-brand illustration for this post">
-          <input type="checkbox" id="add-image-toggle" />
+        <label class="img-toggle" title="Also create an on-brand image for this post">
+          <input type="checkbox" id="add-image-toggle" onchange="document.getElementById('img-style-row').style.display=this.checked?'flex':'none'" />
           <span class="img-toggle-track"><span class="img-toggle-thumb"></span></span>
-          <span class="img-toggle-text">Add an AI image<span class="img-toggle-sub"> — an on-brand illustration made from your post</span></span>
+          <span class="img-toggle-text">Add an AI image<span class="img-toggle-sub"> — made from your post</span></span>
         </label>
         <span class="img-choice-or">or</span>
         <button type="button" class="img-src-btn" onclick="attachTriggerUpload()">📤 Upload your own</button>
         <input type="file" id="attach-upload" accept="image/*" hidden onchange="attachHandleUpload(event)" />
+      </div>
+      <div id="img-style-row" style="display:none;gap:16px;align-items:center;flex-wrap:wrap;margin:8px 0 0 2px;font-size:13px;color:#6b6355;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="illustration" checked> AI illustration</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="tweet"> Tweet card <span style="color:#a29a8c;">(high-reach format)</span></label>
       </div>
       <div class="btn-row">
         <button class="generate-btn" id="generate-btn" onclick="generate()">
