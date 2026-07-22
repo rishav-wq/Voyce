@@ -155,7 +155,9 @@ def generate_image(prompt: str, model_name: str = None) -> bytes:
     name = model_name or IMAGE_MODEL
     try:
         model = genai.GenerativeModel(name)
-        resp = model.generate_content(prompt)
+        # Hard timeout: a hung image call must never hold the HTTP request open past the
+        # proxy's limit — callers fall back to a rendered card, which beats a dead connection.
+        resp = model.generate_content(prompt, request_options={"timeout": 30})
         for cand in (resp.candidates or []):
             parts = getattr(getattr(cand, "content", None), "parts", None) or []
             for part in parts:

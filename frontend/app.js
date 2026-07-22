@@ -668,8 +668,11 @@ async function attachGenerateImage() {
     saveDraft();
     toast("Image added to your post.", "success");
   } catch (err) {
-    toast(err.message, "error");
-    _attachState(_attachB64 ? "preview" : "controls");
+    const msg = /failed to fetch|networkerror|load failed/i.test(err.message || "")
+      ? "The image took too long to generate. Your post is ready without it — or hit Regenerate to try again."
+      : err.message;
+    toast(msg, "error");
+    _attachState(_attachB64 ? "has" : "empty");
   }
 }
 
