@@ -82,6 +82,14 @@ PALETTES = {
         "body":     (60,  56,  50),    # dark warm grey
         "muted":    (196, 188, 174),   # light warm grey
     },
+    "fintech_navy": {                   # finance/tax brands — deep navy + azure
+        "bg":       (7,   16,  32),    # #071020 deep navy
+        "accent":   (0,   166, 231),   # #00a6e7 azure
+        "title":    (255, 255, 255),
+        "subtitle": (148, 176, 200),   # #94b0c8 blued grey
+        "body":     (205, 220, 235),   # #cddceb
+        "muted":    (52,  74,  100),   # #344a64
+    },
 }
 
 # ── Industry → palette mapping ────────────────────────────────────────────────
@@ -96,6 +104,7 @@ _ACCENT2 = {
     "warm_paper":  (13, 148, 136),    # cream/orange + deep teal
     "electric":    (167, 139, 250),   # black/lime + violet
     "warm_violet": (163, 230, 53),    # beige/violet + lime
+    "fintech_navy": (251, 191, 36),   # navy/azure + amber
 }
 
 
@@ -116,10 +125,14 @@ _INDUSTRY_MAP = {
     "cloud":         "dark_pro",
     "data":          "dark_pro",
     "engineering":   "dark_pro",
-    "finance":       "warm_dark",
+    "finance":       "fintech_navy",
+    "fintech":       "fintech_navy",
+    "tax":           "fintech_navy",
+    "banking":       "fintech_navy",
+    "insurance":     "fintech_navy",
     "consulting":    "warm_dark",
     "legal":         "warm_dark",
-    "accounting":    "warm_dark",
+    "accounting":    "fintech_navy",
     "real estate":   "warm_dark",
     "hr":            "warm_dark",
     "recruitment":   "warm_dark",
@@ -404,7 +417,21 @@ def _slide_hook_number_block(n_text: str, rest: str, kicker: str, subtext: str,
 
     pad_in = int(44 * _SCALE)
     inner_w = block_r - block_l - pad_in * 2
+    # Subtext strip: shrink to fit the block's width, then ellipsize on a word
+    # boundary as a last resort — a centered line that clips both edges reads as
+    # a rendering bug on the deck's most important slide.
+    sub_line = (subtext or "").upper().strip()[:64]
     f_small = _font(34 * _SCALE, semi=True)
+    if sub_line:
+        for s in (34, 30, 27, 24):
+            f_small = _font(s * _SCALE, semi=True)
+            if _tw(draw, sub_line, f_small) <= inner_w:
+                break
+        if _tw(draw, sub_line, f_small) > inner_w:
+            while sub_line and _tw(draw, sub_line + "…", f_small) > inner_w:
+                cut = sub_line.rsplit(" ", 1)[0].rstrip()
+                sub_line = cut if cut != sub_line else sub_line[:-2].rstrip()
+            sub_line = (sub_line + "…") if sub_line else ""
     rest_fit, f_rest, h_rest = _fit_text_to_box(
         draw, rest.upper(), inner_w, int(_RH * 0.28), [88, 78, 70, 62, 54], gap=int(10 * _SCALE), max_lines=3)
     small_h = draw.textbbox((0, 0), "X", font=f_small)[3]
@@ -426,7 +453,6 @@ def _slide_hook_number_block(n_text: str, rest: str, kicker: str, subtext: str,
     by0 = y0 + band_h
     draw.rectangle([block_l, by0, block_r, by0 + yellow_h], fill=a2)
     ty = by0 + pad_in
-    sub_line = (subtext or "").upper()[:44]
     if sub_line:
         sw = _tw(draw, sub_line, f_small)
         draw.text((block_l + (block_r - block_l - sw) // 2, ty), sub_line, font=f_small, fill=ink)
