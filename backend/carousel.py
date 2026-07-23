@@ -807,9 +807,10 @@ def _slide_cta_v3(headline: str, cta: str, total: int, brand: str, p: dict) -> I
     while (_tw(draw, cta_txt, f_cta) + int(80 * _SCALE)) > max_w and f_cta.size > int(20 * _SCALE):
         f_cta = _font(f_cta.size - int(2 * _SCALE), bold=True)
     ch = draw.textbbox((0, 0), cta_txt, font=f_cta)[3] + int(38 * _SCALE)
-    save_txt = "Save this for your next content sprint"
-    f_sv = _font(26 * _SCALE)
-    block = h_h + int(52 * _SCALE) + ch + int(28 * _SCALE) + draw.textbbox((0, 0), save_txt, font=f_sv)[3]
+    # No boilerplate save-line under the pill: the CTA already carries the ask, and a
+    # hardcoded generic ("...your next content sprint") leaks the wrong world onto
+    # every non-marketing brand's deck.
+    block = h_h + int(52 * _SCALE) + ch
     y = max(int(_RH * 0.2), (_RH - int(160 * _SCALE) - block) // 2)
 
     for line in _wrap(draw, h_fit, f_h, max_w):
@@ -822,9 +823,6 @@ def _slide_cta_v3(headline: str, cta: str, total: int, brand: str, p: dict) -> I
         cx0 = (_RW - cw - int(80 * _SCALE)) // 2
         _draw_rounded_rect(draw, cx0, y, cx0 + cw + int(80 * _SCALE), y + ch, ch // 2, _a2(p))
         draw.text((cx0 + int(40 * _SCALE), y + int(17 * _SCALE)), cta_txt, font=f_cta, fill=_INK_V3)
-        y += ch + int(28 * _SCALE)
-    sw = _tw(draw, save_txt, f_sv)
-    draw.text(((_RW - sw) // 2, y), save_txt, font=f_sv, fill=(164, 157, 179))
 
     _footer_v3(draw, total, total, p, on_dark=True, m=m)
     return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
