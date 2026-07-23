@@ -370,7 +370,10 @@ THE BAR (what readers reward — aim every post at it):
   lived detail rather than invent it.
 """
 
-_COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT")
+_COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT") + """
+COMPANY-PAGE EXCEPTION to the self-promotion ban: a post whose instructions explicitly make it
+a Product Spotlight IS the sanctioned product post — write it proudly there. The ban still
+applies to every other post type: educational posts teach, they never pivot into a pitch."""
 
 PERSONAL_PROMPTS = {
 
