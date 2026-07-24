@@ -95,6 +95,21 @@ def _get_person_id(user_id: str) -> str:
     return person_id
 
 
+def _escape_little_text(text: str) -> str:
+    """The /rest/posts Posts API parses `commentary` as LinkedIn 'little text', where
+    ( ) [ ] { } @ < > * _ ~ | \\ are reserved formatting tokens — an unescaped '('
+    silently truncated a live post at its first list item. Backslash-escape every
+    literal use. '#' is deliberately left alone so hashtags keep linking.
+    (The older ugcPosts path takes plain text and must NOT be escaped.)"""
+    out = []
+    for ch in text or "":
+        if ch in "\\|{}@[]()<>*_~":
+            out.append("\\" + ch)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, title: str = "Carousel") -> dict:
     access_token = get_token(user_id)
     if not access_token:
@@ -128,7 +143,7 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
     # Step 3: Create document post
     payload = {
         "author": f"urn:li:person:{person_id}",
-        "commentary": post_text,
+        "commentary": _escape_little_text(post_text),
         "visibility": "PUBLIC",
         "distribution": {
             "feedDistribution": "MAIN_FEED",
@@ -183,7 +198,7 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
     # Step 3: Create image post
     payload = {
         "author": f"urn:li:person:{person_id}",
-        "commentary": post_text,
+        "commentary": _escape_little_text(post_text),
         "visibility": "PUBLIC",
         "distribution": {
             "feedDistribution": "MAIN_FEED",
