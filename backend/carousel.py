@@ -1916,6 +1916,13 @@ def render_ai_image_png(content: dict, company: dict) -> bytes:
         img.save(buf, format="PNG")
         return buf.getvalue()
     if fmt == "tweet_card" and (content.get("card_headline") or content.get("key_line")):
+        # A tweet card is a hook, not a paragraph: the short line wins so the caption
+        # keeps the payoff (the "see more" click is the dwell signal that drives reach).
+        card_line = (content.get("card_headline") or content.get("key_line", "")).strip()
+        key_line = (content.get("key_line") or "").strip()
+        if key_line and len(card_line.split()) > 16 and len(key_line.split()) < len(card_line.split()):
+            card_line = key_line
+        content = {**content, "card_headline": card_line}
         handle = "@" + re.sub(r"[^a-z0-9]+", "", (brand or "voyce").lower())[:24]
         # Real photo avatar by convention: backend/assets/avatars/<name-slug>.png
         avatar_img = None
