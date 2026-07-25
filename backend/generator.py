@@ -212,13 +212,19 @@ def _build_voice_block(company: dict | None) -> str:
     if top_posts:
         if company.get("tone_shift") and company.get("tone"):
             # Deliberate, user-requested shift: keep the person, move the register.
-            parts.append(f"\nREAL POSTS BY THIS AUTHOR — keep their vocabulary, quirks, and "
-                         f"signature moves, but the author has asked to shift their register "
-                         f"toward '{company['tone']}'. Write like these posts, dialed toward that tone:")
+            parts.append(f"\nREAL POSTS BY THIS AUTHOR — study these to learn their vocabulary, "
+                         f"quirks, and signature moves, dialed toward a '{company['tone']}' register. "
+                         f"Match the VOICE, never the content:")
         else:
-            parts.append("\nREAL POSTS BY THIS AUTHOR — match this voice exactly:")
+            parts.append("\nREAL POSTS BY THIS AUTHOR — study these to learn the VOICE only:")
         for i, post in enumerate(top_posts[:5], 1):
             parts.append(f"--- Example {i} ---\n{post[:600]}")
+        # The examples teach how the author sounds, not what to say. Without this the
+        # model lifts hooks verbatim (it reused "my last 7 posts bombed" across posts).
+        parts.append("\nHOW TO USE THESE EXAMPLES: copy the author's sentence rhythm, vocabulary, "
+                     "tone, and structure. NEVER reuse their hooks, opening lines, or any specific "
+                     "phrase or sentence from them. Every post must open differently from all the "
+                     "examples above. If a line you are about to write appears in an example, rewrite it.")
 
     return "\n".join(parts)
 
