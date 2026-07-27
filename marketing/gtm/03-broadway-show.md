@@ -130,7 +130,7 @@ Then *listen*. Capture exact words in the tracker — these verbatims are the ma
 
 **R5 — Preview trial.** Voyce armed on their profile in preview/dry-run for a week; Rishav does the setup. Optionally send 1–3 sample posts in *their* voice first — "sounds like me" is the sale. Treat as interview #N of 10.
 
-**R6 — Paid ask (never before a week of previews).** Founding-member close: $49/mo (billed as ₹4,199), founding price locked, no auto-renewal. Record verbatim answers to the two validation questions ("would you pay $49?" / "would you allow it unattended?"). If "not for me": ask why (research gold), thank them, stay a commenter.
+**R6 — Paid ask (never before a week of previews).** Founding-member close: $49/mo (billed as ₹4,699), founding price locked, no auto-renewal. Record verbatim answers to the two validation questions ("would you pay $49?" / "would you allow it unattended?"). If "not for me": ask why (research gold), thank them, stay a commenter.
 
 **Voice discipline across all rungs:** the language bank — showing up, going quiet, the blank composer, burst-posting, while you're with clients, sounds like me, pipeline. Never: automate your LinkedIn, content at scale, zero-touch, AI-generated content, game-changing, or any stat you can't cite. No "Hope this finds you well." No exclamation points doing enthusiasm's job.
 

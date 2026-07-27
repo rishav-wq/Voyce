@@ -1,6 +1,6 @@
 # Voyce Manifesto
 
-> **STATUS: RATIFIED 2026-07-22.** All 10 §6 decisions ratified by the founder as drafted (see the ratification note at the top of §6). Pricing decided: **$49/mo (billed as ₹4,199) for all customers** — revised 2026-07-22 from the initial ₹2,499/$29 call, positioned as a founding price that rises once the approval queue + first testimonials land; regional India pricing deferred until geo-detected checkout exists. This copy is cleared for outreach, the site, and Voyce's own posts. §6.10 still applies: revisit exact narrative phrasing after the first 10 customer interviews.
+> **STATUS: RATIFIED 2026-07-22.** All 10 §6 decisions ratified by the founder as drafted (see the ratification note at the top of §6). Pricing decided: **$49/mo (billed as ₹4,699) for all customers** — revised 2026-07-22 from the initial ₹2,499/$29 call, positioned as a founding price that rises once the approval queue + first testimonials land; regional India pricing deferred until geo-detected checkout exists. This copy is cleared for outreach, the site, and Voyce's own posts. §6.10 still applies: revisit exact narrative phrasing after the first 10 customer interviews.
 >
 > **Sources:** `marketing/gtm/01-icp.md` (the spec — every stat and quote below traces to it) · `PITCH.md` (product truth). **Winning angle:** enemy (habit failure / the blank composer), with grafts from the customer-hero and category drafts.
 
@@ -117,7 +117,7 @@ Every other tool hands you a draft. Voyce finds the news, writes your take in yo
 
 ## 6. DECISIONS FOR THE FOUNDER
 
-> **RATIFICATION — 2026-07-22:** Items 1–3 and 5–10 **RATIFIED as drafted** (delegation-with-kill-switch posture, "aim at" quality hedge, "on schedule" cadence language, pointed tone, today's-news qualifier always attached, 1/35th split, trust-layer build priority, "keep your copilot" stays public, phrasing re-check after first 10 interviews). Item 4 **DECIDED: $49/mo, billed as ₹4,199, globally** (revised same day from the initial ₹2,499/$29 call) — founding price, rises with the approval queue + first testimonials; regional pricing deferred until geo-detected checkout is built. Requires updating the Razorpay amount (env `PRO_PRICE_AMOUNT=419900` in Render).
+> **RATIFICATION — 2026-07-22:** Items 1–3 and 5–10 **RATIFIED as drafted** (delegation-with-kill-switch posture, "aim at" quality hedge, "on schedule" cadence language, pointed tone, today's-news qualifier always attached, 1/35th split, trust-layer build priority, "keep your copilot" stays public, phrasing re-check after first 10 interviews). Item 4 **DECIDED: $49/mo, billed as ₹4,699, globally** (revised same day from the initial ₹2,499/$29 call) — founding price, rises with the approval queue + first testimonials; regional pricing deferred until geo-detected checkout is built. Requires updating the Razorpay amount (env `PRO_PRICE_AMOUNT=469900` in Render).
 
 *Original decision list preserved below for the record.*
 

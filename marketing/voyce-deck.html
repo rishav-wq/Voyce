@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Voyce — Company Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c1813;
+    --ink-soft:#6f6a5f;
+    --ink-faint:#a59c8d;
+    --paper:#f4f0e8;
+    --paper-2:#ece5d8;
+    --card:#fffdf8;
+    --line:#e3ddd0;
+    --line-2:#d6cdbb;
+    --accent:#6c47ff;
+    --accent-deep:#5634e6;
+    --accent-wash:#efe9ff;
+    --success:#1aa07a;
+    --display:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+    --body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --serif:'Fraunces',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper-2);font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased;}
+
+  /* Screen: stack slides with breathing room; Print: one slide per landscape page */
+  .deck{display:flex;flex-direction:column;align-items:center;gap:24px;padding:32px 16px;}
+  .slide{
+    width:1280px;max-width:100%;aspect-ratio:16/9;background:var(--paper);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;
+    padding:72px 84px;display:flex;flex-direction:column;
+    box-shadow:0 1px 2px rgba(20,16,10,.04),0 24px 60px rgba(20,16,10,.10);
+  }
+  .slide.dark{background:var(--ink);color:var(--paper);border-color:#2b2620;}
+
+  .eyebrow{font-family:var(--body);font-size:14px;font-weight:600;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:12px;}
+  .eyebrow::before{content:"";width:30px;height:2px;background:var(--accent);display:inline-block;}
+  .dark .eyebrow{color:#b49bff;}
+  .dark .eyebrow::before{background:#b49bff;}
+
+  h1{font-family:var(--display);font-weight:700;letter-spacing:-.03em;line-height:1.02;text-wrap:balance;}
+  h2{font-family:var(--display);font-weight:600;letter-spacing:-.025em;line-height:1.05;font-size:46px;text-wrap:balance;}
+  .lead{font-size:21px;line-height:1.55;color:var(--ink-soft);max-width:60ch;text-wrap:balance;}
+  .dark .lead{color:#cfc7ba;}
+  .you{font-family:var(--serif);font-style:italic;font-weight:500;position:relative;padding:0 .03em;}
+  .you::after{content:"";position:absolute;left:.02em;right:.02em;bottom:.04em;height:.08em;background:var(--accent);border-radius:2px;opacity:.9;}
+
+  .grow{flex:1;}
+  .foot{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--ink-faint);
+    letter-spacing:.02em;padding-top:22px;border-top:1px solid var(--line);}
+  .dark .foot{border-color:#2b2620;color:#8c8578;}
+  .logo{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--ink);}
+  .dark .logo{color:var(--paper);}
+  .logo-mark{width:26px;height:26px;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;}
+
+  /* Cover */
+  .cover h1{font-size:74px;}
+  .cover .tag{margin-top:26px;font-size:23px;color:#cfc7ba;max-width:52ch;line-height:1.5;text-wrap:balance;}
+
+  /* Two-column */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:auto;margin-bottom:auto;}
+  .cardbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 30px;}
+  .cardbox h3{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.01em;margin-bottom:10px;}
+  .cardbox p{font-size:16px;line-height:1.55;color:var(--ink-soft);}
+  .cardbox .price{font-family:var(--display);font-weight:700;color:var(--accent);font-size:15px;letter-spacing:.02em;margin-bottom:6px;display:block;}
+
+  /* Steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:auto;margin-bottom:auto;}
+  .step .n{font-family:var(--display);font-size:15px;font-weight:700;color:var(--accent);letter-spacing:.02em;margin-bottom:12px;}
+  .step h3{font-family:var(--display);font-size:21px;font-weight:600;letter-spacing:-.01em;margin-bottom:8px;line-height:1.15;}
+  .step p{font-size:15.5px;line-height:1.5;color:var(--ink-soft);}
+
+  /* Trust list */
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:18px 40px;margin-top:auto;margin-bottom:auto;}
+  .check{display:flex;gap:14px;align-items:flex-start;}
+  .check .tick{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent-wash);color:var(--accent);
+    display:grid;place-items:center;font-weight:800;font-size:14px;margin-top:2px;}
+  .check b{font-family:var(--display);font-weight:600;font-size:18px;display:block;margin-bottom:3px;letter-spacing:-.01em;}
+  .check span{font-size:15px;color:var(--ink-soft);line-height:1.5;}
+
+  /* Comparison */
+  .compare{margin-top:auto;margin-bottom:auto;display:flex;flex-direction:column;gap:12px;}
+  .row{display:grid;grid-template-columns:200px 1fr;gap:22px;align-items:center;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 24px;}
+  .row.hi{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+  .row .who{font-family:var(--display);font-weight:600;font-size:17px;}
+  .row .who small{display:block;font-family:var(--body);font-weight:500;color:var(--ink-faint);font-size:13px;margin-top:2px;}
+  .row .what{font-size:15.5px;color:var(--ink-soft);line-height:1.5;}
+  .row.hi .what{color:var(--ink);}
+
+  /* Pricing */
+  .bigprice{font-family:var(--display);font-weight:700;letter-spacing:-.03em;font-size:96px;line-height:1;color:var(--ink);margin:6px 0 4px;}
+  .bigprice sup{font-size:44px;vertical-align:top;color:var(--accent);}
+  .bigprice .per{font-size:30px;color:var(--ink-faint);font-weight:500;}
+  .pnote{font-size:17px;color:var(--ink-soft);margin-top:4px;}
+
+  .kicker{font-family:var(--display);font-weight:600;font-size:30px;line-height:1.25;letter-spacing:-.02em;text-wrap:balance;max-width:22ch;}
+
+  @media (max-width:900px){
+    .slide{padding:40px 30px;}
+    .cover h1{font-size:44px;} h2{font-size:32px;} .kicker{font-size:22px;}
+    .cols,.steps,.checks{grid-template-columns:1fr;}
+    .bigprice{font-size:64px;}
+  }
+
+  @media print{
+    @page{size:1280px 720px;margin:0;}
+    body{background:#fff;}
+    .deck{gap:0;padding:0;}
+    .slide{box-shadow:none;border:none;border-radius:0;width:1280px;height:720px;aspect-ratio:auto;page-break-after:always;break-after:page;}
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- 1. Cover -->
+  <section class="slide dark cover">
+    <div class="eyebrow">Voyce</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;">
+      <h1>The AI ghostwriter<br>that actually posts.</h1>
+      <p class="tag">LinkedIn content in <span class="you">your</span> voice, published while you're with clients.</p>
+    </div>
+    <div class="foot">
+      <span class="logo"><span class="logo-mark">V</span>oyce</span>
+      <span>voyce.co.in</span>
+    </div>
+  </section>
+
+  <!-- 2. Problem -->
+  <section class="slide">
+    <div class="eyebrow">The problem</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;gap:26px;">
+      <h2>You win clients on LinkedIn.<br>It's also the first thing that slips.</h2>
+      <p class="lead">For a consultant or fractional exec, visibility <em>is</em> pipeline. But writing a good post takes 30 to 60 minutes you don't have between client work. So you post in bursts, go quiet for weeks, and the pipeline dries up right when you need it.</p>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>01</span></div>
+  </section>
+
+  <!-- 3. The cost -->
+  <section class="slide dark">
+    <div class="eyebrow">The real cost</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;gap:22px;">
+      <h1 style="font-size:52px;">A dry pipeline this quarter is a decision you made three months ago. <span class="you">One skipped post at a time.</span></h1>
+      <p class="lead">The invoice for going quiet always arrives a quarter late.</p>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>02</span></div>
+  </section>
+
+  <!-- 4. Old options -->
+  <section class="slide">
+    <div class="eyebrow">Today's options, both broken</div>
+    <div class="cols">
+      <div class="cardbox">
+        <h3>Do it yourself</h3>
+        <p>30 to 60 minutes every day, squeezed between billable work. "Write today's post" is always the thing that slips, and generic AI tools still make you prompt, edit, and paste. Every day.</p>
+      </div>
+      <div class="cardbox">
+        <h3>Hire a ghostwriter</h3>
+        <p>$1,000 to $5,000 a month, and you still manage them and sit for interview calls every week. The outcome is good. The cost, and the babysitting, are not.</p>
+      </div>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>03</span></div>
+  </section>
+
+  <!-- 5. Solution -->
+  <section class="slide">
+    <div class="eyebrow">The fix</div>
+    <h2 style="margin-bottom:8px;">Voyce runs the whole loop, unattended.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="n">01 — Finds</div>
+        <h3>Today's news in your niche</h3>
+        <p>Live web search every day, so posts are timely and specific, not evergreen filler.</p>
+      </div>
+      <div class="step">
+        <div class="n">02 — Writes</div>
+        <h3>Your take, in your voice</h3>
+        <p>Learned from your past posts. Your vocabulary, your rhythm, not generic AI slop.</p>
+      </div>
+      <div class="step">
+        <div class="n">03 — Publishes</div>
+        <h3>On your schedule</h3>
+        <p>At your chosen time, automatically. You open LinkedIn to replies, not a blank box.</p>
+      </div>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>No prompting. No copy-paste. No ghostwriter. &nbsp;·&nbsp; 04</span></div>
+  </section>
+
+  <!-- 6. Why different -->
+  <section class="slide">
+    <div class="eyebrow">Why it's different</div>
+    <h2 style="margin-bottom:6px;">The only tool that closes the loop<br>on <span class="you">today's</span> news, unattended.</h2>
+    <div class="compare">
+      <div class="row">
+        <div class="who">Draft tools<small>Taplio, Supergrow</small></div>
+        <div class="what">Hand you a draft you still edit, schedule, and post yourself. You keep the daily habit.</div>
+      </div>
+      <div class="row">
+        <div class="who">Human ghostwriter<small>$1,000–5,000/mo</small></div>
+        <div class="what">Does the whole job, but costs a client's fee and still needs your interview time every week.</div>
+      </div>
+      <div class="row hi">
+        <div class="who">Voyce<small>$49/mo</small></div>
+        <div class="what">Finds the news, writes your take in your voice, and hits publish. Replaces the habit, not just the writing.</div>
+      </div>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>05</span></div>
+  </section>
+
+  <!-- 7. Trust -->
+  <section class="slide">
+    <div class="eyebrow">Built to be trusted with your name</div>
+    <h2 style="margin-bottom:6px;">Delegation with a kill switch.</h2>
+    <div class="checks">
+      <div class="check"><span class="tick">✓</span><span><b>Preview before it goes live</b>Watch exactly what it would post for a few days before you arm it.</span></div>
+      <div class="check"><span class="tick">✓</span><span><b>Every post logged with its source</b>A full activity log citing the news each post reacted to. Nothing happens you can't see.</span></div>
+      <div class="check"><span class="tick">✓</span><span><b>Pause anytime, one click</b>You stay in control of your own professional identity, always.</span></div>
+      <div class="check"><span class="tick">✓</span><span><b>Official LinkedIn API</b>The same door Buffer and Hootsuite use. No scraping, no cookies, no account-safety gray area.</span></div>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>06</span></div>
+  </section>
+
+  <!-- 8. Voice -->
+  <section class="slide dark">
+    <div class="eyebrow">In your voice</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;gap:24px;">
+      <h1 style="font-size:52px;">It sounds like <span class="you">you</span>,<br>not generic AI.</h1>
+      <p class="lead">Voyce learns from your past posts, your vocabulary, sentence length, and tone. Text posts, branded PDF carousels, and image posts, all in your style, none of the AI-slop everyone has learned to scroll past.</p>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>07</span></div>
+  </section>
+
+  <!-- 9. Pricing -->
+  <section class="slide">
+    <div class="eyebrow">Pricing</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="bigprice"><sup>$</sup>49<span class="per"> / month</span></div>
+      <p class="pnote"><strong>Founding price.</strong> Billed as ₹4,699. No auto-renewal, renew only when you choose.</p>
+      <p class="lead" style="margin-top:26px;">A human ghostwriter doing this job runs $1,000 to $5,000 a month. One client won from one post pays for a year of Voyce many times over. The ghostwriter outcome, without the ghostwriter invoice.</p>
+    </div>
+    <div class="foot"><span class="logo"><span class="logo-mark">V</span>oyce</span><span>08</span></div>
+  </section>
+
+  <!-- 10. CTA -->
+  <section class="slide dark">
+    <div class="eyebrow">Next step</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;gap:24px;">
+      <h1 style="font-size:56px;">See a week of posts in <span class="you">your</span> voice. Free.</h1>
+      <p class="lead">I'll set Voyce up in your voice and show you exactly what it would publish for a week. Nothing goes live unless you say so. If it sounds like you, it's yours to keep running.</p>
+    </div>
+    <div class="foot">
+      <span class="logo"><span class="logo-mark">V</span>oyce</span>
+      <span>Rishav Raj &nbsp;·&nbsp; voyce.co.in</span>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

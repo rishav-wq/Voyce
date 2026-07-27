@@ -118,7 +118,7 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 | Plan | Price | Key limits |
 |---|---|---|
 | **Free** | $0 | 5 generations to try, manual tool only |
-| **Pro** | $49/mo (₹4,199) | Unlimited, 3 profiles, full autopilot, carousels, analytics — no auto-renewal, renew when you choose |
+| **Pro** | $49/mo (₹4,699) | Unlimited, 3 profiles, full autopilot, carousels, analytics — no auto-renewal, renew when you choose |
 | **Agency** *(coming soon)* | $79/mo | Unlimited, 10 profiles, priority support |
 
 **Value framing (Pro):** For a consultant, the comparison isn't "$49 vs a cheaper tool" — it's "$49 vs one more silent month of pipeline." A dry pipeline this quarter is a decision made three months ago, one skipped post at a time. One post that lands one discovery call pays for a year. Against a ghostwriter ($1,000–5,000/mo) doing the same job, it's a rounding error — the ghostwriter outcome without the ghostwriter invoice.
