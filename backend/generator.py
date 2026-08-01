@@ -100,6 +100,17 @@ WRITING CRAFT:
 - Concrete beats abstract in every sentence: real names, real numbers, real examples.
   Generic motivational lines and quote-style platitudes are treated as low-quality filler —
   every sentence must come from the author's actual experience or the source content.
+- THE NOVELTY TEST (the bar that separates "fine" from "worth following"): the post must teach
+  a sharp reader at least ONE thing they likely don't already know — a fresh number, a
+  development they missed, a named mechanism, a counterintuitive claim you then support.
+  If every sentence states something the reader already believes, the post is filler:
+  find the one non-obvious point in the source and build the post around IT.
+- AT LEAST ONE RECEIPT: every post carries one concrete, checkable specific from the source
+  or author's material — a stat with its source, a named company/tool/event, a real artifact.
+  Never invented. A post with zero receipts is an opinion column, and feeds are drowning in those.
+- NEVER STACK TRUISMS: two or more consensus statements in a row ("focus beats volume",
+  "quality over quantity", "consistency is key") is the single worst output this tool can
+  produce. One consensus line is allowed ONLY as setup for a specific or contrarian payoff.
 - HOLD ATTENTION (dwell time is a confirmed reach signal — the longer people read, the wider
   LinkedIn distributes): one idea per line, blank line between paragraphs, generous whitespace,
   and a shape that keeps pulling the eye down — a narrative arc, a numbered list of specifics,
@@ -179,6 +190,12 @@ Hunt and fix:
     simplified. Any word a 15-year-old wouldn't use daily gets swapped for the plain one.
 14. WEAK HOOK: if the first line runs past ~60 characters, tighten it until it hits. Move the
     tension forward; cut wind-up words.
+15. NO NEWS TEST: read the post and ask "what does a sharp reader learn that they didn't
+    already know?" If the answer is nothing — every line restates consensus (focus beats
+    volume, quality over quantity, alignment matters) — the post FAILS. Rebuild it around
+    the single most non-obvious specific in the source. Two consensus lines in a row is an
+    automatic rewrite; a post with zero checkable specifics (no number, no name, no artifact)
+    is an automatic rewrite.
 
 Preserve:
 - The opening line's claim (you may sharpen its wording, not change its idea)

@@ -368,6 +368,13 @@ THE BAR (what readers reward — aim every post at it):
 - One lived detail: ONLY if AUTHOR CONTEXT supplies one (an experience, a project, a number
   from their work). NEVER fabricate personal experience — if context has none, skip the
   lived detail rather than invent it.
+- THE NOVELTY TEST: the post must teach a sharp reader ONE thing they likely don't already
+  know — a fresh development, a specific number, a named mechanism, a counterintuitive but
+  supported claim. If every sentence states what the reader already believes, the post is
+  filler: find the most non-obvious point in the news and build the post around IT.
+- NEVER STACK TRUISMS: two consensus statements in a row ("focus beats volume", "consistency
+  is key", "quality over quantity") is the worst possible output. One consensus line is
+  allowed only as setup for a specific, sourced, or contrarian payoff.
 """
 
 _COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT") + """
