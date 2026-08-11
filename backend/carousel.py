@@ -1004,8 +1004,281 @@ def _draw_lift_skeleton(img: Image.Image, ox: int, oy: int, size: int, p: dict,
                angles.get("knee", "98°"), _RISK["medium"])
 
 
+# ---------------------------------------------------------------------------
+# Pose library — a set of illustrative side-view work postures, so a visual-first
+# deck can give EVERY point its own diagram instead of one repeated skeleton. Each
+# pose is data (joints/bones/props/angle-tags/risk) drawn by _draw_pose, and is
+# matched to a slide by keyword (_pick_pose). These are schematic teaching diagrams
+# of common postures — NOT a real assessment; angle read-outs are illustrative and
+# vary per slide so no two look identical. Real per-joint numbers only ever come
+# from the /generate/ergo-carousel data path (assessment_to_carousel).
+# ---------------------------------------------------------------------------
+_POSES = {
+    # bending to lift a box — NIOSH / manual-handling / back
+    "lift": {
+        "joints": {
+            "head": (0.70, 0.20), "neck": (0.56, 0.30), "shoulder": (0.56, 0.31),
+            "hip": (0.32, 0.47), "knee": (0.45, 0.67), "ankle": (0.39, 0.91),
+            "elbow": (0.63, 0.49), "wrist": (0.585, 0.67),
+            "kneeF": (0.52, 0.69), "ankleF": (0.47, 0.91),
+            "elbowF": (0.67, 0.51), "wristF": (0.63, 0.68),
+        },
+        "props": "box",
+        "tags": [("hip", -96, -10, "62°", "high"), ("knee", 24, 6, "98°", "medium")],
+        "risk": {"trunk": "high", "neck": "medium", "left_leg": "medium",
+                 "right_leg": "medium", "left_arm": "low", "right_arm": "low"},
+    },
+    # seated at a desk, forward head, typing — RULA / workstation / wrist / RSI
+    "seated": {
+        "joints": {
+            "head": (0.54, 0.14), "neck": (0.44, 0.22), "shoulder": (0.40, 0.27),
+            "hip": (0.30, 0.55), "knee": (0.60, 0.55), "ankle": (0.60, 0.92),
+            "elbow": (0.50, 0.44), "wrist": (0.66, 0.50),
+            "kneeF": (0.62, 0.57), "ankleF": (0.63, 0.93),
+            "elbowF": (0.48, 0.46), "wristF": (0.64, 0.52),
+        },
+        "props": "desk",
+        "tags": [("neck", 14, -34, "34°", "high"), ("wrist", 22, 10, "22°", "medium")],
+        "risk": {"neck": "high", "trunk": "medium", "left_arm": "medium",
+                 "right_arm": "medium", "left_leg": "low", "right_leg": "low"},
+    },
+    # standing neutral reference — REBA / dynamic / whole-body (mostly green)
+    "stand": {
+        "joints": {
+            "head": (0.50, 0.10), "neck": (0.50, 0.18), "shoulder": (0.50, 0.21),
+            "hip": (0.49, 0.51), "knee": (0.49, 0.72), "ankle": (0.50, 0.93),
+            "elbow": (0.53, 0.37), "wrist": (0.56, 0.53),
+            "kneeF": (0.51, 0.72), "ankleF": (0.52, 0.93),
+            "elbowF": (0.47, 0.37), "wristF": (0.44, 0.53),
+        },
+        "props": None,
+        "tags": [("hip", -84, -4, "5°", "low"), ("neck", 22, -6, "8°", "low")],
+        "risk": {"trunk": "low", "neck": "low", "left_leg": "low",
+                 "right_leg": "low", "left_arm": "low", "right_arm": "low"},
+    },
+    # reaching overhead to a shelf — reach / height / shoulder flexion
+    "reach": {
+        "joints": {
+            "head": (0.40, 0.12), "neck": (0.46, 0.20), "shoulder": (0.50, 0.27),
+            "hip": (0.47, 0.55), "knee": (0.48, 0.75), "ankle": (0.49, 0.93),
+            "elbow": (0.63, 0.15), "wrist": (0.73, 0.04),
+            "kneeF": (0.50, 0.75), "ankleF": (0.51, 0.93),
+            "elbowF": (0.59, 0.17), "wristF": (0.69, 0.07),
+        },
+        "props": "shelf",
+        "tags": [("shoulder", -112, 2, "148°", "high")],
+        "risk": {"left_arm": "high", "right_arm": "high", "neck": "medium",
+                 "trunk": "low", "left_leg": "low", "right_leg": "low"},
+    },
+    # pushing a cart, forward lean, staggered stance — Snook / push-pull
+    "push": {
+        "joints": {
+            "head": (0.66, 0.22), "neck": (0.56, 0.28), "shoulder": (0.54, 0.30),
+            "hip": (0.34, 0.50), "knee": (0.30, 0.72), "ankle": (0.24, 0.92),
+            "elbow": (0.66, 0.40), "wrist": (0.76, 0.44),
+            "kneeF": (0.50, 0.68), "ankleF": (0.62, 0.90),
+            "elbowF": (0.64, 0.42), "wristF": (0.74, 0.46),
+        },
+        "props": "cart",
+        "tags": [("hip", -96, -8, "38°", "medium")],
+        "risk": {"trunk": "medium", "left_arm": "high", "right_arm": "high",
+                 "neck": "medium", "left_leg": "low", "right_leg": "low"},
+    },
+}
+
+# keyword → pose. First match wins; order matters (specific before generic).
+_POSE_KEYWORDS = [
+    ("seated", ("seat", "sit", "desk", "computer", "workstation", "screen", "monitor",
+                "keyboard", "mouse", "office", "rula", "upper limb", "upper-limb",
+                "upper body", "upper-body", "wrist", "hand", "typing", "repetitive",
+                "rsi", "forearm", "strain index", "sedentary")),
+    ("push",   ("push", "pull", "snook", "cart", "trolley", "drag", "conveyor")),
+    ("reach",  ("reach", "overhead", "shelf", "above", "stretch", "extend")),
+    ("lift",   ("lift", "niosh", "load", "box", "spine", "back", "manual handling",
+                "weight", "rwl", "heavy", "carry", "bend", "stoop", "twist")),
+    ("stand",  ("stand", "reba", "dynamic", "whole-body", "whole body", "walk",
+                "floor", "posture", "baseline", "validate", "redesign")),
+]
+
+# per-slide angle jitter so a repeated pose never shows identical read-outs
+_ANGLE_VARIANTS = {
+    "lift":   {"hip": ["62°", "54°", "71°", "48°"], "knee": ["98°", "104°", "88°", "110°"]},
+    "seated": {"neck": ["34°", "28°", "41°"], "wrist": ["22°", "18°", "27°"]},
+    "reach":  {"shoulder": ["148°", "156°", "132°"]},
+    "push":   {"hip": ["38°", "44°", "31°"]},
+    "stand":  {"hip": ["5°", "3°", "7°"], "neck": ["8°", "5°", "11°"]},
+}
+
+
+def _pick_pose(title: str, body: str, idx: int) -> str:
+    t = f"{title} {body}".lower()
+    for name, kws in _POSE_KEYWORDS:
+        if any(k in t for k in kws):
+            return name
+    # no keyword hit → rotate through poses so a deck stays visually varied
+    order = ["lift", "seated", "stand", "push", "reach"]
+    return order[idx % len(order)]
+
+
+def _pose_angles(name: str, idx: int) -> dict:
+    return {jk: opts[idx % len(opts)] for jk, opts in _ANGLE_VARIANTS.get(name, {}).items()}
+
+
+def _draw_pose_props(img, draw, P, size, p, kind):
+    """Draw the object the worker interacts with (box/desk/shelf/cart) so the pose reads
+    as a real task, not a floating figure."""
+    if kind == "box":
+        wx, wy = P("wrist")
+        bw, bh = int(size * 0.20), int(size * 0.12)
+        bx0 = wx - int(bw * 0.5)
+        _draw_rounded_rect(draw, bx0, wy - int(6 * _SCALE), bx0 + bw, wy - int(6 * _SCALE) + bh,
+                           int(10 * _SCALE), _mix(p["bg"], (255, 255, 255), 0.14))
+        draw.rounded_rectangle([bx0, wy - int(6 * _SCALE), bx0 + bw, wy - int(6 * _SCALE) + bh],
+                               radius=int(10 * _SCALE), outline=p["subtitle"], width=max(2, int(3 * _SCALE)))
+    elif kind == "desk":
+        # Desk edge only in FRONT of the worker (right of the hands) so no line cuts
+        # through the body; a monitor stands on it facing the seated figure.
+        wx, wy = P("wrist")
+        dy = wy + int(size * 0.04)
+        dx1 = wx + int(size * 0.40)
+        draw.line([(wx - int(size * 0.06), dy), (dx1, dy)],
+                  fill=p["subtitle"], width=max(3, int(4 * _SCALE)))
+        mw, mh = int(size * 0.18), int(size * 0.22)
+        mx0 = wx + int(size * 0.16)
+        draw.rounded_rectangle([mx0, dy - mh, mx0 + mw, dy], radius=int(8 * _SCALE),
+                               outline=p["subtitle"], width=max(2, int(3 * _SCALE)))
+    elif kind == "shelf":
+        wx, wy = P("wrist")
+        draw.line([(wx - int(size * 0.22), wy - int(size * 0.03)),
+                   (wx + int(size * 0.30), wy - int(size * 0.03))],
+                  fill=p["subtitle"], width=max(3, int(5 * _SCALE)))
+    elif kind == "cart":
+        wx, wy = P("wrist")
+        bw, bh = int(size * 0.22), int(size * 0.30)
+        bx0 = wx + int(size * 0.04)
+        draw.rounded_rectangle([bx0, wy - int(bh * 0.5), bx0 + bw, wy + int(bh * 0.5)],
+                               radius=int(10 * _SCALE), outline=p["subtitle"], width=max(2, int(3 * _SCALE)))
+        # small wheels
+        for wxx in (bx0 + int(bw * 0.2), bx0 + int(bw * 0.8)):
+            _draw_circle(draw, wxx, wy + int(bh * 0.5) + int(size * 0.03), int(size * 0.028), p["muted"])
+
+
+def _draw_pose(img: Image.Image, ox: int, oy: int, size: int, p: dict,
+               pose: dict, angle_override: dict = None):
+    """Draw any pose from _POSES at (ox, oy), figure height ~= size. Same neon-glow,
+    risk-coloured, both-sides-for-depth treatment as the lift skeleton, but data-driven."""
+    joints = pose["joints"]
+    risk = pose.get("risk", {})
+    angle_override = angle_override or {}
+    wspan = int(size * 0.78)
+
+    def P(k):
+        x, y = joints[k]
+        return (ox + int(x * wspan), oy + int(y * size))
+
+    draw = ImageDraw.Draw(img)
+    gy = oy + int(0.94 * size)
+    draw.line([(ox - int(size * 0.05), gy), (ox + wspan + int(size * 0.05), gy)],
+              fill=p["muted"], width=max(2, int(3 * _SCALE)))
+    _draw_pose_props(img, draw, P, size, p, pose.get("props"))
+
+    # near/far bone sets are derived from whichever far joints the pose defines
+    near = [(("ankle", "knee"), "left_leg"), (("knee", "hip"), "left_leg"),
+            (("hip", "shoulder"), "trunk"), (("shoulder", "head"), "neck"),
+            (("shoulder", "elbow"), "left_arm"), (("elbow", "wrist"), "left_arm")]
+    far = [(("hip", "kneeF"), "right_leg"), (("kneeF", "ankleF"), "right_leg"),
+           (("shoulder", "elbowF"), "right_arm"), (("elbowF", "wristF"), "right_arm")]
+
+    for (a, b), rk in far:
+        if a in joints and b in joints:
+            draw.line([P(a), P(b)], fill=_mix(_risk_rgb(risk.get(rk, "low")), p["bg"], 0.5),
+                      width=int(11 * _SCALE))
+    for k in ("kneeF", "ankleF", "elbowF", "wristF"):
+        if k in joints:
+            _draw_circle(draw, *P(k), int(8 * _SCALE), _mix((255, 255, 255), p["bg"], 0.45))
+
+    glow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for (a, b), rk in near:
+        gd.line([P(a), P(b)], fill=_risk_rgb(risk.get(rk, "low")) + (170,), width=int(24 * _SCALE))
+    glow = glow.filter(ImageFilter.GaussianBlur(int(9 * _SCALE)))
+    img.paste(glow, (0, 0), glow)
+
+    draw = ImageDraw.Draw(img)
+    for (a, b), rk in near:
+        draw.line([P(a), P(b)], fill=_risk_rgb(risk.get(rk, "low")), width=int(14 * _SCALE))
+    _draw_circle(draw, *P("head"), int(size * 0.058), _risk_rgb(risk.get("neck", "low")))
+    for k in ("neck", "hip", "knee", "ankle", "elbow", "wrist", "shoulder"):
+        cx, cy = P(k)
+        _draw_circle(draw, cx, cy, int(12 * _SCALE), (255, 255, 255))
+        _draw_circle(draw, cx, cy, int(6 * _SCALE), _a2(p))
+    for (jk, dx, dy, text, lvl) in pose.get("tags", []):
+        jx, jy = P(jk)
+        _angle_tag(draw, jx + int(dx * _SCALE), jy + int(dy * _SCALE),
+                   angle_override.get(jk, text), _RISK[lvl])
+
+
+def _slide_concept(title: str, body: str, num: int, total: int, p: dict,
+                   teaser: str = "", label: str = "", step: int = None,
+                   pose_name: str = "lift", idx: int = 0) -> Image.Image:
+    """Visual-first body slide: a short claim + one supporting line up top, and a large
+    topic-matched posture diagram filling the lower two-thirds. This is what turns a
+    text-heavy deck into a visual one — every point earns its own picture."""
+    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+
+    if step:
+        f_giant = _font_black(300 * _SCALE)
+        pn = str(step).zfill(2)
+        draw.text((_RW - m - _tw(draw, pn, f_giant) + int(40 * _SCALE), -int(50 * _SCALE)), pn,
+                  font=f_giant, fill=p["bg"], stroke_width=max(3, int(3 * _SCALE)),
+                  stroke_fill=p["muted"])
+    _brand_lockup(img, p, m, on_dark=True)
+
+    y = int(_RH * 0.16)
+    lab = (label or (f"STEP {step}" if step else "")).upper()[:22]
+    if lab:
+        f_lab = _font(24 * _SCALE, bold=True)
+        lw = _tw(draw, lab, f_lab)
+        lh = draw.textbbox((0, 0), lab, font=f_lab)[3] + int(18 * _SCALE)
+        _draw_rounded_rect(draw, m, y, m + lw + int(32 * _SCALE), y + lh, lh // 2, p["accent"])
+        draw.text((m + int(16 * _SCALE), y + int(8 * _SCALE)), lab, font=f_lab, fill=p["bg"])
+        y += lh + int(28 * _SCALE)
+
+    t_fit, f_title, _ = _fit_text_to_box(
+        draw, title, max_w, int(_RH * 0.16), [64, 58, 52, 46], gap=int(10 * _SCALE), max_lines=2)
+    f_title = _font_black(f_title.size)
+    for line in _wrap(draw, t_fit, f_title, max_w):
+        draw.text((m, y), line, font=f_title, fill=p["title"])
+        y += draw.textbbox((0, 0), line, font=f_title)[3] + int(10 * _SCALE)
+    if body:
+        y += int(6 * _SCALE)
+        f_b = _font(29 * _SCALE)
+        for line in _wrap(draw, body[:150], f_b, int(max_w * 0.94))[:3]:
+            draw.text((m, y), line, font=f_b, fill=p["subtitle"])
+            y += draw.textbbox((0, 0), line, font=f_b)[3] + int(8 * _SCALE)
+
+    # Posture diagram: stand it on a baseline just above the footer, centered.
+    size = int(_RH * 0.40)
+    wspan = int(size * 0.78)
+    baseline = _RH - int(150 * _SCALE)
+    oy = min(baseline - size, y + int(30 * _SCALE))
+    oy = max(oy, y + int(24 * _SCALE))
+    ox = _RW // 2 - int(0.5 * wspan)
+    _draw_pose(img, ox, oy, size, p, _POSES.get(pose_name, _POSES["lift"]),
+               angle_override=_pose_angles(pose_name, idx))
+
+    _footer_v3(draw, num, total, p, on_dark=True, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
 def _slide_posture(title: str, subtext: str, num: int, total: int, p: dict,
                    teaser: str = "", risk: dict = None, score: str = "") -> Image.Image:
+    """Hero visual slide: the annotated lift-skeleton with a floating scorecard,
+    mirroring what AI Ergo burns into the video."""
+    risk = risk or {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"}
     """Hero visual slide: the annotated lift-skeleton with a floating scorecard,
     mirroring what AI Ergo burns into the video."""
     risk = risk or {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"}
@@ -2832,6 +3105,9 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     # Coherent dark body/recap slides for explicit brand themes (theme_spec) OR the
     # Knowella preset; industry/named-palette decks keep the cream editorial rhythm.
     p["_dark_slides"] = _is_dark(p) and (bool((company or {}).get("theme_spec")) or is_knowella)
+    # Visual-first mode: every point becomes a topic-matched posture diagram instead of
+    # a text card, so the deck is mostly pictures (KnowErgo is a visual product).
+    visual_mode = (company or {}).get("carousel_format") == "visual"
 
     name = (company or {}).get("name", "")
     # Cover rotation: number-led decks alternate between the editorial cover and the
@@ -2847,8 +3123,14 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     num = 2
     if context:
         first_teaser = c_slides[0].get("title", "") if c_slides else ""
-        slides.append(_slide_body_v3(context["title"], context["body"], num, total, name, p,
-                                     label="START HERE", teaser=first_teaser))
+        if visual_mode:
+            slides.append(_slide_concept(
+                context["title"], context["body"], num, total, p, teaser=first_teaser,
+                label="START HERE",
+                pose_name=_pick_pose(context["title"], context.get("body", ""), 0), idx=0))
+        else:
+            slides.append(_slide_body_v3(context["title"], context["body"], num, total, name, p,
+                                         label="START HERE", teaser=first_teaser))
         num += 1
     for i, s in enumerate(c_slides):
         # Auto-teaser from the NEXT slide's title — every swipe leaves an open loop
@@ -2868,6 +3150,11 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
         elif s.get("kind") == "stat" and s.get("stat"):
             slides.append(_slide_stat_v3(s["stat"], s.get("title", ""), s.get("body", ""),
                                          num, total, name, p, teaser=nxt))
+        elif visual_mode:
+            slides.append(_slide_concept(
+                s.get("title", ""), s.get("body", ""), num, total, p, teaser=nxt,
+                label=s.get("label", ""), step=i + 1,
+                pose_name=_pick_pose(s.get("title", ""), s.get("body", ""), i), idx=i))
         else:
             slides.append(_slide_body_v3(s.get("title", ""), s.get("body", ""), num, total,
                                          name, p, label=s.get("label", ""), step=i + 1,

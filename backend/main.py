@@ -326,7 +326,8 @@ class GenerateRequest(BaseModel):
     product_id: str = ""          # optional: which of the profile's products to anchor on
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
-    carousel_format: str = "standard"  # carousel look: "standard" | "posture" (KnowErgo
+    carousel_format: str = "standard"  # carousel look: "standard" | "visual" (every point
+                                       # gets its own posture diagram) | "posture" (single
                                        # skeleton hero) | "photo" (real annotated footage hero)
     carousel_theme: str = ""           # override the profile's carousel theme for this render
                                        # (e.g. "knowella_deep" for the Knowella brand look)
@@ -694,7 +695,18 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
         is_knowella = (profile or {}).get("carousel_theme") == "knowella_deep"
-        if request.carousel_format == "posture":
+        # Tell the renderer which look to use; "visual" routes every point to a diagram.
+        profile = {**(profile or {}), "carousel_format": request.carousel_format}
+        if request.carousel_format == "visual":
+            # Lead with the signature scorecard skeleton, then every point gets its own
+            # topic-matched posture diagram (illustrative — not a real assessment).
+            content.setdefault("content_slides", []).insert(0, {
+                "kind": "posture", "title": "This is what KnowErgo sees",
+                "body": "Every joint tracked, every angle scored, live.",
+                "risk": {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"},
+                "score": "REBA 8  ·  HIGH RISK",
+            })
+        elif request.carousel_format == "posture":
             # Prepend the KnowErgo skeleton hero — a product-explainer visual. Its
             # angles/score are illustrative of the product, not a real assessment.
             content.setdefault("content_slides", []).insert(0, {

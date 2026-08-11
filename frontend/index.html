@@ -593,13 +593,14 @@
       </div>
       <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b6355;flex-wrap:wrap;">
         <span>Brand:</span>
-        <select id="carousel-theme" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
+        <select id="carousel-theme" onchange="if(this.value==='knowella_deep'){var f=document.getElementById('carousel-format'); if(f&&f.value==='standard')f.value='visual';}" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
           <option value="">Profile theme</option>
           <option value="knowella_deep">Knowella (dark violet + teal, logo)</option>
         </select>
         <span>Format:</span>
         <select id="carousel-format" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
           <option value="standard">Text slides</option>
+          <option value="visual">Visual — a diagram on every slide</option>
           <option value="posture">+ Skeleton hero (illustrative)</option>
           <option value="photo">+ Real footage hero</option>
         </select>
