@@ -393,6 +393,7 @@ function restoreDraft() {
   const el = document.getElementById("linkedin-content");
   if (!d || !d.post || !el) return;
   el.textContent = d.post;
+  _makeEditable();
   _applyFold();
   _setPreviewAuthor();
   if (d.img) {
@@ -435,11 +436,104 @@ function toggleFold() {
 
 function renderOutputs(data) {
   document.getElementById("linkedin-content").textContent = data.linkedin_post || "";
+  _makeEditable();
   _applyFold();
   _setPreviewAuthor();
   if (!_attachIsUpload) attachRemove();   // keep a user-uploaded image; clear AI-generated ones
   saveDraft();
+  _pushHistory(data.linkedin_post || "");
+  document.getElementById("variants-row").style.display = "none";  // fresh post → clear old variants
   updateProgress();
+}
+
+// ── Editable post: the preview IS the editor (posting reads its textContent) ────
+let _editableWired = false;
+function _makeEditable() {
+  const el = document.getElementById("linkedin-content");
+  if (!el) return;
+  el.setAttribute("contenteditable", "true");
+  if (_editableWired) return;
+  _editableWired = true;
+  // On focus, unclamp so the whole post is editable; on blur, save + re-fold.
+  el.addEventListener("focus", () => {
+    el.classList.remove("li-clamp"); el.style.maxHeight = "";
+    const b = document.getElementById("li-see-more"); if (b) b.style.display = "none";
+  });
+  el.addEventListener("blur", () => { saveDraft(); _applyFold(); });
+}
+
+// ── Caption variations (2 alternates + the original) ──────────────────────────
+async function generateVariations() {
+  const post = (document.getElementById("linkedin-content").textContent || "").trim();
+  if (!post) { toast("Generate a post first, then I'll write alternate captions.", "warn"); return; }
+  await _refreshToken();
+  const row = document.getElementById("variants-row");
+  row.style.display = "";
+  row.innerHTML = `<div style="font-size:12.5px;color:#a29a8c;padding:6px 2px;">Writing a couple of alternate captions…</div>`;
+  try {
+    const res = await fetch("/generate/variations", {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ post, profile_id: getActiveProfileId() })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't write variations.");
+    _renderVariants([post, ...(data.variants || [])], 0);
+  } catch (e) {
+    row.innerHTML = `<div style="font-size:12.5px;color:#c0392b;padding:6px 2px;">${_escHtmlCreate(e.message)}</div>`;
+  }
+}
+function _renderVariants(variants, active) {
+  window._variants = variants;
+  const row = document.getElementById("variants-row");
+  row.innerHTML = `<div style="font-size:12px;font-weight:700;color:#6b6355;margin:2px 2px 8px;">Captions — pick one, then edit it below:</div>` +
+    variants.map((v, i) => `<button class="action-btn" style="display:block;width:100%;text-align:left;white-space:normal;line-height:1.4;margin-bottom:6px;${i === active ? "border-color:#6c47ff;background:#f4f2ff;" : ""}" onclick="pickVariant(${i})">
+      <b>${i === 0 ? "Original" : "Option " + i}</b> · ${_escHtmlCreate(v).slice(0, 120)}${v.length > 120 ? "…" : ""}</button>`).join("");
+}
+function pickVariant(i) {
+  const v = (window._variants || [])[i];
+  if (v == null) return;
+  const el = document.getElementById("linkedin-content");
+  el.textContent = v; _applyFold(); saveDraft();
+  _renderVariants(window._variants, i);
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// ── Generation history (this browser) ─────────────────────────────────────────
+const _HIST_KEY = "cm_history";
+function _pushHistory(text) {
+  if (!text || !text.trim()) return;
+  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
+  if (h[0] && h[0].text === text) return;   // dedupe consecutive identical
+  h.unshift({ text, ts: Date.now() });
+  h = h.slice(0, 25);
+  try { localStorage.setItem(_HIST_KEY, JSON.stringify(h)); } catch (_) {}
+}
+function toggleHistory() {
+  const p = document.getElementById("history-panel");
+  if (!p.style.display || p.style.display === "none") { _renderHistory(); p.style.display = ""; }
+  else p.style.display = "none";
+}
+function _renderHistory() {
+  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
+  const p = document.getElementById("history-panel");
+  if (!h.length) { p.innerHTML = `<div style="font-size:12.5px;color:#a29a8c;padding:8px 2px;">No history yet — posts you generate will show up here.</div>`; return; }
+  p.innerHTML = `<div style="font-size:12px;font-weight:700;color:#6b6355;margin:2px 2px 8px;">🕘 Recent generations <span style="font-weight:400;color:#a29a8c;">(this browser)</span></div>` +
+    h.map((it, i) => `<div style="border:1px solid #e6ded0;border-radius:8px;padding:9px 11px;margin-bottom:6px;">
+      <div style="font-size:12.5px;color:#333;line-height:1.45;max-height:44px;overflow:hidden;">${_escHtmlCreate(it.text).slice(0, 180)}${it.text.length > 180 ? "…" : ""}</div>
+      <div style="margin-top:7px;display:flex;gap:10px;align-items:center;">
+        <span style="font-size:11px;color:#a29a8c;">${new Date(it.ts).toLocaleString()}</span>
+        <button class="action-btn" onclick="loadFromHistory(${i})">Load &amp; edit</button>
+      </div></div>`).join("");
+}
+function loadFromHistory(i) {
+  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
+  const it = h[i]; if (!it) return;
+  const el = document.getElementById("linkedin-content");
+  el.textContent = it.text; _makeEditable(); _applyFold(); saveDraft();
+  document.getElementById("output-section").classList.add("visible");
+  document.getElementById("history-panel").style.display = "none";
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  toast("Loaded — edit it and post.", "success");
 }
 
 // ── Post Now ──────────────────────────────────────────────────────────────────
@@ -591,24 +685,16 @@ async function generateCarousel() {
   ]);
 
   try {
+    const fmtEl = document.getElementById("carousel-format");
     const res = await fetch("/generate/carousel", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId() })
+      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId(),
+                             carousel_format: fmtEl ? fmtEl.value : "standard" })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Carousel generation failed.");
-
-    _carouselPdfBase64 = data.pdf_base64;
-    document.getElementById("carousel-post-text").textContent = data.post_text || "";
-    const hookEl = document.getElementById("carousel-hook-label");
-    hookEl.textContent = data.hook ? `"${data.hook}"` : "";
-    const postBtn = document.getElementById("post-carousel-btn");
-    postBtn.textContent = "Post to LinkedIn";
-    postBtn.disabled = false;
-    document.getElementById("carousel-section").classList.add("visible");
-    markGenerated();
-    document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    _showCarouselResult(data);
     toast("Carousel ready! Download the PDF to preview.", "success");
   } catch (err) {
     showError(err.message);
@@ -617,6 +703,49 @@ async function generateCarousel() {
     btn.disabled = false;
     btnText.style.display = "inline";
     btnLoad.style.display = "none";
+  }
+}
+
+// Shared: drop a {pdf_base64, post_text, hook} result into the carousel preview + post UI.
+function _showCarouselResult(data) {
+  _carouselPdfBase64 = data.pdf_base64;
+  document.getElementById("carousel-post-text").textContent = data.post_text || "";
+  document.getElementById("carousel-hook-label").textContent = data.hook ? `"${data.hook}"` : "";
+  const postBtn = document.getElementById("post-carousel-btn");
+  postBtn.textContent = "Post to LinkedIn";
+  postBtn.disabled = false;
+  document.getElementById("carousel-section").classList.add("visible");
+  markGenerated();
+  document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Build a data carousel from a real KnowErgo assessment result JSON.
+async function generateErgoCarousel() {
+  const raw = (document.getElementById("ergo-json").value || "").trim();
+  if (!raw) { showError("Paste a KnowErgo assessment result JSON first."); return; }
+  let result;
+  try { result = JSON.parse(raw); }
+  catch (e) { showError("That's not valid JSON — paste the full /video/result response."); return; }
+  await _refreshToken();
+  const btn = document.getElementById("ergo-carousel-btn");
+  const bt = document.getElementById("ergo-btn-text"), bl = document.getElementById("ergo-btn-loader");
+  btn.disabled = true; bt.style.display = "none"; bl.style.display = "inline";
+  document.getElementById("error-banner").style.display = "none";
+  startGenProgress(["Reading the assessment…", "Scoring each joint…", "Designing the data slides…", "Rendering the PDF…"]);
+  try {
+    const res = await fetch("/generate/ergo-carousel", {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ result, profile_id: getActiveProfileId() })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't build the carousel from that assessment.");
+    _showCarouselResult(data);
+    toast("Data carousel ready from your assessment!", "success");
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    stopGenProgress();
+    btn.disabled = false; bt.style.display = "inline"; bl.style.display = "none";
   }
 }
 

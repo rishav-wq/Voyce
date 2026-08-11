@@ -591,6 +591,26 @@
           <span id="carousel-btn-loader" style="display:none;">Generating…</span>
         </button>
       </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b6355;flex-wrap:wrap;">
+        <span>Carousel format:</span>
+        <select id="carousel-format" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
+          <option value="standard">Standard (text slides)</option>
+          <option value="posture">+ KnowErgo skeleton hero <!-- illustrative product visual --></option>
+        </select>
+        <span style="color:#a29a8c;">applies to the Carousel PDF</span>
+      </div>
+
+      <details style="margin-top:14px;border:1px dashed #ddd6c8;border-radius:10px;padding:0 14px;">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#6b6355;padding:12px 0;">📊 Turn a KnowErgo assessment into a data carousel</summary>
+        <div style="padding:0 0 14px;">
+          <p style="font-size:12.5px;color:#8a8275;margin:0 0 8px;line-height:1.5;">Paste a KnowErgo <code>/video/result</code> JSON — you'll get per-joint risk bars, a body-map, and the worst-joint stat, with real numbers from the assessment.</p>
+          <textarea id="ergo-json" placeholder='Paste the assessment result JSON here…' rows="4" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border:1.5px solid #e0d9cc;border-radius:8px;"></textarea>
+          <button class="generate-btn secondary" style="margin-top:8px;" id="ergo-carousel-btn" onclick="generateErgoCarousel()">
+            <span id="ergo-btn-text">📊 Build data carousel</span>
+            <span id="ergo-btn-loader" style="display:none;">Generating…</span>
+          </button>
+        </div>
+      </details>
       <style>
         .img-choice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 2px;}
         .img-choice-or{font-size:12.5px;color:#8a8275;}
@@ -650,11 +670,15 @@
           <div class="card-header">
             <div class="platform-badge linkedin">LinkedIn preview</div>
             <div class="card-actions">
+              <button class="action-btn" onclick="generateVariations()" title="Write 2 alternate captions to choose from">✎ Captions</button>
+              <button class="action-btn" onclick="toggleHistory()" title="Your recent generations">🕘 History</button>
               <button class="action-btn" onclick="copyContent('linkedin-content')">Copy</button>
               <button class="action-btn" onclick="openSchedule()">Schedule</button>
               <button class="action-btn primary" id="post-now-btn" onclick="postToLinkedIn()">Post now</button>
             </div>
           </div>
+          <div id="variants-row" style="display:none;margin-bottom:12px;"></div>
+          <div id="history-panel" style="display:none;margin-bottom:12px;"></div>
           <div class="li-preview-head">
             <div class="li-avatar" id="li-avatar">Y</div>
             <div>
@@ -662,7 +686,8 @@
               <div class="li-sub">now · 🌐 Anyone</div>
             </div>
           </div>
-          <div class="card-body" id="linkedin-content"></div>
+          <div class="card-body" id="linkedin-content" contenteditable="true" spellcheck="true" title="Click to edit the post text directly"></div>
+          <div style="font-size:11px;color:#a29a8c;margin-top:4px;">✎ Click the text above to edit before posting.</div>
           <button type="button" class="li-see-more" id="li-see-more" style="display:none;" onclick="toggleFold()" title="Only these first lines show in the feed before someone taps">…see more</button>
 
           <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->

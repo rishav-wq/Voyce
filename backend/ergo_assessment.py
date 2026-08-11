@@ -166,7 +166,14 @@ def assessment_to_carousel(result: dict, frame_image: str | None = None,
 
     headline = (f"This task scored REBA {reba} — {risk}" if reba is not None
                 else "Here is exactly where the risk lived")
+    # LinkedIn caption for the carousel — grounded in the same real numbers.
+    caption_bits = [headline + "."]
+    if worst and worst["high"]:
+        caption_bits.append(
+            f"{worst['name']} spent {worst['high']}% of the clip past its risk threshold.")
+    caption_bits.append("Scored from one video by KnowErgo. Re-assess after the fix and prove the risk dropped.")
     return {
+        "post_text": " ".join(caption_bits),
         "hook_slide": {"headline": headline,
                        "subtext": "Scored from one video. Here is where the risk lived."},
         "content_slides": slides,

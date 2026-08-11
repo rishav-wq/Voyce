@@ -326,6 +326,20 @@ class GenerateRequest(BaseModel):
     product_id: str = ""          # optional: which of the profile's products to anchor on
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
+    carousel_format: str = "standard"  # carousel look: "standard" | "posture" (adds the
+                                       # KnowErgo skeleton hero — an illustrative product visual)
+
+
+class ErgoCarouselRequest(BaseModel):
+    result: dict                  # a KnowErgo GET /video/result/<id> JSON (real assessment)
+    profile_id: str = ""
+    product_id: str = ""
+
+
+class VariationsRequest(BaseModel):
+    post: str                     # an already-generated post to write alternate captions of
+    profile_id: str = ""
+    product_id: str = ""
 
 
 class PostRequest(BaseModel):
@@ -675,6 +689,15 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
         context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
+        if request.carousel_format == "posture":
+            # Prepend the KnowErgo skeleton hero — a product-explainer visual. Its
+            # angles/score are illustrative of the product, not a real assessment.
+            content.setdefault("content_slides", []).insert(0, {
+                "kind": "posture", "title": "This is what KnowErgo sees",
+                "body": "Every joint tracked, every angle scored, live.",
+                "risk": {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"},
+                "score": "REBA 8  ·  HIGH RISK",
+            })
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {
@@ -682,6 +705,66 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
             "pdf_base64": base64.b64encode(pdf_bytes).decode(),
             "hook":       content.get("hook_slide", {}).get("headline", ""),
         }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+
+
+@app.post("/generate/ergo-carousel")
+def generate_ergo_carousel(request: ErgoCarouselRequest, x_token: str = Header(None)):
+    """Turn a REAL KnowErgo assessment (GET /video/result JSON) into a data carousel —
+    per-joint risk bars, body-map, worst-joint stat — with numbers straight from the
+    assessment (this is the honest home for those data visuals). Renders to a PDF the
+    user can post like any other carousel."""
+    user = _require_user(x_token)
+    _check_gen_limit(user)
+    _rate_limit(f"gen:{user['id']}", 20)
+    try:
+        import base64
+        from carousel import render_carousel_pdf
+        from ergo_assessment import assessment_to_carousel
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        product_name = (profile or {}).get("product_name") or (profile or {}).get("name") or "KnowErgo"
+        content = assessment_to_carousel(request.result, product=product_name)
+        if not content:
+            raise HTTPException(status_code=400,
+                                detail="That doesn't look like a KnowErgo assessment result (no timeline data found).")
+        content.pop("_meta", None)
+        pdf_bytes = render_carousel_pdf(content, profile or {"name": product_name})
+        auth_module.increment_gens(user["id"])
+        return {
+            "post_text":  content.get("post_text", ""),
+            "pdf_base64": base64.b64encode(pdf_bytes).decode(),
+            "hook":       content.get("hook_slide", {}).get("headline", ""),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+
+
+@app.post("/generate/variations")
+def generate_variations(request: VariationsRequest, x_token: str = Header(None)):
+    """Given an already-generated post, write 2 alternate captions — same facts and
+    the author's voice, different hook/structure — so the user can pick the best.
+    Refinement of existing content, so it doesn't count against the gen limit."""
+    user = _require_user(x_token)
+    _rate_limit(f"gen:{user['id']}", 20)
+    if not request.post.strip():
+        raise HTTPException(status_code=400, detail="Generate a post first, then I can write variations.")
+    try:
+        from llm import generate_json
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        voice = _with_profile_context(profile, "").split("Content to repurpose:")[0].strip() if profile else ""
+        prompt = f"""{voice}
+
+The author wrote this LinkedIn post:
+\"\"\"{request.post[:1600]}\"\"\"
+
+Write 2 ALTERNATIVE versions of it. Keep the same core facts and the author's voice, but give each a DIFFERENT hook/opening and a different structure. Similar length. No new statistics, no hashtags unless the original used them. Never contradict any facts in the original.
+Return ONLY JSON: {{"variants": ["full post 1", "full post 2"]}}"""
+        data = generate_json(prompt, max_tokens=1600, temperature=0.85)
+        variants = [str(v).strip() for v in (data.get("variants") or []) if str(v).strip()][:3]
+        return {"variants": variants}
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
