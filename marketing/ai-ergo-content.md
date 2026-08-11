@@ -263,8 +263,34 @@ above). Add these as `content_slides` entries:
 **real KnowErgo assessment** (or a hand-built sample clearly marked illustrative) —
 never invented by the news-driven generator. So these visual slides belong to
 **assessment-driven or hand-authored** decks; the daily autopilot keeps using the
-text/stat slides (which carry no fabricated figures). Wiring live assessment JSON
-into a carousel is the natural next integration.
+text/stat slides (which carry no fabricated figures).
+
+### Assessment → carousel (automatic, real data)
+
+`backend/ergo_assessment.py` turns a real KnowErgo `GET /video/result/<id>` JSON
+straight into a `content` dict — every number pulled from the assessment, with
+per-body-part thresholds matching the customerweb postural-analysis UI so the
+carousel agrees with the app:
+
+```python
+from ergo_assessment import assessment_to_carousel, extract_annotated_frame
+from carousel import render_carousel_pdf
+
+# 1. (optional) grab an annotated still at the worst second for the hero photo
+content = assessment_to_carousel(result_json, product="KnowErgo")
+peak = content["_meta"]["peak_second"]
+extract_annotated_frame(result_json["video_file"], peak, "backend/assets/ergo-live.png")
+content = assessment_to_carousel(result_json, frame_image="ergo-live.png", product="KnowErgo")
+
+# 2. render — hero photo → risk-bars → body-map → worst-joint stat → CTA
+pdf = render_carousel_pdf(content, knowella_company_with_theme)
+```
+
+It picks the featured worker (richest timeline = the real subject), computes each
+joint's % time in low/medium/high, derives the body-map regions, reads peak REBA
+for the scorecard/headline, and names the worst joint in the takeaway — all from
+`data` + `timelines`. Sample from a schema-accurate synthetic result:
+`marketing/ai-ergo-samples/knowergo-from-assessment.pdf`.
 
 Sample renders (deep-dark Knowella Deep, logo on every slide): see
 `marketing/ai-ergo-samples/knowergo-carousel-v4.pdf` and `v4-slide-*.png`.
