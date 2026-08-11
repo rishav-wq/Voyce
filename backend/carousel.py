@@ -90,6 +90,14 @@ PALETTES = {
         "body":     (205, 220, 235),   # #cddceb
         "muted":    (52,  74,  100),   # #344a64
     },
+    "knowella_deep": {                  # Knowella brand — deep violet-black + violet/teal
+        "bg":       (22,  19,  46),    # #16132E
+        "accent":   (139, 130, 255),   # #8B82FF (brand violet #6E63FF, lifted for dark)
+        "title":    (255, 255, 255),
+        "subtitle": (169, 163, 216),   # #A9A3D8
+        "body":     (228, 225, 245),   # #E4E1F5
+        "muted":    (58,  53,  106),   # #3A356A
+    },
 }
 
 # ── Industry → palette mapping ────────────────────────────────────────────────
@@ -105,6 +113,7 @@ _ACCENT2 = {
     "electric":    (167, 139, 250),   # black/lime + violet
     "warm_violet": (163, 230, 53),    # beige/violet + lime
     "fintech_navy": (251, 191, 36),   # navy/azure + amber
+    "knowella_deep": (4, 180, 146),   # violet + Knowella teal #04B492
 }
 
 
@@ -2810,12 +2819,19 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     total = 1 + (1 if context else 0) + len(c_slides) + (1 if recap else 0) + 1
     # Copy so per-render brand context never mutates a shared PALETTES entry.
     p = dict(_get_palette(company))
+    # "knowella_deep" is a first-class brand preset: selecting it applies the dark
+    # palette AND the Knowella petal lockup, with no theme_spec / API key needed.
+    is_knowella = (company or {}).get("carousel_theme") == "knowella_deep"
     p["_logo"] = _load_brand_logo(company)
     p["_brand_name"] = (company or {}).get("brand_name", "") or (company or {}).get("name", "")
     p["_product"] = (company or {}).get("product_name", "")
-    # Coherent dark body/recap slides only for explicit brand themes; industry/
-    # named-palette decks keep the original cream editorial rhythm unchanged.
-    p["_dark_slides"] = _is_dark(p) and bool((company or {}).get("theme_spec"))
+    if is_knowella and p["_logo"] is None:
+        p["_logo"] = _load_brand_logo({"brand_logo": "knowella-mark.png"})
+        p["_brand_name"] = "Knowella"
+        p["_product"] = (company or {}).get("product_name") or (company or {}).get("name", "")
+    # Coherent dark body/recap slides for explicit brand themes (theme_spec) OR the
+    # Knowella preset; industry/named-palette decks keep the cream editorial rhythm.
+    p["_dark_slides"] = _is_dark(p) and (bool((company or {}).get("theme_spec")) or is_knowella)
 
     name = (company or {}).get("name", "")
     # Cover rotation: number-led decks alternate between the editorial cover and the

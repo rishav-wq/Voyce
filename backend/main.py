@@ -326,8 +326,10 @@ class GenerateRequest(BaseModel):
     product_id: str = ""          # optional: which of the profile's products to anchor on
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
-    carousel_format: str = "standard"  # carousel look: "standard" | "posture" (adds the
-                                       # KnowErgo skeleton hero — an illustrative product visual)
+    carousel_format: str = "standard"  # carousel look: "standard" | "posture" (KnowErgo
+                                       # skeleton hero) | "photo" (real annotated footage hero)
+    carousel_theme: str = ""           # override the profile's carousel theme for this render
+                                       # (e.g. "knowella_deep" for the Knowella brand look)
 
 
 class ErgoCarouselRequest(BaseModel):
@@ -687,8 +689,11 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         import base64
         from carousel import generate_carousel_from_text, render_carousel_pdf
         profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        if request.carousel_theme:
+            profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
         context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
+        is_knowella = (profile or {}).get("carousel_theme") == "knowella_deep"
         if request.carousel_format == "posture":
             # Prepend the KnowErgo skeleton hero — a product-explainer visual. Its
             # angles/score are illustrative of the product, not a real assessment.
@@ -698,6 +703,16 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
                 "risk": {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"},
                 "score": "REBA 8  ·  HIGH RISK",
             })
+        elif request.carousel_format == "photo":
+            # Real annotated footage hero — uses a configured frame, or a bundled
+            # KnowErgo frame when the Knowella brand is active.
+            frame = (profile or {}).get("frame") or ("ergo-frame-1.png" if is_knowella else "")
+            if frame:
+                content.setdefault("content_slides", []).insert(0, {
+                    "kind": "photo", "image": frame,
+                    "title": "This is what KnowErgo sees",
+                    "body": "Real footage — every joint tracked, every angle scored.",
+                })
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {

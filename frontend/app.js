@@ -686,11 +686,13 @@ async function generateCarousel() {
 
   try {
     const fmtEl = document.getElementById("carousel-format");
+    const themeEl = document.getElementById("carousel-theme");
     const res = await fetch("/generate/carousel", {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId(),
-                             carousel_format: fmtEl ? fmtEl.value : "standard" })
+                             carousel_format: fmtEl ? fmtEl.value : "standard",
+                             carousel_theme: themeEl ? themeEl.value : "" })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Carousel generation failed.");
