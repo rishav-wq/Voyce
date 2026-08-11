@@ -1089,23 +1089,101 @@ def discard_pending(pending_id: str, x_token: str = Header(None)):
 
 
 @app.post("/companies/{company_id}/preview")
-def preview_post(company_id: str, x_token: str = Header(None)):
-    """Generate a sample post for onboarding preview — does not count against gen limit, does not post."""
+def preview_post(company_id: str, product_id: str = "", post_type: str = "", seed: str = "",
+                 x_token: str = Header(None)):
+    """Generate a sample post ON DEMAND — the real autopilot pipeline (rotation
+    post-type + live news → post) but WITHOUT publishing and WITHOUT counting
+    against the gen limit. Works whether or not daily automation is on.
+    Optional: product_id anchors on a product's niche; post_type forces a type
+    (e.g. from a chosen idea); seed steers the post around a specific angle."""
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     try:
-        from autonomous import generate_autonomous_post, _get_post_type, POST_TYPE_LABELS
+        from autonomous import (generate_autonomous_post, _get_post_type, POST_TYPE_LABELS,
+                                COMPANY_ROTATION, PERSONAL_ROTATION)
         from search import search_industry_news, format_news_context
-        post_type = _get_post_type(company)
-        news_results = search_industry_news(company["industry"], company["name"], 3)
+        from products import get_product, product_view
+        product = get_product(company, product_id) if product_id else None
+        subject = product_view(company, product)   # company voice + product niche (or the company itself)
+        valid = set((PERSONAL_ROTATION if company.get("profile_type") == "personal"
+                     else COMPANY_ROTATION).values())
+        pt = post_type if post_type in valid else _get_post_type(company)
+        news_results = search_industry_news(
+            subject["industry"], subject["name"], 3, post_type=pt,
+            extra_angles=subject.get("search_angles") or [])
         news_context = format_news_context(news_results)
-        post_text = generate_autonomous_post(company, news_context, post_type)
-        return {"post": post_text, "post_type": POST_TYPE_LABELS.get(post_type, post_type)}
+        if seed.strip():
+            # A chosen idea: make the generator build the post around this angle.
+            news_context = f"PRIORITY ANGLE — write the post around this idea: {seed.strip()[:200]}\n\n" + news_context
+        post_text = generate_autonomous_post(subject, news_context, pt)
+        return {"post": post_text, "post_type": POST_TYPE_LABELS.get(pt, pt),
+                "product_name": subject.get("product_name", "")}
     except Exception:
         logging.exception("preview generation failed")
         raise HTTPException(status_code=502, detail="Could not generate a preview. Please try again.")
+
+
+@app.post("/companies/{company_id}/ideas")
+def suggest_ideas(company_id: str, product_id: str = "", x_token: str = Header(None)):
+    """Propose a short menu of post ideas for the coming days, tailored to the
+    profile (and product) and grounded in today's live news — spanning different
+    post types so the menu covers strategy, not five news reactions. Nothing is
+    posted; no gen-limit cost. Each idea can be expanded via /preview (post_type + seed)."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    _rate_limit(f"ideas:{user['id']}", 12)
+    try:
+        from autonomous import (COMPANY_ROTATION, PERSONAL_ROTATION, POST_TYPE_LABELS,
+                                POST_TYPE_DESCRIPTIONS)
+        from search import search_industry_news, format_news_context
+        from products import get_product, product_view
+        from llm import generate_json
+        product = get_product(company, product_id) if product_id else None
+        subject = product_view(company, product)
+        is_personal = company.get("profile_type") == "personal"
+        rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
+        types = list(dict.fromkeys(rotation.values()))
+        type_menu = "\n".join(
+            f"- {t}: {POST_TYPE_LABELS.get(t, t)}"
+            f"{' — ' + POST_TYPE_DESCRIPTIONS[POST_TYPE_LABELS[t]] if POST_TYPE_LABELS.get(t) in POST_TYPE_DESCRIPTIONS else ''}"
+            for t in types)
+        news = search_industry_news(subject["industry"], subject["name"], 6,
+                                    extra_angles=subject.get("search_angles") or [])
+        news_ctx = format_news_context(news)
+        who = subject.get("product_name") or subject.get("name", "")
+        prompt = f"""You are a LinkedIn content strategist for {who} ({subject.get('industry', '')}).
+Propose 5 DISTINCT post ideas for the coming days. Each must use a DIFFERENT post type from this menu — spread across the menu, do not repeat a type:
+{type_menu}
+
+Ground each idea in something real: prefer a specific item from the news below and name it; an evergreen angle (a core concept, a myth to bust, a how-to) is fine too — mark those with an empty source. Never invent a statistic or a source.
+NEWS:
+{news_ctx or '(no fresh news — propose evergreen angles from the niche)'}
+
+Return ONLY JSON:
+{{"ideas":[{{"hook":"the post's premise in <=14 words","post_type":"<one key from the menu>","why":"one line: why it lands or what it teaches","source":"exact news title it draws on, or empty if evergreen"}}]}}"""
+        data = generate_json(prompt, max_tokens=900, temperature=0.7)
+        src_url = {(n.get("title") or ""): (n.get("url") or "") for n in news}
+        ideas = []
+        for it in (data.get("ideas") or [])[:6]:
+            pt = str(it.get("post_type", "")).strip()
+            src = str(it.get("source", "")).strip()
+            ideas.append({
+                "hook": str(it.get("hook", "")).strip()[:160],
+                "post_type": pt,
+                "post_type_label": POST_TYPE_LABELS.get(pt, pt.replace("_", " ").title() if pt else "Post"),
+                "why": str(it.get("why", "")).strip()[:200],
+                "source": src[:160],
+                "source_url": src_url.get(src, ""),
+            })
+        ideas = [i for i in ideas if i["hook"]]
+        return {"ideas": ideas, "product_name": subject.get("product_name", "")}
+    except Exception:
+        logging.exception("idea generation failed")
+        raise HTTPException(status_code=502, detail="Could not generate ideas right now. Please try again.")
 
 
 class RunNowRequest(BaseModel):

@@ -1208,6 +1208,20 @@
             </div>
           </div>
 
+          <div style="border:1px solid #efe9e0;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              ${(p.products || []).filter(pr => pr.enabled !== false).length ? `<select id="prev-prod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+                <option value="">Preview: whole profile</option>
+                ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Preview: ${pr.name}</option>`).join("")}
+              </select>` : ""}
+              <button class="act-btn" onclick="suggestIdeas('${p.id}')">💡 Ideas for next posts</button>
+              <button class="act-btn" onclick="previewPost('${p.id}')">👁 Preview a post</button>
+              <span style="font-size:11.5px;color:#a29a8c;">plan or preview — nothing gets posted</span>
+            </div>
+            <div id="ideas-out-${p.id}" style="margin-top:0;"></div>
+            <div id="prev-out-${p.id}" style="margin-top:0;"></div>
+          </div>
+
           <div class="profile-actions">
             <button class="act-btn" onclick="editProfile('${p.id}')">Edit</button>
             <button class="act-btn" onclick="toggleLiPanel('${p.id}')">↻ Update voice</button>
@@ -1250,6 +1264,73 @@
 
     function isProRequired(data) {
       return typeof data.detail === "string" && data.detail.startsWith("PRO_REQUIRED");
+    }
+
+    // ── Content ideas menu (pillar-spanning, grounded in live news) ───────────
+    window._ideas = window._ideas || {};
+    async function suggestIdeas(id) {
+      const out = document.getElementById(`ideas-out-${id}`);
+      if (!out) return;
+      document.getElementById(`prev-out-${id}`).innerHTML = "";  // clear any prior preview
+      const psel = document.getElementById(`prev-prod-${id}`);
+      const pid = psel ? psel.value : "";
+      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#a29a8c;">Reading today's news and drafting ideas… (~10s, nothing is posted)</div>`;
+      try {
+        const res = await fetch(`/companies/${id}/ideas${pid ? `?product_id=${encodeURIComponent(pid)}` : ""}`,
+          { method: "POST", headers: { "x-token": getToken() } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Couldn't generate ideas.");
+        const ideas = data.ideas || [];
+        window._ideas[id] = ideas;
+        if (!ideas.length) { out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#a29a8c;">No ideas came back — try again.</div>`; return; }
+        out.innerHTML = `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">` + ideas.map((it, i) => `
+          <div style="border:1px solid #efe9e0;border-radius:9px;padding:10px 12px;">
+            <div style="font-size:13.5px;font-weight:600;color:#2f2b25;">${_escHtml(it.hook)}</div>
+            <div style="font-size:11.5px;color:#8a8272;margin-top:3px;">
+              <span style="color:#6c47ff;font-weight:600;">${_escHtml(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtml(it.why) : ""}${it.source ? ` · <span title="grounded in this source">📰 ${_escHtml(it.source)}</span>` : " · evergreen"}
+            </div>
+            <div style="margin-top:8px;"><button class="act-btn" onclick="previewIdea('${id}', ${i})">Preview this →</button></div>
+          </div>`).join("") + `</div>`;
+      } catch (e) {
+        out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#c0392b;">${_escHtml(e.message)}</div>`;
+      }
+    }
+
+    function previewIdea(id, i) {
+      const it = (window._ideas[id] || [])[i];
+      if (!it) return;
+      previewPost(id, it.post_type, it.hook);
+    }
+
+    // ── Preview a post on demand (real pipeline, nothing published) ───────────
+    async function previewPost(id, postType, seed) {
+      const out = document.getElementById(`prev-out-${id}`);
+      if (!out) return;
+      const psel = document.getElementById(`prev-prod-${id}`);
+      const pid = psel ? psel.value : "";
+      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#a29a8c;">Generating${seed ? " that idea" : " a preview"} from today's news… nothing is posted.</div>`;
+      try {
+        const qs = new URLSearchParams();
+        if (pid) qs.set("product_id", pid);
+        if (postType) qs.set("post_type", postType);
+        if (seed) qs.set("seed", seed);
+        const res = await fetch(`/companies/${id}/preview${qs.toString() ? "?" + qs.toString() : ""}`,
+          { method: "POST", headers: { "x-token": getToken() } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Preview failed.");
+        const tag = `${_escHtml(data.post_type || "Post")}${data.product_name ? " · " + _escHtml(data.product_name) : ""} · preview only`;
+        out.innerHTML = `
+          <div style="margin-top:12px;border:1px solid #e8d9a0;background:#fffdf4;border-radius:10px;padding:12px 14px;">
+            <div style="font-size:11.5px;font-weight:600;color:#a08a3a;margin-bottom:8px;">🕶 ${tag}</div>
+            <div style="white-space:pre-wrap;font-size:13px;color:#333;line-height:1.55;max-height:260px;overflow-y:auto;">${_escHtml(data.post)}</div>
+            <div style="margin-top:10px;display:flex;gap:8px;">
+              <button class="act-btn" onclick="previewPost('${id}')">↻ Regenerate</button>
+              <button class="act-btn" onclick="document.getElementById('prev-out-${id}').innerHTML=''">Close</button>
+            </div>
+          </div>`;
+      } catch (e) {
+        out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#c0392b;">${_escHtml(e.message)}</div>`;
+      }
     }
 
     // ── Products: multiple subjects under one profile ─────────────────────────

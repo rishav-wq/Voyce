@@ -33,17 +33,73 @@ async function loadProfilePicker() {
     const res = await fetch("/companies", { headers: { "x-token": getToken() } });
     if (!res.ok) return;
     _profiles = await res.json();
-    const wrap = document.getElementById("writing-as");
-    const sel  = document.getElementById("profile-picker");
-    if (!wrap || !sel || _profiles.length < 2) return;  // nothing to choose with 0-1 profiles
+    if (!_profiles.length) return;
     let active = getActiveProfileId();
     if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
     setActiveProfile(active);
-    sel.innerHTML = _profiles.map(p =>
-      `<option value="${p.id}" ${p.id === active ? "selected" : ""}>${p.name}${p.profile_type === "personal" ? "" : " · company"}</option>`
-    ).join("");
-    wrap.style.display = "flex";
+    const wrap = document.getElementById("writing-as");
+    const sel  = document.getElementById("profile-picker");
+    if (wrap && sel && _profiles.length >= 2) {  // only worth a picker with 2+ profiles
+      sel.innerHTML = _profiles.map(p =>
+        `<option value="${p.id}" ${p.id === active ? "selected" : ""}>${p.name}${p.profile_type === "personal" ? "" : " · company"}</option>`
+      ).join("");
+      wrap.style.display = "flex";
+    }
+    // Idea suggestions work with even a single profile
+    const ideasRow = document.getElementById("ideas-row");
+    if (ideasRow) ideasRow.style.display = "";
   } catch (_) {}
+}
+
+function _escHtmlCreate(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ── Post ideas on Create: pillar-spanning, grounded in live news ──────────────
+let _createIdeas = [];
+async function suggestIdeasCreate() {
+  const out = document.getElementById("ideas-out");
+  const pid = getActiveProfileId() || (_profiles[0] && _profiles[0].id);
+  if (!pid) { toast("Create a profile first, then I can suggest ideas.", "warn"); return; }
+  out.innerHTML = `<div style="font-size:13px;color:#8a8272;">Reading today's news and drafting ideas… (~10s, nothing gets posted)</div>`;
+  try {
+    const res = await fetch(`/companies/${pid}/ideas`, { method: "POST", headers: { "x-token": getToken() } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
+    _createIdeas = data.ideas || [];
+    if (!_createIdeas.length) { out.innerHTML = `<div style="font-size:13px;color:#8a8272;">No ideas came back — try again in a moment.</div>`; return; }
+    out.innerHTML = _createIdeas.map((it, i) => `
+      <div style="border:1.5px solid #e0d9cc;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">
+        <div style="font-size:14px;font-weight:600;color:#1c1813;line-height:1.35;">${_escHtmlCreate(it.hook)}</div>
+        <div style="font-size:12px;color:#8a8272;margin-top:4px;">
+          <span style="color:#6c47ff;font-weight:600;">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
+        </div>
+        <button type="button" class="img-src-btn" style="margin-top:10px;" onclick="useIdea(${i})">Use this idea →</button>
+      </div>`).join("");
+  } catch (e) {
+    out.innerHTML = `<div style="font-size:13px;color:#c0392b;">${_escHtmlCreate(e.message)}</div>`;
+  }
+}
+
+function useIdea(i) {
+  const it = _createIdeas[i];
+  if (!it) return;
+  const ta = document.getElementById("content-input");
+  if (!ta) return;
+  // Switch to Paste Text mode so the seed generates correctly (mirrors applySeedTopic)
+  const textTab = document.querySelector('.input-tab[data-type="text"]');
+  if (textTab) {
+    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
+    textTab.classList.add("active");
+    activeType = "text";
+  }
+  const parts = [`Write a ${it.post_type_label || "LinkedIn"} post about: ${it.hook}.`];
+  if (it.why) parts.push(it.why);
+  if (it.source) parts.push(`It should react to this from the news: "${it.source}".`);
+  ta.value = parts.join(" ");
+  ta.scrollIntoView({ behavior: "smooth", block: "center" });
+  generate();
 }
 function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
 function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
