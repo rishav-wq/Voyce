@@ -1157,6 +1157,10 @@
                 <span class="carousel-toggle-label" style="font-weight:400;">Ask me before it posts <span style="color:#b3aa9b;">(writes on schedule, waits for your OK)</span></span>
               </label>
               <div style="margin:8px 0 0 46px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                ${(p.products || []).length ? `<select id="runprod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+                  <option value="">Product: auto rotation</option>
+                  ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Product: ${pr.name}</option>`).join("")}
+                </select>` : ""}
                 <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
                   <option value="hot_take">Hot Take · with tweet card</option>
@@ -1176,6 +1180,32 @@
             ` : `
               <div style="font-size:11.5px;color:#a29a8c;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#b3aa9b;">(Pro)</span></div>
             `}
+          </div>
+
+          <div style="border:1px solid #efe9e0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${(p.products || []).length ? "8px" : "0"};">
+              <span style="font-size:12px;font-weight:600;color:#6b6355;">Products <span style="color:#b3aa9b;font-weight:400;">— each gets its own niche, news and carousel look</span></span>
+              <button class="act-btn" style="font-size:11.5px;padding:4px 10px;" onclick="toggleProductForm('${p.id}')">＋ Add product</button>
+            </div>
+            ${(p.products || []).map(pr => {
+              const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
+              const sw1 = pal.bg || pr.brand_color || "#f4f0e8";
+              const sw2 = pal.accent || "#6c47ff";
+              const off = pr.enabled === false;
+              return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;${off ? "opacity:.5;" : ""}">
+                <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #e0d9cc;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#a29a8c;">· ${pr.industry}</span>` : ""}</span>
+                <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#6c47ff;font-size:11.5px;">${off ? "enable" : "pause"}</a>
+                <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#6c47ff;font-size:11.5px;">↻ theme</a>
+                <a href="#" onclick="removeProduct('${p.id}','${pr.id}','${(pr.name || "").replace(/'/g, "\\'")}');return false;" style="color:#c0392b;font-size:11.5px;">✕</a>
+              </div>`;
+            }).join("")}
+            <div id="prod-form-${p.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #efe9e0;">
+              <input id="prod-name-${p.id}" placeholder="Product name (e.g. AI Ergo)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #e0d9cc;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
+              <input id="prod-url-${p.id}" placeholder="Product page URL (optional — Voyce reads it)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #e0d9cc;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
+              <input id="prod-ind-${p.id}" placeholder="Niche (e.g. workplace ergonomics, EHS)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #e0d9cc;border-radius:6px;margin-bottom:8px;font-family:inherit;" />
+              <button class="act-btn" id="prod-save-${p.id}" onclick="createProduct('${p.id}')">Save product</button>
+            </div>
           </div>
 
           <div class="profile-actions">
@@ -1207,9 +1237,10 @@
       const what = typeLabel ? `a ${typeLabel} post` : "a post";
       if (!(await voyceConfirm(`Generate ${what} and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`, { title: "Run now", confirmText: "Post now" }))) return;
       toast("Generating and posting...");
+      const prodSel = document.getElementById(`runprod-${id}`);
       const res  = await fetch(`/companies/${id}/run`, { method:"POST",
         headers: {"Content-Type": "application/json", "x-token": getToken()},
-        body: JSON.stringify({ post_type: chosenType }) });
+        body: JSON.stringify({ post_type: chosenType, product_id: prodSel ? prodSel.value : "" }) });
       const data = await res.json();
       loadLog();
       if (data.status === "posted") { toast("Posted successfully!", "success"); loadAnalytics(); }
@@ -1219,6 +1250,61 @@
 
     function isProRequired(data) {
       return typeof data.detail === "string" && data.detail.startsWith("PRO_REQUIRED");
+    }
+
+    // ── Products: multiple subjects under one profile ─────────────────────────
+    function toggleProductForm(id) {
+      const f = document.getElementById(`prod-form-${id}`);
+      if (f) f.style.display = f.style.display === "none" ? "" : "none";
+    }
+
+    async function createProduct(id) {
+      const name = (document.getElementById(`prod-name-${id}`) || {}).value?.trim() || "";
+      const url  = (document.getElementById(`prod-url-${id}`) || {}).value?.trim() || "";
+      const ind  = (document.getElementById(`prod-ind-${id}`) || {}).value?.trim() || "";
+      if (!name) { toast("Give the product a name.", "warn"); return; }
+      const btn = document.getElementById(`prod-save-${id}`);
+      if (btn) { btn.disabled = true; btn.textContent = "Reading the page & designing a theme…"; }
+      try {
+        const res = await fetch(`/companies/${id}/products`, { method: "POST",
+          headers: {"Content-Type": "application/json", "x-token": getToken()},
+          body: JSON.stringify({ name, url, industry: ind }) });
+        const data = await res.json();
+        if (!res.ok) {
+          if (isProRequired(data)) { typeof openUpgrade === "function" && openUpgrade(); }
+          else toast(data.detail || "Couldn't add the product.", "error");
+          return;
+        }
+        toast(`${name} added${data.theme_spec && data.theme_spec.name ? ` — theme: ${data.theme_spec.name}` : ""}`, "success");
+        loadProfiles();
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Save product"; }
+      }
+    }
+
+    async function toggleProductRow(companyId, productId, enable) {
+      const res = await fetch(`/companies/${companyId}/products/${productId}/toggle`, { method: "PATCH",
+        headers: {"Content-Type": "application/json", "x-token": getToken()},
+        body: JSON.stringify({ enabled: enable }) });
+      if (res.ok) loadProfiles();
+      else toast("Couldn't update the product.", "error");
+    }
+
+    async function removeProduct(companyId, productId, name) {
+      if (!(await voyceConfirm(`Remove "${name}" from this profile? Its scheduled slots fall back to the automatic rotation.`, { title: "Remove product", confirmText: "Remove" }))) return;
+      const res = await fetch(`/companies/${companyId}/products/${productId}`, { method: "DELETE",
+        headers: {"x-token": getToken()} });
+      if (res.ok) { toast("Product removed."); loadProfiles(); }
+      else toast("Couldn't remove the product.", "error");
+    }
+
+    async function regenProductTheme(companyId, productId) {
+      toast("Designing a fresh carousel theme…");
+      const res = await fetch(`/companies/${companyId}/products/${productId}/theme`, { method: "POST",
+        headers: {"x-token": getToken()} });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { toast(`New theme: ${data.name || "done"}`, "success"); loadProfiles(); }
+      else toast(data.detail || "Theme generation is unavailable right now.", "error");
     }
 
     async function toggleProfile(id, active) {
@@ -1318,33 +1404,62 @@
       } catch (e) { /* leave hidden */ }
       if (!items.length) { section.style.display = "none"; box.innerHTML = ""; return; }
       section.style.display = "";
-      box.innerHTML = items.map(p => `
+      box.innerHTML = items.map(p => {
+        const isDiy = p.format === "diy_video";
+        const fmt = isDiy ? "video day — you generate &amp; post"
+          : p.format === "carousel" ? "PDF carousel"
+          : p.format === "tweet_card" ? "text + tweet card" : "text post";
+        const prodTag = p.product_name ? ` · ${_escHtml(p.product_name)}` : "";
+        const diyBlock = isDiy ? `
+          <div style="border:1px dashed #d9cfa8;border-radius:8px;padding:10px 12px;margin-bottom:12px;background:#fffef9;">
+            <div style="font-size:11.5px;font-weight:600;color:#6b6355;margin-bottom:6px;">🎬 Your video-generation prompt <span style="font-weight:400;color:#a29a8c;">— paste into your AI video tool (Sora, Veo, Runway…), or Claude for a storyboard</span></div>
+            <div id="diy-prompt-${p.id}" style="white-space:pre-wrap;font-size:12.5px;color:#555;line-height:1.5;max-height:140px;overflow-y:auto;">${_escHtml(p.gen_prompt || "")}</div>
+          </div>` : "";
+        const actions = isDiy ? `
+            <button class="act-btn" onclick="copyPendingText('${p.id}', 'caption', this)">📋 Copy caption</button>
+            <button class="act-btn" onclick="copyPendingText('${p.id}', 'prompt', this)">📋 Copy video prompt</button>
+            <button class="act-btn" style="background:#1c1813;color:#fff;" onclick="approvePending('${p.id}', this, true)">✓ I posted it</button>
+            <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>` : `
+            <button class="act-btn" style="background:#1c1813;color:#fff;" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
+            <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>`;
+        return `
         <div id="pending-${p.id}" style="border:1px solid #e8d9a0;background:#fffdf4;border-radius:12px;padding:16px 18px;margin-bottom:12px;">
           <div style="font-size:12px;color:#a29a8c;margin-bottom:8px;">
-            <strong style="color:#6b6355;">${_escHtml(p.company_name)}</strong>
-            · ${_escHtml(p.post_type)} · ${p.format === "carousel" ? "PDF carousel" : p.format === "tweet_card" ? "text + tweet card" : "text post"}
+            <strong style="color:#6b6355;">${_escHtml(p.company_name)}</strong>${prodTag}
+            · ${_escHtml(p.post_type)} · ${fmt}
             · written ${new Date(p.created_at).toLocaleString()}
           </div>
-          <div style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:12px;">${_escHtml(p.post_text)}</div>
-          <div style="display:flex;gap:8px;">
-            <button class="act-btn" style="background:#1c1813;color:#fff;" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
-            <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>
-          </div>
-        </div>`).join("");
+          <div id="diy-caption-${p.id}" style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:12px;">${_escHtml(p.post_text)}</div>
+          ${diyBlock}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}</div>
+        </div>`;
+      }).join("");
     }
 
-    async function approvePending(id, btn) {
-      if (btn) { btn.disabled = true; btn.textContent = "Posting…"; }
+    async function copyPendingText(id, which, btn) {
+      const el = document.getElementById(which === "prompt" ? `diy-prompt-${id}` : `diy-caption-${id}`);
+      if (!el) return;
+      try {
+        await navigator.clipboard.writeText(el.textContent);
+        const old = btn.textContent;
+        btn.textContent = "✓ Copied";
+        setTimeout(() => { btn.textContent = old; }, 1600);
+      } catch (e) { toast("Couldn't copy — select the text manually.", "warn"); }
+    }
+
+    async function approvePending(id, btn, isDiy) {
+      const restore = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = isDiy ? "Recording…" : "Posting…"; }
       try {
         const res = await fetch(`/pending/${id}/approve`, { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || "Publish failed — the post is still in your queue.");
-        toast("Approved — posted to LinkedIn.", "success");
+        toast(data.status === "posted_manually" ? "Marked as posted — the calendar shows it as covered." : "Approved — posted to LinkedIn.", "success");
         loadPending();
         loadLog();
       } catch (err) {
         toast(err.message, "error");
-        if (btn) { btn.disabled = false; btn.textContent = "✓ Approve & post"; }
+        if (btn) { btn.disabled = false; btn.textContent = restore; }
       }
     }
 
@@ -1483,6 +1598,7 @@
       ["personal_story", "Personal Story"],
       ["open_question", "Open Question"],
       ["__carousel__", "Carousel (PDF)"],
+      ["__video__", "Video day (you generate)"],
     ];
 
     async function setDayPlan(profileId, dateISO, postType) {
@@ -1535,10 +1651,13 @@
           }
 
           const dISO = _localISO(d);
-          const planned = (p.scheduled_types || {})[dISO] || "";   // user-set override for this day
+          let planned = (p.scheduled_types || {})[dISO] || "";   // user-set override for this day
+          if (typeof planned === "object") planned = planned.type || "";  // product-pinned form {product, type}
           if (st === "sched" && planned) {
             const opt = CAL_PLAN_OPTIONS.find(o => o[0] === planned);
-            type = planned === "__carousel__" ? "Carousel" : (opt ? opt[1].split(" · ")[0] : type);
+            type = planned === "__carousel__" ? "Carousel"
+                 : planned === "__video__" ? "Video (you generate)"
+                 : (opt ? opt[1].split(" · ")[0] : type);
           }
           const desc = type && p.post_type_descriptions ? (p.post_type_descriptions[type] || "") : "";
           const claimTypes = ["hot_take", "prediction", "stat_reaction"];
@@ -1550,7 +1669,8 @@
             (!planned && ["hot take", "prediction", "stat reaction"].includes((type || "").toLowerCase()));
           let badge = "";
           if (st === "sched") {
-            if (isCard)          badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
+            if (planned === "__video__") badge = `<div class="cal-cell-badge carousel">🎬 Your video</div>`;
+            else if (isCard)          badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
             else if (isCarousel) badge = `<div class="cal-cell-badge carousel">▤ Carousel</div>`;
             else if (p.carousel_enabled) badge = `<div class="cal-cell-badge text">✎ Text</div>`;
           }
