@@ -732,6 +732,11 @@ def _build_company_brief(company: dict) -> str:
         for i, post in enumerate(top_posts[:5], 1):
             parts.append(f"Example {i}:\n{post[:600]}")
 
+    if (company.get("knowledge") or "").strip():
+        parts.append(
+            "\n--- KNOWLEDGE BASE (ground every claim in these facts/rules; never "
+            "contradict them or invent around them) ---\n" + company["knowledge"].strip()[:2000])
+
     return "\n".join(p for p in [product_line, *parts] if p)
 
 

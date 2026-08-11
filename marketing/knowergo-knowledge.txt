@@ -1,0 +1,23 @@
+KnowErgo (by Knowella) — AI video ergonomics. Tagline: "Catch strain before it becomes injury." Upload a short worker video; it scores musculoskeletal-injury risk from the footage. No wearables.
+
+WHAT IT DOES (all real, from the product):
+- Scores a task on 6 recognised systems in one pass: REBA, RULA, NIOSH lifting equation, Snook/Liberty Mutual, HSE MAC, WISHA. Lead with RULA/REBA/NIOSH; the other three are depth.
+- 133-keypoint pose model -> 36-joint skeleton -> 10 body angles (neck, trunk, both arms, both wrists, both knees), scored EVERY SECOND, left and right side independently.
+- Per-body-part risk breakdown: % of the clip each joint spent low/medium/high, plus avg and peak angle.
+- Before/after: re-assess the same task after a change and prove the risk dropped (improved/worsened per joint).
+- Multi-person tracking; privacy face/background blur available.
+- Refuses to score low-confidence frames (draws a grey "?" rather than guessing) — honesty is a feature.
+
+RED-FLAG THRESHOLDS (cite these, they're real): neck >20deg, trunk >60deg, upper arm >40deg, knee <120deg. Per-part medium/high: Neck 20/45, Trunk 20/60, Shoulder 45/90, Elbow 60/100, Wrist 15/30, Knee 30/60. NIOSH Lifting Index >3 = redesign required. Snook <75% of the working population capable = intervention needed.
+
+HSE MAC risk bands (from the HSE Manual Handling Assessment Charts): G low, A medium, R high (prompt action), P very high. Manual Handling Operations Regulations 1992 hierarchy: avoid -> assess -> reduce. MSDs are the most common occupational ill health in the UK.
+
+WHO IT'S FOR: EHS/safety managers, ergonomists, plant/ops leaders in manufacturing, warehousing, logistics, construction. Outcome language: "fewer sprains and strains, fewer recordable injuries", "assess every task, not just the sampled few", "the same frameworks ergonomists use".
+
+NEVER SAY (hard rules):
+- Never say it "replaces your ergonomist" — it's the assessor's instrument. Lead with "score every task", not "fire the expert".
+- Never state an injury-cost or prevalence statistic that isn't from a cited source or the HSE facts above. No round numbers from memory.
+- No medical or diagnostic claims — it scores task risk, not a person's health.
+- Never claim "100% accurate" — the honesty (declines to score unclear frames) is the story.
+
+CTAs: "Start free trial" / "Book a demo". Product page: knowella.com/ergonomics.

@@ -62,17 +62,25 @@ def _call(model_name: str, prompt: str, system: str, max_tokens: int,
 
 def generate(prompt: str, system: str = None, max_tokens: int = 2048,
              temperature: float = 0.8, json_mode: bool = False) -> str:
-    """Primary model first; on free-tier rate limits fall back to the secondary
-    model (separate quota), and as a last resort wait out the per-minute window."""
-    try:
-        return _call(MODEL, prompt, system, max_tokens, temperature, json_mode)
-    except _gexc.ResourceExhausted:
-        pass
-    try:
-        return _call(FALLBACK_MODEL, prompt, system, max_tokens, temperature, json_mode)
-    except _gexc.ResourceExhausted:
-        time.sleep(40)  # free-tier RPM windows reset per minute
-        return _call(MODEL, prompt, system, max_tokens, temperature, json_mode)
+    """Robust generation: try primary → fallback → primary, retrying on ANY
+    transient failure (rate limits, 503/timeout on a cold-started instance, or an
+    empty/safety-blocked response) with a short backoff. Raises the last error
+    only after all attempts fail — so the caller surfaces an accurate message,
+    and a single blip no longer shows 'temporarily unavailable'. No long blocking
+    sleep (which used to risk exceeding the request timeout)."""
+    last_exc = None
+    for attempt, model_name in enumerate((MODEL, FALLBACK_MODEL, MODEL)):
+        try:
+            text = _call(model_name, prompt, system, max_tokens, temperature, json_mode)
+            if text:
+                return text
+            # Empty = safety block or thinking consumed the whole budget — retryable.
+            last_exc = RuntimeError("empty response (safety block or output-token exhaustion)")
+        except Exception as e:  # transient API errors, timeouts, etc. — all retryable here
+            last_exc = e
+        if attempt < 2:
+            time.sleep(2 * (attempt + 1))  # 2s, then 4s — well under request timeout
+    raise last_exc or RuntimeError("generation failed after retries")
 
 
 def _extract_json(text: str) -> dict:

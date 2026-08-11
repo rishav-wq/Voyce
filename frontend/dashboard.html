@@ -824,6 +824,11 @@
             <label>Your Designation <span class="optional-tag">(optional)</span></label>
             <input type="text" id="p-designation" placeholder="e.g. Fractional CMO, Leadership Coach, Independent Consultant" />
           </div>
+          <div class="form-group">
+            <label>Key facts &amp; rules <span class="optional-tag">(optional — grounds every post)</span></label>
+            <textarea id="p-knowledge" rows="4" placeholder="Facts the AI should always use, and rules it must follow. e.g. real product capabilities, cited statistics, angles that work, and 'never say X'. Paste your research here."></textarea>
+            <p class="form-hint">Fed into every idea and post — the AI grounds content in this and won't contradict or invent around it.</p>
+          </div>
 
           <details class="adv">
             <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn voice, automation — all optional</span></summary>
@@ -2209,6 +2214,7 @@
           if (isPersonal) {
             document.getElementById("p-name").value        = p.name || "";
             document.getElementById("p-designation").value = p.designation || "";
+            document.getElementById("p-knowledge").value   = p.knowledge || "";
             const pw = document.getElementById("p-website");
             pw.value = p.website_url || "";
             pw.dispatchEvent(new Event("input"));
@@ -2257,6 +2263,7 @@
         profile_type: "personal",
         voice_posts: (document.getElementById("p-voice-posts")?.value || ""),
         tone_shift: (document.getElementById("p-tone-shift")?.checked || false),
+        knowledge: (document.getElementById("p-knowledge")?.value || ""),
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,

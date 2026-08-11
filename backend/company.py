@@ -57,6 +57,7 @@ def save_company(profile: dict) -> dict:
         "designation":      profile.get("designation", ""),
         "allowed_hooks":    profile.get("allowed_hooks", []),
         "tone_shift":       profile.get("tone_shift", False),
+        "knowledge":        profile.get("knowledge", ""),   # curated facts/rules the AI must use
     }
 
     db.companies.replace_one({"id": company_id}, {"_id": company_id, **entry}, upsert=True)
@@ -84,7 +85,7 @@ def update_company(company_id: str, data: dict) -> dict | None:
     # carousel_enabled/carousel_theme are managed solely by the card's PATCH endpoint,
     # so a form edit can never silently reset them.
     for field in ("name", "industry", "tone", "post_time", "linkedin_url",
-                  "website_type", "designation", "allowed_hooks", "tone_shift"):
+                  "website_type", "designation", "allowed_hooks", "tone_shift", "knowledge"):
         if field in data:
             c[field] = data[field]
 

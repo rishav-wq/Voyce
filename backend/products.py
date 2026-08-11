@@ -23,6 +23,7 @@ import db
 _SUBJECT_FIELDS = (
     "industry", "website_url", "website_content", "analysis",
     "brand_color", "theme_spec", "carousel_theme", "topics", "search_angles",
+    "knowledge",   # a product can override the profile's knowledge base with its own
 )
 
 # Products allowed per company by plan (companies themselves stay plan-capped

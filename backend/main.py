@@ -165,6 +165,10 @@ def _with_profile_context(profile: dict | None, raw_text: str) -> str:
         context.append(f"Designation: {profile.get('designation')}")
     if profile.get("analysis", {}).get("description"):
         context.append(f"Background: {profile['analysis']['description']}")
+    if (profile.get("knowledge") or "").strip():
+        context.append(
+            "\nKNOWLEDGE BASE — ground the post in these facts/rules; never contradict or "
+            "invent around them:\n" + profile["knowledge"].strip()[:2000])
     return "\n".join(context) + "\n\nContent to repurpose:\n" + raw_text
 
 
@@ -350,6 +354,7 @@ class CompanyRequest(BaseModel):
     allowed_hooks: list[str] = []
     voice_posts: str = ""   # pasted recent posts -> voice examples (fastest way to match a voice)
     tone_shift: bool = False  # opt-in: keep the voice from examples but shift register toward `tone`
+    knowledge: str = ""     # curated facts/rules/angles the AI must ground every post in
 
 
 class ToggleRequest(BaseModel):
@@ -1155,7 +1160,11 @@ def suggest_ideas(company_id: str, product_id: str = "", x_token: str = Header(N
                                     extra_angles=subject.get("search_angles") or [])
         news_ctx = format_news_context(news)
         who = subject.get("product_name") or subject.get("name", "")
+        kb = (subject.get("knowledge") or "").strip()
+        kb_block = ("\nKNOWLEDGE BASE — draw ideas from these facts/rules and honour any "
+                    "'never say' rules; do not contradict or invent around them:\n" + kb[:2000] + "\n") if kb else ""
         prompt = f"""You are a LinkedIn content strategist for {who} ({subject.get('industry', '')}).
+{kb_block}
 Propose 5 DISTINCT post ideas for the coming days. Each must use a DIFFERENT post type from this menu — spread across the menu, do not repeat a type:
 {type_menu}
 
