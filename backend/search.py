@@ -108,6 +108,7 @@ def search_industry_news(
     company_name: str,
     num_results: int = 5,
     post_type: str = "",
+    extra_angles: list[str] | None = None,
 ) -> list[dict]:
     if not TAVILY_API_KEY:
         return []
@@ -116,8 +117,10 @@ def search_industry_news(
     templates = _QUERY_TEMPLATES.get(post_type, _DEFAULT_QUERIES)
     template = random.choice(templates)
 
-    # Add a random diversity angle to break repetition
-    angle = random.choice(_DIVERSITY_ANGLES)
+    # Add a random diversity angle to break repetition. Product-level angles
+    # (e.g. "OSHA regulation", "MSD injury cost" for an ergonomics product)
+    # join the generic pool so each product's news stays niche-appropriate.
+    angle = random.choice(_DIVERSITY_ANGLES + [a for a in (extra_angles or []) if a])
     query = f"{template.format(industry=industry)} {angle}".strip()
 
     try:

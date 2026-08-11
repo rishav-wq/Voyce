@@ -3,7 +3,7 @@ import io
 import os
 import re
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from dotenv import load_dotenv
 
 from llm import generate_json
@@ -181,11 +181,35 @@ def _mix(a: tuple, b: tuple, t: float) -> tuple:
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
+def _palette_from_spec(spec: dict) -> dict | None:
+    """A Claude-generated theme_spec (see design.py) in the renderer's own
+    palette vocabulary. Every color is re-parsed defensively — a stored spec is
+    data, not trusted config — and any gap voids the spec entirely so we fall
+    through to the normal chain rather than render a half-themed deck."""
+    palette = (spec or {}).get("palette") or {}
+    out = {}
+    for key in ("bg", "accent", "title", "subtitle", "body", "muted"):
+        rgb = _hex_to_rgb(str(palette.get(key, "")))
+        if not rgb:
+            return None
+        out[key] = rgb
+    accent2 = _hex_to_rgb(str(palette.get("accent2", "")))
+    out["accent2"] = accent2 or _ACCENT2.get("warm_violet", (163, 230, 53))
+    return out
+
+
 def _get_palette(company: dict) -> dict:
     """
-    Priority: scraped brand_color → explicit carousel_theme → industry keyword → default.
+    Priority: product/company theme_spec (Claude-designed) → scraped brand_color
+    → explicit carousel_theme → industry keyword → default.
     """
-    # 1. Scraped brand color overrides everything
+    # 0. A generated theme spec wins outright — it exists precisely to brand
+    # this product's decks, and it was contrast-validated when created.
+    spec_palette = _palette_from_spec(company.get("theme_spec") or {})
+    if spec_palette:
+        return spec_palette
+
+    # 1. Scraped brand color overrides the named/keyword themes
     brand_hex = company.get("brand_color", "")
     if brand_hex and brand_hex.startswith("#"):
         accent = _hex_to_rgb(brand_hex)
@@ -502,11 +526,8 @@ def _slide_hook_editorial(headline: str, subtext: str, total: int, p: dict,
     m = int(84 * _SCALE)
     max_w = _RW - m * 2
 
-    # Brand chip
-    f_chip = _font(26 * _SCALE, bold=True)
-    _draw_circle(draw, m + int(8 * _SCALE), int(86 * _SCALE), int(8 * _SCALE), a2)
-    if brand:
-        draw.text((m + int(28 * _SCALE), int(70 * _SCALE)), brand[:26], font=f_chip, fill=(164, 157, 179))
+    # Brand lockup (Knowella petal + wordmark, or legacy dot+name fallback)
+    _brand_lockup(img, p, m, on_dark=True)
 
     # Kicker chip: when the hook leads with a count, the chip IS the count ("3 RULES") in
     # accent2 — the slab's glanceable what-you're-getting clarity, editorial delivery.
@@ -635,11 +656,461 @@ def _footer_v3(draw, num: int, total: int, p: dict, on_dark: bool, m: int, tease
     draw.text((_RW - m - _tw(draw, ctr, f_sm), dy - int(4 * _SCALE)), ctr, font=f_sm, fill=txt)
 
 
+# ── Brand lockup + risk-visual helpers (AI Ergo / theme-driven) ────────────────
+
+def _is_dark(p: dict) -> bool:
+    r, g, b = p.get("bg", (255, 255, 255))
+    return (0.299 * r + 0.587 * g + 0.114 * b) < 128
+
+
+# Knowella risk palette (from customerweb _variable.scss — not invented).
+_RISK = {"low": (69, 166, 49), "medium": (255, 110, 0), "med": (255, 110, 0),
+         "high": (231, 0, 0), "very high": (231, 0, 0), "very_high": (231, 0, 0)}
+
+
+def _risk_rgb(level) -> tuple:
+    return _RISK.get(str(level).strip().lower(), (120, 120, 120))
+
+
+_LOGO_CACHE: dict = {}
+
+def _load_brand_logo(company: dict):
+    """A brand mark PNG (transparent) to composite in the lockup. Configured via
+    company['brand_logo'] or theme_spec['logo'] (a filename resolved under
+    backend/assets/). Returns a PIL RGBA image, or None to fall back to the text chip."""
+    fn = (company or {}).get("brand_logo") or ((company or {}).get("theme_spec") or {}).get("logo")
+    if not fn:
+        return None
+    if fn in _LOGO_CACHE:
+        return _LOGO_CACHE[fn]
+    path = fn if os.path.isabs(fn) else os.path.join(os.path.dirname(__file__), "assets", os.path.basename(fn))
+    try:
+        img = Image.open(path).convert("RGBA")
+    except Exception:
+        img = None
+    _LOGO_CACHE[fn] = img
+    return img
+
+
+def _brand_lockup(img: Image.Image, p: dict, m: int, on_dark: bool):
+    """Persistent brand lockup, top-left of every slide: [petal mark] Brand | Product.
+    Falls back to the original dot+name chip when no logo is configured, so
+    non-Knowella Voyce decks are unchanged."""
+    draw = ImageDraw.Draw(img)
+    y = int(64 * _SCALE)
+    logo = p.get("_logo")
+    brand_name = (p.get("_brand_name") or "").strip()
+    product = (p.get("_product") or "").strip()
+    fg = (236, 232, 245) if on_dark else _INK_V3
+    if logo is None:
+        # Legacy chip: accent2 dot + brand name.
+        if brand_name:
+            _draw_circle(draw, m + int(8 * _SCALE), int(82 * _SCALE), int(7 * _SCALE), _a2(p))
+            draw.text((m + int(26 * _SCALE), int(68 * _SCALE)), brand_name[:26],
+                      font=_font(24 * _SCALE, bold=True), fill=fg)
+        return
+    h = int(42 * _SCALE)
+    lw = max(1, int(logo.width * (h / logo.height)))
+    mark = logo.resize((lw, h), Image.LANCZOS)
+    img.paste(mark, (m, y), mark)
+    x = m + lw + int(18 * _SCALE)
+    f_wm = _font(30 * _SCALE, bold=True)
+    wm = brand_name or "Knowella"
+    tb = draw.textbbox((0, 0), wm, font=f_wm)
+    ty = y + (h - (tb[3] - tb[1])) // 2 - tb[1]
+    draw.text((x, ty), wm, font=f_wm, fill=fg)
+    x += _tw(draw, wm, f_wm) + int(16 * _SCALE)
+    if product and product.lower() != wm.lower():
+        draw.line([(x, y + int(6 * _SCALE)), (x, y + h - int(6 * _SCALE))],
+                  fill=p.get("muted", (120, 120, 120)), width=max(2, int(2 * _SCALE)))
+        x += int(16 * _SCALE)
+        f_pr = _font(28 * _SCALE, semi=True)
+        pb = draw.textbbox((0, 0), product, font=f_pr)
+        py = y + (h - (pb[3] - pb[1])) // 2 - pb[1]
+        draw.text((x, py), product, font=f_pr, fill=_a2(p))
+
+
+def _seg_bar(w: int, h: int, segs: list, radius: int) -> Image.Image:
+    """A horizontal bar split into coloured segments with rounded outer corners.
+    segs = [(fraction, rgb), ...]. Rendered via an alpha mask so the ends are clean."""
+    bar = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(bar)
+    x = 0
+    for i, (frac, color) in enumerate(segs):
+        sw = w - x if i == len(segs) - 1 else int(round(w * max(0.0, frac)))
+        if sw > 0:
+            bd.rectangle([x, 0, x + sw, h], fill=color)
+        x += sw
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    bar.putalpha(mask)
+    return bar
+
+
+def _slide_riskbars(title: str, parts: list, num: int, total: int, p: dict,
+                    teaser: str = "", subtext: str = "") -> Image.Image:
+    """Per-body-part risk distribution: one stacked green/amber/red bar per joint,
+    showing the share of the clip spent in each risk zone. Theme-driven (dark)."""
+    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    _brand_lockup(img, p, m, on_dark=True)
+
+    y = int(_RH * 0.16)
+    t_fit, f_t, _ = _fit_text_to_box(draw, title, max_w, int(_RH * 0.16),
+                                     [60, 54, 48, 42], gap=int(10 * _SCALE), max_lines=2)
+    f_t = _font_black(f_t.size)
+    for line in _wrap(draw, t_fit, f_t, max_w):
+        draw.text((m, y), line, font=f_t, fill=p["title"])
+        y += draw.textbbox((0, 0), line, font=f_t)[3] + int(10 * _SCALE)
+    if subtext:
+        y += int(6 * _SCALE)
+        f_s = _font(28 * _SCALE)
+        for line in _wrap(draw, subtext[:120], f_s, int(max_w * 0.94)):
+            draw.text((m, y), line, font=f_s, fill=p["subtitle"])
+            y += draw.textbbox((0, 0), line, font=f_s)[3] + int(8 * _SCALE)
+    y += int(40 * _SCALE)
+
+    items = [x for x in (parts or []) if x.get("name")][:6]
+    f_lab = _font(30 * _SCALE, bold=True)
+    f_pct = _font(26 * _SCALE, bold=True)
+    lab_w = max([_tw(draw, it["name"], f_lab) for it in items] or [0])
+    bar_x = m + lab_w + int(34 * _SCALE)
+    pct_w = int(90 * _SCALE)
+    bar_w = _RW - m - pct_w - bar_x
+    bar_h = int(34 * _SCALE)
+    row_gap = int(38 * _SCALE)
+    avail = _RH - int(230 * _SCALE) - y
+    row_h = bar_h + row_gap
+    if len(items) * row_h > avail and items:
+        row_gap = max(int(20 * _SCALE), (avail - len(items) * bar_h) // max(1, len(items)))
+        row_h = bar_h + row_gap
+    for it in items:
+        lo = float(it.get("low", it.get("pct_low", 0)))
+        md = float(it.get("medium", it.get("med", it.get("pct_medium", 0))))
+        hi = float(it.get("high", it.get("pct_high", 0)))
+        tot = max(1.0, lo + md + hi)
+        segs = [(lo / tot, _RISK["low"]), (md / tot, _RISK["medium"]), (hi / tot, _RISK["high"])]
+        # label (vertically centered on the bar)
+        lb = draw.textbbox((0, 0), it["name"], font=f_lab)
+        draw.text((m, y + (bar_h - (lb[3] - lb[1])) // 2 - lb[1]), it["name"], font=f_lab, fill=p["body"])
+        img.paste(_seg_bar(bar_w, bar_h, segs, bar_h // 2), (bar_x, y),
+                  _seg_bar(bar_w, bar_h, segs, bar_h // 2))
+        # % time in red, called out on the right
+        pc = f"{int(round(hi / tot * 100))}%"
+        col = _RISK["high"] if hi / tot >= 0.25 else p["subtitle"]
+        pb = draw.textbbox((0, 0), pc, font=f_pct)
+        draw.text((_RW - m - _tw(draw, pc, f_pct), y + (bar_h - (pb[3] - pb[1])) // 2 - pb[1]),
+                  pc, font=f_pct, fill=col)
+        y += row_h
+
+    # Legend — directly under the bars (never in the footer zone)
+    ly = y + int(20 * _SCALE)
+    f_leg = _font(24 * _SCALE, semi=True)
+    lx = m
+    for lab, key in (("Low", "low"), ("Medium", "medium"), ("High risk", "high")):
+        _draw_rounded_rect(draw, lx, ly, lx + int(26 * _SCALE), ly + int(26 * _SCALE),
+                           int(7 * _SCALE), _RISK[key])
+        draw.text((lx + int(36 * _SCALE), ly - int(2 * _SCALE)), lab, font=f_leg, fill=p["subtitle"])
+        lx += int(36 * _SCALE) + _tw(draw, lab, f_leg) + int(40 * _SCALE)
+
+    _footer_v3(draw, num, total, p, on_dark=True, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_bodymap(title: str, joints: dict, num: int, total: int, p: dict,
+                   teaser: str = "", worst: str = "") -> Image.Image:
+    """Schematic human figure with each region lit green/amber/red by its risk level.
+    joints keys: neck, trunk, left_arm, right_arm, left_leg, right_leg (+ head follows neck)."""
+    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    _brand_lockup(img, p, m, on_dark=True)
+
+    y = int(_RH * 0.15)
+    t_fit, f_t, _ = _fit_text_to_box(draw, title, max_w, int(_RH * 0.15),
+                                     [58, 52, 46, 40], gap=int(10 * _SCALE), max_lines=2)
+    f_t = _font_black(f_t.size)
+    for line in _wrap(draw, t_fit, f_t, max_w):
+        draw.text((m, y), line, font=f_t, fill=p["title"])
+        y += draw.textbbox((0, 0), line, font=f_t)[3] + int(10 * _SCALE)
+
+    def rc(k):
+        return _risk_rgb(joints.get(k, "low"))
+
+    # Figure geometry — centered column in the mid-slide band.
+    cx = _RW // 2 - int(120 * _SCALE)
+    top = y + int(70 * _SCALE)
+    unit = int(46 * _SCALE)
+    cap = int(28 * _SCALE)  # limb thickness radius
+    # head (follows neck risk) + neck
+    head_r = int(46 * _SCALE)
+    _draw_circle(draw, cx, top + head_r, head_r, rc("neck"))
+    neck_top = top + head_r * 2 + int(6 * _SCALE)
+    _draw_rounded_rect(draw, cx - int(20 * _SCALE), neck_top, cx + int(20 * _SCALE),
+                       neck_top + int(30 * _SCALE), int(10 * _SCALE), rc("neck"))
+    # trunk
+    trunk_top = neck_top + int(30 * _SCALE)
+    trunk_bot = trunk_top + unit * 3
+    _draw_rounded_rect(draw, cx - int(58 * _SCALE), trunk_top, cx + int(58 * _SCALE),
+                       trunk_bot, int(34 * _SCALE), rc("trunk"))
+    # arms (angled outward as capsules)
+    for side, key in ((-1, "left_arm"), (1, "right_arm")):
+        ax = cx + side * int(58 * _SCALE)
+        _draw_rounded_rect(draw, ax + side * int(2 * _SCALE) - cap, trunk_top + int(8 * _SCALE),
+                           ax + side * int(2 * _SCALE) + cap, trunk_top + int(8 * _SCALE) + unit * 3,
+                           cap, rc(key))
+    # legs
+    for side, key in ((-1, "left_leg"), (1, "right_leg")):
+        lx = cx + side * int(30 * _SCALE)
+        _draw_rounded_rect(draw, lx - cap, trunk_bot - int(6 * _SCALE),
+                           lx + cap, trunk_bot - int(6 * _SCALE) + unit * 3, cap, rc(key))
+
+    # Right-hand labels with a leader dot per region
+    labels = [("Neck", "neck"), ("Trunk", "trunk"), ("Shoulders/arms", "left_arm"),
+              ("Knees/legs", "left_leg")]
+    lx0 = cx + int(180 * _SCALE)
+    ly = top + int(20 * _SCALE)
+    f_l = _font(30 * _SCALE, semi=True)
+    for lab, key in labels:
+        _draw_circle(draw, lx0, ly + int(14 * _SCALE), int(11 * _SCALE), rc(key))
+        lvl = str(joints.get(key, "low")).title()
+        draw.text((lx0 + int(30 * _SCALE), ly), f"{lab}", font=f_l, fill=p["body"])
+        draw.text((lx0 + int(30 * _SCALE), ly + int(34 * _SCALE)), lvl, font=_font(24 * _SCALE),
+                  fill=_risk_rgb(joints.get(key, "low")))
+        ly += int(96 * _SCALE)
+
+    # Worst-joint takeaway in a soft panel (the side labels already act as a legend).
+    if worst:
+        f_w = _font(30 * _SCALE, semi=True)
+        wlines = _wrap(draw, worst, f_w, max_w - int(72 * _SCALE))
+        wh = _wrap_height(draw, wlines, f_w, int(8 * _SCALE)) + int(48 * _SCALE)
+        wy = _RH - int(200 * _SCALE) - wh
+        _draw_rounded_rect(draw, m, wy, _RW - m, wy + wh, int(18 * _SCALE),
+                           _mix(p["bg"], (255, 255, 255), 0.07))
+        draw.rectangle([m, wy, m + int(8 * _SCALE), wy + wh], fill=_RISK["high"])
+        ty = wy + int(24 * _SCALE)
+        for line in wlines:
+            draw.text((m + int(36 * _SCALE), ty), line, font=f_w, fill=p["body"])
+            ty += draw.textbbox((0, 0), line, font=f_w)[3] + int(8 * _SCALE)
+
+    _footer_v3(draw, num, total, p, on_dark=True, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+# Side-view "worker bending to lift a box" pose (normalized 0..1, y-down). This is
+# AI Ergo's signature on-video visual — a neon-glow skeleton with angle read-outs
+# and risk-coloured bones — drawn schematically so no real person is shown. Both
+# sides are drawn (near = full colour, far = dimmed + behind) so it reads as a
+# real 3D person, the way the product's overlay tracks both limbs.
+_LIFT_POSE = {
+    "head":    (0.70, 0.20), "neck": (0.56, 0.30), "shoulder": (0.56, 0.31),
+    "hip":     (0.32, 0.47), "knee": (0.45, 0.67), "ankle": (0.39, 0.91),
+    "elbow":   (0.63, 0.49), "wrist": (0.585, 0.67),
+    # far-side (behind) limbs — slight offset for depth
+    "kneeF":   (0.52, 0.69), "ankleF": (0.47, 0.91),
+    "elbowF":  (0.67, 0.51), "wristF": (0.63, 0.68),
+}
+# near bones (drawn on top, full risk colour) and far bones (behind, dimmed)
+_LIFT_BONES = [
+    (("ankle", "knee"), "left_leg"), (("knee", "hip"), "left_leg"),
+    (("hip", "shoulder"), "trunk"), (("shoulder", "head"), "neck"),
+    (("shoulder", "elbow"), "left_arm"), (("elbow", "wrist"), "left_arm"),
+]
+_LIFT_BONES_FAR = [
+    (("hip", "kneeF"), "right_leg"), (("kneeF", "ankleF"), "right_leg"),
+    (("shoulder", "elbowF"), "right_arm"), (("elbowF", "wristF"), "right_arm"),
+]
+
+
+def _angle_tag(draw, x, y, text, color):
+    """The product's yellow angle read-out: a dark chip with the degree in the risk colour."""
+    f = _font(26 * _SCALE, bold=True)
+    tw = _tw(draw, text, f)
+    th = draw.textbbox((0, 0), text, font=f)[3]
+    pad = int(9 * _SCALE)
+    _draw_rounded_rect(draw, x, y, x + tw + pad * 2, y + th + pad, int(6 * _SCALE), (14, 12, 24))
+    draw.text((x + pad, y + pad // 2), text, font=f, fill=color)
+
+
+def _draw_lift_skeleton(img: Image.Image, ox: int, oy: int, size: int, p: dict,
+                        risk: dict = None, angles: dict = None):
+    """Draw the annotated lift-skeleton at (ox, oy), figure height ~= size."""
+    risk = risk or {}
+    angles = angles or {}
+    wspan = int(size * 0.78)
+
+    def P(k):
+        x, y = _LIFT_POSE[k]
+        return (ox + int(x * wspan), oy + int(y * size))
+
+    draw = ImageDraw.Draw(img)
+    # ground line first (behind everything)
+    gy = oy + int(0.93 * size)
+    draw.line([(ox - int(size * 0.05), gy), (ox + wspan + int(size * 0.05), gy)],
+              fill=p["muted"], width=max(2, int(3 * _SCALE)))
+
+    # the box being lifted, at the hands
+    wx, wy = P("wrist")
+    bw, bh = int(size * 0.20), int(size * 0.12)
+    bx0 = wx - int(bw * 0.5)
+    _draw_rounded_rect(draw, bx0, wy - int(6 * _SCALE), bx0 + bw, wy - int(6 * _SCALE) + bh,
+                       int(10 * _SCALE), _mix(p["bg"], (255, 255, 255), 0.14))
+    draw.rounded_rectangle([bx0, wy - int(6 * _SCALE), bx0 + bw, wy - int(6 * _SCALE) + bh],
+                           radius=int(10 * _SCALE), outline=p["subtitle"], width=max(2, int(3 * _SCALE)))
+
+    # far-side limbs behind — dimmed toward bg so they read as depth, not clutter
+    for (a, b), rk in _LIFT_BONES_FAR:
+        col = _mix(_risk_rgb(risk.get(rk, "low")), p["bg"], 0.5)
+        draw.line([P(a), P(b)], fill=col, width=int(11 * _SCALE))
+    for k in ("kneeF", "ankleF", "elbowF", "wristF"):
+        cx, cy = P(k)
+        _draw_circle(draw, cx, cy, int(8 * _SCALE), _mix((255, 255, 255), p["bg"], 0.45))
+
+    # neon glow underlay for the near skeleton (blurred, risk-tinted)
+    glow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for (a, b), rk in _LIFT_BONES:
+        gd.line([P(a), P(b)], fill=_risk_rgb(risk.get(rk, "low")) + (170,), width=int(24 * _SCALE))
+    glow = glow.filter(ImageFilter.GaussianBlur(int(9 * _SCALE)))
+    img.paste(glow, (0, 0), glow)
+
+    draw = ImageDraw.Draw(img)
+    # near bones (full risk colour), then joints on top
+    for (a, b), rk in _LIFT_BONES:
+        draw.line([P(a), P(b)], fill=_risk_rgb(risk.get(rk, "low")), width=int(14 * _SCALE))
+    _draw_circle(draw, *P("head"), int(size * 0.058), _risk_rgb(risk.get("neck", "low")))
+    for k in ("neck", "hip", "knee", "ankle", "elbow", "wrist", "shoulder"):
+        cx, cy = P(k)
+        _draw_circle(draw, cx, cy, int(12 * _SCALE), (255, 255, 255))
+        _draw_circle(draw, cx, cy, int(6 * _SCALE), _a2(p))
+    # angle read-outs
+    hx, hy = P("hip")
+    _angle_tag(draw, hx - int(96 * _SCALE), hy - int(10 * _SCALE),
+               angles.get("trunk", "62°"), _RISK["high"])
+    kx, ky = P("knee")
+    _angle_tag(draw, kx + int(24 * _SCALE), ky + int(6 * _SCALE),
+               angles.get("knee", "98°"), _RISK["medium"])
+
+
+def _slide_posture(title: str, subtext: str, num: int, total: int, p: dict,
+                   teaser: str = "", risk: dict = None, score: str = "") -> Image.Image:
+    """Hero visual slide: the annotated lift-skeleton with a floating scorecard,
+    mirroring what AI Ergo burns into the video."""
+    risk = risk or {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"}
+    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    draw = ImageDraw.Draw(img)
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    _brand_lockup(img, p, m, on_dark=True)
+
+    y = int(_RH * 0.15)
+    t_fit, f_t, _ = _fit_text_to_box(draw, title, max_w, int(_RH * 0.16),
+                                     [58, 52, 46, 40], gap=int(10 * _SCALE), max_lines=2)
+    f_t = _font_black(f_t.size)
+    for line in _wrap(draw, t_fit, f_t, max_w):
+        draw.text((m, y), line, font=f_t, fill=p["title"])
+        y += draw.textbbox((0, 0), line, font=f_t)[3] + int(10 * _SCALE)
+    if subtext:
+        y += int(4 * _SCALE)
+        f_s = _font(28 * _SCALE)
+        for line in _wrap(draw, subtext[:110], f_s, int(max_w * 0.9)):
+            draw.text((m, y), line, font=f_s, fill=p["subtitle"])
+            y += draw.textbbox((0, 0), line, font=f_s)[3] + int(8 * _SCALE)
+
+    # Figure in the lower band, pushed left so it clears the scorecard on the right
+    fig_size = int(_RH * 0.46)
+    ox = int(_RW * 0.14)
+    oy = y + int(90 * _SCALE)
+    _draw_lift_skeleton(img, ox, oy, fig_size, p, risk=risk)
+
+    # Floating scorecard chip (mirrors the on-video panel), top-right, clear of the figure
+    sc = score or "REBA 8  ·  HIGH RISK"
+    f_sc = _font(30 * _SCALE, bold=True)
+    sw = _tw(draw, sc, f_sc)
+    pad = int(20 * _SCALE)
+    sx = _RW - m - sw - pad * 2
+    sy = oy + int(8 * _SCALE)
+    _draw_rounded_rect(draw, sx, sy, sx + sw + pad * 2, sy + int(64 * _SCALE),
+                       int(14 * _SCALE), _mix(p["bg"], (255, 255, 255), 0.08))
+    draw.rounded_rectangle([sx, sy, sx + sw + pad * 2, sy + int(64 * _SCALE)],
+                           radius=int(14 * _SCALE), outline=_RISK["high"], width=max(2, int(3 * _SCALE)))
+    draw.text((sx + pad, sy + int(16 * _SCALE)), sc, font=f_sc, fill=p["title"])
+
+    _footer_v3(draw, num, total, p, on_dark=True, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
+def _slide_photo(image_path: str, title: str, subtext: str, num: int, total: int,
+                 p: dict, teaser: str = "") -> Image.Image:
+    """Full-bleed real-footage slide: a KnowErgo annotated frame (skeleton overlay,
+    angle read-outs, live scorecard already burned in) with dark scrims for
+    legibility, the Knowella lockup, and a headline. The most convincing proof
+    the product works — real worker, real scores."""
+    img = Image.new("RGB", (_RW, _RH), p["bg"])
+    fn = image_path if os.path.isabs(image_path) else \
+        os.path.join(os.path.dirname(__file__), "assets", os.path.basename(image_path))
+    try:
+        photo = Image.open(fn).convert("RGB")
+        scale = max(_RW / photo.width, _RH / photo.height)
+        photo = photo.resize((int(photo.width * scale), int(photo.height * scale)), Image.LANCZOS)
+        left = (photo.width - _RW) // 2
+        top = int((photo.height - _RH) * 0.12)   # bias up: keep scorecard + worker + load
+        img.paste(photo.crop((left, top, left + _RW, top + _RH)), (0, 0))
+    except Exception:
+        pass  # missing/unreadable asset → plain themed bg, slide still renders
+
+    # Legibility scrims: soft dark at top (for the lockup) and a taller one at the
+    # bottom (for the headline + footer).
+    ov = Image.new("RGBA", (_RW, _RH), (0, 0, 0, 0))
+    od = ImageDraw.Draw(ov)
+    th = int(_RH * 0.15)
+    for i in range(th):
+        od.line([(0, i), (_RW, i)], fill=(8, 6, 18, int(165 * (1 - i / th))))
+    bh = int(_RH * 0.40)
+    for i in range(bh):
+        od.line([(0, _RH - bh + i), (_RW, _RH - bh + i)], fill=(8, 6, 18, int(225 * (i / bh))))
+    img.paste(ov, (0, 0), ov)
+
+    m = int(84 * _SCALE)
+    max_w = _RW - m * 2
+    _brand_lockup(img, p, m, on_dark=True)
+    draw = ImageDraw.Draw(img)
+
+    # Headline sits in the bottom scrim, above the footer.
+    t_fit, f_t, h_t = _fit_text_to_box(draw, title, max_w, int(_RH * 0.22),
+                                       [64, 58, 52, 46], gap=int(10 * _SCALE), max_lines=3)
+    f_t = _font_black(f_t.size)
+    sub_h = 0
+    if subtext:
+        sub_h = _text_block_height(draw, subtext[:90], _font(28 * _SCALE), int(max_w * 0.9),
+                                   gap=int(8 * _SCALE)) + int(16 * _SCALE)
+    y = _RH - int(210 * _SCALE) - h_t - sub_h
+    for line in _wrap(draw, t_fit, f_t, max_w):
+        draw.text((m, y), line, font=f_t, fill=(255, 255, 255))
+        y += draw.textbbox((0, 0), line, font=f_t)[3] + int(10 * _SCALE)
+    if subtext:
+        y += int(6 * _SCALE)
+        f_s = _font(28 * _SCALE)
+        for line in _wrap(draw, subtext[:90], f_s, int(max_w * 0.9)):
+            draw.text((m, y), line, font=f_s, fill=p["subtitle"])
+            y += draw.textbbox((0, 0), line, font=f_s)[3] + int(8 * _SCALE)
+
+    _footer_v3(draw, num, total, p, on_dark=True, m=m, teaser=teaser)
+    return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
+
+
 def _slide_body_v3(title: str, body: str, num: int, total: int, brand: str, p: dict,
                    label: str = "", step: int = None, teaser: str = "") -> Image.Image:
     """Cream editorial body slide: outlined giant numeral, ink label pill, black-weight
     headline, body in a white card with an ink border and hard accent offset-shadow."""
-    img = Image.new("RGB", (_RW, _RH), _CREAM_V3)
+    dark = p.get("_dark_slides", False)
+    bg = p["bg"] if dark else _CREAM_V3
+    ink = p["title"] if dark else _INK_V3
+    body_col = p["body"] if dark else (58, 53, 70)
+    img = Image.new("RGB", (_RW, _RH), bg)
     draw = ImageDraw.Draw(img)
     m = int(84 * _SCALE)
     max_w = _RW - m * 2
@@ -648,17 +1119,19 @@ def _slide_body_v3(title: str, body: str, num: int, total: int, brand: str, p: d
         f_giant = _font_black(300 * _SCALE)
         pn = str(step).zfill(2)
         draw.text((_RW - m - _tw(draw, pn, f_giant) + int(40 * _SCALE), -int(50 * _SCALE)), pn,
-                  font=f_giant, fill=_CREAM_V3, stroke_width=max(3, int(3 * _SCALE)),
-                  stroke_fill=(217, 210, 196))
-    _chip_v3(draw, brand, p, on_dark=False, m=m)
+                  font=f_giant, fill=bg, stroke_width=max(3, int(3 * _SCALE)),
+                  stroke_fill=(p["muted"] if dark else (217, 210, 196)))
+    _brand_lockup(img, p, m, on_dark=dark)
 
     y = int(_RH * 0.20)
     lab = (label or (f"RULE {step}" if step else "START HERE")).upper()[:22]
     f_lab = _font(24 * _SCALE, bold=True)
     lw = _tw(draw, lab, f_lab)
     lh = draw.textbbox((0, 0), lab, font=f_lab)[3] + int(18 * _SCALE)
-    _draw_rounded_rect(draw, m, y, m + lw + int(32 * _SCALE), y + lh, lh // 2, _INK_V3)
-    draw.text((m + int(16 * _SCALE), y + int(8 * _SCALE)), lab, font=f_lab, fill=_a2(p))
+    pill_bg = p["accent"] if dark else _INK_V3
+    pill_fg = p["bg"] if dark else _a2(p)
+    _draw_rounded_rect(draw, m, y, m + lw + int(32 * _SCALE), y + lh, lh // 2, pill_bg)
+    draw.text((m + int(16 * _SCALE), y + int(8 * _SCALE)), lab, font=f_lab, fill=pill_fg)
     y += lh + int(34 * _SCALE)
 
     head_gap = int(12 * _SCALE)
@@ -666,7 +1139,7 @@ def _slide_body_v3(title: str, body: str, num: int, total: int, brand: str, p: d
         draw, title, max_w, int(_RH * 0.20), [72, 66, 60, 54, 48], gap=head_gap, max_lines=2)
     f_title = _font_black(f_title.size)
     for line in _wrap(draw, t_fit, f_title, max_w):
-        draw.text((m, y), line, font=f_title, fill=_INK_V3)
+        draw.text((m, y), line, font=f_title, fill=ink)
         y += draw.textbbox((0, 0), line, font=f_title)[3] + head_gap
     y += int(40 * _SCALE)
 
@@ -681,16 +1154,18 @@ def _slide_body_v3(title: str, body: str, num: int, total: int, brand: str, p: d
     card_h = _wrap_height(draw, lines, f_body, body_gap) + pad * 2
     off = int(9 * _SCALE)
     r = int(20 * _SCALE)
+    card_bg = _mix(p["bg"], (255, 255, 255), 0.08) if dark else (255, 253, 248)
+    card_outline = p["accent"] if dark else _INK_V3
     _draw_rounded_rect(draw, m + off, y + off, m + max_w + off, y + card_h + off, r, p["accent"])
-    _draw_rounded_rect(draw, m, y, m + max_w, y + card_h, r, (255, 253, 248))
-    draw.rounded_rectangle([m, y, m + max_w, y + card_h], radius=r, outline=_INK_V3,
+    _draw_rounded_rect(draw, m, y, m + max_w, y + card_h, r, card_bg)
+    draw.rounded_rectangle([m, y, m + max_w, y + card_h], radius=r, outline=card_outline,
                            width=max(3, int(3 * _SCALE)))
     ty = y + pad
     for line in lines:
-        draw.text((m + pad, ty), line, font=f_body, fill=(58, 53, 70))
+        draw.text((m + pad, ty), line, font=f_body, fill=body_col)
         ty += draw.textbbox((0, 0), line, font=f_body)[3] + body_gap
 
-    _footer_v3(draw, num, total, p, on_dark=False, m=m, teaser=teaser)
+    _footer_v3(draw, num, total, p, on_dark=dark, m=m, teaser=teaser)
     return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
@@ -705,7 +1180,7 @@ def _slide_stat_v3(stat: str, title: str, body: str, num: int, total: int,
     for rr in (int(300 * _SCALE),):
         draw.ellipse([_RW - rr, _RH - rr, _RW + rr // 2, _RH + rr // 2],
                      outline=_mix(p["accent"], (255, 255, 255), 0.14), width=int(40 * _SCALE))
-    _chip_v3(draw, brand, p, on_dark=True, m=m)
+    _brand_lockup(img, p, m, on_dark=True)
 
     f_stat = None
     for s in [170, 150, 130, 110, 90]:
@@ -746,18 +1221,22 @@ def _slide_stat_v3(stat: str, title: str, body: str, num: int, total: int,
 def _slide_recap_v3(title: str, bullets: list, num: int, total: int,
                     brand: str, p: dict) -> Image.Image:
     """Cream recap: black-weight title + accent2-check list."""
-    img = Image.new("RGB", (_RW, _RH), _CREAM_V3)
+    dark = p.get("_dark_slides", False)
+    bg = p["bg"] if dark else _CREAM_V3
+    ink = p["title"] if dark else _INK_V3
+    body_col = p["body"] if dark else (58, 53, 70)
+    img = Image.new("RGB", (_RW, _RH), bg)
     draw = ImageDraw.Draw(img)
     m = int(84 * _SCALE)
     max_w = _RW - m * 2
-    _chip_v3(draw, brand, p, on_dark=False, m=m)
+    _brand_lockup(img, p, m, on_dark=dark)
 
     y = int(_RH * 0.16)
     t_fit, f_t, _ = _fit_text_to_box(draw, title, max_w, int(_RH * 0.16),
                                      [64, 58, 52, 46], gap=int(12 * _SCALE), max_lines=2)
     f_t = _font_black(f_t.size)
     for line in _wrap(draw, t_fit, f_t, max_w):
-        draw.text((m, y), line, font=f_t, fill=_INK_V3)
+        draw.text((m, y), line, font=f_t, fill=ink)
         y += draw.textbbox((0, 0), line, font=f_t)[3] + int(12 * _SCALE)
     y += int(44 * _SCALE)
 
@@ -778,11 +1257,11 @@ def _slide_recap_v3(title: str, bullets: list, num: int, total: int,
                    (cx + int(11 * _SCALE), cy - int(8 * _SCALE))], fill=_INK_V3, width=ckw)
         ty = y
         for line in lines:
-            draw.text((tx, ty), line, font=f_b, fill=(58, 53, 70))
+            draw.text((tx, ty), line, font=f_b, fill=body_col)
             ty += draw.textbbox((0, 0), line, font=f_b)[3] + int(8 * _SCALE)
         y += ih + int(30 * _SCALE)
 
-    _footer_v3(draw, num, total, p, on_dark=False, m=m)
+    _footer_v3(draw, num, total, p, on_dark=dark, m=m)
     return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
@@ -795,7 +1274,7 @@ def _slide_cta_v3(headline: str, cta: str, total: int, brand: str, p: dict) -> I
     max_w = _RW - m * 2
     _draw_circle(draw, -int(60 * _SCALE), -int(60 * _SCALE), int(220 * _SCALE),
                  _mix(_INK_V3, p["accent"], 0.55))
-    _chip_v3(draw, brand, p, on_dark=True, m=m)
+    _brand_lockup(img, p, m, on_dark=True)
 
     h_fit, f_h, h_h = _fit_text_to_box(draw, headline, max_w, int(_RH * 0.26),
                                        [84, 76, 68, 60, 52], gap=int(12 * _SCALE), max_lines=3)
@@ -2329,7 +2808,14 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     cta      = content["cta_slide"]
 
     total = 1 + (1 if context else 0) + len(c_slides) + (1 if recap else 0) + 1
-    p = _get_palette(company)
+    # Copy so per-render brand context never mutates a shared PALETTES entry.
+    p = dict(_get_palette(company))
+    p["_logo"] = _load_brand_logo(company)
+    p["_brand_name"] = (company or {}).get("brand_name", "") or (company or {}).get("name", "")
+    p["_product"] = (company or {}).get("product_name", "")
+    # Coherent dark body/recap slides only for explicit brand themes; industry/
+    # named-palette decks keep the original cream editorial rhythm unchanged.
+    p["_dark_slides"] = _is_dark(p) and bool((company or {}).get("theme_spec"))
 
     name = (company or {}).get("name", "")
     # Cover rotation: number-led decks alternate between the editorial cover and the
@@ -2351,7 +2837,19 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     for i, s in enumerate(c_slides):
         # Auto-teaser from the NEXT slide's title — every swipe leaves an open loop
         nxt = c_slides[i + 1].get("title", "") if i + 1 < len(c_slides) else ("the recap" if recap else "")
-        if s.get("kind") == "stat" and s.get("stat"):
+        if s.get("kind") == "photo" and s.get("image"):
+            slides.append(_slide_photo(s["image"], s.get("title", ""), s.get("body", ""),
+                                       num, total, p, teaser=nxt))
+        elif s.get("kind") == "posture":
+            slides.append(_slide_posture(s.get("title", ""), s.get("body", ""), num, total, p,
+                                         teaser=nxt, risk=s.get("risk"), score=s.get("score", "")))
+        elif s.get("kind") == "riskbars" and s.get("parts"):
+            slides.append(_slide_riskbars(s.get("title", ""), s["parts"], num, total, p,
+                                          teaser=nxt, subtext=s.get("body", "")))
+        elif s.get("kind") == "bodymap" and s.get("joints"):
+            slides.append(_slide_bodymap(s.get("title", ""), s["joints"], num, total, p,
+                                         teaser=nxt, worst=s.get("worst", "")))
+        elif s.get("kind") == "stat" and s.get("stat"):
             slides.append(_slide_stat_v3(s["stat"], s.get("title", ""), s.get("body", ""),
                                          num, total, name, p, teaser=nxt))
         else:

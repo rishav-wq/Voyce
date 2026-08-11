@@ -22,7 +22,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 from processor import process_input
 from generator import generate_content
 from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data, set_scheduled_type
-from autonomous import run_for_company, get_post_log, save_post_log
+from autonomous import run_for_company, get_post_log, update_post_engagement
 from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_screenshots
 import linkedin as li
 import auth as auth_module
@@ -130,14 +130,25 @@ def _friendly_fetch_error(exc: Exception, input_type: str) -> str:
     return "Could not read that content. Please try again."
 
 
-def _resolve_profile(user_id: str, profile_id: str = ""):
-    """The profile to write as: the explicit valid choice if given, else the first one."""
+def _resolve_profile(user_id: str, profile_id: str = "", product_id: str = ""):
+    """The profile to write as: the explicit valid choice if given, else the first
+    one. With a product_id, returns the merged product view (company voice +
+    product subject) — unknown product ids fall back to the plain profile."""
     profiles = list_companies(user_id)
+    profile = None
     if profile_id:
         for p in profiles:
             if p.get("id") == profile_id:
-                return p
-    return profiles[0] if profiles else None
+                profile = p
+                break
+    if profile is None:
+        profile = profiles[0] if profiles else None
+    if profile and product_id:
+        from products import get_product, product_view
+        prod = get_product(profile, product_id)
+        if prod:
+            return product_view(profile, prod)
+    return profile
 
 
 def _with_profile_context(profile: dict | None, raw_text: str) -> str:
@@ -308,6 +319,7 @@ class GenerateRequest(BaseModel):
     content: str
     style: str = "illustration"   # image posts: "illustration" (AI) | "card" (insight card)
     profile_id: str = ""          # which saved profile to write as (defaults to the first)
+    product_id: str = ""          # optional: which of the profile's products to anchor on
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
 
@@ -628,7 +640,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
-        profile = _resolve_profile(user["id"], request.profile_id)
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
         context_text = _with_profile_context(profile, raw_text)
         result = generate_content(context_text, company=profile)
     except Exception as e:
@@ -655,7 +667,7 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
     try:
         import base64
         from carousel import generate_carousel_from_text, render_carousel_pdf
-        profile = _resolve_profile(user["id"], request.profile_id)
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
         context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
@@ -670,12 +682,14 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
 
 
 def _fetch_article_meta(url: str) -> dict:
-    """og-tag scrape for the source-card receipt: publication, headline, author, date, domain."""
+    """og-tag scrape for the source-card receipt: publication, headline, author, date, domain.
+    The URL is user-supplied and the parsed title is reflected back, so this must go
+    through net_guard like every other user-URL fetch."""
     import html as _html
     from urllib.parse import urlparse
-    import httpx
-    resp = httpx.get(url, follow_redirects=True, timeout=12,
-                     headers={"User-Agent": "Mozilla/5.0 (compatible; Voyce/1.0; +https://voyce.co.in)"})
+    from net_guard import safe_get
+    resp = safe_get(url, timeout=12,
+                    headers={"User-Agent": "Mozilla/5.0 (compatible; Voyce/1.0; +https://voyce.co.in)"})
     resp.raise_for_status()
     page = resp.text[:400_000]
 
@@ -743,7 +757,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             if not meta.get("headline"):
                 raise HTTPException(status_code=502,
                                     detail="Couldn't read that article page for the source card.")
-            profile = _resolve_profile(user["id"], request.profile_id)
+            profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
             png_bytes = render_source_card_png(meta, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {
@@ -759,7 +773,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         import base64
-        profile = _resolve_profile(user["id"], request.profile_id)
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
         context_text = _with_profile_context(profile, raw_text)
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
@@ -798,7 +812,7 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         from carousel import generate_caption_from_text
-        profile = _resolve_profile(user["id"], request.profile_id)
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
         context_text = _with_profile_context(profile, raw_text)
         data = generate_caption_from_text(context_text, company=profile)
         auth_module.increment_gens(user["id"])
@@ -1096,6 +1110,7 @@ def preview_post(company_id: str, x_token: str = Header(None)):
 
 class RunNowRequest(BaseModel):
     post_type: str = ""   # optional override — e.g. "hot_take" to force a tweet-card day
+    product_id: str = ""  # optional: pin this run to one of the profile's products
 
 
 @app.post("/companies/{company_id}/run")
@@ -1108,15 +1123,17 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     override = (request.post_type if request else "") or ""
+    product_override = (request.product_id if request else "") or ""
     # Manual "Post now" is explicit intent — it publishes immediately even in approval mode.
     result = run_for_company(company, allow_free_manual=True, post_type_override=override,
-                             respect_approval=False)
+                             respect_approval=False, product_id_override=product_override)
     return result
 
 
 class SchedulePlanRequest(BaseModel):
     date: str          # "YYYY-MM-DD"
-    post_type: str = ""  # a rotation type, "__carousel__", or "" to clear back to auto
+    post_type: str = ""  # a rotation type, "__carousel__", "__video__" (DIY day), or "" to clear back to auto
+    product_id: str = ""  # optional: pin that day's post to a specific product
 
 
 @app.patch("/companies/{company_id}/schedule")
@@ -1127,36 +1144,125 @@ def set_schedule(company_id: str, request: SchedulePlanRequest, x_token: str = H
         raise HTTPException(status_code=404, detail="Not found")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", request.date or ""):
         raise HTTPException(status_code=400, detail="Bad date")
-    set_scheduled_type(company_id, request.date, (request.post_type or "").strip())
+    set_scheduled_type(company_id, request.date, (request.post_type or "").strip(),
+                       (request.product_id or "").strip())
     return {"ok": True}
+
+
+# ── Products: multiple subjects under one company identity ────────────────────
+# The company stays the voice/schedule/connection; each product is a niche with
+# its own scraped brief, search angles, and Claude-designed carousel theme.
+
+class ProductRequest(BaseModel):
+    name: str
+    url: str = ""
+    industry: str = ""
+    topics: list[str] = []
+    search_angles: list[str] = []
+    weight: int = 1
+
+
+class ProductToggleRequest(BaseModel):
+    enabled: bool
+
+
+def _owned_company(company_id: str, user: dict) -> dict:
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    return company
+
+
+@app.post("/companies/{company_id}/products")
+def create_product(company_id: str, request: ProductRequest, x_token: str = Header(None)):
+    import products as products_module
+    user = _require_user(x_token)
+    _rate_limit(f"gen:{user['id']}", 20)
+    company = _owned_company(company_id, user)
+    if not request.name.strip():
+        raise HTTPException(status_code=400, detail="Product name is required")
+    plan = "pro" if _is_pro(user) else "free"  # admin emails report unlimited → pro cap
+    cap = products_module.MAX_PRODUCTS.get(plan, 1)
+    if len(products_module.list_products(company)) >= cap:
+        if plan == "free":
+            raise HTTPException(status_code=403, detail="PRO_REQUIRED:products")
+        raise HTTPException(status_code=400, detail=f"Product limit reached ({cap} per profile)")
+    return products_module.add_product(company, request.model_dump())
+
+
+@app.put("/companies/{company_id}/products/{product_id}")
+def edit_product(company_id: str, product_id: str, request: ProductRequest,
+                 x_token: str = Header(None)):
+    import products as products_module
+    user = _require_user(x_token)
+    company = _owned_company(company_id, user)
+    updated = products_module.update_product(company, product_id, request.model_dump())
+    if not updated:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return updated
+
+
+@app.delete("/companies/{company_id}/products/{product_id}")
+def remove_product(company_id: str, product_id: str, x_token: str = Header(None)):
+    import products as products_module
+    user = _require_user(x_token)
+    company = _owned_company(company_id, user)
+    if not products_module.delete_product(company, product_id):
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"ok": True}
+
+
+@app.patch("/companies/{company_id}/products/{product_id}/toggle")
+def toggle_product_endpoint(company_id: str, product_id: str, request: ProductToggleRequest,
+                            x_token: str = Header(None)):
+    import products as products_module
+    user = _require_user(x_token)
+    company = _owned_company(company_id, user)
+    if not products_module.toggle_product(company, product_id, request.enabled):
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"ok": True, "enabled": request.enabled}
+
+
+@app.post("/companies/{company_id}/products/{product_id}/theme")
+def regenerate_product_theme(company_id: str, product_id: str, x_token: str = Header(None)):
+    import products as products_module
+    user = _require_user(x_token)
+    _rate_limit(f"theme:{user['id']}", 6)
+    company = _owned_company(company_id, user)
+    spec = products_module.regenerate_theme(company, product_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if not spec:
+        raise HTTPException(status_code=502,
+                            detail="Theme generation is unavailable right now — the product keeps its current look.")
+    return spec
 
 
 @app.get("/companies/log")
 def post_log(x_token: str = Header(None)):
     user = _require_user(x_token)
-    user_company_ids = {c["id"] for c in list_companies(user["id"])}
-    log = get_post_log()
-    return [e for e in log if e.get("company_id") in user_company_ids]
+    user_company_ids = [c["id"] for c in list_companies(user["id"])]
+    return get_post_log(user_company_ids)
 
 
 @app.get("/analytics")
 def get_analytics(x_token: str = Header(None)):
     user = _require_user(x_token)
-    user_company_ids = {c["id"] for c in list_companies(user["id"])}
-    log = get_post_log()
-    posts = [e for e in log if e.get("company_id") in user_company_ids and e.get("status") == "posted"]
+    user_company_ids = [c["id"] for c in list_companies(user["id"])]
+    log = get_post_log(user_company_ids)
+    posts = [e for e in log if e.get("status") == "posted"]
     return list(reversed(posts[-14:]))
 
 
 @app.post("/analytics/refresh")
 def refresh_analytics(x_token: str = Header(None)):
     user = _require_user(x_token)
-    user_company_ids = {c["id"] for c in list_companies(user["id"])}
-    log = get_post_log()
-    updated = False
+    user_company_ids = [c["id"] for c in list_companies(user["id"])]
+    log = get_post_log(user_company_ids)
+    # Update each entry in place — never rewrite the collection. Only this
+    # user's posted entries are even fetched, and each engagement result lands
+    # via a targeted update keyed on (company_id, post_urn).
     for entry in log:
-        if entry.get("company_id") not in user_company_ids:
-            continue
         if entry.get("status") != "posted":
             continue
         urn = entry.get("post_urn", "")
@@ -1165,10 +1271,8 @@ def refresh_analytics(x_token: str = Header(None)):
         engagement = li.get_post_engagement(user["id"], urn)
         if engagement:
             entry["engagement"] = engagement
-            updated = True
-    if updated:
-        save_post_log(log)
-    posts = [e for e in log if e.get("company_id") in user_company_ids and e.get("status") == "posted"]
+            update_post_engagement(entry.get("company_id", ""), urn, engagement)
+    posts = [e for e in log if e.get("status") == "posted"]
     return list(reversed(posts[-14:]))
 
 

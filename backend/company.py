@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import datetime
 from scraper import scrape_company
 
@@ -15,9 +16,14 @@ def save_company(profile: dict) -> dict:
     else:
         company_id = re.sub(r"[^a-z0-9]+", "-", profile["name"].lower()).strip("-")
 
+    # The derived id is only stable for the SAME user re-creating the SAME
+    # profile. Any other occupant of the slot — another user's profile with the
+    # same name/domain, or this user's differently-named one — must get a fresh
+    # id, or replace_one(upsert=True) below silently reassigns their profile.
     existing = db.companies.find_one({"id": company_id}, _P)
-    if existing and existing.get("name") != profile["name"]:
-        company_id = f"{company_id}-{datetime.now().strftime('%H%M%S')}"
+    if existing and (existing.get("user_id") != profile.get("user_id", "")
+                     or existing.get("name") != profile["name"]):
+        company_id = f"{company_id}-{uuid.uuid4().hex[:6]}"
 
     scrape_result = {}
     if website_url:
@@ -110,14 +116,18 @@ def toggle_company(company_id: str, active: bool):
     db.companies.update_one({"id": company_id}, {"$set": {"active": active}})
 
 
-def set_scheduled_type(company_id: str, day: str, post_type: str) -> bool:
-    """Set (or clear) a per-day post-type override for the calendar. Empty post_type clears
-    that day back to the automatic rotation. Stored as scheduled_types: {date: type}."""
+def set_scheduled_type(company_id: str, day: str, post_type: str, product_id: str = "") -> bool:
+    """Set (or clear) a per-day override for the calendar. Empty post_type AND empty
+    product_id clears that day back to the automatic rotation. Stored as
+    scheduled_types: {date: type} (legacy string) or {date: {"product": id, "type": type}}
+    when a product is pinned — run_for_company accepts both shapes."""
     c = db.companies.find_one({"id": company_id}, _P)
     if not c:
         return False
     sched = c.get("scheduled_types", {}) or {}
-    if post_type:
+    if product_id:
+        sched[day] = {"product": product_id, "type": post_type}
+    elif post_type:
         sched[day] = post_type
     else:
         sched.pop(day, None)

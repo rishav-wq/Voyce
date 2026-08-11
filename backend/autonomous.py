@@ -665,6 +665,16 @@ def _build_company_brief(company: dict) -> str:
     is_personal = company.get("profile_type") == "personal"
     analysis = company.get("analysis", {})
 
+    # When the merged product view is in play, anchor the subject explicitly —
+    # the voice sections below still describe the company/author.
+    product_line = ""
+    if company.get("product_name"):
+        product_line = (
+            f"PRODUCT FOCUS FOR THIS POST: {company['product_name']} — keep the "
+            f"author's usual voice, but anchor the subject matter in this "
+            f"product's niche and audience."
+        )
+
     if is_personal:
         designation = company.get("designation", "").strip()
         author_line = f"Author: {company['name']}"
@@ -722,10 +732,40 @@ def _build_company_brief(company: dict) -> str:
         for i, post in enumerate(top_posts[:5], 1):
             parts.append(f"Example {i}:\n{post[:600]}")
 
-    return "\n".join(p for p in parts if p)
+    return "\n".join(p for p in [product_line, *parts] if p)
 
 
-def _get_post_type(company: dict) -> str:
+def _runs_today(company_id: str) -> int:
+    """How many posts this company already made today (fed into both the
+    post-type hash and the product-rotation hash)."""
+    from datetime import date
+    today_str = date.today().isoformat()
+    log = get_post_log([company_id])
+    return sum(
+        1 for e in log
+        if e.get("timestamp", "").startswith(today_str)
+        and e.get("status") in ("posted", "dry_run_fired", "pending_approval")
+    )
+
+
+# Self-promo guardrail: at most this many Product Spotlight posts per company
+# per rolling week, no matter how many products rotate underneath. A product
+# otherwise defines the *niche* of a value post, not its sales pitch.
+SPOTLIGHT_WEEKLY_CAP = 2
+
+
+def _spotlights_last7(company_id: str) -> int:
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+    label = POST_TYPE_LABELS.get("product_spotlight", "Product Spotlight")
+    return db.post_log.count_documents({
+        "company_id": company_id,
+        "post_type": label,
+        "timestamp": {"$gte": cutoff},
+        "status": {"$in": ["posted", "dry_run_fired", "pending_approval"]},
+    })
+
+
+def _get_post_type(company: dict, runs_today: int | None = None) -> str:
     """
     Returns a post type that varies by weekday AND by how many times this company
     has run today, so repeated Run Now clicks always produce a different type.
@@ -736,22 +776,26 @@ def _get_post_type(company: dict) -> str:
     is_personal = company.get("profile_type") == "personal"
     rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
 
-    # Count how many posts this company has already made today
     today_str = date.today().isoformat()
     company_id = company.get("id", "default")
-    log = get_post_log()
-    runs_today = sum(
-        1 for e in log
-        if e.get("company_id") == company_id
-        and e.get("timestamp", "").startswith(today_str)
-        and e.get("status") in ("posted", "dry_run_fired", "pending_approval")
-    )
+    if runs_today is None:
+        runs_today = _runs_today(company_id)
 
     # Use a hash of (company_id + date + runs_today) to pick from rotation
     # This gives deterministic but varied results across runs
     seed = hashlib.md5(f"{company_id}{today_str}{runs_today}".encode()).hexdigest()
     idx = int(seed[:4], 16) % len(rotation)
-    return rotation[idx]
+    key = rotation[idx]
+
+    # Weekly spotlight cap: advance deterministically to the next non-spotlight
+    # slot. (get_week_plan doesn't model the cap — a capped day shows Spotlight
+    # in the forecast but posts the substitute; acceptable drift.)
+    if key == "product_spotlight" and _spotlights_last7(company_id) >= SPOTLIGHT_WEEKLY_CAP:
+        for step in range(1, len(rotation)):
+            alt = rotation[(idx + step) % len(rotation)]
+            if alt != "product_spotlight":
+                return alt
+    return key
 
 
 def get_week_plan(company: dict, days: int = 7) -> list[str]:
@@ -782,7 +826,7 @@ def get_post_type_info(company: dict) -> dict:
     next_type_label = POST_TYPE_LABELS.get(next_type_key, next_type_key)
 
     company_id = company.get("id", "default")
-    log = get_post_log()
+    log = get_post_log([company_id])
     recent = []
     
     # log is sorted chronologically (oldest to newest usually, or we can reverse it)
@@ -962,36 +1006,107 @@ def _should_post_carousel(company: dict) -> bool:
     return bool(company.get("carousel_enabled"))
 
 
+def _video_gen_prompt(subject: dict, post_text: str) -> str:
+    """A copy-paste prompt for the user's own AI video tool (Sora/Veo/Runway —
+    or Claude for a storyboard). Voyce never generates the video itself; the
+    user takes this prompt to whatever they subscribe to and posts natively.
+    The product's Claude-designed palette rides along so DIY assets stay
+    on-brand. Fail-open: a template beats a missing prompt."""
+    palette = (subject.get("theme_spec") or {}).get("palette") or {}
+    brand = ""
+    if palette:
+        brand = (f"Brand colors: background {palette.get('bg', '')}, "
+                 f"accent {palette.get('accent', '')}, text {palette.get('title', '')}. ")
+    elif subject.get("brand_color"):
+        brand = f"Brand accent color: {subject['brand_color']}. "
+    who = subject.get("product_name") or subject.get("name", "")
+
+    fallback = (
+        f"Create a 25-second vertical (9:16) social video for {who} "
+        f"({subject.get('industry', '')}). {brand}"
+        "Open with a bold on-screen text hook taken from the first line of the post "
+        "below, then 3 quick scenes that visualize its main point, and end with a "
+        "clean logo/name card. Modern, minimal, high-contrast; readable captions; "
+        "no stock-footage feel.\n\nThe post this video accompanies:\n" + post_text[:900]
+    )
+    try:
+        prompt = llm_generate(
+            f"Brand/product: {who} — {subject.get('industry', '')}\n{brand}\n"
+            f"LinkedIn post the video will accompany:\n{post_text[:1200]}",
+            system=(
+                "Write ONE copy-paste prompt for an AI video generator (Sora, Veo, "
+                "Runway) that produces a 20-30s vertical social video to accompany "
+                "this LinkedIn post. The prompt must: describe 3-4 concrete scenes "
+                "tied to the post's actual argument (not generic b-roll), specify "
+                "on-screen text for the hook, name the brand colors if given, and "
+                "state format (9:16, readable captions, minimal/premium look). "
+                "Return ONLY the prompt text, no preamble."
+            ),
+            max_tokens=600,
+            temperature=0.7,
+        )
+        return prompt.strip() if prompt and prompt.strip() else fallback
+    except Exception:
+        return fallback
+
+
 def run_for_company(company: dict, allow_free_manual: bool = False,
-                    post_type_override: str = "", respect_approval: bool = True) -> dict:
+                    post_type_override: str = "", respect_approval: bool = True,
+                    product_id_override: str = "") -> dict:
+    from products import get_product, pick_product, product_view
+
     company_id = company["id"]
     is_personal = company.get("profile_type") == "personal"
     valid_types = set((PERSONAL_ROTATION if is_personal else COMPANY_ROTATION).values())
+    runs_today = _runs_today(company_id)
+
     # A per-day plan set from the calendar takes precedence over the rotation (unless a
     # manual "Post now" passed an explicit override, which wins over everything).
+    # A plan may be the legacy string form ("hot_take" / "__carousel__") or the
+    # product-aware dict form {"product": "<id>", "type": "<rotation type>"}.
+    forced_product_id = product_id_override
     if not post_type_override:
         plan = (company.get("scheduled_types") or {}).get(date.today().isoformat())
-        if plan == "__carousel__":
-            post_type_override = ""  # keep rotation type, but force carousel below
+        if isinstance(plan, dict):
+            forced_product_id = forced_product_id or plan.get("product", "")
+            plan = plan.get("type", "")
+        if plan in ("__carousel__", "__video__"):
+            post_type_override = ""  # keep rotation type, but force the format below
         elif plan in valid_types:
             post_type_override = plan
     else:
         plan = None
+    do_diy_video = False
     if post_type_override and post_type_override in valid_types:
         post_type = post_type_override
         do_carousel = False  # an explicit type choice is a text/tweet intent, never a carousel
     elif plan == "__carousel__":
-        post_type = _get_post_type(company)
+        post_type = _get_post_type(company, runs_today)
         do_carousel = True
+    elif plan == "__video__":
+        # DIY video day: Voyce writes the caption + a generation prompt; the user
+        # generates the video with their own AI tool and posts natively on
+        # LinkedIn. Nothing is auto-published — the item always waits in the queue.
+        post_type = _get_post_type(company, runs_today)
+        do_carousel = False
+        do_diy_video = True
     else:
-        post_type  = _get_post_type(company)
+        post_type  = _get_post_type(company, runs_today)
         do_carousel = _should_post_carousel(company)
+
+    # The subject for this post: an explicitly requested product, else the
+    # deterministic rotation pick, else the company itself (implicit product).
+    product = (get_product(company, forced_product_id) if forced_product_id else None) \
+        or pick_product(company, runs_today)
+    subject = product_view(company, product)
 
     log_entry = {
         "company_id":   company_id,
         "company_name": company["name"],
+        "product_id":   subject.get("product_id", ""),
+        "product_name": subject.get("product_name", ""),
         "post_type":    POST_TYPE_LABELS.get(post_type, post_type),
-        "post_format":  "carousel" if do_carousel else "text",
+        "post_format":  "diy_video" if do_diy_video else ("carousel" if do_carousel else "text"),
         "timestamp":    datetime.now().isoformat(),
         "status":       "failed",
         "post_text":    "",
@@ -1012,24 +1127,31 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
 
         NEWS_HEAVY  = ("trend_commentary", "industry_stat", "trend_reaction", "stat_reaction")
         num_results = 6 if post_type in NEWS_HEAVY else 3
-        # Pass post_type so search uses targeted queries for this specific post angle
+        # Pass post_type so search uses targeted queries for this specific post angle.
+        # The subject view carries the selected product's niche and search angles.
         news_results = search_industry_news(
-            company["industry"], company["name"], num_results, post_type=post_type
+            subject["industry"], subject["name"], num_results, post_type=post_type,
+            extra_angles=subject.get("search_angles") or [],
         )
         news_context = format_news_context(news_results)
 
         import base64 as _b64
-        if do_carousel:
+        if do_diy_video:
+            post_text = generate_autonomous_post(subject, news_context, post_type)
+            payload = {"format": "diy_video", "post_text": post_text, "publish_text": post_text,
+                       "asset_b64": "", "alt_text": "", "title": company["name"],
+                       "gen_prompt": _video_gen_prompt(subject, post_text)}
+        elif do_carousel:
             from carousel import generate_carousel_content, render_carousel_pdf
-            content   = generate_carousel_content(company, news_context, post_type)
-            pdf_bytes = render_carousel_pdf(content, company)
+            content   = generate_carousel_content(subject, news_context, post_type)
+            pdf_bytes = render_carousel_pdf(content, subject)
             post_text = content.get("post_text", "")
             payload = {"format": "carousel", "post_text": post_text, "publish_text": post_text,
                        "asset_b64": _b64.b64encode(pdf_bytes).decode(), "alt_text": "",
                        "title": company["name"]}
         else:
-            post_text = generate_autonomous_post(company, news_context, post_type)
-            card_png = _tweet_card_for(post_text, company) if post_type in TWEET_CARD_TYPES else None
+            post_text = generate_autonomous_post(subject, news_context, post_type)
+            card_png = _tweet_card_for(post_text, subject) if post_type in TWEET_CARD_TYPES else None
             if card_png:
                 # The card already displays the hook line — don't repeat it as the text opener.
                 lines = post_text.splitlines()
@@ -1044,8 +1166,16 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
                 payload = {"format": "text", "post_text": post_text, "publish_text": post_text,
                            "asset_b64": "", "alt_text": "", "title": company["name"]}
 
+        # Ride the product identity along with the payload so pending items and
+        # their approval-time log entries stay attributable to the product.
+        payload["product_id"] = subject.get("product_id", "")
+        payload["product_name"] = subject.get("product_name", "")
+
         log_entry["post_text"] = payload["post_text"]
-        if respect_approval and company.get("approval_mode"):
+        # DIY video items can never auto-publish (the asset doesn't exist until
+        # the user generates it) — they always wait in the queue, approval mode
+        # or not, manual run or not.
+        if do_diy_video or (respect_approval and company.get("approval_mode")):
             pending_id = _save_pending(company, post_type, payload)
             log_entry["status"] = "pending_approval"
             log_entry["pending_id"] = pending_id
@@ -1131,6 +1261,27 @@ def approve_pending_post(pending_id: str, user_id: str) -> dict:
     pend = db.pending_posts.find_one({"id": pending_id, "user_id": user_id}, {"_id": 0})
     if not pend or pend.get("status") != "pending":
         return {"error": "not_found"}
+    if pend.get("format") == "diy_video":
+        # "I posted it": the user generated the video and published natively on
+        # LinkedIn themselves — record the day as covered, publish nothing.
+        db.pending_posts.update_one(
+            {"id": pending_id},
+            {"$set": {"status": "approved", "approved_at": datetime.now().isoformat()}})
+        _append_log({
+            "company_id":   pend.get("company_id", ""),
+            "company_name": pend.get("company_name", ""),
+            "product_id":   pend.get("product_id", ""),
+            "product_name": pend.get("product_name", ""),
+            "post_type":    pend.get("post_type", ""),
+            "post_format":  "diy_video",
+            "timestamp":    datetime.now().isoformat(),
+            "status":       "posted",
+            "post_text":    pend.get("post_text", ""),
+            "post_urn":     "",   # posted natively — no URN, so engagement refresh skips it
+            "error":        "",
+        })
+        logger.info(f"[Approval] DIY video {pending_id} marked as posted manually")
+        return {"status": "posted_manually"}
     result = _publish_payload(user_id, pend)  # raises on failure → item stays pending
     db.pending_posts.update_one(
         {"id": pending_id},
@@ -1139,6 +1290,8 @@ def approve_pending_post(pending_id: str, user_id: str) -> dict:
     _append_log({
         "company_id":   pend.get("company_id", ""),
         "company_name": pend.get("company_name", ""),
+        "product_id":   pend.get("product_id", ""),
+        "product_name": pend.get("product_name", ""),
         "post_type":    pend.get("post_type", ""),
         "post_format":  "carousel" if pend.get("format") == "carousel" else "text",
         "timestamp":    datetime.now().isoformat(),
@@ -1162,11 +1315,20 @@ def _append_log(entry: dict):
     db.post_log.insert_one({**entry})
 
 
-def get_post_log() -> list:
-    return list(db.post_log.find({}, {"_id": 0}).sort("timestamp", -1))
+def get_post_log(company_ids: list[str] | None = None) -> list:
+    """Post log entries, newest first. Pass company_ids to scope the query —
+    loading the whole collection degrades with global volume and leaks other
+    tenants' entries to the caller's filter step."""
+    q = {"company_id": {"$in": company_ids}} if company_ids is not None else {}
+    return list(db.post_log.find(q, {"_id": 0}).sort("timestamp", -1))
 
 
-def save_post_log(log: list):
-    db.post_log.delete_many({})
-    if log:
-        db.post_log.insert_many([{**e} for e in log])
+def update_post_engagement(company_id: str, post_urn: str, engagement: dict) -> bool:
+    """Targeted engagement update for one log entry. Replaces the old
+    delete_many + insert_many full-collection rewrite, which any single user
+    could trigger and which destroyed everyone's history on a concurrent call
+    or a crash between the delete and the insert."""
+    r = db.post_log.update_one(
+        {"company_id": company_id, "post_urn": post_urn},
+        {"$set": {"engagement": engagement}})
+    return r.matched_count > 0
