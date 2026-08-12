@@ -27,24 +27,9 @@
   <style>
     * { box-sizing: border-box; }
     body { background: #f4f0e8; margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    h1, h2, h3, h4, .dash-nav .logo, .sidebar .logo, .section-head h2, .page-intro h1, .stat-value { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
     .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
     /* ── Top nav ── */
-    .dash-nav {
-      background: #fffdf8;
-      border-bottom: 1px solid #eee;
-      padding: 0 32px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .dash-nav .logo { font-size: 20px; font-weight: 700; color: #1c1813; }
-    .dash-nav .logo span { color: #24365e; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
     .nav-link { font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
@@ -63,7 +48,7 @@
     .btn-add:hover { background: #1c2b4d; }
 
     /* ── App shell: sidebar + main ── */
-    .app-shell { display: grid; grid-template-columns: 248px 1fr 320px; min-height: 100vh; align-items: start; }
+    .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
     .sidebar {
       position: sticky; top: 0; height: 100vh; background: #fffdf8;
       border-right: 1px solid #e4ddd0; padding: 22px 16px;
@@ -95,15 +80,6 @@
     .li-status-pill.connected .dot { background: #057642; }
     .side-user { font-size: 12px; color: #a59c8d; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* ── Right rail ── */
-    .rail { position: sticky; top: 0; padding: 30px 24px; display: flex; flex-direction: column; gap: 16px; align-self: start; }
-    .rail-card { background: #fffdf8; border: 1px solid #e4ddd0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(20,16,10,0.05); }
-    .rail-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 14px; color: #1c1813; }
-    .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .ring-cell { text-align: center; }
-    .ring { position: relative; width: 74px; height: 74px; margin: 0 auto; }
-    .ring svg { transform: rotate(-90deg); }
-    .ring-num { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; font-weight: 800; color: #1c1813; }
-    .ring-label { font-size: 11px; color: #6a6258; font-weight: 600; margin-top: 7px; }
 
     @media (max-width: 1100px) { .app-shell { grid-template-columns: 248px 1fr; } .rail { display: none; } }
     @media (max-width: 860px) {
@@ -529,7 +505,6 @@
 
     /* ── Mobile ── */
     @media (max-width: 760px) {
-      .dash-nav { padding: 0 14px; }
       .nav-right { gap: 10px; }
       .nav-user { display: none; }
       .btn-add { padding: 8px 12px; }
@@ -781,25 +756,6 @@
   </main>
 
   <!-- ── Right rail ── -->
-  <aside class="rail">
-    <div class="rail-card">
-      <h3>At a glance</h3>
-      <div class="rings">
-        <div class="ring-cell">
-          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-gens-arc" cx="37" cy="37" r="30" fill="none" stroke="#24365e" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-gens">—</div></div>
-          <div class="ring-label">Gens left</div>
-        </div>
-        <div class="ring-cell">
-          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-profiles-arc" cx="37" cy="37" r="30" fill="none" stroke="#18a0a0" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-profiles">—</div></div>
-          <div class="ring-label">Profiles</div>
-        </div>
-        <div class="ring-cell">
-          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-linkedin-arc" cx="37" cy="37" r="30" fill="none" stroke="#e08a2b" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-linkedin">–</div></div>
-          <div class="ring-label">LinkedIn</div>
-        </div>
-      </div>
-    </div>
-  </aside>
   </div>
 
   <!-- ── Add Profile Modal (right drawer) ── -->
@@ -1567,7 +1523,7 @@
     const CAROUSEL_THEMES = [
       ["", "Auto (based on industry)"],
       ["knowella_deep", "Knowella — Deep Violet + Teal (brand + logo)"],
-      ["warm_violet", "Voyce Violet — Ink + Violet + Lime"],
+      ["warm_violet", "Voyce — Cream + Deep Navy (default)"],
       ["dark_pro", "Dark Pro — Navy + Cyan"],
       ["fintech_navy", "Fintech Navy — Navy + Azure + Amber"],
       ["warm_dark", "Warm Dark — Charcoal + Amber"],

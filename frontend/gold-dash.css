@@ -31,13 +31,6 @@ body {
 }
 
 /* ── Top nav: frosted, lighter ────────────────────────────────────────────── */
-.dash-nav {
-  background: rgba(255, 254, 251, 0.82);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border-bottom: 1px solid var(--line);
-  height: 60px;
-}
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sidebar {
@@ -59,15 +52,9 @@ body {
 }
 
 /* ── Cards: one elevation language everywhere ─────────────────────────────── */
-.profile-card, .rail-card, .empty-state, .status-bar, .plan-banner, .li-banner {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-rest);
-}
 .profile-card { border-radius: var(--r-card); padding: 24px 26px;
   transition: transform 0.4s var(--ease-snap), box-shadow 0.4s var(--ease-snap), border-color 0.3s var(--ease-snap); }
 .profile-card:hover { transform: translateY(-3px); border-color: rgba(36, 54, 94, 0.35); box-shadow: var(--shadow-lift); }
-.rail-card { border-radius: var(--r-card); padding: 20px; }
 .status-bar { border-radius: 14px; padding: 13px 18px; }
 
 /* ── Hierarchy: let headings lead ─────────────────────────────────────────── */
@@ -133,8 +120,6 @@ body {
 .badge-active { background: #e4f6ec; color: #0b7a4b; box-shadow: inset 0 0 0 1px rgba(11, 122, 75, 0.18); }
 
 /* ── Rings (At a glance) ──────────────────────────────────────────────────── */
-.ring-num { font-size: 17px; }
-.ring-label { letter-spacing: 0.02em; }
 
 /* ── Panels ───────────────────────────────────────────────────────────────── */
 .card-li-panel { border-radius: 12px; background: #f5f7fb; }
@@ -153,10 +138,8 @@ body {
 .dash-body > *:nth-child(5) { animation-delay: 0.26s; }
 .dash-body > *:nth-child(6) { animation-delay: 0.32s; }
 .dash-body > *:nth-child(7) { animation-delay: 0.38s; }
-.rail-card { animation: gold-enter 0.6s var(--ease-snap) both; animation-delay: 0.28s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dash-body > *, .rail-card { animation: none; }
   .profile-card, .act-btn, .btn-add, .plan-upgrade-btn { transition: none; }
 }
 

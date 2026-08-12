@@ -30,3 +30,6 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/
+
+# Throwaway design previews — build them in the scratchpad, not the repo
+PREVIEW-*.html
