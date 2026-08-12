@@ -1260,12 +1260,22 @@ def list_pending_posts(user_id: str) -> list:
         {"_id": 0, "asset_b64": 0}).sort("created_at", -1))
 
 
-def approve_pending_post(pending_id: str, user_id: str) -> dict:
+def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -> dict:
     """Publish a held post through the normal publish path. On publish failure the
-    item stays pending so the user can retry."""
+    item stays pending so the user can retry.
+
+    edited_text replaces the caption when the user tweaked it in the queue — the
+    generated asset (tweet card, carousel) is kept as-is, since it carries its own
+    line rather than a copy of the caption."""
     pend = db.pending_posts.find_one({"id": pending_id, "user_id": user_id}, {"_id": 0})
     if not pend or pend.get("status") != "pending":
         return {"error": "not_found"}
+    edited_text = (edited_text or "").strip()
+    if edited_text and edited_text != (pend.get("post_text") or "").strip():
+        pend["publish_text"] = edited_text
+        pend["post_text"] = edited_text          # the log should show what actually went out
+        db.pending_posts.update_one({"id": pending_id},
+                                    {"$set": {"post_text": edited_text, "edited": True}})
     if pend.get("format") == "diy_video":
         # "I posted it": the user generated the video and published natively on
         # LinkedIn themselves — record the day as covered, publish nothing.

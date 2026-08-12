@@ -1181,12 +1181,18 @@ def pending_posts(x_token: str = Header(None)):
     return list_pending_posts(user["id"])
 
 
+class ApproveRequest(BaseModel):
+    text: str = ""       # caption edited in the queue; empty means publish as generated
+
+
 @app.post("/pending/{pending_id}/approve")
-def approve_pending(pending_id: str, x_token: str = Header(None)):
+def approve_pending(pending_id: str, request: ApproveRequest | None = None,
+                    x_token: str = Header(None)):
     user = _require_user(x_token)
     from autonomous import approve_pending_post
     try:
-        result = approve_pending_post(pending_id, user["id"])
+        result = approve_pending_post(pending_id, user["id"],
+                                      edited_text=(request.text if request else ""))
     except Exception:
         logging.exception("pending approve failed")
         raise HTTPException(status_code=502,
@@ -1321,9 +1327,11 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
         raise HTTPException(status_code=404, detail="Not found")
     override = (request.post_type if request else "") or ""
     product_override = (request.product_id if request else "") or ""
-    # Manual "Post now" is explicit intent — it publishes immediately even in approval mode.
+    # "Ask me before it posts" is a promise about everything Voyce writes, so it holds
+    # here too: Post now generates immediately, but a profile in approval mode still
+    # gets the post queued for review rather than published unseen.
     result = run_for_company(company, allow_free_manual=True, post_type_override=override,
-                             respect_approval=False, product_id_override=product_override)
+                             product_id_override=product_override)
     return result
 
 

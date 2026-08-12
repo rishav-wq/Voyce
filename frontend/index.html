@@ -506,13 +506,21 @@
   <aside class="sidebar">
     <div class="logo"><span class="logo-mark">V</span><span>oyce</span></div>
     <nav class="side-nav">
+      <a class="side-item" href="/setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        <span>Today</span>
+      </a>
       <a class="side-item active" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
         <span>Create</span>
       </a>
-      <a class="side-item" href="/setup">
+      <a class="side-item" href="/setup#profiles">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 7.5a3 3 0 0 1 0 5.5M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>
-        <span>Profiles &amp; automation</span>
+        <span>Profiles</span>
+      </a>
+      <a class="side-item" href="/setup#analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>Analytics</span>
       </a>
     </nav>
     <div class="side-spacer"></div>
@@ -552,7 +560,7 @@
     <div class="input-card">
       <div id="writing-as" style="display:none;align-items:center;gap:8px;margin-bottom:14px;font-size:13.5px;font-weight:600;color:#6b6355;">
         ✍️ Writing as
-        <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';" style="font-family:inherit;font-size:13.5px;font-weight:600;color:#1c1813;padding:6px 10px;border:1.5px solid #e0d9cc;border-radius:8px;background:#fff;cursor:pointer;">
+        <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';applyProfileScopedUI();" style="font-family:inherit;font-size:13.5px;font-weight:600;color:#1c1813;padding:6px 10px;border:1.5px solid #e0d9cc;border-radius:8px;background:#fff;cursor:pointer;">
         </select>
       </div>
       <div id="ideas-row" style="display:none;margin-bottom:14px;">
@@ -591,23 +599,25 @@
           <span id="carousel-btn-loader" style="display:none;">Generating…</span>
         </button>
       </div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b6355;flex-wrap:wrap;">
-        <span>Brand:</span>
-        <select id="carousel-theme" onchange="if(this.value==='knowella_deep'){var f=document.getElementById('carousel-format'); if(f&&f.value==='standard')f.value='visual';}" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
-          <option value="">Profile theme</option>
-          <option value="knowella_deep">Knowella (dark violet + teal, logo)</option>
-        </select>
-        <span>Format:</span>
-        <select id="carousel-format" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
-          <option value="standard">Text slides</option>
-          <option value="visual">Visual — a diagram on every slide</option>
-          <option value="posture">+ Skeleton hero (illustrative)</option>
-          <option value="photo">+ Real footage hero</option>
-        </select>
-        <span style="color:#a29a8c;">applies to the Carousel PDF</span>
-      </div>
+      <details id="carousel-opts" style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:12.5px;color:#8a8275;">Carousel options — brand &amp; slide format</summary>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b6355;flex-wrap:wrap;padding:10px 0 2px;">
+          <span>Brand:</span>
+          <select id="carousel-theme" onchange="if(this.value==='knowella_deep'){var f=document.getElementById('carousel-format'); if(f&&f.value==='standard')f.value='visual';}" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
+            <option value="">Profile theme</option>
+            <option value="knowella_deep" id="theme-opt-knowella">Knowella (dark violet + teal, logo)</option>
+          </select>
+          <span>Format:</span>
+          <select id="carousel-format" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
+            <option value="standard">Text slides</option>
+            <option value="visual">Visual — a diagram on every slide</option>
+            <option value="posture" id="fmt-opt-posture">+ Skeleton hero (illustrative)</option>
+            <option value="photo" id="fmt-opt-photo">+ Real footage hero</option>
+          </select>
+        </div>
+      </details>
 
-      <details style="margin-top:14px;border:1px dashed #ddd6c8;border-radius:10px;padding:0 14px;">
+      <details id="ergo-block" style="margin-top:14px;border:1px dashed #ddd6c8;border-radius:10px;padding:0 14px;display:none;">
         <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#6b6355;padding:12px 0;">📊 Turn a KnowErgo assessment into a data carousel</summary>
         <div style="padding:0 0 14px;">
           <p style="font-size:12.5px;color:#8a8275;margin:0 0 8px;line-height:1.5;">Paste a KnowErgo <code>/video/result</code> JSON — you'll get per-joint risk bars, a body-map, and the worst-joint stat, with real numbers from the assessment.</p>

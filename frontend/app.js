@@ -48,7 +48,42 @@ async function loadProfilePicker() {
     // Idea suggestions work with even a single profile
     const ideasRow = document.getElementById("ideas-row");
     if (ideasRow) ideasRow.style.display = "";
+    applyProfileScopedUI();
   } catch (_) {}
+}
+
+// Ergonomics/EHS work (KnowErgo assessments, the Knowella brand deck, skeleton and
+// footage heroes) is vertical-specific. Showing it on every profile makes the tool
+// look like someone else's product to a consultant or fractional exec, so these
+// controls only appear when the selected profile actually lives in that world.
+const _ERGO_HINTS = ["ergo", "knowella", "knowergo", "safety", "ehs", "occupational",
+                     "workplace injury", "physio", "musculoskeletal", "industrial"]
+
+function isErgoProfile() {
+  const p = _profiles.find((x) => x.id === getActiveProfileId()) || _profiles[0]
+  if (!p) return false
+  const hay = `${p.name || ""} ${p.industry || ""} ${p.designation || ""}`.toLowerCase()
+  return _ERGO_HINTS.some((k) => hay.includes(k))
+}
+
+function applyProfileScopedUI() {
+  const ergo = isErgoProfile()
+  const block = document.getElementById("ergo-block")
+  if (block) {
+    block.style.display = ergo ? "" : "none"
+    if (!ergo) block.open = false
+  }
+  for (const id of ["theme-opt-knowella", "fmt-opt-posture", "fmt-opt-photo"]) {
+    const opt = document.getElementById(id)
+    if (opt) opt.hidden = !ergo
+  }
+  // A hidden option can still be the current value after a profile switch — reset it.
+  if (!ergo) {
+    const theme = document.getElementById("carousel-theme")
+    if (theme && theme.value === "knowella_deep") theme.value = ""
+    const fmt = document.getElementById("carousel-format")
+    if (fmt && (fmt.value === "posture" || fmt.value === "photo")) fmt.value = "standard"
+  }
 }
 
 function _escHtmlCreate(s) {

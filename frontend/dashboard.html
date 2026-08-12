@@ -568,18 +568,23 @@
   <aside class="sidebar">
     <div class="logo"><span class="logo-mark">V</span><span>oyce</span></div>
     <nav class="side-nav">
+      <button class="side-item active" id="nav-today" onclick="showView('today', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        <span>Today</span>
+        <span class="nav-count" id="nav-pending-count" hidden></span>
+      </button>
       <a class="side-item" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
         <span>Create</span>
       </a>
-      <a class="side-item active" href="/setup">
+      <button class="side-item" id="nav-profiles" onclick="showView('profiles', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 7.5a3 3 0 0 1 0 5.5M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>
-        <span>Profiles &amp; automation</span>
-      </a>
-      <a class="side-item" id="nav-analytics" href="#analytics-section" style="display:none;">
+        <span>Profiles</span>
+      </button>
+      <button class="side-item" id="nav-analytics" onclick="showView('analytics', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <span>Analytics</span>
-      </a>
+      </button>
     </nav>
     <button class="btn-add" onclick="openModal()" style="width:100%;padding:11px;">+ Add Profile</button>
     <div class="side-spacer"></div>
@@ -657,6 +662,34 @@
     <div class="li-banner" id="li-banner" style="display:none;">
       <p>LinkedIn is optional for generating. Connect it when you want to post from Voyce.</p>
       <button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>
+    </div>
+
+    <!-- ── Views. buildViews() (below) reparents the existing sections into these,
+         so every section keeps its id and all existing functions keep working. ── -->
+    <div class="view" id="view-today">
+      <div class="view-head">
+        <h1>Today</h1>
+        <p id="today-sub">Everything waiting on you, and what goes out next.</p>
+      </div>
+      <!-- pending queue + calendar get moved in here -->
+      <div class="sec-head" id="glance-head" style="display:none;"><h2>Last 7 days</h2>
+        <a class="nav-link" onclick="showView('analytics', document.getElementById('nav-analytics'))">See analytics</a>
+      </div>
+      <div class="glance-grid" id="glance-grid" style="display:none;"></div>
+    </div>
+
+    <div class="view" id="view-profiles">
+      <div class="view-head">
+        <h1>Profiles</h1>
+        <p>Who Voyce writes as, the voice it learns, and when it posts.</p>
+      </div>
+    </div>
+
+    <div class="view" id="view-analytics">
+      <div class="view-head">
+        <h1>Analytics</h1>
+        <p>What the posts did, and whether Voyce is moving the numbers.</p>
+      </div>
     </div>
 
     <!-- Automation status bar (revealed once a profile is actively auto-posting) -->
@@ -737,10 +770,10 @@
       <div id="pending-container"></div>
     </div>
 
-    <!-- Activity log -->
-    <div class="activity-section">
+    <!-- Activity log (lives under Analytics — it's the record, not a to-do) -->
+    <div class="activity-section" id="log-section">
       <div class="section-head">
-        <h2>Recent Activity</h2>
+        <h2>Post history</h2>
         <a class="nav-link" onclick="loadLog()">Refresh</a>
       </div>
       <div id="log-container"></div>
@@ -942,10 +975,96 @@
       toastTimer = setTimeout(() => el.className = "", 3500);
     }
 
+    // ── Views ─────────────────────────────────────────────────────────────────
+    // The page grew as one long scroll mixing daily work (what needs approving)
+    // with setup (profiles, voice, schedule). buildViews() sorts the existing
+    // sections into Today / Profiles / Analytics by MOVING the nodes — same
+    // elements, same ids — so every render function keeps working untouched.
+    const VIEW_LAYOUT = {
+      // stats-row carries "next up: type · time", so it belongs with today's work.
+      today:     ["pending-section", "stats-row", "calendar-section"],
+      profiles:  ["profiles-head", "profiles-grid"],
+      analytics: ["analytics-section", "log-section"],
+    };
+
+    function buildViews() {
+      try {
+        _buildViews();
+      } catch (e) {
+        // Never trade a working page for a layout: fall back to the old single
+        // scroll (every section visible, original order) and keep going.
+        console.error("view layout failed, falling back to flat layout", e);
+        document.querySelectorAll(".view").forEach((v) => { v.classList.add("on"); });
+        document.querySelectorAll(".view-head").forEach((h) => { h.style.display = "none"; });
+      }
+    }
+
+    function _buildViews() {
+      for (const [view, ids] of Object.entries(VIEW_LAYOUT)) {
+        const host = document.getElementById(`view-${view}`);
+        if (!host) continue;
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          // Today's summary tiles must stay last, so insert before them.
+          const anchor = view === "today" ? document.getElementById("glance-head") : null;
+          anchor ? host.insertBefore(el, anchor) : host.appendChild(el);
+        }
+      }
+      const intro = document.querySelector(".page-intro");
+      if (intro) intro.remove();          // each view carries its own heading now
+      const deep = (location.hash || "").replace("#", "");
+      showView(["profiles", "analytics"].includes(deep) ? deep : "today");
+    }
+
+    function showView(name, btn) {
+      document.querySelectorAll(".view").forEach((v) => v.classList.remove("on"));
+      const target = document.getElementById(`view-${name}`);
+      if (target) target.classList.add("on");
+      document.querySelectorAll(".side-nav .side-item").forEach((b) => b.classList.remove("active"));
+      (btn || document.getElementById(`nav-${name}`))?.classList.add("active");
+      // Sections hidden by their own loaders (empty analytics, no calendar yet) stay
+      // hidden — showView only controls which view is on screen.
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Today's "Last 7 days" tiles, computed from the log we already fetch.
+    function renderGlance(log) {
+      const head = document.getElementById("glance-head");
+      const grid = document.getElementById("glance-grid");
+      if (!head || !grid || !Array.isArray(log)) return;
+      const weekAgo = Date.now() - 7 * 864e5;
+      const recent = log.filter((e) => {
+        const t = Date.parse(e.timestamp || "");
+        return t && t >= weekAgo;
+      });
+      if (!recent.length) { head.style.display = "none"; grid.style.display = "none"; return; }
+      const posted = recent.filter((e) => e.status === "posted").length;
+      const waiting = recent.filter((e) => e.status === "pending_approval").length;
+      const impressions = recent.reduce((s, e) => s + (Number(e.impressions) || 0), 0);
+      const engagement = recent.reduce(
+        (s, e) => s + (Number(e.likes) || 0) + (Number(e.comments) || 0) + (Number(e.reposts) || 0), 0);
+      const tiles = [
+        ["Posts", recent.length, `${posted} posted${waiting ? `, ${waiting} waiting` : ""}`],
+        ["Impressions", impressions ? impressions.toLocaleString() : "—", impressions ? "across these posts" : "refresh analytics to fill"],
+        ["Engagement", engagement || "—", "likes, comments, reposts"],
+        ["Profiles posting", new Set(recent.map((e) => e.company_name)).size, "in the last 7 days"],
+      ];
+      grid.innerHTML = tiles.map(([k, v, d]) => `
+        <div class="glance-tile">
+          <div class="g-k">${k}</div>
+          <div class="g-v">${v}</div>
+          <div class="g-d">${d}</div>
+        </div>`).join("");
+      head.style.display = "";
+      grid.style.display = "";
+    }
+
     // ── Init (called by Clerk onload) ─────────────────────────────────────────
     async function startApp() {
       const ok = await initClerk();
       if (!ok) return;
+      buildViews();
       const user = getUser();
       if (user) {
         document.getElementById("nav-user").textContent = user.name || user.email;
@@ -1254,8 +1373,13 @@
       const chosenType = typeSel ? typeSel.value : "";
       const typeLabel = chosenType && typeSel ? typeSel.options[typeSel.selectedIndex].text.split("·")[0].trim() : "";
       const what = typeLabel ? `a ${typeLabel} post` : "a post";
-      if (!(await voyceConfirm(`Generate ${what} and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`, { title: "Run now", confirmText: "Post now" }))) return;
-      toast("Generating and posting...");
+      // With "ask me before it posts" on, this generates and queues instead of publishing.
+      const holds = !!rp?.approval_mode;
+      const ask = holds
+        ? `Generate ${what} as "${rp?.name || "this profile"}" now? It will wait in your approval queue, nothing publishes yet.`
+        : `Generate ${what} and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`;
+      if (!(await voyceConfirm(ask, { title: "Run now", confirmText: holds ? "Generate" : "Post now" }))) return;
+      toast(holds ? "Generating…" : "Generating and posting...");
       const prodSel = document.getElementById(`runprod-${id}`);
       const res  = await fetch(`/companies/${id}/run`, { method:"POST",
         headers: {"Content-Type": "application/json", "x-token": getToken()},
@@ -1263,6 +1387,7 @@
       const data = await res.json();
       loadLog();
       if (data.status === "posted") { toast("Posted successfully!", "success"); loadAnalytics(); }
+      else if (data.status === "pending_approval") { toast("Written and waiting for your approval below.", "success"); loadPending(); }
       else if (data.status === "skipped") { toast("Skipped: " + (data.error || "generation limit/plan restriction"), "warn"); }
       else toast("Failed: " + (data.error || "unknown error"), "error");
     }
@@ -1489,6 +1614,13 @@
         const res = await fetch("/pending", { headers: { "x-token": getToken() } });
         if (res.ok) items = await res.json();
       } catch (e) { /* leave hidden */ }
+      // Sidebar badge: the whole point of Today is that this number is visible.
+      const badge = document.getElementById("nav-pending-count");
+      if (badge) { badge.textContent = items.length; badge.hidden = !items.length; }
+      const sub = document.getElementById("today-sub");
+      if (sub) sub.textContent = items.length
+        ? `${items.length} post${items.length === 1 ? "" : "s"} waiting for your approval. Nothing publishes until you say so.`
+        : "Nothing waiting on you. Voyce will queue the next post at its scheduled time.";
       if (!items.length) { section.style.display = "none"; box.innerHTML = ""; return; }
       section.style.display = "";
       box.innerHTML = items.map(p => {
@@ -1516,7 +1648,10 @@
             · ${_escHtml(p.post_type)} · ${fmt}
             · written ${new Date(p.created_at).toLocaleString()}
           </div>
-          <div id="diy-caption-${p.id}" style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:12px;">${_escHtml(p.post_text)}</div>
+          <div id="diy-caption-${p.id}" contenteditable="true" spellcheck="true"
+               oninput="markPendingEdited('${p.id}')"
+               style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:6px;padding:10px 12px;border:1px solid #efe4c4;border-radius:8px;background:#fff;outline:none;">${_escHtml(p.post_text)}</div>
+          <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#a29a8c;margin-bottom:12px;">Click the text to edit it before approving.</div>
           ${diyBlock}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}</div>
         </div>`;
@@ -1534,11 +1669,27 @@
       } catch (e) { toast("Couldn't copy — select the text manually.", "warn"); }
     }
 
+    function markPendingEdited(id) {
+      const hint = document.getElementById(`edit-hint-${id}`);
+      if (hint && !hint.dataset.touched) {
+        hint.dataset.touched = "1";
+        hint.textContent = "Edited — your version is what gets published.";
+        hint.style.color = "#a1780a";
+      }
+    }
+
     async function approvePending(id, btn, isDiy) {
       const restore = btn ? btn.textContent : "";
       if (btn) { btn.disabled = true; btn.textContent = isDiy ? "Recording…" : "Posting…"; }
       try {
-        const res = await fetch(`/pending/${id}/approve`, { method: "POST", headers: { "x-token": getToken() } });
+        // Send whatever is in the (editable) caption box — the backend only swaps it
+        // in when it actually differs from what was generated.
+        const box = document.getElementById(`diy-caption-${id}`);
+        const res = await fetch(`/pending/${id}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-token": getToken() },
+          body: JSON.stringify({ text: box ? box.innerText.trim() : "" }),
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || "Publish failed — the post is still in your queue.");
         toast(data.status === "posted_manually" ? "Marked as posted — the calendar shows it as covered." : "Approved — posted to LinkedIn.", "success");
@@ -1829,9 +1980,8 @@
       const empty   = document.getElementById("analytics-empty");
       const grid    = document.getElementById("analytics-grid");
       const legend  = document.getElementById("analytics-legend");
-      const nav     = document.getElementById("nav-analytics");
-      // The sidebar "Analytics" link only points somewhere real once posts exist.
-      if (nav) nav.style.display = posts.length ? "" : "none";
+      // Analytics is a real view now (it also holds post history), so the nav item
+      // always stays available — only the chart cards below react to having data.
       if (!posts.length) {
         // No posts yet: show an instructional empty state only once a profile exists;
         // for a brand-new (zero-profile) account, keep the page focused on the profile CTA.
@@ -1949,6 +2099,7 @@
       const res = await fetch("/companies/log", { headers: {"x-token": getToken()} });
       if (!res.ok) return;
       const log = await res.json();
+      renderGlance(log);
       const container = document.getElementById("log-container");
       if (!log.length) { container.innerHTML = `<p style="color:#aaa;font-size:13px;padding:16px 0;">No posts yet.</p>`; return; }
       const rows = log.slice(0,10).map(entry => `

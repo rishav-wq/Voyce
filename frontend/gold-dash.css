@@ -159,3 +159,110 @@ body {
   .dash-body > *, .rail-card { animation: none; }
   .profile-card, .act-btn, .btn-add, .plan-upgrade-btn { transition: none; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REVAMP — cream + deep navy, and the four-view layout.
+   Palette taken from Rishav's reference photo: warm cream ground, deep navy
+   velvet as the primary. Navy replaces violet everywhere violet did work.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --navy: #24365e;          /* the velvet — primary */
+  --navy-deep: #172440;     /* dark surfaces (sidebar) */
+  --navy-hover: #1c2b4d;
+  --navy-wash: #e7ebf4;     /* active states, chips */
+  --sand: #d9d0bf;          /* warm border */
+  /* Re-point the gold-pass tokens so every rule below inherits the new accent */
+  --violet: #24365e;
+  --violet-deep: #1c2b4d;
+  --paper: #f3efe5;
+  --surface: #fdfbf6;
+  --shadow-rest: 0 1px 2px rgba(23, 36, 64, .04), 0 8px 24px rgba(23, 36, 64, .06);
+  --shadow-lift: 0 2px 4px rgba(23, 36, 64, .06), 0 18px 44px rgba(23, 36, 64, .12);
+}
+
+body {
+  background:
+    radial-gradient(1100px 480px at 18% -8%, rgba(36, 54, 94, .06), transparent 60%),
+    radial-gradient(900px 420px at 92% 4%, rgba(217, 208, 191, .35), transparent 55%),
+    var(--paper);
+}
+
+/* ── Sidebar: solid navy, which is what makes the cream content read premium ── */
+.sidebar {
+  background: var(--navy-deep);
+  backdrop-filter: none;
+  border-right: none;
+}
+.sidebar .logo { color: #fff; }
+.sidebar .logo span { color: #fff; }
+.sidebar .logo .logo-mark { background: #fff; color: var(--navy-deep); }
+.side-item { color: rgba(255, 255, 255, .66); font-weight: 500; }
+.side-item:hover { background: rgba(255, 255, 255, .08); color: #fff; transform: none; }
+.side-item.active {
+  background: #fff; color: var(--navy-deep); font-weight: 600; box-shadow: none;
+}
+.side-nav .side-item { border: none; width: 100%; text-align: left; font-family: inherit; font-size: 14px; }
+.nav-count {
+  margin-left: auto; background: #b07d1a; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 20px; line-height: 1.7;
+}
+.side-item.active .nav-count { background: var(--navy); }
+.side-upsell {
+  background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: none;
+}
+.side-upsell p { color: rgba(255, 255, 255, .6); }
+.side-upsell button { background: #fff; color: var(--navy-deep); }
+.side-foot { border-color: rgba(255, 255, 255, .12); }
+.side-user { color: rgba(255, 255, 255, .5); }
+.li-status-pill { border-color: rgba(255, 255, 255, .2); color: rgba(255, 255, 255, .75); }
+.li-status-pill:hover { border-color: #fff; color: #fff; }
+.li-status-pill.connected { background: rgba(143, 227, 189, .12); border-color: rgba(143, 227, 189, .5); color: #8fe3bd; }
+.li-status-pill.connected .dot { background: #8fe3bd; }
+.btn-add { background: var(--navy); }
+.btn-add:hover { background: var(--navy-hover); }
+
+/* ── Views ── */
+.view { display: none; }
+.view.on { display: block; animation: gold-enter .45s var(--ease-snap) both; }
+.view-head { margin-bottom: 22px; }
+.view-head h1 {
+  font-family: 'Space Grotesk', sans-serif; font-size: clamp(25px, 3.2vw, 31px);
+  font-weight: 700; letter-spacing: -.035em; line-height: 1.05; margin: 0 0 6px; color: var(--ink);
+}
+.view-head p { font-size: 14.5px; color: var(--ink-2); margin: 0; line-height: 1.6; max-width: 620px; }
+
+/* ── Today: the queue is the hero, tiles are the pulse ── */
+#pending-section { margin-bottom: 30px; }
+.glance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 8px; }
+.glance-tile {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px 18px; box-shadow: var(--shadow-rest);
+}
+.g-k { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.g-v {
+  font-family: 'Space Grotesk', sans-serif; font-size: 27px; font-weight: 700;
+  letter-spacing: -.03em; margin-top: 5px; font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.g-d { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+@media (max-width: 900px) { .glance-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ── Accent swaps that the token re-point can't reach ── */
+.side-item.active { box-shadow: none; }
+.badge-type.personal { background: var(--navy-wash); color: var(--navy); }
+.voice-tag { background: var(--navy-wash); color: var(--navy); }
+.plan-badge { background: var(--navy-wash); color: var(--navy); }
+.plan-bar-fill { background: var(--navy); }
+.plan-bar-bg { background: var(--navy-wash); }
+.cal-chip.sched { background: var(--navy-wash); color: var(--navy); }
+td.cal-st-sched { box-shadow: inset 3px 0 0 rgba(36, 54, 94, .45); }
+.carousel-toggle-switch.on { background: linear-gradient(135deg, #24365e, #35507f); box-shadow: 0 2px 8px rgba(36, 54, 94, .35); }
+.card-li-panel { background: #f5f6fa; border-color: rgba(36, 54, 94, .25); }
+.card-li-up-btn { background: var(--navy); }
+.nav-link { color: var(--navy); }
+.section-head h2, .sec-head h2 {
+  font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; letter-spacing: -.025em;
+}
+.sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline-color: var(--navy); }
