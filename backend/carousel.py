@@ -74,9 +74,10 @@ PALETTES = {
         "body":     (212, 212, 216),   # #d4d4d8
         "muted":    (63,  63,  70),    # #3f3f46
     },
-    "warm_violet": {                    # Voyce brand — warm beige + violet (default)
+    "warm_violet": {                    # Voyce brand — warm cream + deep navy (default).
+                                        # Key kept as-is so saved profiles don't break.
         "bg":       (244, 240, 232),   # #f4f0e8 warm beige canvas
-        "accent":   (108, 71,  255),   # #6c47ff violet
+        "accent":   (36,  54,  94),    # #24365e deep navy
         "title":    (28,  24,  19),    # #1c1813 warm black
         "subtitle": (92,  86,  78),    # muted warm grey
         "body":     (60,  56,  50),    # dark warm grey
@@ -111,7 +112,7 @@ _ACCENT2 = {
     "clean_light": (249, 115, 22),    # white/indigo + orange
     "warm_paper":  (13, 148, 136),    # cream/orange + deep teal
     "electric":    (167, 139, 250),   # black/lime + violet
-    "warm_violet": (163, 230, 53),    # beige/violet + lime
+    "warm_violet": (200, 150, 44),    # cream/navy + warm brass
     "fintech_navy": (251, 191, 36),   # navy/azure + amber
     "knowella_deep": (4, 180, 146),   # violet + Knowella teal #04B492
 }

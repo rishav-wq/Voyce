@@ -7,22 +7,22 @@
     <div style="background:#fff;border-radius:20px;padding:36px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.18);position:relative;max-height:92vh;overflow-y:auto;">
       <button onclick="closeUpgradeModal()" aria-label="Close" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
       <div style="text-align:center;margin-bottom:24px;">
-        <div style="font-size:13px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
+        <div style="font-size:13px;font-weight:700;color:#24365e;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
         <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">4,699</span></div>
         <div style="font-size:13px;color:#aaa;margin-top:4px;">31 days of Pro · no auto-charge · renew anytime</div>
       </div>
       <ul style="list-style:none;margin:0 0 28px;padding:0;">
-        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
-        <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
+        <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
       </ul>
-      <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#5634e6'" onmouseout="this.style.background='#6c47ff'">
+      <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
         Upgrade now — pay securely →
       </button>
-      <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#6c47ff;">need help?</a></div>
+      <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#24365e;">need help?</a></div>
       <div style="text-align:center;font-size:12px;color:#aaa;margin-top:6px;">
         <a href="#" onclick="restorePurchase();return false;" style="color:#888;">Paid but still on Free? Restore purchase</a>
         &nbsp;·&nbsp;
@@ -117,7 +117,7 @@
         currency: order.currency,
         name: "Voyce",
         description: "Voyce Pro — 1 month",
-        theme: { color: "#6c47ff" },
+        theme: { color: "#24365e" },
         handler: async (response) => {
           try {
             const vres = await fetch("/payments/verify", {

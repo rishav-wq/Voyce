@@ -26,7 +26,7 @@
     }
     .vc-cancel { background: none; border: 1.5px solid #e0e0e0; color: #555; }
     .vc-cancel:hover { background: #f5f5f5; }
-    .vc-ok { background: #6c47ff; border: 1.5px solid #6c47ff; color: #fff; }
+    .vc-ok { background: #24365e; border: 1.5px solid #24365e; color: #fff; }
     .vc-ok:hover { background: #5835e0; }
     .vc-ok.danger { background: #c0392b; border-color: #c0392b; }
     .vc-ok.danger:hover { background: #a93226; }

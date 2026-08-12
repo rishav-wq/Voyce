@@ -44,13 +44,13 @@
       z-index: 100;
     }
     .dash-nav .logo { font-size: 20px; font-weight: 700; color: #1c1813; }
-    .dash-nav .logo span { color: #6c47ff; }
+    .dash-nav .logo span { color: #24365e; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
     .nav-link { font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
-    .nav-link:hover { color: #6c47ff; }
+    .nav-link:hover { color: #24365e; }
     .btn-add {
-      background: #6c47ff;
+      background: #24365e;
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -60,7 +60,7 @@
       cursor: pointer;
       transition: background 0.15s;
     }
-    .btn-add:hover { background: #5634e6; }
+    .btn-add:hover { background: #1c2b4d; }
 
     /* ── App shell: sidebar + main ── */
     .app-shell { display: grid; grid-template-columns: 248px 1fr 320px; min-height: 100vh; align-items: start; }
@@ -71,7 +71,7 @@
     }
     .sidebar .logo { font-size: 20px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
     .sidebar .logo .logo-mark { width: 30px; height: 30px; border-radius: 9px; background: #1c1813; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
-    .sidebar .logo span { color: #6c47ff; }
+    .sidebar .logo span { color: #24365e; }
     .side-nav { display: flex; flex-direction: column; gap: 4px; }
     .side-item {
       display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px;
@@ -79,16 +79,16 @@
       background: none; width: 100%; text-align: left; text-decoration: none; transition: background .14s, color .14s;
     }
     .side-item:hover { background: #f7f3ec; color: #1c1813; }
-    .side-item.active { background: #f1ecff; color: #6c47ff; }
+    .side-item.active { background: #e7ebf4; color: #24365e; }
     .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
     .side-spacer { flex: 1; }
-    .side-upsell { background: linear-gradient(150deg, #6c47ff, #8a6cff); border-radius: 14px; padding: 16px; color: #fff; }
+    .side-upsell { background: linear-gradient(150deg, #24365e, #35507f); border-radius: 14px; padding: 16px; color: #fff; }
     .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
     .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0 0 12px; }
-    .side-upsell button { width: 100%; background: #fffdf8; color: #6c47ff; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .side-upsell button { width: 100%; background: #fffdf8; color: #24365e; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4ddd0; padding-top: 8px; }
     .li-status-pill { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e0d9cc; cursor: pointer; background: none; color: #888; font-family: inherit; transition: all 0.15s; }
-    .li-status-pill:hover { border-color: #6c47ff; color: #6c47ff; }
+    .li-status-pill:hover { border-color: #24365e; color: #24365e; }
     .li-status-pill.connected { border-color: #a5d6a7; color: #057642; background: #e8f5e9; }
     .li-status-pill.connected:hover { border-color: #057642; }
     .li-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
@@ -121,7 +121,7 @@
     /* ── Plan banner ── */
     .plan-banner {
       background: #fffdf8;
-      border: 1.5px solid #e8e4ff;
+      border: 1.5px solid #dde4ef;
       border-radius: 12px;
       padding: 14px 20px;
       display: flex;
@@ -134,23 +134,23 @@
     .plan-left { display: flex; align-items: center; gap: 14px; }
     .plan-badge {
       font-size: 11px; font-weight: 700; padding: 3px 10px;
-      border-radius: 20px; background: #f0eeff; color: #6c47ff;
+      border-radius: 20px; background: #e7ebf4; color: #24365e;
       text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
     }
     .plan-badge.pro-badge { background: #e6f4ea; color: #057642; }
     .plan-text { font-size: 14px; color: #444; font-weight: 500; }
     .plan-text strong { color: #1c1813; }
     .plan-bar-wrap { flex: 1; max-width: 160px; }
-    .plan-bar-bg { background: #f0eeff; border-radius: 20px; height: 6px; overflow: hidden; }
-    .plan-bar-fill { background: #6c47ff; height: 100%; border-radius: 20px; transition: width 0.3s; }
+    .plan-bar-bg { background: #e7ebf4; border-radius: 20px; height: 6px; overflow: hidden; }
+    .plan-bar-fill { background: #24365e; height: 100%; border-radius: 20px; transition: width 0.3s; }
     .plan-upgrade-btn {
-      background: #6c47ff; color: #fff;
+      background: #24365e; color: #fff;
       border: none; border-radius: 8px;
       padding: 8px 18px; font-size: 13px; font-weight: 700;
       cursor: pointer; white-space: nowrap; transition: background 0.15s;
       text-decoration: none; display: inline-block;
     }
-    .plan-upgrade-btn:hover { background: #5634e6; }
+    .plan-upgrade-btn:hover { background: #1c2b4d; }
 
     /* ── LinkedIn banner ── */
     .li-banner {
@@ -165,7 +165,7 @@
     }
     .li-banner p { margin: 0; font-size: 14px; color: #5d4037; font-weight: 500; }
     .li-banner-btn {
-      background: #6c47ff;
+      background: #24365e;
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -198,7 +198,7 @@
     .stat-sub { font-size: 12px; color: #82828c; margin-top: 4px; }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
-      outline: 2px solid #6c47ff;
+      outline: 2px solid #24365e;
       outline-offset: 2px;
       border-radius: 4px;
     }
@@ -227,7 +227,7 @@
       border: 1px solid #e3ddd0;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .profile-card:hover { border-color: #cdbdff; box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 12px 30px rgba(20,16,10,0.07); }
+    .profile-card:hover { border-color: #a8b8d4; box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 12px 30px rgba(20,16,10,0.07); }
     .profile-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
     .profile-card-name { font-size: 16px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 8px; }
     .badge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 20px; }
@@ -251,7 +251,7 @@
       align-items: center;
       gap: 4px;
       background: #f0ecff;
-      color: #6c47ff;
+      color: #24365e;
       font-size: 11px;
       font-weight: 600;
       padding: 3px 10px;
@@ -276,7 +276,7 @@
       transition: background 0.2s;
       flex-shrink: 0;
     }
-    .carousel-toggle-switch.on { background: #6c47ff; }
+    .carousel-toggle-switch.on { background: #24365e; }
     .carousel-toggle-knob {
       position: absolute;
       top: 3px;
@@ -304,11 +304,11 @@
       border-radius: 999px; margin-bottom: 5px; white-space: nowrap; }
     .cal-chip.ok    { background: #e6f4ea; color: #057642; }
     .cal-chip.fail  { background: #fdeceb; color: #c0392b; }
-    .cal-chip.sched { background: #f0eeff; color: #6c47ff; }
+    .cal-chip.sched { background: #e7ebf4; color: #24365e; }
     .cal-chip.none  { background: #f2efe8; color: #b3aa9b; }
     td.cal-st-ok    { box-shadow: inset 3px 0 0 #18a07a; }
     td.cal-st-fail  { box-shadow: inset 3px 0 0 #e05555; }
-    td.cal-st-sched { box-shadow: inset 3px 0 0 #cdbdff; }
+    td.cal-st-sched { box-shadow: inset 3px 0 0 #a8b8d4; }
 
     .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .act-btn {
@@ -323,8 +323,8 @@
       transition: all 0.12s;
     }
     .act-btn:hover { background: #f4f0e8; border-color: #d6cdbb; }
-    .act-btn.primary { background: #6c47ff; color: #fff; border-color: #6c47ff; }
-    .act-btn.primary:hover { background: #5634e6; }
+    .act-btn.primary { background: #24365e; color: #fff; border-color: #24365e; }
+    .act-btn.primary:hover { background: #1c2b4d; }
     .act-btn.danger { color: #c0392b; border-color: #fdecea; }
     .act-btn.danger:hover { background: #fdecea; }
 
@@ -332,7 +332,7 @@
     .card-li-panel {
       margin-top: 14px;
       padding: 12px 14px;
-      background: #f9f7ff;
+      background: #f5f7fb;
       border: 1.5px dashed #c5b8f5;
       border-radius: 10px;
       display: none;
@@ -341,8 +341,8 @@
     .card-li-panel p { font-size: 11px; color: #666; margin: 0 0 8px; line-height: 1.5; }
     .card-li-row { display: flex; gap: 8px; align-items: center; }
     .card-li-row input[type=file] { font-size: 12px; flex: 1; }
-    .card-li-up-btn { background: #6c47ff; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .card-li-up-btn:disabled { background: #b0a0e8; }
+    .card-li-up-btn { background: #24365e; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .card-li-up-btn:disabled { background: #9aa7c0; }
     .card-li-status { font-size: 12px; margin-top: 6px; }
     .card-li-status.ok  { color: #057642; }
     .card-li-status.err { color: #c0392b; }
@@ -367,7 +367,7 @@
     /* ── Activity log ── */
     .activity-section { margin-top: 8px; }
     .log-table { width: 100%; border-collapse: collapse; background: #fffdf8; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(20,16,10,0.05); }
-    .log-table th { background: #f9f7ff; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
+    .log-table th { background: #f5f7fb; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
     .log-table td { padding: 11px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; color: #333; }
     .log-table .status-posted  { color: #057642; font-weight: 600; }
     .log-table .status-failed  { color: #c0392b; font-weight: 600; }
@@ -424,7 +424,7 @@
 
     .mode-tabs { display: flex; background: #f4f2ff; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
     .mode-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: #888; border: none; background: none; transition: all 0.15s; }
-    .mode-tab.active { background: #fffdf8; color: #6c47ff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .mode-tab.active { background: #fffdf8; color: #24365e; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .mode-tab span { display: block; font-size: 11px; font-weight: 400; color: #bbb; }
     .mode-tab.active span { color: #bbb; }
 
@@ -459,7 +459,7 @@
     .topic-suggest.visible { display: flex; }
     .topic-suggest .ts-label { font-size: 11px; color: #888; font-weight: 600; }
     .topic-chip {
-      background: #f0eeff; color: #6c47ff; border: none; border-radius: 20px;
+      background: #e7ebf4; color: #24365e; border: none; border-radius: 20px;
       padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
       font-family: inherit; transition: background 0.12s;
     }
@@ -473,29 +473,29 @@
       width: 100%; padding: 10px 13px; border: 1.5px solid #e0d9cc; border-radius: 8px;
       font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s;
     }
-    .form-group input:focus, .form-group select:focus { border-color: #6c47ff; }
+    .form-group input:focus, .form-group select:focus { border-color: #24365e; }
     .form-hint { font-size: 12px; color: #aaa; margin-top: 4px; }
 
-    .li-upload-box { background: #f9f7ff; border: 1.5px dashed #c5b8f5; border-radius: 10px; padding: 14px; margin-bottom: 18px; }
-    .li-upload-box .li-upload-title { font-size: 13px; font-weight: 600; color: #6c47ff; margin-bottom: 4px; }
+    .li-upload-box { background: #f5f7fb; border: 1.5px dashed #c5b8f5; border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+    .li-upload-box .li-upload-title { font-size: 13px; font-weight: 600; color: #24365e; margin-bottom: 4px; }
     .li-upload-box .li-upload-desc { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 8px; }
     .li-upload-status { font-size: 12px; margin-top: 6px; }
     .li-upload-status.ok { color: #057642; }
 
-    .submit-btn { width: 100%; padding: 13px; background: #6c47ff; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
-    .submit-btn:hover { background: #5634e6; }
-    .submit-btn:disabled { background: #b0a0e8; cursor: not-allowed; }
+    .submit-btn { width: 100%; padding: 13px; background: #24365e; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .submit-btn:hover { background: #1c2b4d; }
+    .submit-btn:disabled { background: #9aa7c0; cursor: not-allowed; }
 
     /* ── Content Calendar ── */
     .cal-table { border-collapse: collapse; width: 100%; min-width: 600px; }
     .cal-table th {
-      background: #f4f0e8; color: #6c47ff; font-size: 12px; font-weight: 700;
-      padding: 8px 12px; text-align: center; border-bottom: 2px solid #e8e4ff;
+      background: #f4f0e8; color: #24365e; font-size: 12px; font-weight: 700;
+      padding: 8px 12px; text-align: center; border-bottom: 2px solid #dde4ef;
       text-transform: uppercase; letter-spacing: 0.4px;
     }
-    .cal-table th.today-col { background: #6c47ff; color: #fff; }
+    .cal-table th.today-col { background: #24365e; color: #fff; }
     .cal-table td {
-      padding: 10px 12px; border: 1px solid #f0eeff;
+      padding: 10px 12px; border: 1px solid #e7ebf4;
       vertical-align: top; min-width: 80px;
     }
     .cal-table td.today-col { background: #faf9ff; border-color: #d4caff; }
@@ -521,7 +521,7 @@
       display: inline-block;
       height: 12px;
       border-radius: 6px;
-      background: linear-gradient(90deg, #efecff 25%, #f9f8ff 50%, #efecff 75%);
+      background: linear-gradient(90deg, #e7ebf4 25%, #f9f8ff 50%, #e7ebf4 75%);
       background-size: 200% 100%;
       animation: shimmer 1.2s infinite linear;
     }
@@ -611,7 +611,7 @@
     <!-- Page intro -->
     <div class="page-intro" style="margin-bottom:20px;">
       <h1 style="font-size:clamp(26px,3.5vw,34px);font-weight:700;letter-spacing:-0.04em;line-height:1.05;margin:0 0 6px;color:#1c1813;">Profiles &amp; automation</h1>
-      <p style="font-size:14px;color:#8a8275;margin:0;line-height:1.6;max-width:560px;">Manage who Voyce writes as, set your tone, and turn on automatic daily posting — so every post sounds like <em class="you">you</em>. Just writing a one-off? <a href="/tool" style="color:#6c47ff;font-weight:600;text-decoration:none;">Go to Create →</a></p>
+      <p style="font-size:14px;color:#8a8275;margin:0;line-height:1.6;max-width:560px;">Manage who Voyce writes as, set your tone, and turn on automatic daily posting — so every post sounds like <em class="you">you</em>. Just writing a one-off? <a href="/tool" style="color:#24365e;font-weight:600;text-decoration:none;">Go to Create →</a></p>
     </div>
 
     <!-- Plan usage banner -->
@@ -633,22 +633,22 @@
       <div style="background:#fff;border-radius:20px;padding:36px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.18);position:relative;">
         <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
         <div style="text-align:center;margin-bottom:24px;">
-          <div style="font-size:13px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
+          <div style="font-size:13px;font-weight:700;color:#24365e;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
           <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">4,699</span></div>
           <div style="font-size:13px;color:#aaa;margin-top:4px;">31 days of Pro · no auto-charge · renew anytime</div>
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
-          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#6c47ff;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
+          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
         </ul>
-        <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#6c47ff;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#5634e6'" onmouseout="this.style.background='#6c47ff'">
+        <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
           Upgrade now — pay securely →
         </button>
-        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#6c47ff;">need help?</a></div>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#24365e;">need help?</a></div>
         <div style="text-align:center;font-size:12px;color:#aaa;margin-top:6px;">
           <a href="#" onclick="restorePurchase();return false;" style="color:#888;">Paid but still on Free? Restore purchase</a>
           &nbsp;·&nbsp;
@@ -755,7 +755,7 @@
         </div>
       </div>
       <div id="analytics-legend" style="display:flex;gap:20px;font-size:12px;color:#888;flex-wrap:wrap;">
-        <span><span style="display:inline-block;width:10px;height:10px;background:#6c47ff;border-radius:2px;margin-right:4px;"></span>Carousel</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#24365e;border-radius:2px;margin-right:4px;"></span>Carousel</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#06b6d4;border-radius:2px;margin-right:4px;"></span>Text post</span>
         <span style="margin-left:auto;color:#bbb;" id="analytics-hint"></span>
       </div>
@@ -786,7 +786,7 @@
       <h3>At a glance</h3>
       <div class="rings">
         <div class="ring-cell">
-          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-gens-arc" cx="37" cy="37" r="30" fill="none" stroke="#6c47ff" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-gens">—</div></div>
+          <div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="30" fill="none" stroke="#efe9df" stroke-width="7"/><circle id="ring-gens-arc" cx="37" cy="37" r="30" fill="none" stroke="#24365e" stroke-width="7" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg><div class="ring-num" id="ring-gens">—</div></div>
           <div class="ring-label">Gens left</div>
         </div>
         <div class="ring-cell">
@@ -868,7 +868,7 @@
             <div class="adv-inner">
               <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select>
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-weight:400;font-size:13px;">
-                  <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#6c47ff;" />
+                  <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#24365e;" />
                   <span>Shift my tone toward this <span class="optional-tag">(only if you add past posts)</span></span>
                 </label>
                 <p class="form-hint">Keeps your words and quirks, just moves the delivery toward this tone.</p>
@@ -877,7 +877,7 @@
                 <div class="li-upload-title">Teach Voyce your voice <span class="optional-tag">recommended</span></div>
                 <div class="li-upload-desc">Add 2-3 past posts so new ones sound like you (or whoever you write for).</div>
                 <div style="display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap;" id="p-voice-tabs">
-                  <button type="button" data-pane="shots" onclick="voicePane('shots')" style="padding:7px 14px;border:1.5px solid #6c47ff;border-radius:999px;background:#6c47ff;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📸 Screenshots</button>
+                  <button type="button" data-pane="shots" onclick="voicePane('shots')" style="padding:7px 14px;border:1.5px solid #24365e;border-radius:999px;background:#24365e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📸 Screenshots</button>
                   <button type="button" data-pane="paste" onclick="voicePane('paste')" style="padding:7px 14px;border:1.5px solid #ddd6c8;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">✍️ Paste text</button>
                   <button type="button" data-pane="archive" onclick="voicePane('archive')" style="padding:7px 14px;border:1.5px solid #ddd6c8;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📁 Archive</button>
                 </div>
@@ -917,9 +917,9 @@
             ["shots", "paste", "archive"].forEach(k => {
               document.getElementById("p-voice-pane-" + k).style.display = (k === m) ? "block" : "none";
               const b = document.querySelector(`#p-voice-tabs [data-pane="${k}"]`);
-              b.style.background  = (k === m) ? "#6c47ff" : "#fff";
+              b.style.background  = (k === m) ? "#24365e" : "#fff";
               b.style.color       = (k === m) ? "#fff"    : "#555";
-              b.style.borderColor = (k === m) ? "#6c47ff" : "#ddd6c8";
+              b.style.borderColor = (k === m) ? "#24365e" : "#ddd6c8";
             });
           }
         </script>
@@ -1232,12 +1232,12 @@
         const style      = p.linkedin_analysis && p.linkedin_analysis.writing_style;
         const voiceLine  = style
           ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#a29a8c;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
-          : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#6c47ff;">add past posts to learn the real voice</a>`;
+          : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#24365e;">add past posts to learn the real voice</a>`;
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
             <div class="profile-card-name" style="display:flex;align-items:center;gap:10px;">
-              <span style="width:38px;height:38px;border-radius:50%;background:${isPersonal ? '#6c47ff' : '#1c1813'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>
+              <span style="width:38px;height:38px;border-radius:50%;background:${isPersonal ? '#24365e' : '#1c1813'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>
               ${p.name}
               <span class="badge-type ${typeClass}">${typeLabel}</span>
             </div>
@@ -1314,13 +1314,13 @@
             ${(p.products || []).map(pr => {
               const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
               const sw1 = pal.bg || pr.brand_color || "#f4f0e8";
-              const sw2 = pal.accent || "#6c47ff";
+              const sw2 = pal.accent || "#24365e";
               const off = pr.enabled === false;
               return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;${off ? "opacity:.5;" : ""}">
                 <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #e0d9cc;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#a29a8c;">· ${pr.industry}</span>` : ""}</span>
-                <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#6c47ff;font-size:11.5px;">${off ? "enable" : "pause"}</a>
-                <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#6c47ff;font-size:11.5px;">↻ theme</a>
+                <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#24365e;font-size:11.5px;">${off ? "enable" : "pause"}</a>
+                <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#24365e;font-size:11.5px;">↻ theme</a>
                 <a href="#" onclick="removeProduct('${p.id}','${pr.id}','${(pr.name || "").replace(/'/g, "\\'")}');return false;" style="color:#c0392b;font-size:11.5px;">✕</a>
               </div>`;
             }).join("")}
@@ -1417,7 +1417,7 @@
           <div style="border:1px solid #efe9e0;border-radius:9px;padding:10px 12px;">
             <div style="font-size:13.5px;font-weight:600;color:#2f2b25;">${_escHtml(it.hook)}</div>
             <div style="font-size:11.5px;color:#8a8272;margin-top:3px;">
-              <span style="color:#6c47ff;font-weight:600;">${_escHtml(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtml(it.why) : ""}${it.source ? ` · <span title="grounded in this source">📰 ${_escHtml(it.source)}</span>` : " · evergreen"}
+              <span style="color:#24365e;font-weight:600;">${_escHtml(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtml(it.why) : ""}${it.source ? ` · <span title="grounded in this source">📰 ${_escHtml(it.source)}</span>` : " · evergreen"}
             </div>
             <div style="margin-top:8px;"><button class="act-btn" onclick="previewIdea('${id}', ${i})">Preview this →</button></div>
           </div>`).join("") + `</div>`;
@@ -1937,7 +1937,7 @@
 
       document.getElementById("calendar-grid").innerHTML = `
         <table class="cal-table">
-          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;font-weight:400;border-bottom:1px solid #f0eeff;padding:8px 12px;">Last 3 days + the week ahead — Voyce rotates post styles so your feed never looks templated</th></tr>
+          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;font-weight:400;border-bottom:1px solid #e7ebf4;padding:8px 12px;">Last 3 days + the week ahead — Voyce rotates post styles so your feed never looks templated</th></tr>
           <tr>${headerCells}</tr></thead>
           <tbody>${profileRows}</tbody>
         </table>`;
@@ -2009,7 +2009,7 @@
       const likes    = posts.map(p => p.engagement?.likes    ?? 0);
       const comments = posts.map(p => p.engagement?.comments ?? 0);
       const reposts  = posts.map(p => p.engagement?.reposts  ?? 0);
-      const colors   = posts.map(p => p.post_format === "carousel" ? "#6c47ff" : "#06b6d4");
+      const colors   = posts.map(p => p.post_format === "carousel" ? "#24365e" : "#06b6d4");
 
       const sharedTooltip = {
         callbacks: {
@@ -2042,7 +2042,7 @@
           plugins: { legend: { display: false }, tooltip: sharedTooltip },
           scales: {
             x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: "#888" } },
-            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#f0eeff" } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#e7ebf4" } },
           },
         },
       });
@@ -2057,7 +2057,7 @@
         lineTitle.textContent = "Engagement Trend";
         lineLabels = labels;
         lineDatasets = [
-          { label: "Likes",    data: likes,    borderColor: "#6c47ff", backgroundColor: "#6c47ff18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#6c47ff", borderWidth: 2 },
+          { label: "Likes",    data: likes,    borderColor: "#24365e", backgroundColor: "#24365e18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#24365e", borderWidth: 2 },
           { label: "Comments", data: comments, borderColor: "#06b6d4", backgroundColor: "#06b6d418", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#06b6d4", borderWidth: 2 },
           { label: "Reposts",  data: reposts,  borderColor: "#f59e0b", backgroundColor: "#f59e0b18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#f59e0b", borderWidth: 2 },
         ];
@@ -2073,7 +2073,7 @@
         lineLabels = Object.keys(dateCounts);
         const counts = Object.values(dateCounts);
         lineDatasets = [
-          { label: "Posts", data: counts, borderColor: "#6c47ff", backgroundColor: "#6c47ff18", fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: "#6c47ff", borderWidth: 2.5 },
+          { label: "Posts", data: counts, borderColor: "#24365e", backgroundColor: "#24365e18", fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: "#24365e", borderWidth: 2.5 },
         ];
       }
 
@@ -2088,7 +2088,7 @@
           },
           scales: {
             x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#888" } },
-            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#f0eeff" } },
+            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#e7ebf4" } },
           },
         },
       });
@@ -2229,7 +2229,7 @@
           currency: order.currency,
           name: "Voyce",
           description: "Voyce Pro — 1 month",
-          theme: { color: "#6c47ff" },
+          theme: { color: "#24365e" },
           handler: async (response) => {
             try {
               const vres = await fetch("/payments/verify", {
@@ -2541,9 +2541,9 @@
           badge.textContent = "Free Plan";
           text.innerHTML = `<strong>${left} generation${left !== 1 ? "s" : ""} remaining</strong> &nbsp;·&nbsp; ${info.used} of ${info.limit} used`;
           fill.style.width = pct + "%";
-          fill.style.background = left === 0 ? "#c0392b" : "#6c47ff";
+          fill.style.background = left === 0 ? "#c0392b" : "#24365e";
           if (left === 0) {
-            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; <a href="#" onclick="openUpgradeModal();return false;" style="color:#6c47ff;font-weight:700;">Upgrade to Pro</a> for unlimited generations`;
+            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; <a href="#" onclick="openUpgradeModal();return false;" style="color:#24365e;font-weight:700;">Upgrade to Pro</a> for unlimited generations`;
             banner.style.borderColor = "#fdecea";
             banner.style.background = "#fffafa";
           }

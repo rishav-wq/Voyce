@@ -108,7 +108,7 @@ async function suggestIdeasCreate() {
       <div style="border:1.5px solid #e0d9cc;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">
         <div style="font-size:14px;font-weight:600;color:#1c1813;line-height:1.35;">${_escHtmlCreate(it.hook)}</div>
         <div style="font-size:12px;color:#8a8272;margin-top:4px;">
-          <span style="color:#6c47ff;font-weight:600;">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
+          <span style="color:#24365e;font-weight:600;">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
         </div>
         <button type="button" class="img-src-btn" style="margin-top:10px;" onclick="useIdea(${i})">Use this idea →</button>
       </div>`).join("");
@@ -159,7 +159,7 @@ function showError(msg) {
   const el = document.getElementById("error-banner");
   if (!el) { toast(msg, "error"); return; }
   if (msg === "LIMIT_REACHED") {
-    el.innerHTML = `You've used all 5 free generations. <a href="#" onclick="openUpgradeModal();return false;" style="color:#6c47ff;font-weight:700;">Upgrade to Pro</a> for unlimited generations.`;
+    el.innerHTML = `You've used all 5 free generations. <a href="#" onclick="openUpgradeModal();return false;" style="color:#24365e;font-weight:700;">Upgrade to Pro</a> for unlimited generations.`;
   } else {
     el.textContent = msg;
   }
@@ -521,7 +521,7 @@ function _renderVariants(variants, active) {
   window._variants = variants;
   const row = document.getElementById("variants-row");
   row.innerHTML = `<div style="font-size:12px;font-weight:700;color:#6b6355;margin:2px 2px 8px;">Captions — pick one, then edit it below:</div>` +
-    variants.map((v, i) => `<button class="action-btn" style="display:block;width:100%;text-align:left;white-space:normal;line-height:1.4;margin-bottom:6px;${i === active ? "border-color:#6c47ff;background:#f4f2ff;" : ""}" onclick="pickVariant(${i})">
+    variants.map((v, i) => `<button class="action-btn" style="display:block;width:100%;text-align:left;white-space:normal;line-height:1.4;margin-bottom:6px;${i === active ? "border-color:#24365e;background:#f4f2ff;" : ""}" onclick="pickVariant(${i})">
       <b>${i === 0 ? "Original" : "Option " + i}</b> · ${_escHtmlCreate(v).slice(0, 120)}${v.length > 120 ? "…" : ""}</button>`).join("");
 }
 function pickVariant(i) {

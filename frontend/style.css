@@ -29,7 +29,7 @@ header {
 }
 
 .logo span {
-  color: #6c47ff;
+  color: #24365e;
 }
 
 .tagline {
@@ -119,13 +119,13 @@ main {
 }
 
 .tab:hover {
-  border-color: #6c47ff;
-  color: #6c47ff;
+  border-color: #24365e;
+  color: #24365e;
 }
 
 .tab.active {
-  background: #6c47ff;
-  border-color: #6c47ff;
+  background: #24365e;
+  border-color: #24365e;
   color: #fff;
   font-weight: 600;
 }
@@ -144,14 +144,14 @@ textarea {
 }
 
 textarea:focus {
-  border-color: #6c47ff;
+  border-color: #24365e;
 }
 
 #generate-btn {
   margin-top: 16px;
   width: 100%;
   padding: 14px;
-  background: #6c47ff;
+  background: #24365e;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -166,7 +166,7 @@ textarea:focus {
 }
 
 #generate-btn:disabled {
-  background: #b0a0e8;
+  background: #9aa7c0;
   cursor: not-allowed;
 }
 
@@ -226,13 +226,13 @@ textarea:focus {
 }
 
 .copy-btn:hover {
-  border-color: #6c47ff;
-  color: #6c47ff;
+  border-color: #24365e;
+  color: #24365e;
 }
 
 .copy-btn.copied {
-  background: #6c47ff;
-  border-color: #6c47ff;
+  background: #24365e;
+  border-color: #24365e;
   color: #fff;
 }
 
@@ -303,7 +303,7 @@ textarea:focus {
 }
 
 .modal-body input:focus {
-  border-color: #6c47ff;
+  border-color: #24365e;
 }
 
 .modal-hint {

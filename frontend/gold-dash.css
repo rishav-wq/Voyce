@@ -2,15 +2,15 @@
    gold-dash.css — dashboard visual upgrade, loaded LAST in the cascade.
    Pure override layer: no selector here depends on markup changes, no JS is
    touched. Removing this one <link> reverts the entire redesign.
-   Brand: cream paper · ink #1c1813 · violet #6c47ff · Space Grotesk display.
+   Brand: cream paper · ink #1c1813 · violet #24365e · Space Grotesk display.
    ───────────────────────────────────────────────────────────────────────────── */
 
 :root {
   --ink: #1c1813;
   --ink-2: #6a6258;
   --ink-3: #a29a8c;
-  --violet: #6c47ff;
-  --violet-deep: #5634e6;
+  --violet: #24365e;
+  --violet-deep: #1c2b4d;
   --paper: #f3efe6;
   --surface: #fffefb;
   --line: rgba(28, 24, 19, 0.08);
@@ -25,7 +25,7 @@
 /* ── Atmosphere: warm depth instead of flat beige ─────────────────────────── */
 body {
   background:
-    radial-gradient(1100px 480px at 18% -8%, rgba(108, 71, 255, 0.055), transparent 60%),
+    radial-gradient(1100px 480px at 18% -8%, rgba(36, 54, 94, 0.055), transparent 60%),
     radial-gradient(900px 420px at 92% 4%, rgba(230, 168, 60, 0.05), transparent 55%),
     var(--paper);
 }
@@ -48,14 +48,14 @@ body {
 .side-item { border-radius: 12px; transition: background 0.25s var(--ease-snap), color 0.25s var(--ease-snap), transform 0.25s var(--ease-snap); }
 .side-item:hover { transform: translateX(2px); }
 .side-item.active {
-  background: linear-gradient(135deg, #f1ecff, #ede6ff);
+  background: linear-gradient(135deg, #e7ebf4, #dfe5f0);
   color: var(--violet-deep);
   box-shadow: inset 3px 0 0 var(--violet);
 }
 .side-upsell {
-  background: linear-gradient(150deg, #6c47ff 0%, #8a6cff 70%, #a98bff 100%);
+  background: linear-gradient(150deg, #24365e 0%, #35507f 70%, #4a67a0 100%);
   border-radius: 16px;
-  box-shadow: 0 10px 26px rgba(108, 71, 255, 0.28);
+  box-shadow: 0 10px 26px rgba(36, 54, 94, 0.28);
 }
 
 /* ── Cards: one elevation language everywhere ─────────────────────────────── */
@@ -66,7 +66,7 @@ body {
 }
 .profile-card { border-radius: var(--r-card); padding: 24px 26px;
   transition: transform 0.4s var(--ease-snap), box-shadow 0.4s var(--ease-snap), border-color 0.3s var(--ease-snap); }
-.profile-card:hover { transform: translateY(-3px); border-color: rgba(108, 71, 255, 0.35); box-shadow: var(--shadow-lift); }
+.profile-card:hover { transform: translateY(-3px); border-color: rgba(36, 54, 94, 0.35); box-shadow: var(--shadow-lift); }
 .rail-card { border-radius: var(--r-card); padding: 20px; }
 .status-bar { border-radius: 14px; padding: 13px 18px; }
 
@@ -80,13 +80,13 @@ body {
 /* ── Buttons: hover physics, unified radius ───────────────────────────────── */
 .btn-add, .plan-upgrade-btn, .li-banner-btn, .card-li-up-btn {
   border-radius: var(--r-btn);
-  box-shadow: 0 1px 2px rgba(28, 24, 19, 0.10), 0 4px 14px rgba(108, 71, 255, 0.22);
+  box-shadow: 0 1px 2px rgba(28, 24, 19, 0.10), 0 4px 14px rgba(36, 54, 94, 0.22);
   transition: transform 0.35s var(--ease-snap), box-shadow 0.35s var(--ease-snap), background 0.25s var(--ease-snap);
 }
 .btn-add:hover, .plan-upgrade-btn:hover, .li-banner-btn:hover, .card-li-up-btn:hover {
   background: var(--violet-deep);
   transform: translateY(-1.5px);
-  box-shadow: 0 2px 4px rgba(28, 24, 19, 0.10), 0 10px 24px rgba(108, 71, 255, 0.34);
+  box-shadow: 0 2px 4px rgba(28, 24, 19, 0.10), 0 10px 24px rgba(36, 54, 94, 0.34);
 }
 .btn-add:active, .plan-upgrade-btn:active { transform: translateY(0) scale(0.98); }
 .act-btn {
@@ -96,11 +96,11 @@ body {
   transition: transform 0.3s var(--ease-snap), box-shadow 0.3s var(--ease-snap), background 0.2s, border-color 0.2s;
 }
 .act-btn:hover { background: #f6f1e7; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(28, 24, 19, 0.07); }
-.act-btn.primary { box-shadow: 0 1px 2px rgba(28,24,19,.08), 0 4px 12px rgba(108,71,255,.22); }
+.act-btn.primary { box-shadow: 0 1px 2px rgba(28,24,19,.08), 0 4px 12px rgba(36, 54, 94,.22); }
 
 /* ── Toggles: bigger, smoother, unmistakable state ────────────────────────── */
 .carousel-toggle-switch { width: 40px; height: 22px; background: #ded7c8; transition: background 0.3s var(--ease-snap); }
-.carousel-toggle-switch.on { background: linear-gradient(135deg, #6c47ff, #8a6cff); box-shadow: 0 2px 8px rgba(108, 71, 255, 0.35); }
+.carousel-toggle-switch.on { background: linear-gradient(135deg, #24365e, #35507f); box-shadow: 0 2px 8px rgba(36, 54, 94, 0.35); }
 .carousel-toggle-knob { top: 3px; left: 3px; width: 16px; height: 16px; transition: left 0.3s var(--ease-snap); }
 .carousel-toggle-switch.on .carousel-toggle-knob { left: 21px; }
 
@@ -137,7 +137,7 @@ body {
 .ring-label { letter-spacing: 0.02em; }
 
 /* ── Panels ───────────────────────────────────────────────────────────────── */
-.card-li-panel { border-radius: 12px; background: #f8f5ff; }
+.card-li-panel { border-radius: 12px; background: #f5f7fb; }
 .empty-state { border-radius: var(--r-card); }
 
 /* ── Entry motion: the page assembles instead of appearing ────────────────── */
