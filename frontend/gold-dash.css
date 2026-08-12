@@ -179,7 +179,7 @@ body {
 }
 .sidebar .logo { color: #fff; }
 .sidebar .logo span { color: #fff; }
-.sidebar .logo .logo-mark { background: #fff; color: var(--navy-deep); }
+.sidebar .logo .logo-mark { color: #fff; }
 .side-item { color: rgba(255, 255, 255, .66); font-weight: 500; }
 .side-item:hover { background: rgba(255, 255, 255, .08); color: #fff; transform: none; }
 .side-item.active {

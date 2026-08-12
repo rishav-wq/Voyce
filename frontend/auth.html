@@ -50,10 +50,26 @@
     }
     .cl-formButtonPrimary:hover { background-color: #1c2b4d !important; }
     .cl-footerActionLink { color: #24365e !important; font-weight: 600 !important; }
-  </style>
+      /* ── Wordmark: cursive V flowing straight into "oyce", no gap ──────────────
+       Fraunces italic is the same face as the italic "you" on the landing page,
+       so the logo and that accent are one gesture. Georgia italic is the
+       fallback wherever Fraunces is unavailable. */
+    .logo, .auth-logo { display: inline-flex; align-items: baseline; line-height: 1.35; }
+    .logo .logo-mark {
+      font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+      font-style: italic; font-weight: 500;
+      font-size: 1.85em; line-height: 0.85;
+      letter-spacing: -0.07em;   /* tucks the o in so the pair reads as one word */
+      background: none !important; border-radius: 0;
+      width: auto !important; height: auto !important;
+      display: inline !important; place-items: unset;
+      padding: 0; margin: 0 -0.02em 0 0;
+      color: inherit;
+    }
+</style>
 </head>
 <body>
-  <div class="auth-logo">V<span>oyce</span></div>
+  <div class="auth-logo logo"><span class="logo-mark">V</span><span>oyce</span></div>
   <p class="auth-tagline">LinkedIn posts that sound like <em class="you">you</em>.</p>
   <div id="clerk-sign-in"></div>
 

@@ -67,7 +67,23 @@
     .progress-bar { height: 100%; background: linear-gradient(90deg, #24365e, #a07cff); border-radius: 100px; transition: width 0.4s ease; width: 0%; }
     .loading-msg { font-size: 13px; color: #24365e; font-weight: 600; min-height: 20px; }
 
-    @media (max-width: 540px) {
+        /* ── Wordmark: cursive V flowing straight into "oyce", no gap ──────────────
+       Fraunces italic is the same face as the italic "you" on the landing page,
+       so the logo and that accent are one gesture. Georgia italic is the
+       fallback wherever Fraunces is unavailable. */
+    .logo { display: inline-flex; align-items: baseline; line-height: 1.35; }
+    .logo .logo-mark {
+      font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+      font-style: italic; font-weight: 500;
+      font-size: 1.85em; line-height: 0.85;
+      letter-spacing: -0.07em;   /* tucks the o in so the pair reads as one word */
+      background: none !important; border-radius: 0;
+      width: auto !important; height: auto !important;
+      display: inline !important; place-items: unset;
+      padding: 0; margin: 0 -0.02em 0 0;
+      color: inherit;
+    }
+@media (max-width: 540px) {
       .ob-card { padding: 30px 22px; }
       .ob-nav { padding: 0 20px; }
     }
@@ -76,7 +92,7 @@
 <body>
 
   <nav class="ob-nav">
-    <div class="logo">V<span>oyce</span></div>
+    <div class="logo"><span class="logo-mark">V</span><span>oyce</span></div>
     <span class="nav-user" id="nav-user"></span>
   </nav>
 
