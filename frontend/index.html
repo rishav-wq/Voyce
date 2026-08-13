@@ -11,7 +11,7 @@
   <script src="/static/confirm.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f0e8; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1c1813; }
+    body { background: #f6f7f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #16181d; }
     h1, h2, h3, h4, .logo, .page-title, .output-section-title { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
     .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
@@ -28,7 +28,7 @@
       top: 0;
       z-index: 100;
     }
-    .logo { font-size: 20px; font-weight: 700; color: #1c1813; }
+    .logo { font-size: 20px; font-weight: 700; color: #16181d; }
     .logo span { color: #24365e; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .nav-user { font-size: 13px; color: #555; font-weight: 600; }
@@ -44,7 +44,7 @@
       font-weight: 600;
       padding: 6px 12px;
       border-radius: 20px;
-      border: 1.5px solid #e0d9cc;
+      border: 1.5px solid #d3d8e0;
       cursor: pointer;
       background: none;
       color: #888;
@@ -68,33 +68,33 @@
     .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
     .sidebar {
       position: sticky; top: 0; height: 100vh; background: #fff;
-      border-right: 1px solid #e4ddd0; padding: 22px 16px;
+      border-right: 1px solid #e4e7ec; padding: 22px 16px;
       display: flex; flex-direction: column; gap: 20px;
     }
-    .sidebar .logo { font-size: 20px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
     .sidebar .logo .logo-mark { color: #fff; }
     .sidebar .logo span { color: #24365e; }
     .side-nav { display: flex; flex-direction: column; gap: 4px; }
     .side-item {
       display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px;
-      font-size: 14px; font-weight: 600; color: #6a6258; cursor: pointer; border: none;
+      font-size: 14px; font-weight: 600; color: #5b6270; cursor: pointer; border: none;
       background: none; width: 100%; text-align: left; text-decoration: none; transition: background .14s, color .14s;
     }
-    .side-item:hover { background: #f7f3ec; color: #1c1813; }
+    .side-item:hover { background: #f1f3f7; color: #16181d; }
     .side-item.active { background: #e7ebf4; color: #24365e; }
     .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
     .side-spacer { flex: 1; }
     .side-upsell { background: linear-gradient(150deg, #24365e, #35507f); border-radius: 14px; padding: 16px; color: #fff; text-decoration: none; display: block; }
     .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
     .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0; }
-    .side-foot { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e4ddd0; padding-top: 12px; }
-    .side-user { font-size: 12px; color: #a59c8d; padding: 0 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .side-foot { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e4e7ec; padding-top: 12px; }
+    .side-user { font-size: 12px; color: #98a0ae; padding: 0 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── Progress strip ── */
-    .progress-strip { display: flex; align-items: center; gap: 6px 14px; background: #fff; border: 1px solid #e4ddd0; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
-    .pstep { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: #a59c8d; text-decoration: none; }
-    .pstep .pnum { width: 24px; height: 24px; border-radius: 50%; background: #efe9e0; color: #a59c8d; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
-    .pstep.active { color: #1c1813; }
+    .progress-strip { display: flex; align-items: center; gap: 6px 14px; background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+    .pstep { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: #98a0ae; text-decoration: none; }
+    .pstep .pnum { width: 24px; height: 24px; border-radius: 50%; background: #efe9e0; color: #98a0ae; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .pstep.active { color: #16181d; }
     .pstep.active .pnum { background: #24365e; color: #fff; }
     .pstep.done { color: #18a07a; }
     .pstep.done .pnum { background: #18a07a; color: #fff; }
@@ -134,7 +134,7 @@
     }
 @media (max-width: 860px) {
       .app-shell { grid-template-columns: 1fr; }
-      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4ddd0; padding: 12px 16px; }
+      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4e7ec; padding: 12px 16px; }
       .sidebar .side-spacer, .sidebar .side-upsell { display: none; }
       .side-nav { flex-direction: row; flex-wrap: wrap; }
       .side-foot { flex-direction: row; align-items: center; border-top: none; padding-top: 0; margin-left: auto; gap: 12px; }
@@ -145,7 +145,7 @@
     .page-body { max-width: 820px; margin: 0 auto; padding: 30px 32px; width: 100%; }
 
     .page-title { font-size: clamp(28px,4vw,40px); font-weight: 700; letter-spacing: -0.04em; line-height: 1.04; margin-bottom: 10px; }
-    .page-sub { font-size: 15px; color: #6f6a5f; margin-bottom: 32px; max-width: 560px; line-height: 1.6; }
+    .page-sub { font-size: 15px; color: #5b6270; margin-bottom: 32px; max-width: 560px; line-height: 1.6; }
     /* On wide screens, dock the idea suggestions into the right vacant space so
        they sit beside the composer instead of pushing it down. Narrow screens
        keep them inline (static). :not(:empty) => only docks once ideas load. */
@@ -158,7 +158,7 @@
       }
       #ideas-out:not(:empty)::before {
         content: "💡 Ideas for next posts"; display: block;
-        font-size: 12px; font-weight: 700; color: #6b6355;
+        font-size: 12px; font-weight: 700; color: #5b6270;
         letter-spacing: .02em; margin: 2px 2px 10px;
       }
     }
@@ -171,11 +171,11 @@
 
     /* ── Input card ── */
     .input-card {
-      background: #fffdf8;
-      border: 1px solid #e3ddd0;
+      background: #ffffff;
+      border: 1px solid #e4e7ec;
       border-radius: 18px;
       padding: 26px;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 14px 34px rgba(20,16,10,0.05);
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05), 0 14px 34px rgba(22,24,29,0.05);
       margin-bottom: 24px;
     }
 
@@ -209,7 +209,7 @@
     #content-input {
       width: 100%;
       padding: 14px;
-      border: 1.5px solid #e0d9cc;
+      border: 1.5px solid #d3d8e0;
       border-radius: 11px;
       font-size: 14px;
       font-family: inherit;
@@ -242,7 +242,7 @@
     .generate-btn:hover { background: #1c2b4d; }
     .generate-btn:disabled { background: #9aa7c0; cursor: not-allowed; }
     .generate-btn.secondary {
-      background: #1c1813;
+      background: #16181d;
       flex: 0.85;
     }
     .generate-btn.secondary:hover { background: #2a2a4a; }
@@ -278,7 +278,7 @@
     }
     @keyframes gen-spin { to { transform: rotate(360deg); } }
     .gen-progress-info { flex: 1; min-width: 0; }
-    .gen-stage { font-size: 14px; font-weight: 600; color: #1c1813; margin-bottom: 8px; transition: opacity 0.2s; }
+    .gen-stage { font-size: 14px; font-weight: 600; color: #16181d; margin-bottom: 8px; transition: opacity 0.2s; }
     .gen-bar-bg { background: #e7ebf4; border-radius: 20px; height: 6px; overflow: hidden; }
     .gen-bar { background: #24365e; height: 100%; border-radius: 20px; width: 0%; transition: width 0.4s ease; }
 
@@ -299,14 +299,14 @@
     }
 
     .output-card {
-      background: #fffdf8;
+      background: #ffffff;
       border-radius: 16px;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05);
       overflow: hidden;
-      border: 1px solid #e3ddd0;
+      border: 1px solid #e4e7ec;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .output-card:hover { border-color: #a8b8d4; box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 12px 30px rgba(20,16,10,0.07); }
+    .output-card:hover { border-color: #a8b8d4; box-shadow: 0 1px 3px rgba(22,24,29,0.05), 0 12px 30px rgba(22,24,29,0.07); }
 
     .card-header {
       display: flex;
@@ -335,7 +335,7 @@
       font-weight: 600;
       border-radius: 999px;
       cursor: pointer;
-      border: 1.5px solid #e0d9cc;
+      border: 1.5px solid #d3d8e0;
       background: #fff;
       color: #3a352c;
       transition: border-color .14s, color .14s, background .14s, transform .1s;
@@ -350,7 +350,7 @@
       padding: 14px 20px 20px;
       font-size: 14.5px;
       line-height: 1.6;
-      color: #1c1813;
+      color: #16181d;
       white-space: pre-wrap;
       max-height: 480px;
       overflow-y: auto;
@@ -361,8 +361,8 @@
     .li-avatar { width: 44px; height: 44px; border-radius: 50%; background: #24365e; color: #fff;
       display: grid; place-items: center; font-weight: 700; font-size: 17px;
       font-family: 'Space Grotesk', sans-serif; flex: 0 0 auto; }
-    .li-name { font-size: 14.5px; font-weight: 700; color: #1c1813; line-height: 1.15; }
-    .li-sub { font-size: 12px; color: #8a8275; }
+    .li-name { font-size: 14.5px; font-weight: 700; color: #16181d; line-height: 1.15; }
+    .li-sub { font-size: 12px; color: #6d7482; }
 
     /* Twitter tweets */
     .tweet {
@@ -386,7 +386,7 @@
       flex: 1;
       font-size: 14px;
       line-height: 1.6;
-      color: #1c1813;
+      color: #16181d;
       white-space: pre-wrap;
       max-height: 480px;
       overflow-y: auto;
@@ -403,7 +403,7 @@
       font-weight: 600;
       border-radius: 999px;
       cursor: pointer;
-      border: 1.5px solid #e0d9cc;
+      border: 1.5px solid #d3d8e0;
       background: #fff;
       color: #3a352c;
       text-align: center;
@@ -423,10 +423,10 @@
 
     /* ── Queue ── */
     .queue-card {
-      background: #fffdf8;
-      border: 1px solid #e3ddd0;
+      background: #ffffff;
+      border: 1px solid #e4e7ec;
       border-radius: 16px;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05);
       padding: 22px 26px;
       margin-top: 24px;
       display: none;
@@ -470,13 +470,13 @@
     .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
     .modal-box label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
     .modal-box input[type=datetime-local] {
-      width: 100%; padding: 10px 13px; border: 1.5px solid #e0d9cc;
+      width: 100%; padding: 10px 13px; border: 1.5px solid #d3d8e0;
       border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
     }
     .modal-box input:focus { border-color: #24365e; }
     .modal-hint { font-size: 12px; color: #aaa; margin-top: 6px; margin-bottom: 20px; }
     .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
-    .modal-cancel { background: none; border: 1.5px solid #e0d9cc; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; }
+    .modal-cancel { background: none; border: 1.5px solid #d3d8e0; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; }
     .modal-confirm { background: #24365e; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .modal-confirm:hover { background: #1c2b4d; }
     .modal-confirm:disabled { background: #9aa7c0; cursor: not-allowed; }
@@ -484,7 +484,7 @@
     /* ── Toast ── */
     #toast {
       position: fixed; bottom: 28px; right: 28px;
-      background: #1c1813; color: #fff;
+      background: #16181d; color: #fff;
       padding: 12px 20px; border-radius: 10px;
       font-size: 14px; font-weight: 500;
       box-shadow: 0 4px 16px rgba(0,0,0,0.2);
@@ -590,14 +590,14 @@
 
     <!-- Input card -->
     <div class="input-card">
-      <div id="writing-as" style="display:none;align-items:center;gap:8px;margin-bottom:14px;font-size:13.5px;font-weight:600;color:#6b6355;">
+      <div id="writing-as" style="display:none;align-items:center;gap:8px;margin-bottom:14px;font-size:13.5px;font-weight:600;color:#5b6270;">
         ✍️ Writing as
-        <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';applyProfileScopedUI();" style="font-family:inherit;font-size:13.5px;font-weight:600;color:#1c1813;padding:6px 10px;border:1.5px solid #e0d9cc;border-radius:8px;background:#fff;cursor:pointer;">
+        <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';applyProfileScopedUI();" style="font-family:inherit;font-size:13.5px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
         </select>
       </div>
       <div id="ideas-row" style="display:none;margin-bottom:14px;">
         <button type="button" class="img-src-btn" onclick="suggestIdeasCreate()">💡 Suggest post ideas for this profile</button>
-        <span style="font-size:12px;color:#a29a8c;margin-left:8px;">based on your niche + today's news</span>
+        <span style="font-size:12px;color:#98a0ae;margin-left:8px;">based on your niche + today's news</span>
         <div id="ideas-out" style="margin-top:12px;"></div>
       </div>
       <div class="input-tabs">
@@ -616,10 +616,10 @@
         <button type="button" class="img-src-btn" onclick="attachTriggerUpload()">📤 Upload your own</button>
         <input type="file" id="attach-upload" accept="image/*" hidden onchange="attachHandleUpload(event)" />
       </div>
-      <div id="img-style-row" style="display:none;gap:16px;align-items:center;flex-wrap:wrap;margin:8px 0 0 2px;font-size:13px;color:#6b6355;">
+      <div id="img-style-row" style="display:none;gap:16px;align-items:center;flex-wrap:wrap;margin:8px 0 0 2px;font-size:13px;color:#5b6270;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="illustration" checked> AI illustration</label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="tweet"> Tweet card <span style="color:#a29a8c;">(high-reach format)</span></label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="source"> Source card <span style="color:#a29a8c;">(cites the article — Website URL input)</span></label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="tweet"> Tweet card <span style="color:#98a0ae;">(high-reach format)</span></label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="source"> Source card <span style="color:#98a0ae;">(cites the article — Website URL input)</span></label>
       </div>
       <div class="btn-row">
         <button class="generate-btn" id="generate-btn" onclick="generate()">
@@ -632,15 +632,15 @@
         </button>
       </div>
       <details id="carousel-opts" style="margin-top:10px;">
-        <summary style="cursor:pointer;font-size:12.5px;color:#8a8275;">Carousel options — brand &amp; slide format</summary>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b6355;flex-wrap:wrap;padding:10px 0 2px;">
+        <summary style="cursor:pointer;font-size:12.5px;color:#6d7482;">Carousel options — brand &amp; slide format</summary>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#5b6270;flex-wrap:wrap;padding:10px 0 2px;">
           <span>Brand:</span>
-          <select id="carousel-theme" onchange="if(this.value==='knowella_deep'){var f=document.getElementById('carousel-format'); if(f&&f.value==='standard')f.value='visual';}" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
+          <select id="carousel-theme" onchange="if(this.value==='knowella_deep'){var f=document.getElementById('carousel-format'); if(f&&f.value==='standard')f.value='visual';}" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #d3d8e0;border-radius:7px;background:#fff;color:#16181d;cursor:pointer;">
             <option value="">Profile theme</option>
             <option value="knowella_deep" id="theme-opt-knowella">Knowella (dark violet + teal, logo)</option>
           </select>
           <span>Format:</span>
-          <select id="carousel-format" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #e0d9cc;border-radius:7px;background:#fff;color:#1c1813;cursor:pointer;">
+          <select id="carousel-format" style="font-family:inherit;font-size:12.5px;padding:5px 9px;border:1.5px solid #d3d8e0;border-radius:7px;background:#fff;color:#16181d;cursor:pointer;">
             <option value="standard">Text slides</option>
             <option value="visual">Visual — a diagram on every slide</option>
             <option value="posture" id="fmt-opt-posture">+ Skeleton hero (illustrative)</option>
@@ -649,11 +649,11 @@
         </div>
       </details>
 
-      <details id="ergo-block" style="margin-top:14px;border:1px dashed #ddd6c8;border-radius:10px;padding:0 14px;display:none;">
-        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#6b6355;padding:12px 0;">📊 Turn a KnowErgo assessment into a data carousel</summary>
+      <details id="ergo-block" style="margin-top:14px;border:1px dashed #d3d8e0;border-radius:10px;padding:0 14px;display:none;">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#5b6270;padding:12px 0;">📊 Turn a KnowErgo assessment into a data carousel</summary>
         <div style="padding:0 0 14px;">
-          <p style="font-size:12.5px;color:#8a8275;margin:0 0 8px;line-height:1.5;">Paste a KnowErgo <code>/video/result</code> JSON — you'll get per-joint risk bars, a body-map, and the worst-joint stat, with real numbers from the assessment.</p>
-          <textarea id="ergo-json" placeholder='Paste the assessment result JSON here…' rows="4" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border:1.5px solid #e0d9cc;border-radius:8px;"></textarea>
+          <p style="font-size:12.5px;color:#6d7482;margin:0 0 8px;line-height:1.5;">Paste a KnowErgo <code>/video/result</code> JSON — you'll get per-joint risk bars, a body-map, and the worst-joint stat, with real numbers from the assessment.</p>
+          <textarea id="ergo-json" placeholder='Paste the assessment result JSON here…' rows="4" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border:1.5px solid #d3d8e0;border-radius:8px;"></textarea>
           <button class="generate-btn secondary" style="margin-top:8px;" id="ergo-carousel-btn" onclick="generateErgoCarousel()">
             <span id="ergo-btn-text">📊 Build data carousel</span>
             <span id="ergo-btn-loader" style="display:none;">Generating…</span>
@@ -662,7 +662,7 @@
       </details>
       <style>
         .img-choice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 2px;}
-        .img-choice-or{font-size:12.5px;color:#8a8275;}
+        .img-choice-or{font-size:12.5px;color:#6d7482;}
         .img-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
         .img-toggle input{position:absolute;opacity:0;width:0;height:0;}
         .img-toggle-track{width:38px;height:22px;background:#d9d2c4;border-radius:999px;position:relative;transition:background .15s;flex:none;}
@@ -670,10 +670,10 @@
         .img-toggle input:checked + .img-toggle-track{background:#24365e;}
         .img-toggle input:checked + .img-toggle-track .img-toggle-thumb{transform:translateX(16px);}
         .img-toggle input:focus-visible + .img-toggle-track{outline:2px solid #24365e;outline-offset:2px;}
-        .img-toggle-text{font-size:14px;font-weight:600;color:#1c1813;}
-        .img-toggle-sub{font-size:12px;color:#8a8275;font-weight:400;}
+        .img-toggle-text{font-size:14px;font-weight:600;color:#16181d;}
+        .img-toggle-sub{font-size:12px;color:#6d7482;font-weight:400;}
         @media (max-width:520px){ .img-toggle-sub{display:none;} }
-        .img-src-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e4ddd0;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:#3a352c;cursor:pointer;font-family:inherit;transition:border-color .14s,color .14s,background .14s,transform .1s;}
+        .img-src-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e4e7ec;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:#3a352c;cursor:pointer;font-family:inherit;transition:border-color .14s,color .14s,background .14s,transform .1s;}
         .img-src-btn:hover{border-color:#24365e;color:#24365e;background:#faf8ff;transform:translateY(-1px);}
         .img-src-btn:active{transform:translateY(0);}
         .img-src-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
@@ -686,17 +686,17 @@
 
         /* "…see more" fold — height clamp + fade, so blank lines never produce stray dots */
         .card-body.li-clamp{overflow:hidden;position:relative;}
-        .card-body.li-clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.7em;background:linear-gradient(to bottom, rgba(255,253,248,0), #fffdf8);pointer-events:none;}
-        .li-see-more{background:none;border:none;color:#8a8275;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 20px 0;text-align:left;align-self:flex-start;}
+        .card-body.li-clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.7em;background:linear-gradient(to bottom, rgba(255,253,248,0), #ffffff);pointer-events:none;}
+        .li-see-more{background:none;border:none;color:#6d7482;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 20px 0;text-align:left;align-self:flex-start;}
         .li-see-more:hover{color:#24365e;}
-        .li-attach-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:10px 20px 0;min-height:200px;border:1.5px dashed #ddd5c6;border-radius:12px;background:#faf7f0;color:#8a8275;font-size:13px;}
-        .li-attach-spin{width:22px;height:22px;border:2.5px solid #e3ddd0;border-top-color:#24365e;border-radius:50%;animation:liattachspin .7s linear infinite;}
+        .li-attach-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:10px 20px 0;min-height:200px;border:1.5px dashed #d3d8e0;border-radius:12px;background:#f6f7f9;color:#6d7482;font-size:13px;}
+        .li-attach-spin{width:22px;height:22px;border:2.5px solid #e4e7ec;border-top-color:#24365e;border-radius:50%;animation:liattachspin .7s linear infinite;}
         @keyframes liattachspin{to{transform:rotate(360deg);}}
 
         /* LinkedIn-style reaction bar — completes the preview illusion (non-interactive) */
         .li-reactbar{display:flex;gap:2px;margin:14px 16px 0;padding-top:6px;border-top:1px solid #efe9e0;}
-        .li-react{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 4px;border-radius:8px;color:#8a8275;font-size:13px;font-weight:600;}
-        .li-react svg{width:17px;height:17px;stroke:#8a8275;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+        .li-react{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 4px;border-radius:8px;color:#6d7482;font-size:13px;font-weight:600;}
+        .li-react svg{width:17px;height:17px;stroke:#6d7482;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
         @media (max-width:560px){ .li-react span{display:none;} .li-react{padding:10px 4px;} }
 
       </style>
@@ -736,7 +736,7 @@
             </div>
           </div>
           <div class="card-body" id="linkedin-content" contenteditable="true" spellcheck="true" title="Click to edit the post text directly"></div>
-          <div style="font-size:11px;color:#a29a8c;margin-top:4px;">✎ Click the text above to edit before posting.</div>
+          <div style="font-size:11px;color:#98a0ae;margin-top:4px;">✎ Click the text above to edit before posting.</div>
           <button type="button" class="li-see-more" id="li-see-more" style="display:none;" onclick="toggleFold()" title="Only these first lines show in the feed before someone taps">…see more</button>
 
           <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->

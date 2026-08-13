@@ -105,8 +105,8 @@ async function suggestIdeasCreate() {
     _createIdeas = data.ideas || [];
     if (!_createIdeas.length) { out.innerHTML = `<div style="font-size:13px;color:#8a8272;">No ideas came back — try again in a moment.</div>`; return; }
     out.innerHTML = _createIdeas.map((it, i) => `
-      <div style="border:1.5px solid #e0d9cc;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">
-        <div style="font-size:14px;font-weight:600;color:#1c1813;line-height:1.35;">${_escHtmlCreate(it.hook)}</div>
+      <div style="border:1.5px solid #d3d8e0;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">
+        <div style="font-size:14px;font-weight:600;color:#16181d;line-height:1.35;">${_escHtmlCreate(it.hook)}</div>
         <div style="font-size:12px;color:#8a8272;margin-top:4px;">
           <span style="color:#24365e;font-weight:600;">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
         </div>
@@ -504,7 +504,7 @@ async function generateVariations() {
   await _refreshToken();
   const row = document.getElementById("variants-row");
   row.style.display = "";
-  row.innerHTML = `<div style="font-size:12.5px;color:#a29a8c;padding:6px 2px;">Writing a couple of alternate captions…</div>`;
+  row.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:6px 2px;">Writing a couple of alternate captions…</div>`;
   try {
     const res = await fetch("/generate/variations", {
       method: "POST", headers: authHeaders(),
@@ -520,7 +520,7 @@ async function generateVariations() {
 function _renderVariants(variants, active) {
   window._variants = variants;
   const row = document.getElementById("variants-row");
-  row.innerHTML = `<div style="font-size:12px;font-weight:700;color:#6b6355;margin:2px 2px 8px;">Captions — pick one, then edit it below:</div>` +
+  row.innerHTML = `<div style="font-size:12px;font-weight:700;color:#5b6270;margin:2px 2px 8px;">Captions — pick one, then edit it below:</div>` +
     variants.map((v, i) => `<button class="action-btn" style="display:block;width:100%;text-align:left;white-space:normal;line-height:1.4;margin-bottom:6px;${i === active ? "border-color:#24365e;background:#f4f2ff;" : ""}" onclick="pickVariant(${i})">
       <b>${i === 0 ? "Original" : "Option " + i}</b> · ${_escHtmlCreate(v).slice(0, 120)}${v.length > 120 ? "…" : ""}</button>`).join("");
 }
@@ -551,12 +551,12 @@ function toggleHistory() {
 function _renderHistory() {
   let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
   const p = document.getElementById("history-panel");
-  if (!h.length) { p.innerHTML = `<div style="font-size:12.5px;color:#a29a8c;padding:8px 2px;">No history yet — posts you generate will show up here.</div>`; return; }
-  p.innerHTML = `<div style="font-size:12px;font-weight:700;color:#6b6355;margin:2px 2px 8px;">🕘 Recent generations <span style="font-weight:400;color:#a29a8c;">(this browser)</span></div>` +
+  if (!h.length) { p.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:8px 2px;">No history yet — posts you generate will show up here.</div>`; return; }
+  p.innerHTML = `<div style="font-size:12px;font-weight:700;color:#5b6270;margin:2px 2px 8px;">🕘 Recent generations <span style="font-weight:400;color:#98a0ae;">(this browser)</span></div>` +
     h.map((it, i) => `<div style="border:1px solid #e6ded0;border-radius:8px;padding:9px 11px;margin-bottom:6px;">
       <div style="font-size:12.5px;color:#333;line-height:1.45;max-height:44px;overflow:hidden;">${_escHtmlCreate(it.text).slice(0, 180)}${it.text.length > 180 ? "…" : ""}</div>
       <div style="margin-top:7px;display:flex;gap:10px;align-items:center;">
-        <span style="font-size:11px;color:#a29a8c;">${new Date(it.ts).toLocaleString()}</span>
+        <span style="font-size:11px;color:#98a0ae;">${new Date(it.ts).toLocaleString()}</span>
         <button class="action-btn" onclick="loadFromHistory(${i})">Load &amp; edit</button>
       </div></div>`).join("");
 }

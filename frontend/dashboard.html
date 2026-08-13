@@ -15,8 +15,8 @@
     if (window.Chart) {
       Chart.defaults.font.family = "'Inter', sans-serif";
       Chart.defaults.font.size = 11;
-      Chart.defaults.color = "#a29a8c";
-      Chart.defaults.borderColor = "rgba(28,24,19,0.06)";
+      Chart.defaults.color = "#98a0ae";
+      Chart.defaults.borderColor = "rgba(22,24,29,0.06)";
       Chart.defaults.elements.bar.borderRadius = 6;
       Chart.defaults.elements.line.tension = 0.35;
       Chart.defaults.elements.line.borderWidth = 2.5;
@@ -26,7 +26,7 @@
   <script src="/static/confirm.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { background: #f4f0e8; margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    body { background: #f6f7f9; margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
     /* ── Top nav ── */
@@ -50,35 +50,35 @@
     /* ── App shell: sidebar + main ── */
     .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
     .sidebar {
-      position: sticky; top: 0; height: 100vh; background: #fffdf8;
-      border-right: 1px solid #e4ddd0; padding: 22px 16px;
+      position: sticky; top: 0; height: 100vh; background: #ffffff;
+      border-right: 1px solid #e4e7ec; padding: 22px 16px;
       display: flex; flex-direction: column; gap: 20px;
     }
-    .sidebar .logo { font-size: 20px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
     .sidebar .logo .logo-mark { color: #fff; }
     .sidebar .logo span { color: #24365e; }
     .side-nav { display: flex; flex-direction: column; gap: 4px; }
     .side-item {
       display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px;
-      font-size: 14px; font-weight: 600; color: #6a6258; cursor: pointer; border: none;
+      font-size: 14px; font-weight: 600; color: #5b6270; cursor: pointer; border: none;
       background: none; width: 100%; text-align: left; text-decoration: none; transition: background .14s, color .14s;
     }
-    .side-item:hover { background: #f7f3ec; color: #1c1813; }
+    .side-item:hover { background: #f1f3f7; color: #16181d; }
     .side-item.active { background: #e7ebf4; color: #24365e; }
     .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
     .side-spacer { flex: 1; }
     .side-upsell { background: linear-gradient(150deg, #24365e, #35507f); border-radius: 14px; padding: 16px; color: #fff; }
     .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
     .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0 0 12px; }
-    .side-upsell button { width: 100%; background: #fffdf8; color: #24365e; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
-    .side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4ddd0; padding-top: 8px; }
-    .li-status-pill { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e0d9cc; cursor: pointer; background: none; color: #888; font-family: inherit; transition: all 0.15s; }
+    .side-upsell button { width: 100%; background: #ffffff; color: #24365e; border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4e7ec; padding-top: 8px; }
+    .li-status-pill { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 20px; border: 1.5px solid #d3d8e0; cursor: pointer; background: none; color: #888; font-family: inherit; transition: all 0.15s; }
     .li-status-pill:hover { border-color: #24365e; color: #24365e; }
     .li-status-pill.connected { border-color: #a5d6a7; color: #057642; background: #e8f5e9; }
     .li-status-pill.connected:hover { border-color: #057642; }
     .li-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
     .li-status-pill.connected .dot { background: #057642; }
-    .side-user { font-size: 12px; color: #a59c8d; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .side-user { font-size: 12px; color: #98a0ae; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* ── Right rail ── */
 
         /* ── Wordmark: cursive V flowing straight into "oyce", no gap ──────────────
@@ -100,7 +100,7 @@
 @media (max-width: 1100px) { .app-shell { grid-template-columns: 248px 1fr; } .rail { display: none; } }
     @media (max-width: 860px) {
       .app-shell { grid-template-columns: 1fr; }
-      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4ddd0; padding: 12px 16px; }
+      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4e7ec; padding: 12px 16px; }
       .sidebar .side-spacer, .sidebar .side-upsell { display: none; }
       .side-nav { flex-direction: row; flex-wrap: wrap; }
       .side-foot { flex-direction: row; align-items: center; border-top: none; padding-top: 0; margin-left: auto; }
@@ -112,7 +112,7 @@
 
     /* ── Plan banner ── */
     .plan-banner {
-      background: #fffdf8;
+      background: #ffffff;
       border: 1.5px solid #dde4ef;
       border-radius: 12px;
       padding: 14px 20px;
@@ -131,7 +131,7 @@
     }
     .plan-badge.pro-badge { background: #e6f4ea; color: #057642; }
     .plan-text { font-size: 14px; color: #444; font-weight: 500; }
-    .plan-text strong { color: #1c1813; }
+    .plan-text strong { color: #16181d; }
     .plan-bar-wrap { flex: 1; max-width: 160px; }
     .plan-bar-bg { background: #e7ebf4; border-radius: 20px; height: 6px; overflow: hidden; }
     .plan-bar-fill { background: #24365e; height: 100%; border-radius: 20px; transition: width 0.3s; }
@@ -179,14 +179,14 @@
       margin-bottom: 28px;
     }
     .stat-card {
-      background: #fffdf8;
-      border: 1px solid #e3ddd0;
+      background: #ffffff;
+      border: 1px solid #e4e7ec;
       border-radius: 14px;
       padding: 18px 20px;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05);
     }
     .stat-label { font-size: 12px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .stat-value { font-size: 26px; font-weight: 700; color: #1c1813; }
+    .stat-value { font-size: 26px; font-weight: 700; color: #16181d; }
     .stat-sub { font-size: 12px; color: #82828c; margin-top: 4px; }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
@@ -212,16 +212,16 @@
       margin-bottom: 36px;
     }
     .profile-card {
-      background: #fffdf8;
+      background: #ffffff;
       border-radius: 16px;
       padding: 22px 24px;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
-      border: 1px solid #e3ddd0;
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05);
+      border: 1px solid #e4e7ec;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .profile-card:hover { border-color: #a8b8d4; box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 12px 30px rgba(20,16,10,0.07); }
+    .profile-card:hover { border-color: #a8b8d4; box-shadow: 0 1px 3px rgba(22,24,29,0.05), 0 12px 30px rgba(22,24,29,0.07); }
     .profile-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
-    .profile-card-name { font-size: 16px; font-weight: 700; color: #1c1813; display: flex; align-items: center; gap: 8px; }
+    .profile-card-name { font-size: 16px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 8px; }
     .badge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 20px; }
     .badge-type.company  { background: #e8f0fe; color: #1a73e8; }
     .badge-type.personal { background: #fce8f3; color: #c2185b; }
@@ -242,7 +242,7 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      background: #f0ecff;
+      background: #eaeef4;
       color: #24365e;
       font-size: 11px;
       font-weight: 600;
@@ -275,7 +275,7 @@
       left: 3px;
       width: 14px;
       height: 14px;
-      background: #fffdf8;
+      background: #ffffff;
       border-radius: 50%;
       transition: left 0.2s;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -286,10 +286,10 @@
     /* Automation status bar (replaces the old 4-card stats row) */
     .stats-row { display: block; }
     .status-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
-      background: #fffdf8; border: 1px solid #e3ddd0; border-radius: 12px;
+      background: #ffffff; border: 1px solid #e4e7ec; border-radius: 12px;
       padding: 12px 16px; font-size: 13px; color: #3a352c; }
     .sb-sep { color: #d8d1c2; }
-    .sb-dim { color: #a29a8c; }
+    .sb-dim { color: #98a0ae; }
 
     /* Calendar status chips — history + plan in one strip */
     .cal-chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px;
@@ -297,7 +297,7 @@
     .cal-chip.ok    { background: #e6f4ea; color: #057642; }
     .cal-chip.fail  { background: #fdeceb; color: #c0392b; }
     .cal-chip.sched { background: #e7ebf4; color: #24365e; }
-    .cal-chip.none  { background: #f2efe8; color: #b3aa9b; }
+    .cal-chip.none  { background: #eef0f4; color: #a7aebb; }
     td.cal-st-ok    { box-shadow: inset 3px 0 0 #18a07a; }
     td.cal-st-fail  { box-shadow: inset 3px 0 0 #e05555; }
     td.cal-st-sched { box-shadow: inset 3px 0 0 #a8b8d4; }
@@ -305,7 +305,7 @@
     .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .act-btn {
       background: none;
-      border: 1.5px solid #e0d9cc;
+      border: 1.5px solid #d3d8e0;
       border-radius: 7px;
       padding: 6px 12px;
       font-size: 12px;
@@ -314,7 +314,7 @@
       color: #444;
       transition: all 0.12s;
     }
-    .act-btn:hover { background: #f4f0e8; border-color: #d6cdbb; }
+    .act-btn:hover { background: #f6f7f9; border-color: #d3d8e0; }
     .act-btn.primary { background: #24365e; color: #fff; border-color: #24365e; }
     .act-btn.primary:hover { background: #1c2b4d; }
     .act-btn.danger { color: #c0392b; border-color: #fdecea; }
@@ -343,22 +343,22 @@
     .empty-state {
       text-align: center;
       padding: 48px 24px;
-      background: #fffdf8;
-      border: 1px solid #e3ddd0;
+      background: #ffffff;
+      border: 1px solid #e4e7ec;
       border-radius: 16px;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05);
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05);
     }
     .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
-    .empty-state p { color: #82786a; font-size: 14px; margin: 0 0 16px; line-height: 1.6; }
+    .empty-state p { color: #6d7482; font-size: 14px; margin: 0 0 16px; line-height: 1.6; }
     .empty-hero { padding: 56px 24px 64px; }
     .empty-hero .empty-illustration { width: 220px; max-width: 60%; margin-bottom: 24px; }
-    .empty-hero h3 { font-size: 21px; font-weight: 700; letter-spacing: -0.03em; color: #1c1813; margin: 0 0 8px; }
+    .empty-hero h3 { font-size: 21px; font-weight: 700; letter-spacing: -0.03em; color: #16181d; margin: 0 0 8px; }
     .empty-hero p { max-width: 420px; margin: 0 auto 22px; line-height: 1.6; }
     .empty-hero .empty-cta { font-size: 14px; padding: 12px 24px; border-radius: 10px; }
 
     /* ── Activity log ── */
     .activity-section { margin-top: 8px; }
-    .log-table { width: 100%; border-collapse: collapse; background: #fffdf8; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(20,16,10,0.05); }
+    .log-table { width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(22,24,29,0.05); }
     .log-table th { background: #f5f7fb; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
     .log-table td { padding: 11px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; color: #333; }
     .log-table .status-posted  { color: #057642; font-weight: 600; }
@@ -370,7 +370,7 @@
       position: fixed;
       bottom: 28px;
       right: 28px;
-      background: #1c1813;
+      background: #16181d;
       color: #fff;
       padding: 12px 20px;
       border-radius: 10px;
@@ -401,7 +401,7 @@
     }
     .modal-overlay.open { display: flex; }
     .modal-drawer {
-      background: #fffdf8;
+      background: #ffffff;
       width: 480px;
       height: 100vh;
       overflow-y: auto;
@@ -416,7 +416,7 @@
 
     .mode-tabs { display: flex; background: #f4f2ff; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
     .mode-tab { flex: 1; padding: 9px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: #888; border: none; background: none; transition: all 0.15s; }
-    .mode-tab.active { background: #fffdf8; color: #24365e; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .mode-tab.active { background: #ffffff; color: #24365e; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .mode-tab span { display: block; font-size: 11px; font-weight: 400; color: #bbb; }
     .mode-tab.active span { color: #bbb; }
 
@@ -462,7 +462,7 @@
     .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
     .optional-tag { font-weight: 400; color: #aaa; font-size: 12px; }
     .form-group input, .form-group select {
-      width: 100%; padding: 10px 13px; border: 1.5px solid #e0d9cc; border-radius: 8px;
+      width: 100%; padding: 10px 13px; border: 1.5px solid #d3d8e0; border-radius: 8px;
       font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.15s;
     }
     .form-group input:focus, .form-group select:focus { border-color: #24365e; }
@@ -481,7 +481,7 @@
     /* ── Content Calendar ── */
     .cal-table { border-collapse: collapse; width: 100%; min-width: 600px; }
     .cal-table th {
-      background: #f4f0e8; color: #24365e; font-size: 12px; font-weight: 700;
+      background: #f6f7f9; color: #24365e; font-size: 12px; font-weight: 700;
       padding: 8px 12px; text-align: center; border-bottom: 2px solid #dde4ef;
       text-transform: uppercase; letter-spacing: 0.4px;
     }
@@ -493,7 +493,7 @@
     .cal-table td.today-col { background: #faf9ff; border-color: #d4caff; }
     .cal-profile-name { font-size: 11px; font-weight: 700; color: #888; padding: 8px 12px 4px; }
     .cal-cell-type { font-size: 12px; color: #444; font-weight: 500; line-height: 1.3; }
-    .cal-plan { margin-top: 6px; width: 100%; font-size: 10.5px; padding: 3px 4px; border: 1px solid #e0d9cc;
+    .cal-plan { margin-top: 6px; width: 100%; font-size: 10.5px; padding: 3px 4px; border: 1px solid #d3d8e0;
       border-radius: 5px; background: #fff; color: #555; font-family: inherit; cursor: pointer; }
     .cal-cell-badge {
       display: inline-block; margin-top: 4px;
@@ -601,8 +601,8 @@
 
     <!-- Page intro -->
     <div class="page-intro" style="margin-bottom:20px;">
-      <h1 style="font-size:clamp(26px,3.5vw,34px);font-weight:700;letter-spacing:-0.04em;line-height:1.05;margin:0 0 6px;color:#1c1813;">Profiles &amp; automation</h1>
-      <p style="font-size:14px;color:#8a8275;margin:0;line-height:1.6;max-width:560px;">Manage who Voyce writes as, set your tone, and turn on automatic daily posting — so every post sounds like <em class="you">you</em>. Just writing a one-off? <a href="/tool" style="color:#24365e;font-weight:600;text-decoration:none;">Go to Create →</a></p>
+      <h1 style="font-size:clamp(26px,3.5vw,34px);font-weight:700;letter-spacing:-0.04em;line-height:1.05;margin:0 0 6px;color:#16181d;">Profiles &amp; automation</h1>
+      <p style="font-size:14px;color:#6d7482;margin:0;line-height:1.6;max-width:560px;">Manage who Voyce writes as, set your tone, and turn on automatic daily posting — so every post sounds like <em class="you">you</em>. Just writing a one-off? <a href="/tool" style="color:#24365e;font-weight:600;text-decoration:none;">Go to Create →</a></p>
     </div>
 
     <!-- Plan usage banner -->
@@ -625,15 +625,15 @@
         <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;">✕</button>
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:13px;font-weight:700;color:#24365e;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
-          <div style="font-size:48px;font-weight:900;line-height:1;color:#1c1813;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">4,699</span></div>
+          <div style="font-size:48px;font-weight:900;line-height:1;color:#16181d;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">4,699</span></div>
           <div style="font-size:13px;color:#aaa;margin-top:4px;">31 days of Pro · no auto-charge · renew anytime</div>
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #f5f2ff;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Autonomous</strong> daily posting</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Up to <strong>3 profiles</strong></span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post analytics + engagement</span></li>
           <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
         </ul>
         <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
@@ -645,7 +645,7 @@
           &nbsp;·&nbsp;
           <a href="#" onclick="toggleBillingHistory();return false;" style="color:#888;">Billing history</a>
         </div>
-        <div id="billing-history" style="display:none;margin-top:14px;max-height:160px;overflow-y:auto;border-top:1px solid #f0ecff;padding-top:10px;"></div>
+        <div id="billing-history" style="display:none;margin-top:14px;max-height:160px;overflow-y:auto;border-top:1px solid #eaeef4;padding-top:10px;"></div>
       </div>
     </div>
 
@@ -850,8 +850,8 @@
                 <div class="li-upload-desc">Add 2-3 past posts so new ones sound like you (or whoever you write for).</div>
                 <div style="display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap;" id="p-voice-tabs">
                   <button type="button" data-pane="shots" onclick="voicePane('shots')" style="padding:7px 14px;border:1.5px solid #24365e;border-radius:999px;background:#24365e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📸 Screenshots</button>
-                  <button type="button" data-pane="paste" onclick="voicePane('paste')" style="padding:7px 14px;border:1.5px solid #ddd6c8;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">✍️ Paste text</button>
-                  <button type="button" data-pane="archive" onclick="voicePane('archive')" style="padding:7px 14px;border:1.5px solid #ddd6c8;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📁 Archive</button>
+                  <button type="button" data-pane="paste" onclick="voicePane('paste')" style="padding:7px 14px;border:1.5px solid #d3d8e0;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">✍️ Paste text</button>
+                  <button type="button" data-pane="archive" onclick="voicePane('archive')" style="padding:7px 14px;border:1.5px solid #d3d8e0;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📁 Archive</button>
                 </div>
                 <div id="p-voice-pane-shots">
                   <input type="file" id="p-voice-shots" accept="image/*" multiple />
@@ -877,7 +877,7 @@
                   <p class="form-hint">My site → treated as your experience. External → treated as material to react to.</p>
                 </div>
               </div>
-              <div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8a8275;margin:18px 0 8px;">Daily automation (Pro)</div>
+              <div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6d7482;margin:18px 0 8px;">Daily automation (Pro)</div>
               <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Only used when daily automation is on.</p></div>
             </div>
           </details>
@@ -891,7 +891,7 @@
               const b = document.querySelector(`#p-voice-tabs [data-pane="${k}"]`);
               b.style.background  = (k === m) ? "#24365e" : "#fff";
               b.style.color       = (k === m) ? "#fff"    : "#555";
-              b.style.borderColor = (k === m) ? "#24365e" : "#ddd6c8";
+              b.style.borderColor = (k === m) ? "#24365e" : "#d3d8e0";
             });
           }
         </script>
@@ -1203,22 +1203,22 @@
         const typeClass  = isPersonal ? "personal" : "company";
         const style      = p.linkedin_analysis && p.linkedin_analysis.writing_style;
         const voiceLine  = style
-          ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#a29a8c;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
+          ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#98a0ae;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
           : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#24365e;">add past posts to learn the real voice</a>`;
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
             <div class="profile-card-name" style="display:flex;align-items:center;gap:10px;">
-              <span style="width:38px;height:38px;border-radius:50%;background:${isPersonal ? '#24365e' : '#1c1813'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>
+              <span style="width:38px;height:38px;border-radius:50%;background:${isPersonal ? '#24365e' : '#16181d'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>
               ${p.name}
               <span class="badge-type ${typeClass}">${typeLabel}</span>
             </div>
             ${p.active ? `<span class="badge-active">Auto-posting on</span>` : ""}
           </div>
 
-          <div style="font-size:12.5px;color:#6b6355;line-height:1.5;margin:2px 0 14px;">
+          <div style="font-size:12.5px;color:#5b6270;line-height:1.5;margin:2px 0 14px;">
             ${voiceLine}<br>
-            <span style="color:#a29a8c;">Posts about:</span> ${p.industry}
+            <span style="color:#98a0ae;">Posts about:</span> ${p.industry}
           </div>
 
           <div style="border:1px solid #efe9e0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
@@ -1230,18 +1230,18 @@
               <span class="carousel-toggle-label">Daily auto-posting${p.active ? ` · every day at ${p.post_time}` : ""}</span>
             </label>
             ${p.active ? `
-              <div style="font-size:11.5px;color:#a29a8c;margin:0 0 10px 46px;line-height:1.45;">
-                Next up: <strong style="color:#6b6355;">${p.next_post_type || "—"}</strong>${p.next_post_type_desc ? ` — ${p.next_post_type_desc}` : ""}
+              <div style="font-size:11.5px;color:#98a0ae;margin:0 0 10px 46px;line-height:1.45;">
+                Next up: <strong style="color:#5b6270;">${p.next_post_type || "—"}</strong>${p.next_post_type_desc ? ` — ${p.next_post_type_desc}` : ""}
               </div>
               <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.carousel_enabled}" style="margin-bottom:6px;"
                      aria-label="Carousel posts for ${p.name}"
                      onclick="toggleCarousel('${p.id}', this)"
                      onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleCarousel('${p.id}', this);}">
                 <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}"><div class="carousel-toggle-knob"></div></div>
-                <span class="carousel-toggle-label" style="font-weight:400;">Alternate days as PDF carousels <span style="color:#b3aa9b;">(highest-reach format)</span></span>
+                <span class="carousel-toggle-label" style="font-weight:400;">Alternate days as PDF carousels <span style="color:#a7aebb;">(highest-reach format)</span></span>
               </label>
               ${p.carousel_enabled ? `<div style="margin:0 0 6px 46px;">
-                <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
+                <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
                   ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
                 </select>
               </div>` : ""}
@@ -1250,14 +1250,14 @@
                      onclick="toggleApproval('${p.id}')"
                      onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleApproval('${p.id}');}">
                 <div class="carousel-toggle-switch ${p.approval_mode ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
-                <span class="carousel-toggle-label" style="font-weight:400;">Ask me before it posts <span style="color:#b3aa9b;">(writes on schedule, waits for your OK)</span></span>
+                <span class="carousel-toggle-label" style="font-weight:400;">Ask me before it posts <span style="color:#a7aebb;">(writes on schedule, waits for your OK)</span></span>
               </label>
               <div style="margin:8px 0 0 46px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                ${(p.products || []).length ? `<select id="runprod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+                ${(p.products || []).length ? `<select id="runprod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Product: auto rotation</option>
                   ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Product: ${pr.name}</option>`).join("")}
                 </select>` : ""}
-                <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+                <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
                   <option value="hot_take">Hot Take · with tweet card</option>
                   <option value="prediction">Prediction · with tweet card</option>
@@ -1274,45 +1274,45 @@
                 <button class="act-btn" onclick="runNow('${p.id}')">▶ Post now</button>
               </div>
             ` : `
-              <div style="font-size:11.5px;color:#a29a8c;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#b3aa9b;">(Pro)</span></div>
+              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#a7aebb;">(Pro)</span></div>
             `}
           </div>
 
           <div style="border:1px solid #efe9e0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${(p.products || []).length ? "8px" : "0"};">
-              <span style="font-size:12px;font-weight:600;color:#6b6355;">Products <span style="color:#b3aa9b;font-weight:400;">— each gets its own niche, news and carousel look</span></span>
+              <span style="font-size:12px;font-weight:600;color:#5b6270;">Products <span style="color:#a7aebb;font-weight:400;">— each gets its own niche, news and carousel look</span></span>
               <button class="act-btn" style="font-size:11.5px;padding:4px 10px;" onclick="toggleProductForm('${p.id}')">＋ Add product</button>
             </div>
             ${(p.products || []).map(pr => {
               const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
-              const sw1 = pal.bg || pr.brand_color || "#f4f0e8";
+              const sw1 = pal.bg || pr.brand_color || "#f6f7f9";
               const sw2 = pal.accent || "#24365e";
               const off = pr.enabled === false;
               return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;${off ? "opacity:.5;" : ""}">
-                <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #e0d9cc;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
-                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#a29a8c;">· ${pr.industry}</span>` : ""}</span>
+                <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #d3d8e0;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#98a0ae;">· ${pr.industry}</span>` : ""}</span>
                 <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#24365e;font-size:11.5px;">${off ? "enable" : "pause"}</a>
                 <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#24365e;font-size:11.5px;">↻ theme</a>
                 <a href="#" onclick="removeProduct('${p.id}','${pr.id}','${(pr.name || "").replace(/'/g, "\\'")}');return false;" style="color:#c0392b;font-size:11.5px;">✕</a>
               </div>`;
             }).join("")}
             <div id="prod-form-${p.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #efe9e0;">
-              <input id="prod-name-${p.id}" placeholder="Product name (e.g. AI Ergo)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #e0d9cc;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
-              <input id="prod-url-${p.id}" placeholder="Product page URL (optional — Voyce reads it)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #e0d9cc;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
-              <input id="prod-ind-${p.id}" placeholder="Niche (e.g. workplace ergonomics, EHS)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #e0d9cc;border-radius:6px;margin-bottom:8px;font-family:inherit;" />
+              <input id="prod-name-${p.id}" placeholder="Product name (e.g. AI Ergo)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
+              <input id="prod-url-${p.id}" placeholder="Product page URL (optional — Voyce reads it)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
+              <input id="prod-ind-${p.id}" placeholder="Niche (e.g. workplace ergonomics, EHS)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:8px;font-family:inherit;" />
               <button class="act-btn" id="prod-save-${p.id}" onclick="createProduct('${p.id}')">Save product</button>
             </div>
           </div>
 
           <div style="border:1px solid #efe9e0;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              ${(p.products || []).filter(pr => pr.enabled !== false).length ? `<select id="prev-prod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #e0d9cc;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+              ${(p.products || []).filter(pr => pr.enabled !== false).length ? `<select id="prev-prod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                 <option value="">Preview: whole profile</option>
                 ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Preview: ${pr.name}</option>`).join("")}
               </select>` : ""}
               <button class="act-btn" onclick="suggestIdeas('${p.id}')">💡 Ideas for next posts</button>
               <button class="act-btn" onclick="previewPost('${p.id}')">👁 Preview a post</button>
-              <span style="font-size:11.5px;color:#a29a8c;">plan or preview — nothing gets posted</span>
+              <span style="font-size:11.5px;color:#98a0ae;">plan or preview — nothing gets posted</span>
             </div>
             <div id="ideas-out-${p.id}" style="margin-top:0;"></div>
             <div id="prev-out-${p.id}" style="margin-top:0;"></div>
@@ -1376,7 +1376,7 @@
       document.getElementById(`prev-out-${id}`).innerHTML = "";  // clear any prior preview
       const psel = document.getElementById(`prev-prod-${id}`);
       const pid = psel ? psel.value : "";
-      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#a29a8c;">Reading today's news and drafting ideas… (~10s, nothing is posted)</div>`;
+      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#98a0ae;">Reading today's news and drafting ideas… (~10s, nothing is posted)</div>`;
       try {
         const res = await fetch(`/companies/${id}/ideas${pid ? `?product_id=${encodeURIComponent(pid)}` : ""}`,
           { method: "POST", headers: { "x-token": getToken() } });
@@ -1384,7 +1384,7 @@
         if (!res.ok) throw new Error(data.detail || "Couldn't generate ideas.");
         const ideas = data.ideas || [];
         window._ideas[id] = ideas;
-        if (!ideas.length) { out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#a29a8c;">No ideas came back — try again.</div>`; return; }
+        if (!ideas.length) { out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#98a0ae;">No ideas came back — try again.</div>`; return; }
         out.innerHTML = `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">` + ideas.map((it, i) => `
           <div style="border:1px solid #efe9e0;border-radius:9px;padding:10px 12px;">
             <div style="font-size:13.5px;font-weight:600;color:#2f2b25;">${_escHtml(it.hook)}</div>
@@ -1410,7 +1410,7 @@
       if (!out) return;
       const psel = document.getElementById(`prev-prod-${id}`);
       const pid = psel ? psel.value : "";
-      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#a29a8c;">Generating${seed ? " that idea" : " a preview"} from today's news… nothing is posted.</div>`;
+      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#98a0ae;">Generating${seed ? " that idea" : " a preview"} from today's news… nothing is posted.</div>`;
       try {
         const qs = new URLSearchParams();
         if (pid) qs.set("product_id", pid);
@@ -1603,27 +1603,27 @@
         const prodTag = p.product_name ? ` · ${_escHtml(p.product_name)}` : "";
         const diyBlock = isDiy ? `
           <div style="border:1px dashed #d9cfa8;border-radius:8px;padding:10px 12px;margin-bottom:12px;background:#fffef9;">
-            <div style="font-size:11.5px;font-weight:600;color:#6b6355;margin-bottom:6px;">🎬 Your video-generation prompt <span style="font-weight:400;color:#a29a8c;">— paste into your AI video tool (Sora, Veo, Runway…), or Claude for a storyboard</span></div>
+            <div style="font-size:11.5px;font-weight:600;color:#5b6270;margin-bottom:6px;">🎬 Your video-generation prompt <span style="font-weight:400;color:#98a0ae;">— paste into your AI video tool (Sora, Veo, Runway…), or Claude for a storyboard</span></div>
             <div id="diy-prompt-${p.id}" style="white-space:pre-wrap;font-size:12.5px;color:#555;line-height:1.5;max-height:140px;overflow-y:auto;">${_escHtml(p.gen_prompt || "")}</div>
           </div>` : "";
         const actions = isDiy ? `
             <button class="act-btn" onclick="copyPendingText('${p.id}', 'caption', this)">📋 Copy caption</button>
             <button class="act-btn" onclick="copyPendingText('${p.id}', 'prompt', this)">📋 Copy video prompt</button>
-            <button class="act-btn" style="background:#1c1813;color:#fff;" onclick="approvePending('${p.id}', this, true)">✓ I posted it</button>
+            <button class="act-btn" style="background:#16181d;color:#fff;" onclick="approvePending('${p.id}', this, true)">✓ I posted it</button>
             <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>` : `
-            <button class="act-btn" style="background:#1c1813;color:#fff;" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
+            <button class="act-btn" style="background:#16181d;color:#fff;" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
             <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>`;
         return `
         <div id="pending-${p.id}" style="border:1px solid #e8d9a0;background:#fffdf4;border-radius:12px;padding:16px 18px;margin-bottom:12px;">
-          <div style="font-size:12px;color:#a29a8c;margin-bottom:8px;">
-            <strong style="color:#6b6355;">${_escHtml(p.company_name)}</strong>${prodTag}
+          <div style="font-size:12px;color:#98a0ae;margin-bottom:8px;">
+            <strong style="color:#5b6270;">${_escHtml(p.company_name)}</strong>${prodTag}
             · ${_escHtml(p.post_type)} · ${fmt}
             · written ${new Date(p.created_at).toLocaleString()}
           </div>
           <div id="diy-caption-${p.id}" contenteditable="true" spellcheck="true"
                oninput="markPendingEdited('${p.id}')"
                style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:6px;padding:10px 12px;border:1px solid #efe4c4;border-radius:8px;background:#fff;outline:none;">${_escHtml(p.post_text)}</div>
-          <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#a29a8c;margin-bottom:12px;">Click the text to edit it before approving.</div>
+          <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#98a0ae;margin-bottom:12px;">Click the text to edit it before approving.</div>
           ${diyBlock}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}</div>
         </div>`;
@@ -2462,7 +2462,7 @@
       const pe = document.getElementById("ring-profiles");
       if (pe) { pe.textContent = pcount; _setArc("ring-profiles-arc", pmax ? Math.min(1, pcount / pmax) : 0); }
       const le = document.getElementById("ring-linkedin");
-      if (le) { le.textContent = liConnected ? "✓" : "–"; le.style.color = liConnected ? "#18a07a" : "#a59c8d"; _setArc("ring-linkedin-arc", liConnected ? 1 : 0); }
+      if (le) { le.textContent = liConnected ? "✓" : "–"; le.style.color = liConnected ? "#18a07a" : "#98a0ae"; _setArc("ring-linkedin-arc", liConnected ? 1 : 0); }
     }
 
     async function loadPlanBanner() {

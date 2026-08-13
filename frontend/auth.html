@@ -10,37 +10,37 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #f4f0e8; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-    .auth-logo { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: #1c1813; margin-bottom: 6px; text-align: center; }
+    body { background: #f6f7f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .auth-logo { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: #16181d; margin-bottom: 6px; text-align: center; }
     .auth-logo span { color: #24365e; }
-    .auth-tagline { font-size: 15px; color: #6f6a5f; margin-bottom: 34px; text-align: center; }
-    .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; color: #1c1813; }
+    .auth-tagline { font-size: 15px; color: #5b6270; margin-bottom: 34px; text-align: center; }
+    .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; color: #16181d; }
     #clerk-sign-in { width: 100%; max-width: 420px; }
 
     /* ── Match Clerk widget to the Voyce design system ── */
     .cl-card, .cl-cardBox {
-      background-color: #fffdf8 !important;
-      border: 1px solid #e3ddd0 !important;
+      background-color: #ffffff !important;
+      border: 1px solid #e4e7ec !important;
       border-radius: 18px !important;
-      box-shadow: 0 1px 3px rgba(20,16,10,0.05), 0 18px 44px rgba(20,16,10,0.08) !important;
+      box-shadow: 0 1px 3px rgba(22,24,29,0.05), 0 18px 44px rgba(22,24,29,0.08) !important;
     }
     .cl-headerTitle {
       font-family: 'Space Grotesk', sans-serif !important;
-      font-weight: 700 !important; letter-spacing: -0.02em !important; color: #1c1813 !important;
+      font-weight: 700 !important; letter-spacing: -0.02em !important; color: #16181d !important;
     }
-    .cl-headerSubtitle { color: #6f6a5f !important; }
+    .cl-headerSubtitle { color: #5b6270 !important; }
     .cl-socialButtonsBlockButton {
-      border: 1.5px solid #e0d9cc !important; border-radius: 11px !important;
+      border: 1.5px solid #d3d8e0 !important; border-radius: 11px !important;
       background-color: #ffffff !important;
     }
-    .cl-socialButtonsBlockButton:hover { background-color: #f7f3ec !important; }
-    .cl-socialButtonsBlockButtonText, .cl-socialButtonsBlockButton * { color: #1c1813 !important; font-weight: 600 !important; }
-    .cl-dividerLine { background-color: #e3ddd0 !important; }
-    .cl-dividerText { color: #a59c8d !important; }
+    .cl-socialButtonsBlockButton:hover { background-color: #f1f3f7 !important; }
+    .cl-socialButtonsBlockButtonText, .cl-socialButtonsBlockButton * { color: #16181d !important; font-weight: 600 !important; }
+    .cl-dividerLine { background-color: #e4e7ec !important; }
+    .cl-dividerText { color: #98a0ae !important; }
     .cl-formFieldLabel { color: #444 !important; font-weight: 600 !important; }
     .cl-formFieldInput {
-      border: 1.5px solid #e0d9cc !important; border-radius: 11px !important;
-      background-color: #ffffff !important; color: #1c1813 !important;
+      border: 1.5px solid #d3d8e0 !important; border-radius: 11px !important;
+      background-color: #ffffff !important; color: #16181d !important;
     }
     .cl-formFieldInput:focus { border-color: #24365e !important; box-shadow: 0 0 0 1px #24365e !important; }
     .cl-formButtonPrimary {
@@ -99,11 +99,11 @@
         appearance: {
           variables: {
             colorPrimary:         "#24365e",
-            colorText:            "#1c1813",
-            colorTextSecondary:   "#6f6a5f",
-            colorBackground:      "#fffdf8",
+            colorText:            "#16181d",
+            colorTextSecondary:   "#5b6270",
+            colorBackground:      "#ffffff",
             colorInputBackground: "#ffffff",
-            colorInputText:       "#1c1813",
+            colorInputText:       "#16181d",
             colorDanger:          "#c0392b",
             fontFamily:           "'Inter', sans-serif",
             borderRadius:         "11px",
