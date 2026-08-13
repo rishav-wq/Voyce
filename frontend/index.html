@@ -149,40 +149,43 @@
     /* On wide screens, dock the idea suggestions into the right vacant space so
        they sit beside the composer instead of pushing it down. Narrow screens
        keep them inline (static). :not(:empty) => only docks once ideas load. */
-    @media (min-width: 1440px) {
-      #ideas-out:not(:empty) {
-        position: fixed; top: 88px; right: 28px; width: 344px;
-        max-height: 78vh; overflow-y: auto; z-index: 40;
-        background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
-        padding: 0 16px 12px; box-shadow: 0 14px 38px rgba(22,24,29,.10);
-        scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent;
-      }
-      #ideas-out:not(:empty)::-webkit-scrollbar { width: 8px; }
-      #ideas-out:not(:empty)::-webkit-scrollbar-thumb {
-        background: #d3d8e0; border-radius: 8px;
-      }
-      /* Sticky header + a real close button — the panel used to be undismissable */
-      #ideas-out:not(:empty)::before {
-        content: "💡 Ideas for next posts"; display: block;
-        position: sticky; top: 0; z-index: 1;
-        margin: 0 -16px 10px; padding: 14px 40px 12px 16px;
-        font-size: 12px; font-weight: 700; color: #5b6270; letter-spacing: .02em;
-        background: #ffffff; border-bottom: 1px solid #e4e7ec;
-        border-radius: 16px 16px 0 0;
-      }
-      /* The panel is position:fixed, so its close button has to be fixed too —
-         absolute would have anchored it to the inline wrapper, far from the panel.
-         The sibling selector also means it appears only once ideas are loaded. */
-      #ideas-out:not(:empty) ~ #ideas-close {
-        display: block; position: fixed; top: 97px; right: 40px;
-      }
-    }
+    /* The header is a real element, not a ::before, so the close button can live
+       inside it. The earlier pseudo-element version forced the button to float
+       over the panel as a second fixed element, and it landed on the scrollbar.
+       :has() lets the wrapper react to #ideas-out filling up; where :has() is
+       missing the panel just stays inline, which is the narrow-screen behaviour. */
+    #ideas-out { margin-top: 12px; }
+    #ideas-hdr { display: none; }
     #ideas-close {
-      display: none; z-index: 41;
-      background: none; border: none; font-size: 17px; line-height: 1;
-      color: #98a0ae; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+      background: none; border: none; font-size: 16px; line-height: 1;
+      color: #98a0ae; cursor: pointer; padding: 4px 7px; border-radius: 6px;
     }
     #ideas-close:hover { color: #16181d; background: #f1f3f7; }
+    @media (min-width: 1440px) {
+      #ideas-panel:has(#ideas-out:not(:empty)) {
+        position: fixed; top: 88px; right: 28px; width: 344px;
+        max-height: 78vh; z-index: 40;
+        display: flex; flex-direction: column; overflow: hidden;
+        background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
+        box-shadow: 0 14px 38px rgba(22,24,29,.10);
+      }
+      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-hdr {
+        display: flex; align-items: center; justify-content: space-between;
+        flex: none; gap: 8px; padding: 12px 10px 11px 16px;
+        border-bottom: 1px solid #e4e7ec;
+        font-size: 12px; font-weight: 700; color: #5b6270; letter-spacing: .02em;
+      }
+      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out {
+        flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 12px 16px;
+        scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent;
+      }
+      /* Styling the webkit scrollbar opts Chrome into the legacy one, which ships
+         with arrow buttons at both ends unless they are explicitly removed. */
+      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar { width: 8px; }
+      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar-track { background: transparent; }
+      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar-thumb { background: #d3d8e0; border-radius: 8px; }
+    }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
       outline: 2px solid #24365e;
@@ -619,9 +622,14 @@
       <div id="ideas-row" style="display:none;margin-bottom:14px;">
         <button type="button" class="img-src-btn" onclick="suggestIdeasCreate()">💡 Suggest post ideas for this profile</button>
         <span style="font-size:12px;color:#98a0ae;margin-left:8px;">based on your niche + today's news</span>
-        <div id="ideas-out" style="margin-top:12px;"></div>
-        <button id="ideas-close" type="button" aria-label="Close ideas"
-                onclick="document.getElementById('ideas-out').innerHTML='';">✕</button>
+        <div id="ideas-panel">
+          <div id="ideas-hdr">
+            <span>💡 Ideas for next posts</span>
+            <button id="ideas-close" type="button" aria-label="Close ideas"
+                    onclick="document.getElementById('ideas-out').innerHTML='';">✕</button>
+          </div>
+          <div id="ideas-out"></div>
+        </div>
       </div>
       <div class="input-tabs">
         <button class="input-tab active" data-type="text">Paste Text</button>
