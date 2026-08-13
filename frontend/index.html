@@ -71,7 +71,7 @@
       border-right: 1px solid #e4e7ec; padding: 22px 16px;
       display: flex; flex-direction: column; gap: 20px;
     }
-    .sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 0; padding: 4px 8px; }
     .sidebar .logo .logo-mark { color: #fff; }
     .sidebar .logo span { color: #24365e; }
     .side-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -120,7 +120,7 @@
        Fraunces italic is the same face as the italic "you" on the landing page,
        so the logo and that accent are one gesture. Georgia italic is the
        fallback wherever Fraunces is unavailable. */
-    .logo { display: inline-flex; align-items: baseline; line-height: 1.35; }
+    .logo { display: inline-flex; align-items: baseline; gap: 0; line-height: 1.35; }
     .logo .logo-mark {
       font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
       font-style: italic; font-weight: 500;
@@ -152,16 +152,37 @@
     @media (min-width: 1440px) {
       #ideas-out:not(:empty) {
         position: fixed; top: 88px; right: 28px; width: 344px;
-        max-height: 84vh; overflow-y: auto; z-index: 40;
-        background: #fbf9f4; border: 1px solid #e6ded0; border-radius: 14px;
-        padding: 14px 14px 6px; box-shadow: 0 12px 34px rgba(0,0,0,.09);
+        max-height: 78vh; overflow-y: auto; z-index: 40;
+        background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
+        padding: 0 16px 12px; box-shadow: 0 14px 38px rgba(22,24,29,.10);
+        scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent;
       }
+      #ideas-out:not(:empty)::-webkit-scrollbar { width: 8px; }
+      #ideas-out:not(:empty)::-webkit-scrollbar-thumb {
+        background: #d3d8e0; border-radius: 8px;
+      }
+      /* Sticky header + a real close button — the panel used to be undismissable */
       #ideas-out:not(:empty)::before {
         content: "💡 Ideas for next posts"; display: block;
-        font-size: 12px; font-weight: 700; color: #5b6270;
-        letter-spacing: .02em; margin: 2px 2px 10px;
+        position: sticky; top: 0; z-index: 1;
+        margin: 0 -16px 10px; padding: 14px 40px 12px 16px;
+        font-size: 12px; font-weight: 700; color: #5b6270; letter-spacing: .02em;
+        background: #ffffff; border-bottom: 1px solid #e4e7ec;
+        border-radius: 16px 16px 0 0;
+      }
+      /* The panel is position:fixed, so its close button has to be fixed too —
+         absolute would have anchored it to the inline wrapper, far from the panel.
+         The sibling selector also means it appears only once ideas are loaded. */
+      #ideas-out:not(:empty) ~ #ideas-close {
+        display: block; position: fixed; top: 97px; right: 40px;
       }
     }
+    #ideas-close {
+      display: none; z-index: 41;
+      background: none; border: none; font-size: 17px; line-height: 1;
+      color: #98a0ae; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+    }
+    #ideas-close:hover { color: #16181d; background: #f1f3f7; }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
       outline: 2px solid #24365e;
@@ -599,6 +620,8 @@
         <button type="button" class="img-src-btn" onclick="suggestIdeasCreate()">💡 Suggest post ideas for this profile</button>
         <span style="font-size:12px;color:#98a0ae;margin-left:8px;">based on your niche + today's news</span>
         <div id="ideas-out" style="margin-top:12px;"></div>
+        <button id="ideas-close" type="button" aria-label="Close ideas"
+                onclick="document.getElementById('ideas-out').innerHTML='';">✕</button>
       </div>
       <div class="input-tabs">
         <button class="input-tab active" data-type="text">Paste Text</button>

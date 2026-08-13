@@ -54,7 +54,7 @@
       border-right: 1px solid #e4e7ec; padding: 22px 16px;
       display: flex; flex-direction: column; gap: 20px;
     }
-    .sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+    .sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 0; padding: 4px 8px; }
     .sidebar .logo .logo-mark { color: #fff; }
     .sidebar .logo span { color: #24365e; }
     .side-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -85,7 +85,7 @@
        Fraunces italic is the same face as the italic "you" on the landing page,
        so the logo and that accent are one gesture. Georgia italic is the
        fallback wherever Fraunces is unavailable. */
-    .logo { display: inline-flex; align-items: baseline; line-height: 1.35; }
+    .logo { display: inline-flex; align-items: baseline; gap: 0; line-height: 1.35; }
     .logo .logo-mark {
       font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
       font-style: italic; font-weight: 500;
@@ -882,6 +882,17 @@
             </div>
           </details>
 
+          <!-- Products belong to setting up a profile, not to the profile card, so they
+               live here. Only shown when editing: a product needs a profile to hang off. -->
+          <div id="modal-products" style="display:none;border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin:6px 0 18px;">
+            <div style="font-size:12px;font-weight:600;color:#5b6270;margin-bottom:8px;">Products <span style="color:#a7aebb;font-weight:400;">— each gets its own niche, news and carousel look</span></div>
+            <div id="modal-prod-list"></div>
+            <input id="m-prod-name" placeholder="Product name (e.g. AI Ergo)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
+            <input id="m-prod-url" placeholder="Product page URL (optional — Voyce reads it)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
+            <input id="m-prod-ind" placeholder="Niche (e.g. workplace ergonomics, EHS)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:8px;font-family:inherit;" />
+            <button type="button" class="act-btn" id="m-prod-save" onclick="createProductFromModal()">＋ Add product</button>
+          </div>
+
           <button type="submit" class="submit-btn" id="p-submit-btn">Create profile →</button>
         </form>
         <script>
@@ -1278,31 +1289,21 @@
             `}
           </div>
 
-          <div style="border:1px solid #efe9e0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${(p.products || []).length ? "8px" : "0"};">
-              <span style="font-size:12px;font-weight:600;color:#5b6270;">Products <span style="color:#a7aebb;font-weight:400;">— each gets its own niche, news and carousel look</span></span>
-              <button class="act-btn" style="font-size:11.5px;padding:4px 10px;" onclick="toggleProductForm('${p.id}')">＋ Add product</button>
-            </div>
+          ${(p.products || []).length ? `
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;color:#5b6270;margin-bottom:14px;">
+            <span style="color:#98a0ae;">Products:</span>
             ${(p.products || []).map(pr => {
               const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
               const sw1 = pal.bg || pr.brand_color || "#f6f7f9";
               const sw2 = pal.accent || "#24365e";
               const off = pr.enabled === false;
-              return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;${off ? "opacity:.5;" : ""}">
-                <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #d3d8e0;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
-                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#98a0ae;">· ${pr.industry}</span>` : ""}</span>
-                <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#24365e;font-size:11.5px;">${off ? "enable" : "pause"}</a>
-                <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#24365e;font-size:11.5px;">↻ theme</a>
-                <a href="#" onclick="removeProduct('${p.id}','${pr.id}','${(pr.name || "").replace(/'/g, "\\'")}');return false;" style="color:#c0392b;font-size:11.5px;">✕</a>
-              </div>`;
+              return `<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #e4e7ec;border-radius:20px;padding:3px 9px 3px 5px;${off ? "opacity:.5;" : ""}">
+                <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:13px;height:13px;border-radius:4px;flex:none;border:1px solid #d3d8e0;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
+                ${pr.name}${off ? ' <span style="color:#98a0ae;">paused</span>' : ""}
+              </span>`;
             }).join("")}
-            <div id="prod-form-${p.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #efe9e0;">
-              <input id="prod-name-${p.id}" placeholder="Product name (e.g. AI Ergo)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
-              <input id="prod-url-${p.id}" placeholder="Product page URL (optional — Voyce reads it)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
-              <input id="prod-ind-${p.id}" placeholder="Niche (e.g. workplace ergonomics, EHS)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:8px;font-family:inherit;" />
-              <button class="act-btn" id="prod-save-${p.id}" onclick="createProduct('${p.id}')">Save product</button>
-            </div>
-          </div>
+            <a href="#" onclick="editProfile('${p.id}');return false;" style="color:#24365e;font-size:11.5px;">edit</a>
+          </div>` : ""}
 
           <div style="border:1px solid #efe9e0;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -1405,12 +1406,40 @@
     }
 
     // ── Preview a post on demand (real pipeline, nothing published) ───────────
+    // The preview used to render inside the profile card, so any re-render of the
+    // grid (a toggle, a product edit, a theme change) silently destroyed it after
+    // the long wait. It now lives in a modal that nothing else touches.
+    function _previewModal() {
+      let m = document.getElementById("preview-modal");
+      if (m) return m;
+      m = document.createElement("div");
+      m.id = "preview-modal";
+      m.style.cssText = "display:none;position:fixed;inset:0;z-index:9500;background:rgba(22,24,29,.45);" +
+        "align-items:center;justify-content:center;padding:20px;";
+      m.onclick = (e) => { if (e.target === m) closePreviewModal(); };
+      m.innerHTML =
+        '<div style="background:#fff;border-radius:18px;max-width:620px;width:100%;max-height:88vh;' +
+        'overflow-y:auto;padding:26px 28px;box-shadow:0 24px 70px rgba(22,24,29,.28);position:relative;">' +
+        '<button onclick="closePreviewModal()" aria-label="Close" style="position:absolute;top:12px;right:16px;' +
+        'background:none;border:none;font-size:20px;color:#98a0ae;cursor:pointer;">✕</button>' +
+        '<div id="preview-modal-body"></div></div>';
+      document.body.appendChild(m);
+      return m;
+    }
+    window.closePreviewModal = () => {
+      const m = document.getElementById("preview-modal");
+      if (m) m.style.display = "none";
+    };
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePreviewModal(); });
+
     async function previewPost(id, postType, seed) {
-      const out = document.getElementById(`prev-out-${id}`);
-      if (!out) return;
+      const modal = _previewModal();
+      const out = document.getElementById("preview-modal-body");
+      modal.style.display = "flex";
       const psel = document.getElementById(`prev-prod-${id}`);
       const pid = psel ? psel.value : "";
-      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#98a0ae;">Generating${seed ? " that idea" : " a preview"} from today's news… nothing is posted.</div>`;
+      out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Generating${seed ? " that idea" : " a preview"} from today's news…</div>
+        <div style="font-size:12.5px;color:#98a0ae;">This runs the real pipeline, so it takes up to a minute. Nothing gets posted.</div>`;
       try {
         const qs = new URLSearchParams();
         if (pid) qs.set("product_id", pid);
@@ -1422,31 +1451,78 @@
         if (!res.ok) throw new Error(data.detail || "Preview failed.");
         const tag = `${_escHtml(data.post_type || "Post")}${data.product_name ? " · " + _escHtml(data.product_name) : ""} · preview only`;
         out.innerHTML = `
-          <div style="margin-top:12px;border:1px solid #e8d9a0;background:#fffdf4;border-radius:10px;padding:12px 14px;">
-            <div style="font-size:11.5px;font-weight:600;color:#a08a3a;margin-bottom:8px;">🕶 ${tag}</div>
-            <div style="white-space:pre-wrap;font-size:13px;color:#333;line-height:1.55;max-height:260px;overflow-y:auto;">${_escHtml(data.post)}</div>
-            <div style="margin-top:10px;display:flex;gap:8px;">
-              <button class="act-btn" onclick="previewPost('${id}')">↻ Regenerate</button>
-              <button class="act-btn" onclick="document.getElementById('prev-out-${id}').innerHTML=''">Close</button>
-            </div>
-          </div>`;
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#98a0ae;margin-bottom:10px;">🕶 ${tag}</div>
+          <div style="white-space:pre-wrap;font-size:14px;color:#1d2027;line-height:1.6;border:1px solid #e4e7ec;background:#f6f7f9;border-radius:12px;padding:16px 18px;">${_escHtml(data.post)}</div>
+          <div style="margin-top:16px;display:flex;gap:9px;flex-wrap:wrap;">
+            <button class="act-btn" onclick="previewPost('${id}'${postType ? `,'${_escHtml(postType)}'` : ""})">↻ Regenerate</button>
+            <button class="act-btn" onclick="_copyPreview(this)">📋 Copy</button>
+            <button class="act-btn" onclick="closePreviewModal()">Close</button>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:#98a0ae;">Nothing was posted. Copy it into Create if you want to publish it.</div>`;
       } catch (e) {
-        out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#c0392b;">${_escHtml(e.message)}</div>`;
+        out.innerHTML = `<div style="font-size:13px;color:#c0392b;padding:6px 0;">${_escHtml(e.message)}</div>
+          <div style="margin-top:14px;"><button class="act-btn" onclick="closePreviewModal()">Close</button></div>`;
       }
     }
 
-    // ── Products: multiple subjects under one profile ─────────────────────────
-    function toggleProductForm(id) {
-      const f = document.getElementById(`prod-form-${id}`);
-      if (f) f.style.display = f.style.display === "none" ? "" : "none";
+    async function _copyPreview(btn) {
+      const body = document.getElementById("preview-modal-body");
+      const txt = body ? body.querySelector("div[style*='pre-wrap']")?.innerText || "" : "";
+      try {
+        await navigator.clipboard.writeText(txt);
+        const old = btn.textContent; btn.textContent = "✓ Copied";
+        setTimeout(() => { btn.textContent = old; }, 1600);
+      } catch (_) { toast("Couldn't copy — select the text manually.", "warn"); }
     }
 
-    async function createProduct(id) {
-      const name = (document.getElementById(`prod-name-${id}`) || {}).value?.trim() || "";
-      const url  = (document.getElementById(`prod-url-${id}`) || {}).value?.trim() || "";
-      const ind  = (document.getElementById(`prod-ind-${id}`) || {}).value?.trim() || "";
+    // ── Products: multiple subjects under one profile ─────────────────────────
+    // Products are edited inside the profile drawer (Edit Profile), not on the card.
+    function renderModalProducts(p) {
+      const box  = document.getElementById("modal-products");
+      const list = document.getElementById("modal-prod-list");
+      if (!box || !list) return;
+      box.style.display = "block";
+      ["m-prod-name", "m-prod-url", "m-prod-ind"].forEach(k => {
+        const el = document.getElementById(k); if (el) el.value = "";
+      });
+      const prods = p.products || [];
+      list.innerHTML = prods.length ? prods.map(pr => {
+        const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
+        const sw1 = pal.bg || pr.brand_color || "#f6f7f9";
+        const sw2 = pal.accent || "#24365e";
+        const off = pr.enabled === false;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;${off ? "opacity:.5;" : ""}">
+          <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #d3d8e0;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#98a0ae;">· ${pr.industry}</span>` : ""}</span>
+          <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#24365e;font-size:11.5px;">${off ? "enable" : "pause"}</a>
+          <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#24365e;font-size:11.5px;">↻ theme</a>
+          <a href="#" onclick="removeProduct('${p.id}','${pr.id}','${(pr.name || "").replace(/'/g, "\\'")}');return false;" style="color:#c0392b;font-size:11.5px;">✕</a>
+        </div>`;
+      }).join("") + '<div style="border-top:1px dashed #e4e7ec;margin:8px 0 10px;"></div>'
+        : '<div style="font-size:12px;color:#98a0ae;margin-bottom:10px;">No products yet. Add one and Voyce gives it its own niche, news feed and carousel look.</div>';
+    }
+
+    // Product edits happen in the drawer, so the list there has to follow along.
+    async function refreshModalProducts() {
+      if (!_editingId) return;
+      const box = document.getElementById("modal-products");
+      if (!box || box.style.display === "none") return;
+      try {
+        const res = await fetch("/companies", { headers: { "x-token": getToken() } });
+        const profiles = await res.json();
+        const p = (profiles || []).find(x => x.id === _editingId);
+        if (p) renderModalProducts(p);
+      } catch (_) {}
+    }
+
+    async function createProductFromModal() {
+      const id = _editingId;
+      if (!id) return;
+      const name = (document.getElementById("m-prod-name").value || "").trim();
+      const url  = (document.getElementById("m-prod-url").value || "").trim();
+      const ind  = (document.getElementById("m-prod-ind").value || "").trim();
       if (!name) { toast("Give the product a name.", "warn"); return; }
-      const btn = document.getElementById(`prod-save-${id}`);
+      const btn = document.getElementById("m-prod-save");
       if (btn) { btn.disabled = true; btn.textContent = "Reading the page & designing a theme…"; }
       try {
         const res = await fetch(`/companies/${id}/products`, { method: "POST",
@@ -1459,9 +1535,10 @@
           return;
         }
         toast(`${name} added${data.theme_spec && data.theme_spec.name ? ` — theme: ${data.theme_spec.name}` : ""}`, "success");
+        await refreshModalProducts();
         loadProfiles();
       } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "Save product"; }
+        if (btn) { btn.disabled = false; btn.textContent = "＋ Add product"; }
       }
     }
 
@@ -1469,7 +1546,7 @@
       const res = await fetch(`/companies/${companyId}/products/${productId}/toggle`, { method: "PATCH",
         headers: {"Content-Type": "application/json", "x-token": getToken()},
         body: JSON.stringify({ enabled: enable }) });
-      if (res.ok) loadProfiles();
+      if (res.ok) { loadProfiles(); refreshModalProducts(); }
       else toast("Couldn't update the product.", "error");
     }
 
@@ -1477,7 +1554,7 @@
       if (!(await voyceConfirm(`Remove "${name}" from this profile? Its scheduled slots fall back to the automatic rotation.`, { title: "Remove product", confirmText: "Remove" }))) return;
       const res = await fetch(`/companies/${companyId}/products/${productId}`, { method: "DELETE",
         headers: {"x-token": getToken()} });
-      if (res.ok) { toast("Product removed."); loadProfiles(); }
+      if (res.ok) { toast("Product removed."); loadProfiles(); refreshModalProducts(); }
       else toast("Couldn't remove the product.", "error");
     }
 
@@ -1486,7 +1563,7 @@
       const res = await fetch(`/companies/${companyId}/products/${productId}/theme`, { method: "POST",
         headers: {"x-token": getToken()} });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) { toast(`New theme: ${data.name || "done"}`, "success"); loadProfiles(); }
+      if (res.ok) { toast(`New theme: ${data.name || "done"}`, "success"); loadProfiles(); refreshModalProducts(); }
       else toast(data.detail || "Theme generation is unavailable right now.", "error");
     }
 
@@ -2288,6 +2365,7 @@
       document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
       document.getElementById("modal-success").style.display = "none";
       document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = false);
+      document.getElementById("modal-products").style.display = "none";
       document.getElementById("modal-overlay").classList.add("open");
       document.body.style.overflow = "hidden";
     }
@@ -2332,6 +2410,7 @@
           document.getElementById("modal-success").style.display = "none";
           // Hide mode tabs (can't change type after creation)
           document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "none");
+          renderModalProducts(p);
 
           switchMode(isPersonal ? "personal" : "company");
 
