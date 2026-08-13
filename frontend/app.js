@@ -477,7 +477,10 @@ function renderOutputs(data) {
   if (!_attachIsUpload) attachRemove();   // keep a user-uploaded image; clear AI-generated ones
   saveDraft();
   _pushHistory(data.linkedin_post || "");
-  document.getElementById("variants-row").style.display = "none";  // fresh post → clear old variants
+  // Fresh post → the old rewrites and hashtag suggestions belong to the old text
+  document.getElementById("variants-row").style.display = "none";
+  window._tagPool = null;
+  hideHashtags();
   updateProgress();
 }
 
@@ -497,39 +500,194 @@ function _makeEditable() {
   el.addEventListener("blur", () => { saveDraft(); _applyFold(); });
 }
 
-// ── Caption variations (2 alternates + the original) ──────────────────────────
+// ── Rewrites: two alternate versions of the whole post, alongside the original ─
+// The endpoint returns complete posts, not captions, so they are shown in full.
+// A 120-character teaser was unreadable: the variants share their facts, so the
+// openings often diverge only after the first sentence.
 async function generateVariations() {
   const post = (document.getElementById("linkedin-content").textContent || "").trim();
-  if (!post) { toast("Generate a post first, then I'll write alternate captions.", "warn"); return; }
+  if (!post) { toast("Generate a post first, then I can rewrite it.", "warn"); return; }
   await _refreshToken();
   const row = document.getElementById("variants-row");
   row.style.display = "";
-  row.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:6px 2px;">Writing a couple of alternate captions…</div>`;
+  row.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:6px 2px;">Rewriting this post two more ways…</div>`;
   try {
     const res = await fetch("/generate/variations", {
       method: "POST", headers: authHeaders(),
       body: JSON.stringify({ post, profile_id: getActiveProfileId() })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Couldn't write variations.");
-    _renderVariants([post, ...(data.variants || [])], 0);
+    if (!res.ok) throw new Error(data.detail || "Couldn't write the rewrites.");
+    const alts = (data.variants || []).filter(v => (v || "").trim());
+    if (!alts.length) throw new Error("No rewrites came back — try again in a moment.");
+    window._variants = [{ label: "Original", text: post }]
+      .concat(alts.map((t, i) => ({ label: `Version ${i + 1}`, text: String(t).trim() })));
+    _renderVariants(0);
   } catch (e) {
     row.innerHTML = `<div style="font-size:12.5px;color:#c0392b;padding:6px 2px;">${_escHtmlCreate(e.message)}</div>`;
   }
 }
-function _renderVariants(variants, active) {
-  window._variants = variants;
+
+function _renderVariants(active) {
+  const list = window._variants || [];
   const row = document.getElementById("variants-row");
-  row.innerHTML = `<div style="font-size:12px;font-weight:700;color:#5b6270;margin:2px 2px 8px;">Captions — pick one, then edit it below:</div>` +
-    variants.map((v, i) => `<button class="action-btn" style="display:block;width:100%;text-align:left;white-space:normal;line-height:1.4;margin-bottom:6px;${i === active ? "border-color:#24365e;background:#f4f2ff;" : ""}" onclick="pickVariant(${i})">
-      <b>${i === 0 ? "Original" : "Option " + i}</b> · ${_escHtmlCreate(v).slice(0, 120)}${v.length > 120 ? "…" : ""}</button>`).join("");
+  row.innerHTML = `
+    <div class="cap-head">
+      <span>Rewrites — same facts and voice, different hook. Picking one replaces the post below.</span>
+      <button type="button" class="cap-x" onclick="hideVariants()" aria-label="Close rewrites">✕</button>
+    </div>
+    <div class="cap-list">` +
+    list.map((v, i) => `
+      <div class="cap-opt${i === active ? " on" : ""}" onclick="pickVariant(${i})" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickVariant(${i});}">
+        <div class="cap-opt-head">
+          <span class="cap-opt-lab">${_escHtmlCreate(v.label)}</span>
+          <span class="cap-opt-len">${v.text.length.toLocaleString()} characters</span>
+          <span class="cap-opt-act">${i === active ? "✓ in the post" : "Use this"}</span>
+        </div>
+        <div class="cap-opt-text">${_escHtmlCreate(v.text)}</div>
+      </div>`).join("") + `</div>`;
 }
-function pickVariant(i) {
-  const v = (window._variants || [])[i];
-  if (v == null) return;
+
+function hideVariants() {
+  const row = document.getElementById("variants-row");
+  if (row) { row.style.display = "none"; row.innerHTML = ""; }
+}
+
+// ── Hashtags ──────────────────────────────────────────────────────────────────
+// Hashtags used to arrive only as whatever the generator felt like adding on the
+// last line, with no way to change them short of retyping the post. These chips
+// own that last line: the post text stays the single source of truth, so a tag
+// typed by hand shows up selected and nothing here can desync from the box.
+const _TAG_ONLY_LINE = /^#[0-9A-Za-z_]+(?:\s+#[0-9A-Za-z_]+)*$/;
+
+function _splitTagLine(text) {
+  const lines = String(text || "").split("\n");
+  let end = lines.length;
+  while (end > 0 && !lines[end - 1].trim()) end--;      // ignore trailing blank lines
+  const last = end > 0 ? lines[end - 1].trim() : "";
+  if (last && _TAG_ONLY_LINE.test(last)) {
+    return { body: lines.slice(0, end - 1).join("\n").replace(/\s+$/, ""),
+             tags: last.split(/\s+/) };
+  }
+  return { body: lines.slice(0, end).join("\n").replace(/\s+$/, ""), tags: [] };
+}
+
+function _normTag(t) {
+  const tag = String(t || "").trim().replace(/^#+/, "").toLowerCase().replace(/[^0-9a-z]/g, "");
+  return tag.length >= 2 ? "#" + tag : "";   // #ai, #hr, #ux are real tags
+}
+
+function _writeTagLine(tags) {
   const el = document.getElementById("linkedin-content");
-  el.textContent = v; _applyFold(); saveDraft();
-  _renderVariants(window._variants, i);
+  if (!el) return;
+  const { body } = _splitTagLine(el.textContent || "");
+  const line = tags.join(" ");
+  el.textContent = !tags.length ? body : (body ? `${body}\n\n${line}` : line);
+  _applyFold(); saveDraft();
+}
+
+async function suggestHashtags() {
+  const el = document.getElementById("linkedin-content");
+  const post = (el ? el.textContent || "" : "").trim();
+  if (!post) { toast("Generate a post first, then I can suggest hashtags.", "warn"); return; }
+  const row = document.getElementById("hashtags-row");
+  // Already fetched once: just reopen, no second round trip.
+  if (window._tagPool && row.style.display === "none") { _renderHashtags(); return; }
+  if (row.style.display !== "none" && window._tagPool) { hideHashtags(); return; }
+  await _refreshToken();
+  row.style.display = "";
+  row.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:6px 2px;">Picking hashtags that fit this post…</div>`;
+  try {
+    const res = await fetch("/generate/hashtags", {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ post, profile_id: getActiveProfileId() })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't suggest hashtags.");
+    window._tagPool = (data.hashtags || []).map(_normTag).filter(Boolean);
+    _renderHashtags();
+  } catch (e) {
+    row.innerHTML = `<div style="font-size:12.5px;color:#c0392b;padding:6px 2px;">${_escHtmlCreate(e.message)}</div>`;
+  }
+}
+
+function _renderHashtags() {
+  const row = document.getElementById("hashtags-row");
+  const el = document.getElementById("linkedin-content");
+  if (!row || !el) return;
+  row.style.display = "";
+  const text = el.textContent || "";
+  const active = _splitTagLine(text).tags.map(_normTag).filter(Boolean);
+  // A tag typed straight into the post is a real chip too, just an unsuggested one.
+  const pool = (window._tagPool || []).slice();
+  active.forEach(t => { if (!pool.includes(t)) pool.push(t); });
+  const len = text.length;
+  row.innerHTML = `
+    <div class="cap-head">
+      <span>Hashtags — tap to add or remove. They go on the post's last line.</span>
+      <button type="button" class="cap-x" onclick="refreshHashtags()" aria-label="Suggest again" title="Suggest again">↻</button>
+      <button type="button" class="cap-x" onclick="hideHashtags()" aria-label="Close hashtags">✕</button>
+    </div>
+    <div class="tag-chips">` +
+    pool.map(t => `<button type="button" class="tag-chip${active.includes(t) ? " on" : ""}"
+        onclick="toggleHashtag('${t}')">${_escHtmlCreate(t)}</button>`).join("") + `</div>
+    <div class="tag-add">
+      <input id="tag-custom" placeholder="Add your own — e.g. fractionalcmo"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomHashtag();}" />
+      <button type="button" class="action-btn" onclick="addCustomHashtag()">Add</button>
+    </div>
+    <div class="tag-count"><b>${active.length}</b> selected · post is <b>${len.toLocaleString()}</b> of 3,000 characters</div>`;
+}
+
+function toggleHashtag(tag) {
+  const t = _normTag(tag);
+  if (!t) return;
+  const el = document.getElementById("linkedin-content");
+  const tags = _splitTagLine(el.textContent || "").tags.map(_normTag).filter(Boolean);
+  const i = tags.indexOf(t);
+  if (i >= 0) tags.splice(i, 1); else tags.push(t);
+  _writeTagLine(tags);
+  _renderHashtags();
+}
+
+function addCustomHashtag() {
+  const input = document.getElementById("tag-custom");
+  const t = _normTag(input ? input.value : "");
+  if (!t) { toast("A hashtag needs at least 2 letters or digits, no spaces.", "warn"); return; }
+  window._tagPool = window._tagPool || [];
+  if (!window._tagPool.includes(t)) window._tagPool.push(t);
+  const el = document.getElementById("linkedin-content");
+  const tags = _splitTagLine(el.textContent || "").tags.map(_normTag).filter(Boolean);
+  if (!tags.includes(t)) { tags.push(t); _writeTagLine(tags); }
+  _renderHashtags();
+}
+
+function refreshHashtags() {
+  window._tagPool = null;
+  document.getElementById("hashtags-row").style.display = "none";
+  suggestHashtags();
+}
+
+function hideHashtags() {
+  const row = document.getElementById("hashtags-row");
+  if (row) { row.style.display = "none"; row.innerHTML = ""; }
+}
+
+function pickVariant(i) {
+  const list = window._variants || [];
+  const el = document.getElementById("linkedin-content");
+  if (!el || !list[i]) return;
+  // Swapping used to overwrite the box outright, so any hand edit was gone with
+  // no way back — and "Original" only restored the text as it was when Rewrites
+  // ran. Anything not already an option is kept as one before it gets replaced.
+  const live = (el.textContent || "").trim();
+  if (live && !list.some(v => v.text.trim() === live)) {
+    list.push({ label: "Your edit", text: live });
+  }
+  el.textContent = list[i].text;
+  _applyFold(); saveDraft();
+  _renderVariants(i);
   el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 

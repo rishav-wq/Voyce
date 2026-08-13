@@ -696,6 +696,44 @@
         .li-see-more{background:none;border:none;color:#6d7482;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 20px 0;text-align:left;align-self:flex-start;}
         .li-see-more:hover{color:#24365e;}
         .li-edit-hint{font-size:11.5px;color:#98a0ae;padding:8px 20px 0;}
+
+        /* ── Rewrites: full alternate posts, read before you pick one ── */
+        .cap-head{display:flex;align-items:flex-start;gap:10px;font-size:12px;font-weight:600;
+          color:#5b6270;line-height:1.45;margin:2px 2px 9px;}
+        .cap-x{margin-left:auto;flex:none;background:none;border:none;font-size:15px;line-height:1;
+          color:#98a0ae;cursor:pointer;padding:2px 5px;border-radius:6px;font-family:inherit;}
+        .cap-x:hover{color:#16181d;background:#f1f3f7;}
+        .cap-list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;
+          padding:1px;scrollbar-width:thin;scrollbar-color:#d3d8e0 transparent;}
+        .cap-list::-webkit-scrollbar{width:8px;}
+        .cap-list::-webkit-scrollbar-button{display:none;width:0;height:0;}
+        .cap-list::-webkit-scrollbar-thumb{background:#d3d8e0;border-radius:8px;}
+        .cap-opt{border:1.5px solid #e4e7ec;border-radius:11px;padding:11px 13px;cursor:pointer;
+          background:#fff;transition:border-color .14s,background .14s;}
+        .cap-opt:hover{border-color:#24365e;background:#fbfcfe;}
+        .cap-opt.on{border-color:#24365e;background:#f4f6fb;cursor:default;}
+        .cap-opt:focus-visible{outline:2px solid #24365e;outline-offset:2px;}
+        .cap-opt-head{display:flex;align-items:baseline;gap:9px;margin-bottom:7px;}
+        .cap-opt-lab{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#24365e;}
+        .cap-opt-len{font-size:11px;color:#98a0ae;font-variant-numeric:tabular-nums;}
+        .cap-opt-act{margin-left:auto;font-size:11.5px;font-weight:700;color:#24365e;}
+        .cap-opt.on .cap-opt-act{color:#18a07a;}
+        .cap-opt-text{font-size:13.5px;line-height:1.6;color:#16181d;white-space:pre-wrap;}
+
+        /* ── Hashtags: toggle chips that write the post's last line ── */
+        .tag-chips{display:flex;flex-wrap:wrap;gap:7px;}
+        .tag-chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #e4e7ec;
+          border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600;color:#5b6270;
+          background:#fff;cursor:pointer;font-family:inherit;transition:border-color .14s,background .14s,color .14s;}
+        .tag-chip:hover{border-color:#24365e;color:#24365e;}
+        .tag-chip.on{background:#24365e;border-color:#24365e;color:#fff;}
+        .tag-chip.on::after{content:"✕";font-size:10px;opacity:.75;}
+        .tag-add{display:flex;gap:7px;align-items:center;margin-top:11px;}
+        .tag-add input{flex:0 1 220px;font-size:12.5px;padding:7px 11px;border:1.5px solid #d3d8e0;
+          border-radius:999px;font-family:inherit;color:#16181d;background:#fff;}
+        .tag-add input:focus{outline:none;border-color:#24365e;}
+        .tag-count{font-size:11.5px;color:#98a0ae;margin-top:9px;font-variant-numeric:tabular-nums;}
+        .tag-count b{color:#5b6270;font-weight:700;}
         .li-attach-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:10px 20px 0;min-height:200px;border:1.5px dashed #d3d8e0;border-radius:12px;background:#f6f7f9;color:#6d7482;font-size:13px;}
         .li-attach-spin{width:22px;height:22px;border:2.5px solid #e4e7ec;border-top-color:#24365e;border-radius:50%;animation:liattachspin .7s linear infinite;}
         @keyframes liattachspin{to{transform:rotate(360deg);}}
@@ -726,7 +764,8 @@
           <div class="card-header">
             <div class="platform-badge linkedin">LinkedIn preview</div>
             <div class="card-actions">
-              <button class="action-btn" onclick="generateVariations()" title="Write 2 alternate captions to choose from">✎ Captions</button>
+              <button class="action-btn" onclick="generateVariations()" title="Rewrite this post two more ways — same facts and voice, different hook">⟳ Rewrites</button>
+              <button class="action-btn" onclick="suggestHashtags()" title="Suggest hashtags for this post and add them to the last line"># Hashtags</button>
               <button class="action-btn" onclick="toggleHistory()" title="Your recent generations">🕘 History</button>
               <button class="action-btn" onclick="copyContent('linkedin-content')">Copy</button>
               <button class="action-btn" onclick="openSchedule()">Schedule</button>
@@ -734,6 +773,7 @@
             </div>
           </div>
           <div id="variants-row" style="display:none;margin-bottom:12px;"></div>
+          <div id="hashtags-row" style="display:none;margin-bottom:12px;"></div>
           <div id="history-panel" style="display:none;margin-bottom:12px;"></div>
           <div class="li-preview-head">
             <div class="li-avatar" id="li-avatar">Y</div>

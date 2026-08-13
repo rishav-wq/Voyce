@@ -340,7 +340,13 @@ class ErgoCarouselRequest(BaseModel):
 
 
 class VariationsRequest(BaseModel):
-    post: str                     # an already-generated post to write alternate captions of
+    post: str                     # an already-generated post to write alternate versions of
+    profile_id: str = ""
+    product_id: str = ""
+
+
+class HashtagsRequest(BaseModel):
+    post: str                     # the post the hashtags have to fit
     profile_id: str = ""
     product_id: str = ""
 
@@ -792,6 +798,59 @@ Return ONLY JSON: {{"variants": ["full post 1", "full post 2"]}}"""
         data = generate_json(prompt, max_tokens=1600, temperature=0.85)
         variants = [str(v).strip() for v in (data.get("variants") or []) if str(v).strip()][:3]
         return {"variants": variants}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+
+
+# A hashtag is one word: lowercase letters and digits, no punctuation, no spaces.
+# The model is asked for that shape, but a model will happily return "#B2B SaaS"
+# or "#growth-marketing", so the server is what actually guarantees it.
+_HASHTAG_RE = re.compile(r"[^0-9a-z]")
+
+
+def _clean_hashtags(raw: list, limit: int = 12) -> list[str]:
+    out, seen = [], set()
+    for item in raw:
+        tag = _HASHTAG_RE.sub("", str(item).strip().lstrip("#").lower())
+        if len(tag) < 2 or len(tag) > 40 or tag in seen:   # #ai and #hr are real tags
+            continue
+        seen.add(tag)
+        out.append("#" + tag)
+        if len(out) >= limit:
+            break
+    return out
+
+
+@app.post("/generate/hashtags")
+def generate_hashtags(request: HashtagsRequest, x_token: str = Header(None)):
+    """Suggest hashtags that fit a post the user already has. Like variations this
+    is refinement of existing content, so it doesn't spend a generation."""
+    user = _require_user(x_token)
+    _rate_limit(f"gen:{user['id']}", 20)
+    if not request.post.strip():
+        raise HTTPException(status_code=400, detail="Generate a post first, then I can suggest hashtags.")
+    try:
+        from llm import generate_json
+        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        niche = ""
+        if profile:
+            niche = (profile.get("industry") or "").strip()
+        prompt = f"""This LinkedIn post is about to be published{f" by someone who writes about {niche}" if niche else ""}:
+\"\"\"{request.post[:1600]}\"\"\"
+
+Suggest 10 LinkedIn hashtags for it, ordered most useful first. Rules:
+- Mix the reach: 3 broad industry tags people actually follow, 4 mid-sized topic tags, 3 specific niche tags.
+- One word each, lowercase, letters and digits only — no spaces, hyphens, ampersands or punctuation.
+- Tags must match what the post is genuinely about. Do not invent company or product names.
+- No generic filler like #motivation, #success, #linkedin, #love, #follow.
+Return ONLY JSON: {{"hashtags": ["#example", "..."]}}"""
+        data = generate_json(prompt, max_tokens=400, temperature=0.5)
+        tags = _clean_hashtags(data.get("hashtags") or [])
+        if not tags:
+            raise HTTPException(status_code=502, detail="No usable hashtags came back — try again.")
+        return {"hashtags": tags}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
