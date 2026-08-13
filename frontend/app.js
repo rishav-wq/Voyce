@@ -794,6 +794,22 @@ function downloadCarousel() {
   a.click();
 }
 
+// Look at the slides without committing to a download. A blob URL, not a data:
+// one — Chrome refuses to hand a data:application/pdf to its PDF viewer.
+let _carouselBlobUrl = null;
+function viewCarouselSlides() {
+  if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
+  try {
+    if (_carouselBlobUrl) URL.revokeObjectURL(_carouselBlobUrl);
+    const bytes = Uint8Array.from(atob(_carouselPdfBase64), c => c.charCodeAt(0));
+    _carouselBlobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const w = window.open(_carouselBlobUrl, "_blank");
+    if (!w) toast("Your browser blocked the popup — use Download PDF instead.", "warn");
+  } catch (_) {
+    toast("Couldn't open the slides. Download the PDF instead.", "error");
+  }
+}
+
 async function postCarousel() {
   if (!linkedInConnected) { toast("Connect LinkedIn first — opening the connect window…", "warn"); connectLinkedIn(); return; }
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }

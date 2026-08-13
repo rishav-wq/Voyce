@@ -162,9 +162,11 @@
     }
     #ideas-close:hover { color: #16181d; background: #f1f3f7; }
     @media (min-width: 1440px) {
+      /* Full height: top and bottom both pinned, no max-height, so the rail uses
+         the whole window instead of stopping at 78vh with dead space beneath. */
       #ideas-panel:has(#ideas-out:not(:empty)) {
-        position: fixed; top: 88px; right: 28px; width: 344px;
-        max-height: 78vh; z-index: 40;
+        position: fixed; top: 20px; bottom: 20px; right: 24px; width: 348px;
+        z-index: 40;
         display: flex; flex-direction: column; overflow: hidden;
         background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
         box-shadow: 0 14px 38px rgba(22,24,29,.10);
@@ -400,49 +402,24 @@
 
     /* ── Carousel card ── */
     #card-carousel { grid-column: 1 / -1; }
-    .carousel-inner {
-      display: flex;
-      gap: 20px;
-      padding: 16px;
-      align-items: flex-start;
+    .carousel-inner { display: flex; flex-direction: column; gap: 9px; padding: 16px 20px 20px; }
+    /* The hook is the carousel's first slide, so it gets to read like a title
+       instead of an ellipsised italic squeezed in beside the buttons. */
+    .carousel-hook { font-size: 15.5px; font-weight: 600; line-height: 1.35; color: #16181d; }
+    .carousel-hook:empty { display: none; }
+    .carousel-meta {
+      font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: #98a0ae;
     }
+    .carousel-meta span { font-weight: 600; letter-spacing: .04em; }
     .carousel-post-text {
-      flex: 1;
       font-size: 14px;
       line-height: 1.6;
       color: #16181d;
       white-space: pre-wrap;
-      max-height: 480px;
+      max-width: 66ch;
+      max-height: 420px;
       overflow-y: auto;
-    }
-    .carousel-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-width: 140px;
-    }
-    .carousel-action-btn {
-      padding: 10px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      border-radius: 999px;
-      cursor: pointer;
-      border: 1.5px solid #d3d8e0;
-      background: #fff;
-      color: #3a352c;
-      text-align: center;
-      transition: border-color .14s, color .14s, background .14s, transform .1s;
-      white-space: nowrap;
-    }
-    .carousel-action-btn:hover { border-color: #24365e; color: #24365e; background: #faf8ff; transform: translateY(-1px); }
-    .carousel-action-btn:active { transform: translateY(0); }
-    .carousel-action-btn.primary { background: #24365e; color: #fff; border-color: #24365e; }
-    .carousel-action-btn.primary:hover { background: #1c2b4d; border-color: #1c2b4d; color: #fff; }
-    .carousel-preview-tag {
-      font-size: 12px;
-      color: #888;
-      font-style: italic;
-      margin-top: 4px;
     }
 
     /* ── Queue ── */
@@ -541,9 +518,7 @@
       .card-header { flex-wrap: wrap; gap: 8px; }
       .card-body { max-height: 260px; }
 
-      .carousel-inner { flex-direction: column; }
-      .carousel-actions { flex-direction: row; flex-wrap: wrap; min-width: 0; width: 100%; }
-      .carousel-action-btn { flex: 1 1 45%; }
+      .carousel-inner { padding: 14px 16px 18px; }
 
       .queue-item { flex-wrap: wrap; gap: 6px 12px; }
       .queue-preview { flex-basis: 100%; }
@@ -720,6 +695,7 @@
         .card-body.li-clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.7em;background:linear-gradient(to bottom, rgba(255,253,248,0), #ffffff);pointer-events:none;}
         .li-see-more{background:none;border:none;color:#6d7482;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 20px 0;text-align:left;align-self:flex-start;}
         .li-see-more:hover{color:#24365e;}
+        .li-edit-hint{font-size:11.5px;color:#98a0ae;padding:8px 20px 0;}
         .li-attach-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:10px 20px 0;min-height:200px;border:1.5px dashed #d3d8e0;border-radius:12px;background:#f6f7f9;color:#6d7482;font-size:13px;}
         .li-attach-spin{width:22px;height:22px;border:2.5px solid #e4e7ec;border-top-color:#24365e;border-radius:50%;animation:liattachspin .7s linear infinite;}
         @keyframes liattachspin{to{transform:rotate(360deg);}}
@@ -767,8 +743,11 @@
             </div>
           </div>
           <div class="card-body" id="linkedin-content" contenteditable="true" spellcheck="true" title="Click to edit the post text directly"></div>
-          <div style="font-size:11px;color:#98a0ae;margin-top:4px;">✎ Click the text above to edit before posting.</div>
           <button type="button" class="li-see-more" id="li-see-more" style="display:none;" onclick="toggleFold()" title="Only these first lines show in the feed before someone taps">…see more</button>
+          <!-- After the fold control, not before it: sitting between the clamped text
+               and "see more" put an unindented grey line inside the fade, which read
+               as a rendering fault. Shares the card's 20px gutter now. -->
+          <div class="li-edit-hint">✎ Click the text above to edit before posting.</div>
 
           <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->
           <div class="li-media" id="li-media">
@@ -798,19 +777,20 @@
     <div class="output-section" id="carousel-section">
       <div class="output-section-title">Carousel PDF</div>
       <div class="output-card" id="card-carousel">
+        <!-- Controls live in the header, same as the LinkedIn card — the old right-hand
+             column squeezed the caption into half the width for no reason. -->
         <div class="card-header">
           <div class="platform-badge" style="background:#e7ebf4;color:#24365e;text-transform:none;font-size:13px;">LinkedIn Carousel</div>
           <div class="card-actions">
-            <span id="carousel-hook-label" style="font-size:12px;color:#888;font-style:italic;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;"></span>
+            <button class="action-btn" onclick="viewCarouselSlides()" title="Open the rendered slides">◫ View slides</button>
+            <button class="action-btn" onclick="downloadCarousel()">⬇ Download PDF</button>
+            <button class="action-btn primary" id="post-carousel-btn" onclick="postCarousel()">Post to LinkedIn</button>
           </div>
         </div>
         <div class="carousel-inner">
+          <div class="carousel-hook" id="carousel-hook-label"></div>
+          <div class="carousel-meta">Caption posted with the PDF <span>· portrait 1080×1350</span></div>
           <div class="carousel-post-text" id="carousel-post-text"></div>
-          <div class="carousel-actions">
-            <button class="carousel-action-btn" onclick="downloadCarousel()">⬇ Download PDF</button>
-            <button class="carousel-action-btn primary" id="post-carousel-btn" onclick="postCarousel()">Post to LinkedIn</button>
-            <p class="carousel-preview-tag">Portrait PDF · 1080×1350</p>
-          </div>
         </div>
       </div>
     </div>
