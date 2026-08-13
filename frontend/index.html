@@ -142,51 +142,89 @@
     }
 
     /* ── Body ── */
-    .page-body { max-width: 820px; margin: 0 auto; padding: 30px 32px; width: 100%; }
+    /* Wide enough for the workspace: an 820px working column, a 356px tool panel
+       and the gap between them. The heading block stays on the narrower measure
+       so the title and subhead do not stretch across the whole window. */
+    .page-body { max-width: 1220px; margin: 0 auto; padding: 30px 32px; width: 100%; }
+    .page-head { max-width: 820px; }
 
     .page-title { font-size: clamp(28px,4vw,40px); font-weight: 700; letter-spacing: -0.04em; line-height: 1.04; margin-bottom: 10px; }
     .page-sub { font-size: 15px; color: #5b6270; margin-bottom: 32px; max-width: 560px; line-height: 1.6; }
-    /* On wide screens, dock the idea suggestions into the right vacant space so
-       they sit beside the composer instead of pushing it down. Narrow screens
-       keep them inline (static). :not(:empty) => only docks once ideas load. */
-    /* The header is a real element, not a ::before, so the close button can live
-       inside it. The earlier pseudo-element version forced the button to float
-       over the panel as a second fixed element, and it landed on the scrollbar.
-       :has() lets the wrapper react to #ideas-out filling up; where :has() is
-       missing the panel just stays inline, which is the narrow-screen behaviour. */
-    #ideas-out { margin-top: 12px; }
-    #ideas-hdr { display: none; }
-    #ideas-close {
-      background: none; border: none; font-size: 16px; line-height: 1;
-      color: #98a0ae; cursor: pointer; padding: 4px 7px; border-radius: 6px;
+
+    /* ── Workspace: work on the left, tools on the right ──────────────────────
+       The four tools used to be injected between the preview card's header and
+       the post itself, which squeezed them into a gap and broke the illusion
+       that the card is a LinkedIn post. They live in their own column now, so
+       the post is never interrupted and stays readable while you compare a
+       rewrite against it. Sticky, not fixed — it follows the scroll without
+       hard-coded offsets, and it collapses to a normal block below 1200px. */
+    .workspace { display: grid; grid-template-columns: minmax(0,1fr) 356px; gap: 24px; align-items: start; }
+    .work-main { min-width: 0; }
+    .work-tools {
+      position: sticky; top: 20px; max-height: calc(100vh - 40px);
+      display: flex; flex-direction: column; overflow: hidden;
+      background: #fff; border: 1px solid #e4e7ec; border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(22,24,29,.05), 0 14px 34px rgba(22,24,29,.05);
     }
-    #ideas-close:hover { color: #16181d; background: #f1f3f7; }
-    @media (min-width: 1440px) {
-      /* Full height: top and bottom both pinned, no max-height, so the rail uses
-         the whole window instead of stopping at 78vh with dead space beneath. */
-      #ideas-panel:has(#ideas-out:not(:empty)) {
-        position: fixed; top: 20px; bottom: 20px; right: 24px; width: 348px;
-        z-index: 40;
-        display: flex; flex-direction: column; overflow: hidden;
-        background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
-        box-shadow: 0 14px 38px rgba(22,24,29,.10);
-      }
-      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-hdr {
-        display: flex; align-items: center; justify-content: space-between;
-        flex: none; gap: 8px; padding: 12px 10px 11px 16px;
-        border-bottom: 1px solid #e4e7ec;
-        font-size: 12px; font-weight: 700; color: #5b6270; letter-spacing: .02em;
-      }
-      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out {
-        flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 12px 16px;
-        scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent;
-      }
-      /* Styling the webkit scrollbar opts Chrome into the legacy one, which ships
-         with arrow buttons at both ends unless they are explicitly removed. */
-      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar { width: 8px; }
-      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
-      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar-track { background: transparent; }
-      #ideas-panel:has(#ideas-out:not(:empty)) #ideas-out::-webkit-scrollbar-thumb { background: #d3d8e0; border-radius: 8px; }
+    .tool-tabs { display: flex; flex: none; border-bottom: 1px solid #e4e7ec; padding: 6px 6px 0; gap: 2px; }
+    .tool-tab {
+      flex: 1; background: none; border: none; border-radius: 9px 9px 0 0;
+      padding: 10px 4px 11px; font-family: inherit; font-size: 12px; font-weight: 700;
+      color: #98a0ae; cursor: pointer; white-space: nowrap;
+      border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .14s, background .14s;
+    }
+    .tool-tab:hover { color: #5b6270; background: #f7f8fa; }
+    .tool-tab.active { color: #24365e; border-bottom-color: #24365e; }
+    .tool-tab .tool-dot {
+      display: none; width: 6px; height: 6px; border-radius: 50%;
+      background: #18a07a; margin-left: 5px; vertical-align: 1px;
+    }
+    .tool-tab.filled .tool-dot { display: inline-block; }
+    .tool-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 16px;
+      scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent; }
+    /* Touching ::-webkit-scrollbar opts Chrome into the legacy scrollbar, which
+       ships arrow buttons at both ends unless they are explicitly removed. */
+    .tool-body::-webkit-scrollbar { width: 8px; }
+    .tool-body::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+    .tool-body::-webkit-scrollbar-track { background: transparent; }
+    .tool-body::-webkit-scrollbar-thumb { background: #d3d8e0; border-radius: 8px; }
+    .tool-pane { display: none; }
+    .tool-pane.active { display: block; }
+    .tool-intro { font-size: 12.5px; color: #98a0ae; line-height: 1.5; margin-bottom: 12px; }
+    .tool-run {
+      display: inline-flex; align-items: center; gap: 7px; width: 100%; justify-content: center;
+      background: #f4f6fb; border: 1.5px solid #dbe2ee; border-radius: 10px; padding: 10px 12px;
+      font-family: inherit; font-size: 13px; font-weight: 700; color: #24365e; cursor: pointer;
+      transition: background .14s, border-color .14s;
+    }
+    .tool-run:hover { background: #e7ebf4; border-color: #24365e; }
+    .tool-run:disabled { opacity: .55; cursor: not-allowed; }
+    .tool-empty { font-size: 12.5px; color: #98a0ae; line-height: 1.55; padding: 10px 0 0; }
+    #ideas-out { margin-top: 12px; }
+
+    /* Idea and history cards, sized for a 356px column rather than full width */
+    .idea-card { border: 1.5px solid #e4e7ec; border-radius: 11px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
+    .idea-card:hover { border-color: #c9d2e2; }
+    .idea-hook { font-size: 13.5px; font-weight: 600; color: #16181d; line-height: 1.4; }
+    .idea-meta { font-size: 11.5px; color: #98a0ae; margin-top: 5px; line-height: 1.5; }
+    .idea-type { color: #24365e; font-weight: 700; }
+    .idea-use {
+      margin-top: 10px; width: 100%; background: #fff; border: 1.5px solid #dbe2ee; border-radius: 9px;
+      padding: 7px 10px; font-family: inherit; font-size: 12.5px; font-weight: 700; color: #24365e; cursor: pointer;
+      transition: background .14s, border-color .14s;
+    }
+    .idea-use:hover { background: #f4f6fb; border-color: #24365e; }
+    .hist-item { border: 1px solid #e4e7ec; border-radius: 10px; padding: 10px 12px; margin-bottom: 7px; }
+    .hist-text { font-size: 12.5px; color: #3c3832; line-height: 1.5; max-height: 3em; overflow: hidden; }
+    .hist-foot { margin-top: 8px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .hist-foot span { font-size: 11px; color: #98a0ae; }
+
+    @media (max-width: 1199px) {
+      .workspace { grid-template-columns: 1fr; }
+      /* Tools become a normal card under the work column; the tab strip still
+         does the switching, so nothing about the interaction changes. */
+      .work-tools { position: static; max-height: none; order: 2; }
+      .tool-body { max-height: 60vh; }
     }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
@@ -205,11 +243,17 @@
       margin-bottom: 24px;
     }
 
+    /* ── Composer ── */
+    .compose-head {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid #f1f3f7;
+      font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #98a0ae;
+    }
     .input-tabs {
       display: flex;
       gap: 4px;
       margin-bottom: 18px;
-      background: #efe9e0;
+      background: #f1f3f7;   /* was #efe9e0 — the last warm beige left on the page */
       border-radius: 10px;
       padding: 4px;
     }
@@ -267,12 +311,18 @@
     }
     .generate-btn:hover { background: #1c2b4d; }
     .generate-btn:disabled { background: #9aa7c0; cursor: not-allowed; }
+    /* Carousel PDF used to be near-black at almost the same weight as Generate,
+       so two heavy buttons competed and neither read as the primary action.
+       It is the alternate output, so it looks like one. */
     .generate-btn.secondary {
-      background: #16181d;
-      flex: 0.85;
+      background: #fff;
+      color: #24365e;
+      border: 1.5px solid #d3d8e0;
+      flex: 0 0 auto;
+      padding: 14px 20px;
     }
-    .generate-btn.secondary:hover { background: #2a2a4a; }
-    .generate-btn.secondary:disabled { background: #aaa; }
+    .generate-btn.secondary:hover { background: #f4f6fb; border-color: #24365e; }
+    .generate-btn.secondary:disabled { background: #f6f7f9; color: #a7aebb; border-color: #e4e7ec; }
 
     .error-banner {
       background: #fdecea;
@@ -381,7 +431,15 @@
       max-height: 480px;
       overflow-y: auto;
       min-height: 80px;
+      border-radius: 10px;
+      transition: background .14s;
     }
+    /* Chrome draws a hard black ring around a focused contenteditable, which made
+       the thing pretending to be a LinkedIn post look like a form field. A tinted
+       ground says "editable" without breaking the illusion. */
+    .card-body[contenteditable="true"]:focus,
+    .card-body[contenteditable="true"]:focus-visible { outline: none; background: #f8fafd; }
+    .card-body[contenteditable="true"]:hover { background: #fbfcfe; }
     /* Realistic LinkedIn post preview header */
     .li-preview-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 0; }
     .li-avatar { width: 44px; height: 44px; border-radius: 50%; background: #24365e; color: #fff;
@@ -573,6 +631,7 @@
   </aside>
 
   <main class="page-body">
+    <div class="page-head">
     <!-- Progress strip -->
     <div class="progress-strip" id="progress-strip">
       <a class="pstep active" id="pstep-generate" href="#"><span class="pnum">1</span> Generate a post</a>
@@ -586,25 +645,20 @@
     <div class="page-sub">Paste content, a URL, or a YouTube link — get a LinkedIn post, carousel, or image in seconds, in a style that sounds like <em class="you">you</em>.</div>
 
     <div id="error-banner" class="error-banner" style="display:none;"></div>
+    </div><!-- /page-head -->
+
+    <div class="workspace">
+    <div class="work-main">
 
     <!-- Input card -->
     <div class="input-card">
-      <div id="writing-as" style="display:none;align-items:center;gap:8px;margin-bottom:14px;font-size:13.5px;font-weight:600;color:#5b6270;">
-        ✍️ Writing as
-        <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';applyProfileScopedUI();" style="font-family:inherit;font-size:13.5px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
-        </select>
-      </div>
-      <div id="ideas-row" style="display:none;margin-bottom:14px;">
-        <button type="button" class="img-src-btn" onclick="suggestIdeasCreate()">💡 Suggest post ideas for this profile</button>
-        <span style="font-size:12px;color:#98a0ae;margin-left:8px;">based on your niche + today's news</span>
-        <div id="ideas-panel">
-          <div id="ideas-hdr">
-            <span>💡 Ideas for next posts</span>
-            <button id="ideas-close" type="button" aria-label="Close ideas"
-                    onclick="document.getElementById('ideas-out').innerHTML='';">✕</button>
-          </div>
-          <div id="ideas-out"></div>
-        </div>
+      <div class="compose-head">
+        <span>Compose</span>
+        <span id="writing-as" style="display:none;align-items:center;gap:8px;margin-left:auto;text-transform:none;letter-spacing:0;font-size:13px;color:#5b6270;">
+          ✍️ Writing as
+          <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';applyProfileScopedUI();" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
+          </select>
+        </span>
       </div>
       <div class="input-tabs">
         <button class="input-tab active" data-type="text">Paste Text</button>
@@ -695,19 +749,20 @@
         .card-body.li-clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.7em;background:linear-gradient(to bottom, rgba(255,253,248,0), #ffffff);pointer-events:none;}
         .li-see-more{background:none;border:none;color:#6d7482;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 20px 0;text-align:left;align-self:flex-start;}
         .li-see-more:hover{color:#24365e;}
-        .li-edit-hint{font-size:11.5px;color:#98a0ae;padding:8px 20px 0;}
+        /* The pencil carries it on its own — the sentence that used to sit here
+           explained an affordance the cursor and tooltip already show. */
+        .li-edit-hint{font-size:13px;color:#c3c9d3;padding:6px 20px 0;cursor:default;width:min-content;}
+        .li-edit-hint:hover{color:#5b6270;}
 
         /* ── Rewrites: full alternate posts, read before you pick one ── */
-        .cap-head{display:flex;align-items:flex-start;gap:10px;font-size:12px;font-weight:600;
-          color:#5b6270;line-height:1.45;margin:2px 2px 9px;}
+        .cap-head{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;
+          color:#98a0ae;line-height:1.5;margin:0 0 11px;}
         .cap-x{margin-left:auto;flex:none;background:none;border:none;font-size:15px;line-height:1;
           color:#98a0ae;cursor:pointer;padding:2px 5px;border-radius:6px;font-family:inherit;}
         .cap-x:hover{color:#16181d;background:#f1f3f7;}
-        .cap-list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;
-          padding:1px;scrollbar-width:thin;scrollbar-color:#d3d8e0 transparent;}
-        .cap-list::-webkit-scrollbar{width:8px;}
-        .cap-list::-webkit-scrollbar-button{display:none;width:0;height:0;}
-        .cap-list::-webkit-scrollbar-thumb{background:#d3d8e0;border-radius:8px;}
+        /* No inner scroller: the tool panel is the scroller now. Nesting a second
+           one produced the half-cut line at the top edge that looked like a bug. */
+        .cap-list{display:flex;flex-direction:column;gap:8px;}
         .cap-opt{border:1.5px solid #e4e7ec;border-radius:11px;padding:11px 13px;cursor:pointer;
           background:#fff;transition:border-color .14s,background .14s;}
         .cap-opt:hover{border-color:#24365e;background:#fbfcfe;}
@@ -763,18 +818,16 @@
         <div class="output-card" id="card-linkedin">
           <div class="card-header">
             <div class="platform-badge linkedin">LinkedIn preview</div>
+            <!-- Six pills in a row crowded out the one that matters. Post now and
+                 Copy stay in reach; the rest live behind one menu button. -->
+            <!-- Rewrites, hashtags and history moved to the tool panel, so the card
+                 holds only what you do *to* a finished post. -->
             <div class="card-actions">
-              <button class="action-btn" onclick="generateVariations()" title="Rewrite this post two more ways — same facts and voice, different hook">⟳ Rewrites</button>
-              <button class="action-btn" onclick="suggestHashtags()" title="Suggest hashtags for this post and add them to the last line"># Hashtags</button>
-              <button class="action-btn" onclick="toggleHistory()" title="Your recent generations">🕘 History</button>
-              <button class="action-btn" onclick="copyContent('linkedin-content')">Copy</button>
+              <button class="action-btn" onclick="copyContent('linkedin-content', this)">Copy</button>
               <button class="action-btn" onclick="openSchedule()">Schedule</button>
               <button class="action-btn primary" id="post-now-btn" onclick="postToLinkedIn()">Post now</button>
             </div>
           </div>
-          <div id="variants-row" style="display:none;margin-bottom:12px;"></div>
-          <div id="hashtags-row" style="display:none;margin-bottom:12px;"></div>
-          <div id="history-panel" style="display:none;margin-bottom:12px;"></div>
           <div class="li-preview-head">
             <div class="li-avatar" id="li-avatar">Y</div>
             <div>
@@ -787,7 +840,8 @@
           <!-- After the fold control, not before it: sitting between the clamped text
                and "see more" put an unindented grey line inside the fade, which read
                as a rendering fault. Shares the card's 20px gutter now. -->
-          <div class="li-edit-hint">✎ Click the text above to edit before posting.</div>
+          <div class="li-edit-hint" title="Click the post text above to edit it before posting"
+               aria-label="The post text above is editable">✎</div>
 
           <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->
           <div class="li-media" id="li-media">
@@ -840,6 +894,46 @@
       <h3>Scheduled Posts</h3>
       <div id="queue-list"></div>
     </div>
+
+    </div><!-- /work-main -->
+
+    <!-- ── Tools. One panel, four tabs, each with its own run button, so nothing
+         has to sit in the preview card's header any more. ── -->
+    <aside class="work-tools" id="work-tools">
+      <div class="tool-tabs" role="tablist" aria-label="Post tools">
+        <button class="tool-tab active" role="tab" data-tool="ideas"    onclick="showTool('ideas')">💡 Ideas<span class="tool-dot"></span></button>
+        <button class="tool-tab"        role="tab" data-tool="rewrites" onclick="showTool('rewrites')">⟳ Rewrites<span class="tool-dot"></span></button>
+        <button class="tool-tab"        role="tab" data-tool="hashtags" onclick="showTool('hashtags')"># Tags<span class="tool-dot"></span></button>
+        <button class="tool-tab"        role="tab" data-tool="history"  onclick="showTool('history')">🕘 Past</button>
+      </div>
+      <div class="tool-body">
+
+        <div class="tool-pane active" id="tool-ideas" role="tabpanel">
+          <p class="tool-intro">What to post about, from your niche and today's news. Nothing gets posted.</p>
+          <button type="button" class="tool-run" id="ideas-run" onclick="suggestIdeasCreate()">💡 Suggest post ideas</button>
+          <div id="ideas-out"></div>
+        </div>
+
+        <div class="tool-pane" id="tool-rewrites" role="tabpanel">
+          <p class="tool-intro">Two more versions of the post you have — same facts and voice, different hook.</p>
+          <button type="button" class="tool-run" id="rewrites-run" onclick="generateVariations()">⟳ Rewrite this post</button>
+          <div id="variants-row" style="display:none;margin-top:12px;"></div>
+        </div>
+
+        <div class="tool-pane" id="tool-hashtags" role="tabpanel">
+          <p class="tool-intro">Tags that fit this post, mixed between broad reach and your niche.</p>
+          <button type="button" class="tool-run" id="hashtags-run" onclick="suggestHashtags()"># Suggest hashtags</button>
+          <div id="hashtags-row" style="display:none;margin-top:12px;"></div>
+        </div>
+
+        <div class="tool-pane" id="tool-history" role="tabpanel">
+          <p class="tool-intro">Posts you generated in this browser. Click one to load it back.</p>
+          <div id="history-panel"></div>
+        </div>
+
+      </div>
+    </aside>
+    </div><!-- /workspace -->
   </main>
   </div>
 
@@ -857,7 +951,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=22"></script>
+  <script src="/static/app.js?v=23"></script>
   <script src="/static/upgrade.js?v=1"></script>
   <script
     async

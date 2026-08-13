@@ -48,7 +48,34 @@ app.add_middleware(
 )
 
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+
+class _RevalidatingStatic(StaticFiles):
+    """A deploy has to be visible on the next ordinary reload.
+
+    app.js is pinned behind a hand-written `?v=NN` query string, so any deploy
+    where nobody remembers to bump the number can serve stale JS to a returning
+    browser. `no-cache` does not mean "do not store", it means "revalidate before
+    reuse": the browser still keeps the file and still gets a cheap 304 when it
+    has not changed, but a changed file is picked up on the next ordinary reload
+    with no hard refresh and no version stamp left to maintain.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if path.endswith((".js", ".css", ".html", ".svg")):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", _RevalidatingStatic(directory=frontend_path), name="static")
+
+
+def _page(name: str) -> FileResponse:
+    """An app page, served with the same revalidate-don't-trust rule as /static —
+    otherwise a cached shell can outlive the JS it is supposed to load."""
+    return FileResponse(os.path.join(frontend_path, name),
+                        headers={"Cache-Control": "no-cache"})
 
 # ── Scheduler ────────────────────────────────────────────────────────────────
 scheduler = BackgroundScheduler()
@@ -406,37 +433,37 @@ def health():
 
 @app.get("/")
 def serve_landing():
-    return FileResponse(os.path.join(frontend_path, "landing.html"))
+    return _page("landing.html")
 
 
 @app.get("/tool")
 def serve_frontend():
-    return FileResponse(os.path.join(frontend_path, "index.html"))
+    return _page("index.html")
 
 
 @app.get("/setup")
 def serve_dashboard():
-    return FileResponse(os.path.join(frontend_path, "dashboard.html"))
+    return _page("dashboard.html")
 
 
 @app.get("/onboarding")
 def serve_onboarding():
-    return FileResponse(os.path.join(frontend_path, "onboarding.html"))
+    return _page("onboarding.html")
 
 
 @app.get("/login")
 def serve_auth():
-    return FileResponse(os.path.join(frontend_path, "auth.html"))
+    return _page("auth.html")
 
 
 @app.get("/terms")
 def serve_terms():
-    return FileResponse(os.path.join(frontend_path, "terms.html"))
+    return _page("terms.html")
 
 
 @app.get("/privacy")
 def serve_privacy():
-    return FileResponse(os.path.join(frontend_path, "privacy.html"))
+    return _page("privacy.html")
 
 
 # ── Waitlist ──────────────────────────────────────────────────────────────────

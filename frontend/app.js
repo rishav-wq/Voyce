@@ -45,9 +45,9 @@ async function loadProfilePicker() {
       ).join("");
       wrap.style.display = "flex";
     }
-    // Idea suggestions work with even a single profile
-    const ideasRow = document.getElementById("ideas-row");
-    if (ideasRow) ideasRow.style.display = "";
+    // Ideas need a profile to draw a niche from; the tool panel is always visible,
+    // so it is the run button that waits rather than the whole row.
+    _syncToolRuns();
     applyProfileScopedUI();
   } catch (_) {}
 }
@@ -97,23 +97,25 @@ async function suggestIdeasCreate() {
   const out = document.getElementById("ideas-out");
   const pid = getActiveProfileId() || (_profiles[0] && _profiles[0].id);
   if (!pid) { toast("Create a profile first, then I can suggest ideas.", "warn"); return; }
-  out.innerHTML = `<div style="font-size:13px;color:#8a8272;">Reading today's news and drafting ideas… (~10s, nothing gets posted)</div>`;
+  showTool("ideas");
+  out.innerHTML = `<div class="tool-empty">Reading today's news and drafting ideas… about 10 seconds, and nothing gets posted.</div>`;
   try {
     const res = await fetch(`/companies/${pid}/ideas`, { method: "POST", headers: { "x-token": getToken() } });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
     _createIdeas = data.ideas || [];
-    if (!_createIdeas.length) { out.innerHTML = `<div style="font-size:13px;color:#8a8272;">No ideas came back — try again in a moment.</div>`; return; }
+    if (!_createIdeas.length) { out.innerHTML = `<div class="tool-empty">No ideas came back — try again in a moment.</div>`; return; }
+    _markToolFilled("ideas", true);
     out.innerHTML = _createIdeas.map((it, i) => `
-      <div style="border:1.5px solid #d3d8e0;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">
-        <div style="font-size:14px;font-weight:600;color:#16181d;line-height:1.35;">${_escHtmlCreate(it.hook)}</div>
-        <div style="font-size:12px;color:#8a8272;margin-top:4px;">
-          <span style="color:#24365e;font-weight:600;">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
+      <div class="idea-card">
+        <div class="idea-hook">${_escHtmlCreate(it.hook)}</div>
+        <div class="idea-meta">
+          <span class="idea-type">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
         </div>
-        <button type="button" class="img-src-btn" style="margin-top:10px;" onclick="useIdea(${i})">Use this idea →</button>
+        <button type="button" class="idea-use" onclick="useIdea(${i})">Use this idea →</button>
       </div>`).join("");
   } catch (e) {
-    out.innerHTML = `<div style="font-size:13px;color:#c0392b;">${_escHtmlCreate(e.message)}</div>`;
+    out.innerHTML = `<div style="font-size:12.5px;color:#c0392b;line-height:1.5;">${_escHtmlCreate(e.message)}</div>`;
   }
 }
 
@@ -181,6 +183,7 @@ async function startApp() {
   updateProgress();
   applySeedTopic();
   restoreDraft();   // bring back the last generated post after a refresh
+  _syncToolRuns();  // after restoreDraft, so a recovered post unlocks the tools
 }
 
 // First-run handoff from onboarding: pre-fill the generator with the user's topic
@@ -478,9 +481,10 @@ function renderOutputs(data) {
   saveDraft();
   _pushHistory(data.linkedin_post || "");
   // Fresh post → the old rewrites and hashtag suggestions belong to the old text
-  document.getElementById("variants-row").style.display = "none";
+  hideVariants();
   window._tagPool = null;
   hideHashtags();
+  _syncToolRuns();
   updateProgress();
 }
 
@@ -507,6 +511,7 @@ function _makeEditable() {
 async function generateVariations() {
   const post = (document.getElementById("linkedin-content").textContent || "").trim();
   if (!post) { toast("Generate a post first, then I can rewrite it.", "warn"); return; }
+  showTool("rewrites");
   await _refreshToken();
   const row = document.getElementById("variants-row");
   row.style.display = "";
@@ -531,11 +536,9 @@ async function generateVariations() {
 function _renderVariants(active) {
   const list = window._variants || [];
   const row = document.getElementById("variants-row");
+  _markToolFilled("rewrites", list.length > 1);
   row.innerHTML = `
-    <div class="cap-head">
-      <span>Rewrites — same facts and voice, different hook. Picking one replaces the post below.</span>
-      <button type="button" class="cap-x" onclick="hideVariants()" aria-label="Close rewrites">✕</button>
-    </div>
+    <div class="cap-head"><span>Tap one to load it into the post.</span></div>
     <div class="cap-list">` +
     list.map((v, i) => `
       <div class="cap-opt${i === active ? " on" : ""}" onclick="pickVariant(${i})" role="button" tabindex="0"
@@ -552,6 +555,47 @@ function _renderVariants(active) {
 function hideVariants() {
   const row = document.getElementById("variants-row");
   if (row) { row.style.display = "none"; row.innerHTML = ""; }
+  window._variants = null;
+  _markToolFilled("rewrites", false);
+}
+
+// ── The tool panel ────────────────────────────────────────────────────────────
+// Four tabs sharing one panel beside the work column. Each tool used to inject
+// itself between the preview card's header and the post, which squeezed it into
+// a gap and interrupted the thing that is meant to look like a LinkedIn post.
+function showTool(name) {
+  document.querySelectorAll(".tool-tab").forEach(t =>
+    t.classList.toggle("active", t.dataset.tool === name));
+  document.querySelectorAll(".tool-pane").forEach(p =>
+    p.classList.toggle("active", p.id === `tool-${name}`));
+  if (name === "history") _renderHistory();
+  _syncToolRuns();
+  // Only matters on narrow screens, where the panel sits below the work column.
+  if (window.innerWidth < 1200) {
+    const t = document.getElementById("work-tools");
+    if (t) t.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+// A green dot on a tab means that tool has something in it right now.
+function _markToolFilled(name, filled) {
+  const tab = document.querySelector(`.tool-tab[data-tool="${name}"]`);
+  if (tab) tab.classList.toggle("filled", !!filled);
+}
+
+// Rewrites and hashtags both need a post to work on. Rather than letting them
+// fail with a toast, the buttons say so.
+function _syncToolRuns() {
+  const el = document.getElementById("linkedin-content");
+  const hasPost = !!(el && (el.textContent || "").trim());
+  [["rewrites-run", "⟳ Rewrite this post"], ["hashtags-run", "# Suggest hashtags"]].forEach(([id, label]) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.disabled = !hasPost;
+    b.textContent = hasPost ? label : "Generate a post first";
+  });
+  const ideas = document.getElementById("ideas-run");
+  if (ideas) ideas.disabled = !(_profiles && _profiles.length);
 }
 
 // ── Hashtags ──────────────────────────────────────────────────────────────────
@@ -591,10 +635,10 @@ async function suggestHashtags() {
   const el = document.getElementById("linkedin-content");
   const post = (el ? el.textContent || "" : "").trim();
   if (!post) { toast("Generate a post first, then I can suggest hashtags.", "warn"); return; }
+  showTool("hashtags");
   const row = document.getElementById("hashtags-row");
-  // Already fetched once: just reopen, no second round trip.
-  if (window._tagPool && row.style.display === "none") { _renderHashtags(); return; }
-  if (row.style.display !== "none" && window._tagPool) { hideHashtags(); return; }
+  // Already fetched once: re-render from the pool, no second round trip.
+  if (window._tagPool && window._tagPool.length) { _renderHashtags(); return; }
   await _refreshToken();
   row.style.display = "";
   row.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:6px 2px;">Picking hashtags that fit this post…</div>`;
@@ -623,11 +667,11 @@ function _renderHashtags() {
   const pool = (window._tagPool || []).slice();
   active.forEach(t => { if (!pool.includes(t)) pool.push(t); });
   const len = text.length;
+  _markToolFilled("hashtags", active.length > 0);
   row.innerHTML = `
     <div class="cap-head">
-      <span>Hashtags — tap to add or remove. They go on the post's last line.</span>
+      <span>Tap to add or remove. They go on the post's last line.</span>
       <button type="button" class="cap-x" onclick="refreshHashtags()" aria-label="Suggest again" title="Suggest again">↻</button>
-      <button type="button" class="cap-x" onclick="hideHashtags()" aria-label="Close hashtags">✕</button>
     </div>
     <div class="tag-chips">` +
     pool.map(t => `<button type="button" class="tag-chip${active.includes(t) ? " on" : ""}"
@@ -665,13 +709,13 @@ function addCustomHashtag() {
 
 function refreshHashtags() {
   window._tagPool = null;
-  document.getElementById("hashtags-row").style.display = "none";
   suggestHashtags();
 }
 
 function hideHashtags() {
   const row = document.getElementById("hashtags-row");
   if (row) { row.style.display = "none"; row.innerHTML = ""; }
+  _markToolFilled("hashtags", false);
 }
 
 function pickVariant(i) {
@@ -701,22 +745,24 @@ function _pushHistory(text) {
   h = h.slice(0, 25);
   try { localStorage.setItem(_HIST_KEY, JSON.stringify(h)); } catch (_) {}
 }
-function toggleHistory() {
-  const p = document.getElementById("history-panel");
-  if (!p.style.display || p.style.display === "none") { _renderHistory(); p.style.display = ""; }
-  else p.style.display = "none";
-}
+function toggleHistory() { showTool("history"); }
+
 function _renderHistory() {
   let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
   const p = document.getElementById("history-panel");
-  if (!h.length) { p.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;padding:8px 2px;">No history yet — posts you generate will show up here.</div>`; return; }
-  p.innerHTML = `<div style="font-size:12px;font-weight:700;color:#5b6270;margin:2px 2px 8px;">🕘 Recent generations <span style="font-weight:400;color:#98a0ae;">(this browser)</span></div>` +
-    h.map((it, i) => `<div style="border:1px solid #e6ded0;border-radius:8px;padding:9px 11px;margin-bottom:6px;">
-      <div style="font-size:12.5px;color:#333;line-height:1.45;max-height:44px;overflow:hidden;">${_escHtmlCreate(it.text).slice(0, 180)}${it.text.length > 180 ? "…" : ""}</div>
-      <div style="margin-top:7px;display:flex;gap:10px;align-items:center;">
-        <span style="font-size:11px;color:#98a0ae;">${new Date(it.ts).toLocaleString()}</span>
-        <button class="action-btn" onclick="loadFromHistory(${i})">Load &amp; edit</button>
-      </div></div>`).join("");
+  if (!p) return;
+  if (!h.length) { p.innerHTML = `<div class="tool-empty">Nothing yet. Posts you generate show up here so you can come back to one.</div>`; return; }
+  // Slice the raw text, then escape it — escaping first can cut through an
+  // entity and leave a stray "&#3" on screen.
+  p.innerHTML = h.map((it, i) => {
+    const snip = it.text.slice(0, 180);
+    return `<div class="hist-item">
+      <div class="hist-text">${_escHtmlCreate(snip)}${it.text.length > 180 ? "…" : ""}</div>
+      <div class="hist-foot">
+        <span>${new Date(it.ts).toLocaleString()}</span>
+        <button type="button" class="action-btn" onclick="loadFromHistory(${i})">Load &amp; edit</button>
+      </div></div>`;
+  }).join("");
 }
 function loadFromHistory(i) {
   let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
@@ -724,7 +770,7 @@ function loadFromHistory(i) {
   const el = document.getElementById("linkedin-content");
   el.textContent = it.text; _makeEditable(); _applyFold(); saveDraft();
   document.getElementById("output-section").classList.add("visible");
-  document.getElementById("history-panel").style.display = "none";
+  _syncToolRuns();
   el.scrollIntoView({ behavior: "smooth", block: "center" });
   toast("Loaded — edit it and post.", "success");
 }
@@ -1112,15 +1158,20 @@ async function attachHandleUpload(event) {
 }
 
 // ── Copy ──────────────────────────────────────────────────────────────────────
-function copyContent(id) {
+function copyContent(id, btn) {
   const el = document.getElementById(id);
   // textContent, not innerText: the clamped preview visually hides lines, but the
   // clipboard must always get the full post.
   navigator.clipboard.writeText(el.textContent).then(() => {
-    const btn = el.closest(".output-card").querySelector(".action-btn");
-    btn.textContent = "Copied!";
-    btn.classList.add("copied");
-    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+    // The button has to be passed in. This used to grab the card's first
+    // .action-btn, which stopped being the Copy button the moment anything was
+    // added ahead of it — so Copy was relabelling Rewrites as "Copied!".
+    const target = btn || el.closest(".output-card").querySelector(".action-btn");
+    if (!target) return;
+    const label = target.textContent;
+    target.textContent = "Copied!";
+    target.classList.add("copied");
+    setTimeout(() => { target.textContent = label; target.classList.remove("copied"); }, 2000);
   });
 }
 
