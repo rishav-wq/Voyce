@@ -361,9 +361,8 @@
     .log-table { width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(22,24,29,0.05); }
     .log-table th { background: #f5f7fb; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
     .log-table td { padding: 11px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; color: #333; }
-    .log-table .status-posted  { color: #057642; font-weight: 600; }
-    .log-table .status-failed  { color: #c0392b; font-weight: 600; }
-    .log-table .post-preview   { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555; font-size: 12px; }
+    /* Status is a pill now (see .lg-pill), so the old bare-colour classes are gone. */
+    .log-table .lg-text { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
 
     /* ── Toast ── */
     #toast {
@@ -490,7 +489,7 @@
       padding: 10px 12px; border: 1px solid #e7ebf4;
       vertical-align: top; min-width: 80px;
     }
-    .cal-table td.today-col { background: #faf9ff; border-color: #d4caff; }
+    .cal-table td.today-col { background: #f4f6fb; border-color: #c9d4ea; }
     .cal-profile-name { font-size: 11px; font-weight: 700; color: #888; padding: 8px 12px 4px; }
     .cal-cell-type { font-size: 12px; color: #444; font-weight: 500; line-height: 1.3; }
     .cal-plan { margin-top: 6px; width: 100%; font-size: 10.5px; padding: 3px 4px; border: 1px solid #d3d8e0;
@@ -540,7 +539,7 @@
       .analytics-grid { grid-template-columns: 1fr; }
       #log-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .log-table { min-width: 560px; }
-      .log-table .post-preview { max-width: 160px; }
+      .log-table .lg-text { max-width: 160px; }
 
       #toast { left: 14px; right: 14px; bottom: 16px; max-width: none; }
       #upgrade-modal > div { padding: 26px 20px !important; max-height: 92vh; overflow-y: auto; }
@@ -663,7 +662,7 @@
         <p id="today-sub">Everything waiting on you, and what goes out next.</p>
       </div>
       <!-- pending queue + calendar get moved in here -->
-      <div class="sec-head" id="glance-head" style="display:none;"><h2>Last 7 days</h2>
+      <div class="sec-head" id="glance-head" style="display:none;"><h2>Where things stand</h2>
         <a class="nav-link" onclick="showView('analytics', document.getElementById('nav-analytics'))">See analytics</a>
       </div>
       <div class="glance-grid" id="glance-grid" style="display:none;"></div>
@@ -720,7 +719,7 @@
       <div id="calendar-grid" style="overflow-x:auto;"></div>
     </div>
 
-    <!-- Analytics chart -->
+    <!-- Analytics -->
     <div class="activity-section" id="analytics-section" style="display:none;">
       <div class="section-head">
         <h2>Post Analytics</h2>
@@ -731,24 +730,44 @@
         <p>Likes, comments and reposts appear here after you publish to LinkedIn.<br>Connect LinkedIn and post from Create to start tracking engagement.</p>
         <a class="nav-link" href="/tool" style="font-weight:600;">Go to Create →</a>
       </div>
-      <div class="analytics-grid" id="analytics-grid">
-        <div style="background:#faf9ff;border-radius:12px;padding:16px;">
-          <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;">Engagement by Post (Bar)</div>
-          <div style="position:relative;height:180px;">
-            <canvas id="analytics-chart"></canvas>
-          </div>
+
+      <!-- The numbers first. Two charts and no totals meant the question you
+           actually arrive with — is this working? — had no answer on the page. -->
+      <div class="an-summary" id="an-summary"></div>
+
+      <!-- Engagement has to be fetched from LinkedIn, so it is genuinely unknown
+           until you refresh. This says so rather than drawing a bar of height 1
+           per post, which read as real engagement of exactly one. -->
+      <div class="an-nodata" id="an-nodata" style="display:none;">
+        <div>
+          <strong>No engagement figures yet.</strong>
+          Voyce knows what it published and when, but likes, comments and reposts live on LinkedIn.
         </div>
-        <div style="background:#faf9ff;border-radius:12px;padding:16px;">
-          <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;" id="analytics-line-title">Engagement Trend</div>
-          <div style="position:relative;height:180px;">
-            <canvas id="analytics-chart-line"></canvas>
-          </div>
+        <button class="act-btn" onclick="refreshAnalytics()">↻ Refresh from LinkedIn</button>
+      </div>
+
+      <div class="an-chart-card" id="analytics-grid">
+        <div class="an-chart-head">
+          <span id="analytics-chart-title">Engagement per post</span>
+          <span class="an-key">
+            <span><i style="background:#24365e;"></i>Carousel</span>
+            <span><i style="background:#7c90b8;"></i>Text post</span>
+            <span class="an-hint" id="analytics-hint"></span>
+          </span>
+        </div>
+        <div style="position:relative;height:230px;">
+          <canvas id="analytics-chart"></canvas>
         </div>
       </div>
-      <div id="analytics-legend" style="display:flex;gap:20px;font-size:12px;color:#888;flex-wrap:wrap;">
-        <span><span style="display:inline-block;width:10px;height:10px;background:#24365e;border-radius:2px;margin-right:4px;"></span>Carousel</span>
-        <span><span style="display:inline-block;width:10px;height:10px;background:#06b6d4;border-radius:2px;margin-right:4px;"></span>Text post</span>
-        <span style="margin-left:auto;color:#bbb;" id="analytics-hint"></span>
+
+      <div class="an-chart-card" id="analytics-trend-card">
+        <div class="an-chart-head">
+          <span id="analytics-line-title">Posting cadence</span>
+          <span class="an-key"><span class="an-hint">posts per day, last 30 days</span></span>
+        </div>
+        <div style="position:relative;height:170px;">
+          <canvas id="analytics-chart-line"></canvas>
+        </div>
       </div>
     </div>
 
@@ -1022,16 +1041,24 @@
         return t && t >= weekAgo;
       });
       if (!recent.length) { head.style.display = "none"; grid.style.display = "none"; return; }
-      const posted = recent.filter((e) => e.status === "posted").length;
-      const waiting = recent.filter((e) => e.status === "pending_approval").length;
-      const impressions = recent.reduce((s, e) => s + (Number(e.impressions) || 0), 0);
-      const engagement = recent.reduce(
-        (s, e) => s + (Number(e.likes) || 0) + (Number(e.comments) || 0) + (Number(e.reposts) || 0), 0);
+      // These used to be Posts / Impressions / Engagement / Profiles — the same
+      // four numbers Analytics now shows properly. Today's job is different:
+      // what happened today, what needs you, and what is coming.
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const postedToday = recent.filter(e => (e.timestamp || "").slice(0, 10) === todayStr
+                                          && e.status === "posted").length;
+      const waiting = recent.filter(e => e.status === "pending_approval").length;
+      const active = (currentProfiles || []).filter(p => p.active);
+      const next = [...active].sort((a, b) => (a.post_time || "").localeCompare(b.post_time || ""))[0];
+      const postedWeek = recent.filter(e => e.status === "posted").length;
+      const profileCount = new Set(recent.map(e => e.company_name)).size;
+
       const tiles = [
-        ["Posts", recent.length, `${posted} posted${waiting ? `, ${waiting} waiting` : ""}`],
-        ["Impressions", impressions ? impressions.toLocaleString() : "—", impressions ? "across these posts" : "refresh analytics to fill"],
-        ["Engagement", engagement || "—", "likes, comments, reposts"],
-        ["Profiles posting", new Set(recent.map((e) => e.company_name)).size, "in the last 7 days"],
+        ["Posted today", postedToday, postedToday ? "already live on LinkedIn" : (active.length ? "nothing yet today" : "no profile is auto-posting")],
+        ["Needs you", waiting || "—", waiting ? "waiting for your approval" : "nothing waiting"],
+        ["Next post", next ? next.post_time : "—",
+         next ? `as ${next.name}${next.next_post_type ? ` · ${next.next_post_type}` : ""}` : "automation is off"],
+        ["This week", postedWeek, `across ${profileCount} profile${profileCount === 1 ? "" : "s"}`],
       ];
       grid.innerHTML = tiles.map(([k, v, d]) => `
         <div class="glance-tile">
@@ -1232,7 +1259,7 @@
             <span style="color:#98a0ae;">Posts about:</span> ${p.industry}
           </div>
 
-          <div style="border:1px solid #efe9e0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+          <div style="border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
             <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.active}" style="margin-bottom:${p.active ? "10px" : "0"};"
                    aria-label="Daily auto-posting for ${p.name}"
                    onclick="toggleProfile('${p.id}', ${!p.active})"
@@ -1244,6 +1271,12 @@
               <div style="font-size:11.5px;color:#98a0ae;margin:0 0 10px 46px;line-height:1.45;">
                 Next up: <strong style="color:#5b6270;">${p.next_post_type || "—"}</strong>${p.next_post_type_desc ? ` — ${p.next_post_type_desc}` : ""}
               </div>
+              <!-- The card carried eleven controls at equal weight. What you touch
+                   daily is the switch above; the rest is setup, so it sits behind
+                   one disclosure. The selects stay in the DOM either way, which is
+                   all runNow and previewPost need to read them. -->
+              <details class="auto-more">
+                <summary>Automation settings</summary>
               <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.carousel_enabled}" style="margin-bottom:6px;"
                      aria-label="Carousel posts for ${p.name}"
                      onclick="toggleCarousel('${p.id}', this)"
@@ -1263,7 +1296,8 @@
                 <div class="carousel-toggle-switch ${p.approval_mode ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
                 <span class="carousel-toggle-label" style="font-weight:400;">Ask me before it posts <span style="color:#a7aebb;">(writes on schedule, waits for your OK)</span></span>
               </label>
-              <div style="margin:8px 0 0 46px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div class="auto-more-row">
+                <span>Post now / preview uses:</span>
                 ${(p.products || []).length ? `<select id="runprod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Product: auto rotation</option>
                   ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Product: ${pr.name}</option>`).join("")}
@@ -1282,8 +1316,8 @@
                   <option value="open_question">Open Question</option>
                   <option value="expert_insight_p">Expert Insight</option>
                 </select>
-                <button class="act-btn" onclick="runNow('${p.id}')">▶ Post now</button>
               </div>
+              </details>
             ` : `
               <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#a7aebb;">(Pro)</span></div>
             `}
@@ -1305,24 +1339,17 @@
             <a href="#" onclick="editProfile('${p.id}');return false;" style="color:#24365e;font-size:11.5px;">edit</a>
           </div>` : ""}
 
-          <div style="border:1px solid #efe9e0;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              ${(p.products || []).filter(pr => pr.enabled !== false).length ? `<select id="prev-prod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
-                <option value="">Preview: whole profile</option>
-                ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Preview: ${pr.name}</option>`).join("")}
-              </select>` : ""}
-              <button class="act-btn" onclick="suggestIdeas('${p.id}')">💡 Ideas for next posts</button>
-              <button class="act-btn" onclick="previewPost('${p.id}')">👁 Preview a post</button>
-              <span style="font-size:11.5px;color:#98a0ae;">plan or preview — nothing gets posted</span>
-            </div>
-            <div id="ideas-out-${p.id}" style="margin-top:0;"></div>
-            <div id="prev-out-${p.id}" style="margin-top:0;"></div>
-          </div>
-
+          <!-- One row, in order of how often it gets used. Ideas and Preview open a
+               modal now: they used to render into a div inside this card, which any
+               re-render of the grid destroyed mid-generation. -->
           <div class="profile-actions">
-            <button class="act-btn" onclick="editProfile('${p.id}')">Edit</button>
-            <button class="act-btn" onclick="toggleLiPanel('${p.id}')">↻ Update voice</button>
-            <button class="act-btn danger" onclick="deleteProfile('${p.id}')">Delete</button>
+            ${p.active ? `<button class="act-btn primary" onclick="runNow('${p.id}')">▶ Post now</button>` : ""}
+            <button class="act-btn" onclick="previewPost('${p.id}')">👁 Preview</button>
+            <button class="act-btn" onclick="suggestIdeas('${p.id}')">💡 Ideas</button>
+            <span class="pa-gap"></span>
+            <button class="act-btn quiet" onclick="editProfile('${p.id}')">Edit</button>
+            <button class="act-btn quiet" onclick="toggleLiPanel('${p.id}')">↻ Voice</button>
+            <button class="act-btn quiet danger" onclick="deleteProfile('${p.id}')" title="Delete this profile">Delete</button>
           </div>
 
           <div class="card-li-panel" id="li-panel-${p.id}">
@@ -1372,12 +1399,16 @@
     // ── Content ideas menu (pillar-spanning, grounded in live news) ───────────
     window._ideas = window._ideas || {};
     async function suggestIdeas(id) {
-      const out = document.getElementById(`ideas-out-${id}`);
+      // Same modal the preview uses. This used to render into a div inside the
+      // profile card, so any re-render of the grid wiped it after the wait.
+      const modal = _previewModal();
+      const out = document.getElementById("preview-modal-body");
       if (!out) return;
-      document.getElementById(`prev-out-${id}`).innerHTML = "";  // clear any prior preview
-      const psel = document.getElementById(`prev-prod-${id}`);
+      modal.style.display = "flex";
+      const psel = document.getElementById(`runprod-${id}`);
       const pid = psel ? psel.value : "";
-      out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#98a0ae;">Reading today's news and drafting ideas… (~10s, nothing is posted)</div>`;
+      out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Reading today's news and drafting ideas…</div>
+        <div style="font-size:12.5px;color:#98a0ae;">About 10 seconds. Nothing gets posted.</div>`;
       try {
         const res = await fetch(`/companies/${id}/ideas${pid ? `?product_id=${encodeURIComponent(pid)}` : ""}`,
           { method: "POST", headers: { "x-token": getToken() } });
@@ -1385,17 +1416,18 @@
         if (!res.ok) throw new Error(data.detail || "Couldn't generate ideas.");
         const ideas = data.ideas || [];
         window._ideas[id] = ideas;
-        if (!ideas.length) { out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#98a0ae;">No ideas came back — try again.</div>`; return; }
-        out.innerHTML = `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">` + ideas.map((it, i) => `
-          <div style="border:1px solid #efe9e0;border-radius:9px;padding:10px 12px;">
-            <div style="font-size:13.5px;font-weight:600;color:#2f2b25;">${_escHtml(it.hook)}</div>
-            <div style="font-size:11.5px;color:#8a8272;margin-top:3px;">
+        if (!ideas.length) { out.innerHTML = `<div style="font-size:12.5px;color:#98a0ae;">No ideas came back — try again.</div>`; return; }
+        out.innerHTML = `<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#98a0ae;margin-bottom:12px;">Ideas for next posts</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">` + ideas.map((it, i) => `
+          <div style="border:1px solid #e4e7ec;border-radius:10px;padding:11px 13px;">
+            <div style="font-size:13.5px;font-weight:600;color:#16181d;line-height:1.4;">${_escHtml(it.hook)}</div>
+            <div style="font-size:11.5px;color:#98a0ae;margin-top:4px;line-height:1.5;">
               <span style="color:#24365e;font-weight:600;">${_escHtml(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtml(it.why) : ""}${it.source ? ` · <span title="grounded in this source">📰 ${_escHtml(it.source)}</span>` : " · evergreen"}
             </div>
             <div style="margin-top:8px;"><button class="act-btn" onclick="previewIdea('${id}', ${i})">Preview this →</button></div>
           </div>`).join("") + `</div>`;
       } catch (e) {
-        out.innerHTML = `<div style="margin-top:12px;font-size:12.5px;color:#c0392b;">${_escHtml(e.message)}</div>`;
+        out.innerHTML = `<div style="font-size:12.5px;color:#c0392b;">${_escHtml(e.message)}</div>`;
       }
     }
 
@@ -1436,7 +1468,7 @@
       const modal = _previewModal();
       const out = document.getElementById("preview-modal-body");
       modal.style.display = "flex";
-      const psel = document.getElementById(`prev-prod-${id}`);
+      const psel = document.getElementById(`runprod-${id}`);
       const pid = psel ? psel.value : "";
       out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Generating${seed ? " that idea" : " a preview"} from today's news…</div>
         <div style="font-size:12.5px;color:#98a0ae;">This runs the real pipeline, so it takes up to a minute. Nothing gets posted.</div>`;
@@ -2053,12 +2085,20 @@
 
       const hasAny = posts.some(p => p.engagement);
       const hint = document.getElementById("analytics-hint");
-      if (hint) hint.textContent = hasAny ? "Likes · Comments · Reposts" : "Click 'Refresh from LinkedIn' to load engagement data";
+      if (hint) hint.textContent = hasAny ? "likes + comments + reposts" : "";
+      renderAnalyticsSummary(posts, hasAny);
+      const nodata = document.getElementById("an-nodata");
+      if (nodata) nodata.style.display = hasAny ? "none" : "flex";
+      // Nothing to plot per post until engagement exists; the cadence chart below
+      // works off timestamps, which Voyce always has.
+      document.getElementById("analytics-grid").style.display = hasAny ? "" : "none";
 
       const likes    = posts.map(p => p.engagement?.likes    ?? 0);
       const comments = posts.map(p => p.engagement?.comments ?? 0);
       const reposts  = posts.map(p => p.engagement?.reposts  ?? 0);
-      const colors   = posts.map(p => p.post_format === "carousel" ? "#24365e" : "#06b6d4");
+      // #7c90b8 is the navy at half strength. The old #06b6d4 cyan belonged to
+      // no palette on the page.
+      const colors   = posts.map(p => p.post_format === "carousel" ? "#24365e" : "#7c90b8");
 
       const sharedTooltip = {
         callbacks: {
@@ -2072,18 +2112,15 @@
         },
       };
 
-      // Bar chart — show engagement if available, else 1 per post (coloured by type)
+      // Only drawn when there is engagement to draw. The old fallback plotted a
+      // bar of height 1 per post, which is indistinguishable from one like.
       if (_analyticsChart) _analyticsChart.destroy();
-      const barDatasets = hasAny
-        ? [
-            { label: "Likes",    data: likes,    backgroundColor: colors,                    borderRadius: 4 },
-            { label: "Comments", data: comments, backgroundColor: colors.map(c => c + "99"), borderRadius: 4 },
-            { label: "Reposts",  data: reposts,  backgroundColor: colors.map(c => c + "55"), borderRadius: 4 },
-          ]
-        : [
-            { label: "Post", data: posts.map(() => 1), backgroundColor: colors, borderRadius: 4 },
-          ];
-      _analyticsChart = new Chart(document.getElementById("analytics-chart").getContext("2d"), {
+      const barDatasets = [
+        { label: "Likes",    data: likes,    backgroundColor: colors,                    borderRadius: 4 },
+        { label: "Comments", data: comments, backgroundColor: colors.map(c => c + "99"), borderRadius: 4 },
+        { label: "Reposts",  data: reposts,  backgroundColor: colors.map(c => c + "55"), borderRadius: 4 },
+      ];
+      if (hasAny) _analyticsChart = new Chart(document.getElementById("analytics-chart").getContext("2d"), {
         type: "bar",
         data: { labels, datasets: barDatasets },
         options: {
@@ -2096,51 +2133,84 @@
         },
       });
 
-      // Line chart — bezier curves; engagement if available, else posts-per-day
+      // Cadence, not "engagement trend". Engagement over post index was noise at
+      // this volume, and it duplicated the bar chart above. Consistency of
+      // posting is the thing this product is actually selling, so plot that —
+      // and plot every day in the window, including the zeros, since a gap is
+      // the whole point of looking.
       if (_analyticsLineChart) _analyticsLineChart.destroy();
       const lineCanvas = document.getElementById("analytics-chart-line");
-      const lineTitle  = document.getElementById("analytics-line-title");
 
-      let lineDatasets, lineLabels;
-      if (hasAny) {
-        lineTitle.textContent = "Engagement Trend";
-        lineLabels = labels;
-        lineDatasets = [
-          { label: "Likes",    data: likes,    borderColor: "#24365e", backgroundColor: "#24365e18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#24365e", borderWidth: 2 },
-          { label: "Comments", data: comments, borderColor: "#06b6d4", backgroundColor: "#06b6d418", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#06b6d4", borderWidth: 2 },
-          { label: "Reposts",  data: reposts,  borderColor: "#f59e0b", backgroundColor: "#f59e0b18", fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#f59e0b", borderWidth: 2 },
-        ];
-      } else {
-        // Group posts by date to show posting frequency curve
-        lineTitle.textContent = "Posts Over Time";
-        const dateCounts = {};
-        posts.forEach(p => {
-          const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
-          const key = `${d.getMonth()+1}/${d.getDate()}`;
-          dateCounts[key] = (dateCounts[key] || 0) + 1;
-        });
-        lineLabels = Object.keys(dateCounts);
-        const counts = Object.values(dateCounts);
-        lineDatasets = [
-          { label: "Posts", data: counts, borderColor: "#24365e", backgroundColor: "#24365e18", fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: "#24365e", borderWidth: 2.5 },
-        ];
+      const DAYS = 30;
+      const perDay = new Map();
+      posts.forEach(p => {
+        const d = new Date(p.timestamp.endsWith("Z") ? p.timestamp : p.timestamp + "Z");
+        const key = d.toISOString().slice(0, 10);
+        perDay.set(key, (perDay.get(key) || 0) + 1);
+      });
+      const lineLabels = [], counts = [];
+      for (let i = DAYS - 1; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 864e5);
+        const key = d.toISOString().slice(0, 10);
+        lineLabels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+        counts.push(perDay.get(key) || 0);
       }
 
       _analyticsLineChart = new Chart(lineCanvas.getContext("2d"), {
         type: "line",
-        data: { labels: lineLabels, datasets: lineDatasets },
+        data: { labels: lineLabels, datasets: [{
+          label: "Posts", data: counts,
+          borderColor: "#24365e", backgroundColor: "#24365e14", fill: true,
+          tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2,
+        }] },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10, padding: 10 } },
-            tooltip: hasAny ? sharedTooltip : {},
+            legend: { display: false },
+            tooltip: { callbacks: { label: (i) => `${i.parsed.y} post${i.parsed.y === 1 ? "" : "s"}` } },
           },
           scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#888" } },
-            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: "#888" }, grid: { color: "#e7ebf4" } },
+            // 30 labels will not fit; show roughly one per five days.
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#98a0ae", maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } },
+            y: { beginAtZero: true, ticks: { precision: 0, stepSize: 1, font: { size: 10 }, color: "#98a0ae" }, grid: { color: "#eef1f6" } },
           },
         },
       });
+    }
+
+    // The four numbers you arrive wanting. Anything LinkedIn has not given us
+    // reads as an em dash rather than a zero — "0 engagement" and "we have not
+    // fetched engagement yet" are very different claims.
+    function renderAnalyticsSummary(posts, hasAny) {
+      const box = document.getElementById("an-summary");
+      if (!box) return;
+      const eng = p => p.engagement
+        ? (p.engagement.likes || 0) + (p.engagement.comments || 0) + (p.engagement.reposts || 0)
+        : null;
+      const scored = posts.map(p => ({ p, e: eng(p) })).filter(x => x.e !== null);
+      const total = scored.reduce((s, x) => s + x.e, 0);
+      const best = scored.slice().sort((a, b) => b.e - a.e)[0];
+      const carousels = posts.filter(p => p.post_format === "carousel").length;
+
+      const days = new Set(posts.map(p => (p.timestamp || "").slice(0, 10))).size;
+      const avg = scored.length ? Math.round((total / scored.length) * 10) / 10 : null;
+
+      const tiles = [
+        ["Published", posts.length,
+         `${carousels} carousel${carousels === 1 ? "" : "s"} · ${posts.length - carousels} text`],
+        ["Engagement", hasAny ? total.toLocaleString() : "—",
+         hasAny ? "likes, comments and reposts" : "not fetched from LinkedIn yet"],
+        ["Avg per post", avg === null ? "—" : avg,
+         scored.length ? `across ${scored.length} measured post${scored.length === 1 ? "" : "s"}` : "refresh to measure"],
+        ["Best post", best ? best.e : "—",
+         best ? `${best.p.post_type || "post"} · ${new Date(best.p.timestamp).toLocaleDateString()}` : `posted on ${days} day${days === 1 ? "" : "s"}`],
+      ];
+      box.innerHTML = tiles.map(([k, v, d]) => `
+        <div class="an-tile">
+          <div class="k">${k}</div>
+          <div class="v${v === "—" ? " dim" : ""}">${v}</div>
+          <div class="d">${d}</div>
+        </div>`).join("");
     }
 
     // ── Activity log ──────────────────────────────────────────────────────────
@@ -2149,17 +2219,71 @@
       if (!res.ok) return;
       const log = await res.json();
       renderGlance(log);
+      _logRows = log;
+      renderLog();
+    }
+
+    let _logRows = [];
+    let _logShowAll = false;
+    const LOG_PAGE = 12;
+
+    // The raw database status leaked to the screen — "dry_run_fired" is not a word.
+    const _STATUS_LABEL = {
+      posted:           ["Posted", "ok"],
+      pending_approval: ["Waiting for approval", "warn"],
+      dry_run_fired:    ["Test run", "muted"],
+      skipped:          ["Skipped", "muted"],
+      error:            ["Failed", "bad"],
+      failed:           ["Failed", "bad"],
+    };
+
+    // A share URN is enough to reach the post itself, which is the one thing you
+    // actually want from a history row and the one thing it never offered.
+    function _liPostUrl(urn) {
+      if (!urn || !/^urn:li:(share|ugcPost|activity):/.test(urn)) return "";
+      return `https://www.linkedin.com/feed/update/${encodeURIComponent(urn)}/`;
+    }
+
+    function toggleLogAll() { _logShowAll = !_logShowAll; renderLog(); }
+
+    function renderLog() {
       const container = document.getElementById("log-container");
-      if (!log.length) { container.innerHTML = `<p style="color:#aaa;font-size:13px;padding:16px 0;">No posts yet.</p>`; return; }
-      const rows = log.slice(0,10).map(entry => `
-        <tr>
-          <td>${new Date(entry.timestamp.endsWith('Z') ? entry.timestamp : entry.timestamp + 'Z').toLocaleString()}</td>
-          <td>${entry.company_name}</td>
-          <td>${entry.post_type}</td>
-          <td class="status-${entry.status}">${entry.status}</td>
-          <td class="post-preview">${entry.post_text ? entry.post_text.slice(0,80)+"…" : (entry.error||"")}</td>
-        </tr>`).join("");
-      container.innerHTML = `<table class="log-table"><thead><tr><th>Time</th><th>Profile</th><th>Type</th><th>Status</th><th>Preview</th></tr></thead><tbody>${rows}</tbody></table>`;
+      if (!container) return;
+      const log = _logRows;
+      if (!log.length) {
+        container.innerHTML = `<div class="empty-state" style="padding:22px 0;"><p>No posts yet. Anything Voyce publishes or queues shows up here.</p></div>`;
+        return;
+      }
+      const shown = _logShowAll ? log : log.slice(0, LOG_PAGE);
+      const rows = shown.map(e => {
+        const when = new Date(e.timestamp.endsWith("Z") ? e.timestamp : e.timestamp + "Z");
+        const [label, kind] = _STATUS_LABEL[e.status] || [e.status, "muted"];
+        const eng = e.engagement
+          ? (e.engagement.likes || 0) + (e.engagement.comments || 0) + (e.engagement.reposts || 0)
+          : null;
+        const url = _liPostUrl(e.post_urn);
+        const text = (e.post_text || e.error || "").replace(/\s+/g, " ").trim();
+        // Only add the ellipsis when something was actually cut. The old row
+        // appended one unconditionally, so short posts looked truncated.
+        const snip = text.length > 90 ? _escHtml(text.slice(0, 90)) + "…" : _escHtml(text);
+        return `<tr>
+          <td class="lg-when"><span>${when.toLocaleDateString()}</span><span class="lg-time">${when.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span></td>
+          <td class="lg-who">${_escHtml(e.company_name || "")}</td>
+          <td class="lg-what">${_escHtml(e.post_type || "—")}${e.post_format === "carousel" ? ` <span class="lg-fmt">carousel</span>` : ""}</td>
+          <td><span class="lg-pill ${kind}">${label}</span></td>
+          <td class="lg-eng">${eng === null ? '<span class="lg-dash">—</span>' : eng}</td>
+          <td class="lg-text" title="${_escHtml(text).slice(0, 400)}">${snip}</td>
+          <td class="lg-link">${url ? `<a href="${url}" target="_blank" rel="noopener" title="Open on LinkedIn">↗</a>` : ""}</td>
+        </tr>`;
+      }).join("");
+      // No silent truncation: say what is hidden and offer it.
+      const more = log.length > LOG_PAGE
+        ? `<div class="lg-foot">Showing ${shown.length} of ${log.length}
+             <a href="#" onclick="toggleLogAll();return false;">${_logShowAll ? "show fewer" : `show all ${log.length}`}</a></div>`
+        : "";
+      container.innerHTML = `<div class="lg-scroll"><table class="log-table">
+        <thead><tr><th>When</th><th>Profile</th><th>What</th><th>Result</th><th title="Likes + comments + reposts">Eng.</th><th>Post</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>${more}`;
     }
 
     // ── Topic suggestions (based on designation + current trends) ────────────

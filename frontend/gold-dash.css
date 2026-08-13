@@ -105,14 +105,114 @@ body {
 .log-table tbody tr { transition: background 0.15s; }
 .log-table tbody tr:hover { background: #f7f9fb; }
 
-/* ── Analytics: charts live in real cards ─────────────────────────────────── */
-.analytics-grid { gap: 18px; }
-.analytics-grid > div {
-  background: var(--surface) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--r-card) !important;
-  box-shadow: var(--shadow-rest) !important;
-  padding: 18px 20px !important;
+/* ── Post history: a record you can scan ────────────────────────────────────
+   Was five columns of raw database values, hard-capped at ten rows with nothing
+   saying so, and no way to reach the post it was describing. */
+.lg-scroll { overflow-x: auto; }
+.log-table th { white-space: nowrap; }
+.lg-when { white-space: nowrap; }
+.lg-when span { display: block; }
+.lg-when .lg-time { font-size: 11.5px; color: #98a0ae; }
+.lg-who { font-weight: 600; white-space: nowrap; }
+.lg-what { white-space: nowrap; }
+.lg-fmt {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  background: #e7ebf4; color: #24365e; padding: 2px 6px; border-radius: 4px; margin-left: 5px;
+}
+.lg-pill {
+  display: inline-block; white-space: nowrap;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 3px 9px; border-radius: 20px;
+}
+.lg-pill.ok { background: #e4f6ec; color: #0b7a4b; }
+.lg-pill.warn { background: #fdf3e0; color: #8a6212; }
+.lg-pill.bad { background: #fdecea; color: #b3382a; }
+.lg-pill.muted { background: #f1f3f7; color: #7c8698; }
+.lg-eng { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.lg-dash { color: #c3c9d3; font-weight: 400; }
+.lg-text { color: #5b6270; max-width: 340px; }
+.lg-link a { color: #98a0ae; text-decoration: none; font-size: 15px; }
+.lg-link a:hover { color: #24365e; }
+.lg-foot {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #98a0ae; padding: 12px 4px 2px;
+}
+.lg-foot a { color: #24365e; font-weight: 600; }
+
+/* ── Profile card: a summary, not a settings page ───────────────────────────
+   Everything used to sit at one visual weight — a destructive Delete beside a
+   carousel theme dropdown beside the switch you actually touch. */
+.auto-more { margin-top: 4px; }
+.auto-more > summary {
+  cursor: pointer; list-style: none; font-size: 12px; font-weight: 600;
+  color: #7c8698; padding: 6px 0 6px 46px; user-select: none;
+}
+.auto-more > summary::-webkit-details-marker { display: none; }
+.auto-more > summary::before { content: "▸ "; color: #a7aebb; }
+.auto-more[open] > summary::before { content: "▾ "; }
+.auto-more > summary:hover { color: #24365e; }
+.auto-more[open] > summary { margin-bottom: 4px; }
+.auto-more-row {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  margin: 8px 0 2px 46px; font-size: 11.5px; color: #98a0ae;
+}
+
+.profile-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.profile-actions .pa-gap { flex: 1; min-width: 8px; }
+/* Setup and destructive actions recede; the daily ones do not. */
+.act-btn.quiet { color: #7c8698; border-color: #edf0f4; background: transparent; }
+.act-btn.quiet:hover { color: #16181d; border-color: #d3d8e0; background: #fff; }
+.act-btn.quiet.danger { color: #a7808a; }
+.act-btn.quiet.danger:hover { color: #c0392b; border-color: #e8c6c6; background: #fdf6f5; }
+.act-btn.primary { background: #24365e; color: #fff; border-color: #24365e; }
+.act-btn.primary:hover { background: #1c2b4d; border-color: #1c2b4d; color: #fff; }
+
+/* ── Analytics ─────────────────────────────────────────────────────────────
+   The two charts used to sit side by side on a #faf9ff violet tint, with no
+   totals anywhere. Numbers first, then one full-width chart each, so the
+   engagement bars have room for a readable axis. */
+.an-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;
+}
+.an-summary:empty { display: none; }
+.an-tile {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px 16px;
+}
+.an-tile .k {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: #98a0ae; margin-bottom: 7px;
+}
+.an-tile .v {
+  font-size: 25px; font-weight: 700; letter-spacing: -.03em; line-height: 1.05;
+  color: #16181d; font-variant-numeric: tabular-nums;
+}
+.an-tile .v.dim { color: #c3c9d3; }
+.an-tile .d { font-size: 11.5px; color: #98a0ae; margin-top: 5px; line-height: 1.4; }
+
+.an-nodata {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: #fbfaf5; border: 1px solid #eee3c8; border-radius: 12px;
+  padding: 13px 16px; margin-bottom: 16px; font-size: 13px; color: #6d6142; line-height: 1.5;
+}
+.an-nodata > div { flex: 1; min-width: 240px; }
+.an-nodata strong { color: #4a4130; }
+
+.an-chart-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-card); box-shadow: var(--shadow-rest);
+  padding: 16px 20px 18px; margin-bottom: 16px;
+}
+.an-chart-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  font-size: 13px; font-weight: 700; color: #16181d;
+}
+.an-key { display: flex; align-items: center; gap: 14px; margin-left: auto; font-size: 11.5px; color: #98a0ae; font-weight: 500; }
+.an-key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.an-hint { color: #b6bcc8; }
+
+@media (max-width: 900px) {
+  .an-summary { grid-template-columns: 1fr 1fr; }
 }
 
 /* ── Pills & chips: consistent, calmer ────────────────────────────────────── */
