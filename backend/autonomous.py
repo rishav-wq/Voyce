@@ -1056,10 +1056,7 @@ def _video_gen_prompt(subject: dict, post_text: str) -> str:
 
 
 def run_for_company(company: dict, allow_free_manual: bool = False,
-                    post_type_override: str = "", respect_approval: bool = True,
-                    product_id_override: str = "") -> dict:
-    from products import get_product, pick_product, product_view
-
+                    post_type_override: str = "", respect_approval: bool = True) -> dict:
     company_id = company["id"]
     is_personal = company.get("profile_type") == "personal"
     valid_types = set((PERSONAL_ROTATION if is_personal else COMPANY_ROTATION).values())
@@ -1067,13 +1064,9 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
 
     # A per-day plan set from the calendar takes precedence over the rotation (unless a
     # manual "Post now" passed an explicit override, which wins over everything).
-    # A plan may be the legacy string form ("hot_take" / "__carousel__") or the
-    # product-aware dict form {"product": "<id>", "type": "<rotation type>"}.
-    forced_product_id = product_id_override
     if not post_type_override:
         plan = (company.get("scheduled_types") or {}).get(date.today().isoformat())
-        if isinstance(plan, dict):
-            forced_product_id = forced_product_id or plan.get("product", "")
+        if isinstance(plan, dict):   # tolerate legacy product-pinned rows
             plan = plan.get("type", "")
         if plan in ("__carousel__", "__video__"):
             post_type_override = ""  # keep rotation type, but force the format below
@@ -1099,16 +1092,12 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         post_type  = _get_post_type(company, runs_today)
         do_carousel = _should_post_carousel(company)
 
-    # The subject for this post: an explicitly requested product, else the
-    # deterministic rotation pick, else the company itself (implicit product).
-    product = (get_product(company, forced_product_id) if forced_product_id else None) \
-        or pick_product(company, runs_today)
-    subject = product_view(company, product)
+    # The subject for this post is the profile itself (its voice, niche, knowledge).
+    subject = company
 
     log_entry = {
         "company_id":   company_id,
         "company_name": company["name"],
-        "product_id":   subject.get("product_id", ""),
         "product_name": subject.get("product_name", ""),
         "post_type":    POST_TYPE_LABELS.get(post_type, post_type),
         "post_format":  "diy_video" if do_diy_video else ("carousel" if do_carousel else "text"),
@@ -1171,9 +1160,7 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
                 payload = {"format": "text", "post_text": post_text, "publish_text": post_text,
                            "asset_b64": "", "alt_text": "", "title": company["name"]}
 
-        # Ride the product identity along with the payload so pending items and
-        # their approval-time log entries stay attributable to the product.
-        payload["product_id"] = subject.get("product_id", "")
+        # Carry the subject label so pending items + approval-time log entries stay attributable.
         payload["product_name"] = subject.get("product_name", "")
 
         log_entry["post_text"] = payload["post_text"]
@@ -1285,7 +1272,6 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         _append_log({
             "company_id":   pend.get("company_id", ""),
             "company_name": pend.get("company_name", ""),
-            "product_id":   pend.get("product_id", ""),
             "product_name": pend.get("product_name", ""),
             "post_type":    pend.get("post_type", ""),
             "post_format":  "diy_video",
@@ -1305,7 +1291,6 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
     _append_log({
         "company_id":   pend.get("company_id", ""),
         "company_name": pend.get("company_name", ""),
-        "product_id":   pend.get("product_id", ""),
         "product_name": pend.get("product_name", ""),
         "post_type":    pend.get("post_type", ""),
         "post_format":  "carousel" if pend.get("format") == "carousel" else "text",

@@ -58,6 +58,7 @@ def save_company(profile: dict) -> dict:
         "allowed_hooks":    profile.get("allowed_hooks", []),
         "tone_shift":       profile.get("tone_shift", False),
         "knowledge":        profile.get("knowledge", ""),   # curated facts/rules the AI must use
+        "product_name":     profile.get("product_name", ""),  # optional subject label (e.g. "KnowErgo")
     }
 
     db.companies.replace_one({"id": company_id}, {"_id": company_id, **entry}, upsert=True)
@@ -85,7 +86,8 @@ def update_company(company_id: str, data: dict) -> dict | None:
     # carousel_enabled/carousel_theme are managed solely by the card's PATCH endpoint,
     # so a form edit can never silently reset them.
     for field in ("name", "industry", "tone", "post_time", "linkedin_url",
-                  "website_type", "designation", "allowed_hooks", "tone_shift", "knowledge"):
+                  "website_type", "designation", "allowed_hooks", "tone_shift", "knowledge",
+                  "product_name"):
         if field in data:
             c[field] = data[field]
 
@@ -117,18 +119,15 @@ def toggle_company(company_id: str, active: bool):
     db.companies.update_one({"id": company_id}, {"$set": {"active": active}})
 
 
-def set_scheduled_type(company_id: str, day: str, post_type: str, product_id: str = "") -> bool:
-    """Set (or clear) a per-day override for the calendar. Empty post_type AND empty
-    product_id clears that day back to the automatic rotation. Stored as
-    scheduled_types: {date: type} (legacy string) or {date: {"product": id, "type": type}}
-    when a product is pinned — run_for_company accepts both shapes."""
+def set_scheduled_type(company_id: str, day: str, post_type: str) -> bool:
+    """Set (or clear) a per-day post-type override for the calendar. An empty
+    post_type clears that day back to the automatic rotation. Stored as
+    scheduled_types: {date: type}."""
     c = db.companies.find_one({"id": company_id}, _P)
     if not c:
         return False
     sched = c.get("scheduled_types", {}) or {}
-    if product_id:
-        sched[day] = {"product": product_id, "type": post_type}
-    elif post_type:
+    if post_type:
         sched[day] = post_type
     else:
         sched.pop(day, None)

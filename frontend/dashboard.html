@@ -823,6 +823,7 @@
             <p class="form-hint">Voyce reads this once to learn the products, style, and positioning.</p>
           </div>
           <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="e.g. B2B SaaS, fintech, healthcare" required /><p class="form-hint">Used to find relevant news for posts.</p></div>
+          <div class="form-group"><label>Product / focus name <span class="optional-tag">(optional)</span></label><input type="text" id="c-product-name" placeholder="e.g. KnowErgo" /><p class="form-hint">Shown in the carousel lockup (e.g. "Knowella | KnowErgo"). Leave blank to show just the brand.</p></div>
 
           <details class="adv">
             <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn, automation — all optional</span></summary>
@@ -852,6 +853,11 @@
             <label>Key facts &amp; rules <span class="optional-tag">(optional — grounds every post)</span></label>
             <textarea id="p-knowledge" rows="4" placeholder="Facts the AI should always use, and rules it must follow. e.g. real product capabilities, cited statistics, angles that work, and 'never say X'. Paste your research here."></textarea>
             <p class="form-hint">Fed into every idea and post — the AI grounds content in this and won't contradict or invent around it.</p>
+          </div>
+          <div class="form-group">
+            <label>Product / focus name <span class="optional-tag">(optional)</span></label>
+            <input type="text" id="p-product-name" placeholder="e.g. KnowErgo" />
+            <p class="form-hint">Shown in the carousel lockup (e.g. "Knowella | KnowErgo"). Leave blank to show just your name.</p>
           </div>
 
           <details class="adv">
@@ -901,16 +907,6 @@
             </div>
           </details>
 
-          <!-- Products belong to setting up a profile, not to the profile card, so they
-               live here. Only shown when editing: a product needs a profile to hang off. -->
-          <div id="modal-products" style="display:none;border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin:6px 0 18px;">
-            <div style="font-size:12px;font-weight:600;color:#5b6270;margin-bottom:8px;">Products <span style="color:#a7aebb;font-weight:400;">— each gets its own niche, news and carousel look</span></div>
-            <div id="modal-prod-list"></div>
-            <input id="m-prod-name" placeholder="Product name (e.g. AI Ergo)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
-            <input id="m-prod-url" placeholder="Product page URL (optional — Voyce reads it)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:6px;font-family:inherit;" />
-            <input id="m-prod-ind" placeholder="Niche (e.g. workplace ergonomics, EHS)" style="width:100%;font-size:12.5px;padding:7px 9px;border:1px solid #d3d8e0;border-radius:6px;margin-bottom:8px;font-family:inherit;" />
-            <button type="button" class="act-btn" id="m-prod-save" onclick="createProductFromModal()">＋ Add product</button>
-          </div>
 
           <button type="submit" class="submit-btn" id="p-submit-btn">Create profile →</button>
         </form>
@@ -1298,10 +1294,6 @@
               </label>
               <div class="auto-more-row">
                 <span>Post now / preview uses:</span>
-                ${(p.products || []).length ? `<select id="runprod-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
-                  <option value="">Product: auto rotation</option>
-                  ${(p.products || []).filter(pr => pr.enabled !== false).map(pr => `<option value="${pr.id}">Product: ${pr.name}</option>`).join("")}
-                </select>` : ""}
                 <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
                   <option value="hot_take">Hot Take · with tweet card</option>
@@ -1322,22 +1314,6 @@
               <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#a7aebb;">(Pro)</span></div>
             `}
           </div>
-
-          ${(p.products || []).length ? `
-          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;color:#5b6270;margin-bottom:14px;">
-            <span style="color:#98a0ae;">Products:</span>
-            ${(p.products || []).map(pr => {
-              const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
-              const sw1 = pal.bg || pr.brand_color || "#f6f7f9";
-              const sw2 = pal.accent || "#24365e";
-              const off = pr.enabled === false;
-              return `<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #e4e7ec;border-radius:20px;padding:3px 9px 3px 5px;${off ? "opacity:.5;" : ""}">
-                <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:13px;height:13px;border-radius:4px;flex:none;border:1px solid #d3d8e0;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
-                ${pr.name}${off ? ' <span style="color:#98a0ae;">paused</span>' : ""}
-              </span>`;
-            }).join("")}
-            <a href="#" onclick="editProfile('${p.id}');return false;" style="color:#24365e;font-size:11.5px;">edit</a>
-          </div>` : ""}
 
           <!-- One row, in order of how often it gets used. Ideas and Preview open a
                modal now: they used to render into a div inside this card, which any
@@ -1380,10 +1356,9 @@
         : `Generate ${what} and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`;
       if (!(await voyceConfirm(ask, { title: "Run now", confirmText: holds ? "Generate" : "Post now" }))) return;
       toast(holds ? "Generating…" : "Generating and posting...");
-      const prodSel = document.getElementById(`runprod-${id}`);
       const res  = await fetch(`/companies/${id}/run`, { method:"POST",
         headers: {"Content-Type": "application/json", "x-token": getToken()},
-        body: JSON.stringify({ post_type: chosenType, product_id: prodSel ? prodSel.value : "" }) });
+        body: JSON.stringify({ post_type: chosenType }) });
       const data = await res.json();
       loadLog();
       if (data.status === "posted") { toast("Posted successfully!", "success"); loadAnalytics(); }
@@ -1405,12 +1380,10 @@
       const out = document.getElementById("preview-modal-body");
       if (!out) return;
       modal.style.display = "flex";
-      const psel = document.getElementById(`runprod-${id}`);
-      const pid = psel ? psel.value : "";
       out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Reading today's news and drafting ideas…</div>
         <div style="font-size:12.5px;color:#98a0ae;">About 10 seconds. Nothing gets posted.</div>`;
       try {
-        const res = await fetch(`/companies/${id}/ideas${pid ? `?product_id=${encodeURIComponent(pid)}` : ""}`,
+        const res = await fetch(`/companies/${id}/ideas`,
           { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Couldn't generate ideas.");
@@ -1468,13 +1441,10 @@
       const modal = _previewModal();
       const out = document.getElementById("preview-modal-body");
       modal.style.display = "flex";
-      const psel = document.getElementById(`runprod-${id}`);
-      const pid = psel ? psel.value : "";
       out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Generating${seed ? " that idea" : " a preview"} from today's news…</div>
         <div style="font-size:12.5px;color:#98a0ae;">This runs the real pipeline, so it takes up to a minute. Nothing gets posted.</div>`;
       try {
         const qs = new URLSearchParams();
-        if (pid) qs.set("product_id", pid);
         if (postType) qs.set("post_type", postType);
         if (seed) qs.set("seed", seed);
         const res = await fetch(`/companies/${id}/preview${qs.toString() ? "?" + qs.toString() : ""}`,
@@ -1505,98 +1475,6 @@
         const old = btn.textContent; btn.textContent = "✓ Copied";
         setTimeout(() => { btn.textContent = old; }, 1600);
       } catch (_) { toast("Couldn't copy — select the text manually.", "warn"); }
-    }
-
-    // ── Products: multiple subjects under one profile ─────────────────────────
-    // Products are edited inside the profile drawer (Edit Profile), not on the card.
-    function renderModalProducts(p) {
-      const box  = document.getElementById("modal-products");
-      const list = document.getElementById("modal-prod-list");
-      if (!box || !list) return;
-      box.style.display = "block";
-      ["m-prod-name", "m-prod-url", "m-prod-ind"].forEach(k => {
-        const el = document.getElementById(k); if (el) el.value = "";
-      });
-      const prods = p.products || [];
-      list.innerHTML = prods.length ? prods.map(pr => {
-        const pal = (pr.theme_spec && pr.theme_spec.palette) || {};
-        const sw1 = pal.bg || pr.brand_color || "#f6f7f9";
-        const sw2 = pal.accent || "#24365e";
-        const off = pr.enabled === false;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;${off ? "opacity:.5;" : ""}">
-          <span title="${pr.theme_spec && pr.theme_spec.name ? "Theme: " + pr.theme_spec.name : "No generated theme yet"}" style="width:16px;height:16px;border-radius:5px;flex:none;border:1px solid #d3d8e0;background:linear-gradient(135deg, ${sw1} 50%, ${sw2} 50%);"></span>
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3c3832;">${pr.name}${pr.industry ? ` <span style="color:#98a0ae;">· ${pr.industry}</span>` : ""}</span>
-          <a href="#" onclick="toggleProductRow('${p.id}','${pr.id}',${off});return false;" style="color:#24365e;font-size:11.5px;">${off ? "enable" : "pause"}</a>
-          <a href="#" onclick="regenProductTheme('${p.id}','${pr.id}');return false;" title="Design a fresh carousel theme for this product" style="color:#24365e;font-size:11.5px;">↻ theme</a>
-          <a href="#" onclick="removeProduct('${p.id}','${pr.id}','${(pr.name || "").replace(/'/g, "\\'")}');return false;" style="color:#c0392b;font-size:11.5px;">✕</a>
-        </div>`;
-      }).join("") + '<div style="border-top:1px dashed #e4e7ec;margin:8px 0 10px;"></div>'
-        : '<div style="font-size:12px;color:#98a0ae;margin-bottom:10px;">No products yet. Add one and Voyce gives it its own niche, news feed and carousel look.</div>';
-    }
-
-    // Product edits happen in the drawer, so the list there has to follow along.
-    async function refreshModalProducts() {
-      if (!_editingId) return;
-      const box = document.getElementById("modal-products");
-      if (!box || box.style.display === "none") return;
-      try {
-        const res = await fetch("/companies", { headers: { "x-token": getToken() } });
-        const profiles = await res.json();
-        const p = (profiles || []).find(x => x.id === _editingId);
-        if (p) renderModalProducts(p);
-      } catch (_) {}
-    }
-
-    async function createProductFromModal() {
-      const id = _editingId;
-      if (!id) return;
-      const name = (document.getElementById("m-prod-name").value || "").trim();
-      const url  = (document.getElementById("m-prod-url").value || "").trim();
-      const ind  = (document.getElementById("m-prod-ind").value || "").trim();
-      if (!name) { toast("Give the product a name.", "warn"); return; }
-      const btn = document.getElementById("m-prod-save");
-      if (btn) { btn.disabled = true; btn.textContent = "Reading the page & designing a theme…"; }
-      try {
-        const res = await fetch(`/companies/${id}/products`, { method: "POST",
-          headers: {"Content-Type": "application/json", "x-token": getToken()},
-          body: JSON.stringify({ name, url, industry: ind }) });
-        const data = await res.json();
-        if (!res.ok) {
-          if (isProRequired(data)) { typeof openUpgrade === "function" && openUpgrade(); }
-          else toast(data.detail || "Couldn't add the product.", "error");
-          return;
-        }
-        toast(`${name} added${data.theme_spec && data.theme_spec.name ? ` — theme: ${data.theme_spec.name}` : ""}`, "success");
-        await refreshModalProducts();
-        loadProfiles();
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "＋ Add product"; }
-      }
-    }
-
-    async function toggleProductRow(companyId, productId, enable) {
-      const res = await fetch(`/companies/${companyId}/products/${productId}/toggle`, { method: "PATCH",
-        headers: {"Content-Type": "application/json", "x-token": getToken()},
-        body: JSON.stringify({ enabled: enable }) });
-      if (res.ok) { loadProfiles(); refreshModalProducts(); }
-      else toast("Couldn't update the product.", "error");
-    }
-
-    async function removeProduct(companyId, productId, name) {
-      if (!(await voyceConfirm(`Remove "${name}" from this profile? Its scheduled slots fall back to the automatic rotation.`, { title: "Remove product", confirmText: "Remove" }))) return;
-      const res = await fetch(`/companies/${companyId}/products/${productId}`, { method: "DELETE",
-        headers: {"x-token": getToken()} });
-      if (res.ok) { toast("Product removed."); loadProfiles(); refreshModalProducts(); }
-      else toast("Couldn't remove the product.", "error");
-    }
-
-    async function regenProductTheme(companyId, productId) {
-      toast("Designing a fresh carousel theme…");
-      const res = await fetch(`/companies/${companyId}/products/${productId}/theme`, { method: "POST",
-        headers: {"x-token": getToken()} });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) { toast(`New theme: ${data.name || "done"}`, "success"); loadProfiles(); refreshModalProducts(); }
-      else toast(data.detail || "Theme generation is unavailable right now.", "error");
     }
 
     async function toggleProfile(id, active) {
@@ -2489,7 +2367,6 @@
       document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
       document.getElementById("modal-success").style.display = "none";
       document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = false);
-      document.getElementById("modal-products").style.display = "none";
       document.getElementById("modal-overlay").classList.add("open");
       document.body.style.overflow = "hidden";
     }
@@ -2534,7 +2411,6 @@
           document.getElementById("modal-success").style.display = "none";
           // Hide mode tabs (can't change type after creation)
           document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "none");
-          renderModalProducts(p);
 
           switchMode(isPersonal ? "personal" : "company");
 
@@ -2542,6 +2418,7 @@
             document.getElementById("p-name").value        = p.name || "";
             document.getElementById("p-designation").value = p.designation || "";
             document.getElementById("p-knowledge").value   = p.knowledge || "";
+            document.getElementById("p-product-name").value = p.product_name || "";
             const pw = document.getElementById("p-website");
             pw.value = p.website_url || "";
             pw.dispatchEvent(new Event("input"));
@@ -2557,6 +2434,7 @@
             document.getElementById("c-name").value     = p.name || "";
             document.getElementById("c-website").value  = p.website_url || "";
             document.getElementById("c-industry").value = p.industry || "";
+            document.getElementById("c-product-name").value = p.product_name || "";
             document.getElementById("c-tone").value     = p.tone || "professional";
             document.getElementById("c-time").value     = p.post_time || "09:00";
             
@@ -2591,6 +2469,7 @@
         voice_posts: (document.getElementById("p-voice-posts")?.value || ""),
         tone_shift: (document.getElementById("p-tone-shift")?.checked || false),
         knowledge: (document.getElementById("p-knowledge")?.value || ""),
+        product_name: (document.getElementById("p-product-name")?.value || ""),
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,
@@ -2598,6 +2477,7 @@
         tone: document.getElementById("c-tone").value,
         post_time: document.getElementById("c-time").value,
         profile_type: "company",
+        product_name: (document.getElementById("c-product-name")?.value || ""),
       };
 
       try {

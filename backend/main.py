@@ -157,10 +157,8 @@ def _friendly_fetch_error(exc: Exception, input_type: str) -> str:
     return "Could not read that content. Please try again."
 
 
-def _resolve_profile(user_id: str, profile_id: str = "", product_id: str = ""):
-    """The profile to write as: the explicit valid choice if given, else the first
-    one. With a product_id, returns the merged product view (company voice +
-    product subject) — unknown product ids fall back to the plain profile."""
+def _resolve_profile(user_id: str, profile_id: str = ""):
+    """The profile to write as: the explicit valid choice if given, else the first one."""
     profiles = list_companies(user_id)
     profile = None
     if profile_id:
@@ -170,11 +168,6 @@ def _resolve_profile(user_id: str, profile_id: str = "", product_id: str = ""):
                 break
     if profile is None:
         profile = profiles[0] if profiles else None
-    if profile and product_id:
-        from products import get_product, product_view
-        prod = get_product(profile, product_id)
-        if prod:
-            return product_view(profile, prod)
     return profile
 
 
@@ -350,7 +343,6 @@ class GenerateRequest(BaseModel):
     content: str
     style: str = "illustration"   # image posts: "illustration" (AI) | "card" (insight card)
     profile_id: str = ""          # which saved profile to write as (defaults to the first)
-    product_id: str = ""          # optional: which of the profile's products to anchor on
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
     carousel_format: str = "standard"  # carousel look: "standard" | "visual" (every point
@@ -363,19 +355,16 @@ class GenerateRequest(BaseModel):
 class ErgoCarouselRequest(BaseModel):
     result: dict                  # a KnowErgo GET /video/result/<id> JSON (real assessment)
     profile_id: str = ""
-    product_id: str = ""
 
 
 class VariationsRequest(BaseModel):
     post: str                     # an already-generated post to write alternate versions of
     profile_id: str = ""
-    product_id: str = ""
 
 
 class HashtagsRequest(BaseModel):
     post: str                     # the post the hashtags have to fit
     profile_id: str = ""
-    product_id: str = ""
 
 
 class PostRequest(BaseModel):
@@ -695,7 +684,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         context_text = _with_profile_context(profile, raw_text)
         result = generate_content(context_text, company=profile)
     except Exception as e:
@@ -722,7 +711,7 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
     try:
         import base64
         from carousel import generate_carousel_from_text, render_carousel_pdf
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         if request.carousel_theme:
             profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
         context_text = _with_profile_context(profile, raw_text)
@@ -782,7 +771,7 @@ def generate_ergo_carousel(request: ErgoCarouselRequest, x_token: str = Header(N
         import base64
         from carousel import render_carousel_pdf
         from ergo_assessment import assessment_to_carousel
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         product_name = (profile or {}).get("product_name") or (profile or {}).get("name") or "KnowErgo"
         content = assessment_to_carousel(request.result, product=product_name)
         if not content:
@@ -813,7 +802,7 @@ def generate_variations(request: VariationsRequest, x_token: str = Header(None))
         raise HTTPException(status_code=400, detail="Generate a post first, then I can write variations.")
     try:
         from llm import generate_json
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         voice = _with_profile_context(profile, "").split("Content to repurpose:")[0].strip() if profile else ""
         prompt = f"""{voice}
 
@@ -858,7 +847,7 @@ def generate_hashtags(request: HashtagsRequest, x_token: str = Header(None)):
         raise HTTPException(status_code=400, detail="Generate a post first, then I can suggest hashtags.")
     try:
         from llm import generate_json
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         niche = ""
         if profile:
             niche = (profile.get("industry") or "").strip()
@@ -958,7 +947,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             if not meta.get("headline"):
                 raise HTTPException(status_code=502,
                                     detail="Couldn't read that article page for the source card.")
-            profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+            profile = _resolve_profile(user["id"], request.profile_id)
             png_bytes = render_source_card_png(meta, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {
@@ -974,7 +963,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         import base64
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         context_text = _with_profile_context(profile, raw_text)
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
@@ -1013,7 +1002,7 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
         from carousel import generate_caption_from_text
-        profile = _resolve_profile(user["id"], request.profile_id, request.product_id)
+        profile = _resolve_profile(user["id"], request.profile_id)
         context_text = _with_profile_context(profile, raw_text)
         data = generate_caption_from_text(context_text, company=profile)
         auth_module.increment_gens(user["id"])
@@ -1111,10 +1100,11 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
     pro = _is_pro(user)
     existing = list_companies(user["id"])
-    max_profiles = 3 if pro else 1
+    # Fractional CMOs run many client brands at once, so a profile = one client.
+    max_profiles = 15 if pro else 3
     if len(existing) >= max_profiles:
         if pro:
-            raise HTTPException(status_code=400, detail="Profile limit reached (3 profiles on Pro)")
+            raise HTTPException(status_code=400, detail=f"Profile limit reached ({max_profiles} profiles on Pro)")
         raise HTTPException(status_code=403, detail="PRO_REQUIRED:profiles")
     try:
         data = request.model_dump()
@@ -1296,13 +1286,13 @@ def discard_pending(pending_id: str, x_token: str = Header(None)):
 
 
 @app.post("/companies/{company_id}/preview")
-def preview_post(company_id: str, product_id: str = "", post_type: str = "", seed: str = "",
+def preview_post(company_id: str, post_type: str = "", seed: str = "",
                  x_token: str = Header(None)):
     """Generate a sample post ON DEMAND — the real autopilot pipeline (rotation
     post-type + live news → post) but WITHOUT publishing and WITHOUT counting
     against the gen limit. Works whether or not daily automation is on.
-    Optional: product_id anchors on a product's niche; post_type forces a type
-    (e.g. from a chosen idea); seed steers the post around a specific angle."""
+    Optional: post_type forces a type (e.g. from a chosen idea); seed steers the
+    post around a specific angle."""
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
@@ -1311,9 +1301,7 @@ def preview_post(company_id: str, product_id: str = "", post_type: str = "", see
         from autonomous import (generate_autonomous_post, _get_post_type, POST_TYPE_LABELS,
                                 COMPANY_ROTATION, PERSONAL_ROTATION)
         from search import search_industry_news, format_news_context
-        from products import get_product, product_view
-        product = get_product(company, product_id) if product_id else None
-        subject = product_view(company, product)   # company voice + product niche (or the company itself)
+        subject = company   # the profile is the subject (voice + niche + knowledge)
         valid = set((PERSONAL_ROTATION if company.get("profile_type") == "personal"
                      else COMPANY_ROTATION).values())
         pt = post_type if post_type in valid else _get_post_type(company)
@@ -1333,11 +1321,11 @@ def preview_post(company_id: str, product_id: str = "", post_type: str = "", see
 
 
 @app.post("/companies/{company_id}/ideas")
-def suggest_ideas(company_id: str, product_id: str = "", x_token: str = Header(None)):
+def suggest_ideas(company_id: str, x_token: str = Header(None)):
     """Propose a short menu of post ideas for the coming days, tailored to the
-    profile (and product) and grounded in today's live news — spanning different
-    post types so the menu covers strategy, not five news reactions. Nothing is
-    posted; no gen-limit cost. Each idea can be expanded via /preview (post_type + seed)."""
+    profile and grounded in today's live news — spanning different post types so
+    the menu covers strategy, not five news reactions. Nothing is posted; no
+    gen-limit cost. Each idea can be expanded via /preview (post_type + seed)."""
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
@@ -1347,10 +1335,8 @@ def suggest_ideas(company_id: str, product_id: str = "", x_token: str = Header(N
         from autonomous import (COMPANY_ROTATION, PERSONAL_ROTATION, POST_TYPE_LABELS,
                                 POST_TYPE_DESCRIPTIONS)
         from search import search_industry_news, format_news_context
-        from products import get_product, product_view
         from llm import generate_json
-        product = get_product(company, product_id) if product_id else None
-        subject = product_view(company, product)
+        subject = company
         is_personal = company.get("profile_type") == "personal"
         rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
         types = list(dict.fromkeys(rotation.values()))
@@ -1399,7 +1385,6 @@ Return ONLY JSON:
 
 class RunNowRequest(BaseModel):
     post_type: str = ""   # optional override — e.g. "hot_take" to force a tweet-card day
-    product_id: str = ""  # optional: pin this run to one of the profile's products
 
 
 @app.post("/companies/{company_id}/run")
@@ -1412,19 +1397,16 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     override = (request.post_type if request else "") or ""
-    product_override = (request.product_id if request else "") or ""
     # "Ask me before it posts" is a promise about everything Voyce writes, so it holds
     # here too: Post now generates immediately, but a profile in approval mode still
     # gets the post queued for review rather than published unseen.
-    result = run_for_company(company, allow_free_manual=True, post_type_override=override,
-                             product_id_override=product_override)
+    result = run_for_company(company, allow_free_manual=True, post_type_override=override)
     return result
 
 
 class SchedulePlanRequest(BaseModel):
     date: str          # "YYYY-MM-DD"
     post_type: str = ""  # a rotation type, "__carousel__", "__video__" (DIY day), or "" to clear back to auto
-    product_id: str = ""  # optional: pin that day's post to a specific product
 
 
 @app.patch("/companies/{company_id}/schedule")
@@ -1435,98 +1417,8 @@ def set_schedule(company_id: str, request: SchedulePlanRequest, x_token: str = H
         raise HTTPException(status_code=404, detail="Not found")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", request.date or ""):
         raise HTTPException(status_code=400, detail="Bad date")
-    set_scheduled_type(company_id, request.date, (request.post_type or "").strip(),
-                       (request.product_id or "").strip())
+    set_scheduled_type(company_id, request.date, (request.post_type or "").strip())
     return {"ok": True}
-
-
-# ── Products: multiple subjects under one company identity ────────────────────
-# The company stays the voice/schedule/connection; each product is a niche with
-# its own scraped brief, search angles, and Claude-designed carousel theme.
-
-class ProductRequest(BaseModel):
-    name: str
-    url: str = ""
-    industry: str = ""
-    topics: list[str] = []
-    search_angles: list[str] = []
-    weight: int = 1
-
-
-class ProductToggleRequest(BaseModel):
-    enabled: bool
-
-
-def _owned_company(company_id: str, user: dict) -> dict:
-    company = get_company(company_id)
-    if not company or company.get("user_id") != user["id"]:
-        raise HTTPException(status_code=404, detail="Not found")
-    return company
-
-
-@app.post("/companies/{company_id}/products")
-def create_product(company_id: str, request: ProductRequest, x_token: str = Header(None)):
-    import products as products_module
-    user = _require_user(x_token)
-    _rate_limit(f"gen:{user['id']}", 20)
-    company = _owned_company(company_id, user)
-    if not request.name.strip():
-        raise HTTPException(status_code=400, detail="Product name is required")
-    plan = "pro" if _is_pro(user) else "free"  # admin emails report unlimited → pro cap
-    cap = products_module.MAX_PRODUCTS.get(plan, 1)
-    if len(products_module.list_products(company)) >= cap:
-        if plan == "free":
-            raise HTTPException(status_code=403, detail="PRO_REQUIRED:products")
-        raise HTTPException(status_code=400, detail=f"Product limit reached ({cap} per profile)")
-    return products_module.add_product(company, request.model_dump())
-
-
-@app.put("/companies/{company_id}/products/{product_id}")
-def edit_product(company_id: str, product_id: str, request: ProductRequest,
-                 x_token: str = Header(None)):
-    import products as products_module
-    user = _require_user(x_token)
-    company = _owned_company(company_id, user)
-    updated = products_module.update_product(company, product_id, request.model_dump())
-    if not updated:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return updated
-
-
-@app.delete("/companies/{company_id}/products/{product_id}")
-def remove_product(company_id: str, product_id: str, x_token: str = Header(None)):
-    import products as products_module
-    user = _require_user(x_token)
-    company = _owned_company(company_id, user)
-    if not products_module.delete_product(company, product_id):
-        raise HTTPException(status_code=404, detail="Product not found")
-    return {"ok": True}
-
-
-@app.patch("/companies/{company_id}/products/{product_id}/toggle")
-def toggle_product_endpoint(company_id: str, product_id: str, request: ProductToggleRequest,
-                            x_token: str = Header(None)):
-    import products as products_module
-    user = _require_user(x_token)
-    company = _owned_company(company_id, user)
-    if not products_module.toggle_product(company, product_id, request.enabled):
-        raise HTTPException(status_code=404, detail="Product not found")
-    return {"ok": True, "enabled": request.enabled}
-
-
-@app.post("/companies/{company_id}/products/{product_id}/theme")
-def regenerate_product_theme(company_id: str, product_id: str, x_token: str = Header(None)):
-    import products as products_module
-    user = _require_user(x_token)
-    _rate_limit(f"theme:{user['id']}", 6)
-    company = _owned_company(company_id, user)
-    spec = products_module.regenerate_theme(company, product_id)
-    if spec is None:
-        raise HTTPException(status_code=404, detail="Product not found")
-    if not spec:
-        raise HTTPException(status_code=502,
-                            detail="Theme generation is unavailable right now — the product keeps its current look.")
-    return spec
 
 
 @app.get("/companies/log")
