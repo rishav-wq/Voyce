@@ -192,7 +192,7 @@ def _mix(a: tuple, b: tuple, t: float) -> tuple:
 
 
 def _palette_from_spec(spec: dict) -> dict | None:
-    """A Claude-generated theme_spec (see design.py) in the renderer's own
+    """An optional stored theme_spec (a profile's own palette) in the renderer's
     palette vocabulary. Every color is re-parsed defensively — a stored spec is
     data, not trusted config — and any gap voids the spec entirely so we fall
     through to the normal chain rather than render a half-themed deck."""
@@ -210,11 +210,11 @@ def _palette_from_spec(spec: dict) -> dict | None:
 
 def _get_palette(company: dict) -> dict:
     """
-    Priority: product/company theme_spec (Claude-designed) → scraped brand_color
-    → explicit carousel_theme → industry keyword → default.
+    Priority: a profile's stored theme_spec → scraped brand_color → explicit
+    carousel_theme → industry keyword → default.
     """
-    # 0. A generated theme spec wins outright — it exists precisely to brand
-    # this product's decks, and it was contrast-validated when created.
+    # 0. A stored theme spec wins outright — it exists precisely to brand this
+    # profile's decks with a full, contrast-checked palette.
     spec_palette = _palette_from_spec(company.get("theme_spec") or {})
     if spec_palette:
         return spec_palette

@@ -14,4 +14,3 @@ dnspython
 pytz
 python-jose[cryptography]
 httpx
-anthropic

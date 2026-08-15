@@ -741,8 +741,8 @@ def _build_company_brief(company: dict) -> str:
 
 
 def _runs_today(company_id: str) -> int:
-    """How many posts this company already made today (fed into both the
-    post-type hash and the product-rotation hash)."""
+    """How many posts this company already made today (fed into the
+    post-type rotation hash)."""
     from datetime import date
     today_str = date.today().isoformat()
     log = get_post_log([company_id])
@@ -754,8 +754,8 @@ def _runs_today(company_id: str) -> int:
 
 
 # Self-promo guardrail: at most this many Product Spotlight posts per company
-# per rolling week, no matter how many products rotate underneath. A product
-# otherwise defines the *niche* of a value post, not its sales pitch.
+# per rolling week. Every other post is a value post about the profile's niche,
+# not a sales pitch.
 SPOTLIGHT_WEEKLY_CAP = 2
 
 
@@ -1015,7 +1015,7 @@ def _video_gen_prompt(subject: dict, post_text: str) -> str:
     """A copy-paste prompt for the user's own AI video tool (Sora/Veo/Runway —
     or Claude for a storyboard). Voyce never generates the video itself; the
     user takes this prompt to whatever they subscribe to and posts natively.
-    The product's Claude-designed palette rides along so DIY assets stay
+    The profile's stored palette (if any) rides along so DIY assets stay
     on-brand. Fail-open: a template beats a missing prompt."""
     palette = (subject.get("theme_spec") or {}).get("palette") or {}
     brand = ""
@@ -1122,7 +1122,7 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         NEWS_HEAVY  = ("trend_commentary", "industry_stat", "trend_reaction", "stat_reaction")
         num_results = 6 if post_type in NEWS_HEAVY else 3
         # Pass post_type so search uses targeted queries for this specific post angle.
-        # The subject view carries the selected product's niche and search angles.
+        # The profile carries the niche and any extra search angles.
         news_results = search_industry_news(
             subject["industry"], subject["name"], num_results, post_type=post_type,
             extra_angles=subject.get("search_angles") or [],

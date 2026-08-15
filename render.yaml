@@ -36,10 +36,6 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
-      # Optional: powers per-product carousel theme design (design.py). Without
-      # it, themes fall back to the brand-color/industry palette chain.
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
