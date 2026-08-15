@@ -136,7 +136,23 @@ function useIdea(i) {
   if (it.source) parts.push(`It should react to this from the news: "${it.source}".`);
   ta.value = parts.join(" ");
   ta.scrollIntoView({ behavior: "smooth", block: "center" });
-  generate();
+  ta.focus();
+  // Don't auto-generate — the idea has no format of its own, so let the user pick
+  // Generate Content (text post) or Carousel PDF (respects the Brand/Format above).
+  _flashGenButtons();
+  toast("Idea loaded — pick Generate Content or Carousel PDF.", "success");
+}
+
+// Briefly highlight the two generate buttons so it's obvious what to do next.
+function _flashGenButtons() {
+  ["generate-btn", "carousel-btn"].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    const prev = b.style.boxShadow;
+    b.style.transition = "box-shadow .2s";
+    b.style.boxShadow = "0 0 0 3px rgba(108,71,255,.55)";
+    setTimeout(() => { b.style.boxShadow = prev; }, 1600);
+  });
 }
 function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
 function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
