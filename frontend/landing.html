@@ -187,7 +187,15 @@
   @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:0;} .pen-scene{display:none;}}
 
   /* The one signature element: a real post, composing itself */
-  .proof{max-width:600px;margin:64px auto 0;position:relative;}
+  .proof{max-width:960px;margin:64px auto 0;position:relative;}
+  .proof-grid{display:grid;grid-template-columns:1fr 340px;gap:34px;align-items:start;}
+  .carousel-card{position:relative;margin:0;}
+  .carousel-card img{display:block;width:100%;border-radius:16px;
+    box-shadow:0 1px 2px rgba(22,24,29,.12),
+      7px 7px 0 -1px #fff, 7px 7px 0 0 var(--line),
+      14px 14px 0 -1px #fff, 14px 14px 0 0 var(--line),
+      0 26px 48px rgba(22,24,29,.16);}
+  @media(max-width:760px){.proof-grid{grid-template-columns:1fr;gap:40px;} .carousel-card{max-width:320px;margin:0 auto;}}
   .post-cap{font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:9px;}
   .post-cap::before{content:"";width:18px;height:1.5px;background:var(--accent);}
   .post-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px 26px 18px;box-shadow:var(--shadow-lg);}
@@ -366,7 +374,8 @@
 
     <!-- Signature: a real post, writing itself -->
     <div class="proof">
-      <div class="post-cap">A real post — written with Voyce</div>
+      <div class="post-cap">Real posts — written with Voyce</div>
+      <div class="proof-grid">
       <div class="post-card">
         <div class="post-head">
           <div class="post-av">R</div>
@@ -383,6 +392,8 @@
           <span class="ln gap">Good marketing succeeds through focus, not volume.<span class="caret"></span></span>
         </div>
         <div class="post-react">Like · Comment · Repost · Send</div>
+      </div>
+      <figure class="carousel-card"><img src="/static/proof-carousel-1.png" alt="A LinkedIn carousel written with Voyce: I analyzed LinkedIn's 2026 algorithm — here is what wins." loading="lazy"></figure>
       </div>
     </div>
   </div>
