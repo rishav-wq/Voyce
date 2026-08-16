@@ -198,8 +198,9 @@ async function startApp() {
   loadQueue();
   updateProgress();
   applySeedTopic();
-  restoreDraft();   // bring back the last generated post after a refresh
-  _syncToolRuns();  // after restoreDraft, so a recovered post unlocks the tools
+  // The composer starts empty on every visit — no stale post is auto-restored.
+  // Previously generated posts live in the "Past" tab, loaded on demand.
+  _syncToolRuns();
 }
 
 // First-run handoff from onboarding: pre-fill the generator with the user's topic
@@ -442,23 +443,6 @@ function saveDraft() {
     try { localStorage.setItem(_DRAFT_KEY, JSON.stringify({ post })); } catch (_) {}  // image too big → keep text
   }
 }
-function restoreDraft() {
-  let d; try { d = JSON.parse(localStorage.getItem(_DRAFT_KEY) || "null"); } catch (_) { d = null; }
-  const el = document.getElementById("linkedin-content");
-  if (!d || !d.post || !el) return;
-  el.textContent = d.post;
-  _makeEditable();
-  _applyFold();
-  _setPreviewAuthor();
-  if (d.img) {
-    _attachB64 = d.img; _attachMime = d.mime || "image/png";
-    _renderAttachment("data:" + _attachMime + ";base64," + d.img);
-  }
-  const sec = document.getElementById("output-section");
-  if (sec) sec.classList.add("visible");
-  updateProgress();
-}
-
 // Simulate LinkedIn's "...see more" fold so the preview shows exactly what
 // survives in the feed before a tap — the hook test, live.
 function _foldHeight(el) {
