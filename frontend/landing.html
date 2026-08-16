@@ -188,7 +188,7 @@
 
   /* The one signature element: a real post, composing itself */
   .proof{max-width:960px;margin:64px auto 0;position:relative;}
-  .proof-grid{display:grid;grid-template-columns:1fr 340px;gap:34px;align-items:start;}
+  .proof-grid{display:grid;grid-template-columns:1fr 340px;gap:34px;align-items:stretch;}
   .proof-left{display:flex;flex-direction:column;gap:20px;min-width:0;}
   .shot-card{margin:0;}
   .shot-card img{display:block;width:100%;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow);}
@@ -199,13 +199,13 @@
       14px 14px 0 -1px #fff, 14px 14px 0 0 var(--line),
       0 26px 48px rgba(22,24,29,.16);}
   .proof-right{display:flex;flex-direction:column;gap:22px;min-width:0;}
-  .tweet-card{margin:0;background:#15181c;color:#e7e9ea;border:1px solid #2f3336;border-radius:16px;padding:18px 20px;}
-  .tweet-head{display:flex;align-items:center;gap:11px;margin-bottom:12px;}
+  .tweet-card{margin:0;background:#15181c;color:#e7e9ea;border:1px solid #2f3336;border-radius:16px;padding:22px;flex:1;display:flex;flex-direction:column;justify-content:center;}
+  .tweet-head{display:flex;align-items:center;gap:11px;margin-bottom:16px;}
   .tweet-av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;}
   .tweet-name{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:5px;line-height:1.1;}
   .tweet-check{color:#1d9bf0;font-size:13px;}
   .tweet-handle{font-size:13px;color:#8b98a5;}
-  .tweet-body{font-size:16px;font-weight:600;line-height:1.42;}
+  .tweet-body{font-size:19px;font-weight:600;line-height:1.45;}
   @media(max-width:760px){.proof-grid{grid-template-columns:1fr;gap:40px;} .carousel-card{max-width:320px;margin:0 auto;} .proof-right{max-width:340px;margin:0 auto;width:100%;}}
   .post-cap{font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:9px;}
   .post-cap::before{content:"";width:18px;height:1.5px;background:var(--accent);}
