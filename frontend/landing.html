@@ -14,6 +14,55 @@
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Voyce — The AI ghostwriter that actually posts" />
   <meta name="twitter:description" content="LinkedIn posts, carousels, and image posts — written and published automatically, in your style." />
+  <!-- Structured data so AI answer engines (ChatGPT, Perplexity, Gemini) and Google can lift clean answers about Voyce. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://voyce.co.in/#org",
+        "name": "Voyce",
+        "url": "https://voyce.co.in/",
+        "logo": "https://voyce.co.in/static/favicon.svg",
+        "description": "AI LinkedIn ghostwriter that finds niche news, writes in your own voice, and posts to LinkedIn on schedule via the official LinkedIn API."
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://voyce.co.in/#website",
+        "url": "https://voyce.co.in/",
+        "name": "Voyce",
+        "publisher": { "@id": "https://voyce.co.in/#org" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Voyce",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "url": "https://voyce.co.in/",
+        "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and publishes to LinkedIn on your schedule through the official LinkedIn API.",
+        "offers": [
+          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations, manual posting to LinkedIn, no credit card." },
+          { "@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Unlimited generations, auto-posting on your schedule, analytics. A 30-day pass with no auto-charge." }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://voyce.co.in/#faq",
+        "mainEntity": [
+          { "@type": "Question", "name": "What is Voyce?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and publishes to LinkedIn on your schedule — through the official LinkedIn API, so your account stays safe." } },
+          { "@type": "Question", "name": "Will the posts actually sound like me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the core of it. Upload your past LinkedIn posts and Voyce learns your rhythm, vocabulary, and tone, so what it writes reads like you wrote it, not generic AI." } },
+          { "@type": "Question", "name": "Does it post automatically, or do I approve first?", "acceptedAnswer": { "@type": "Answer", "text": "Your choice. Turn on ask-me-before-it-posts and Voyce writes on your schedule but holds each post for your one-tap approval. When you trust it, flip to full autopilot — every post logged with the news source it reacted to, and one click pauses everything." } },
+          { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "No — Voyce posts through LinkedIn's official OAuth API, the same door Buffer and Hootsuite walk through. No browser bots, no cookies, no scraping, and never any auto-DMs, auto-connects, or pods." } },
+          { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 generations to try — text posts, carousels, and image posts — plus manual posting to LinkedIn. No credit card required." } },
+          { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your profile data and posts are yours. Voyce only uses them to generate your content." } },
+          { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
+          { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Create separate company and personal profiles, each with its own style, schedule, and topics." } }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
@@ -364,7 +413,7 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>Unlimited</b> generations</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><b>Auto-posting on your schedule</b></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every post logged with its source</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Up to 3 profiles</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Up to 15 profiles</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Analytics + style training</li>
         </ul>
@@ -380,7 +429,8 @@
     <span class="eyebrow">FAQ</span>
     <h2 class="sec-title" style="margin-top:18px;">Questions? Answered.</h2>
     <div class="faq">
-      <details open><summary>Will the posts actually sound like me?</summary><p>Yes — that's the core of it. Upload your past LinkedIn posts and Voyce learns your rhythm, vocabulary, and tone, so what it writes reads like you wrote it, not generic AI.</p></details>
+      <details open><summary>What is Voyce?</summary><p>Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and publishes to LinkedIn on your schedule — through the official LinkedIn API, so your account stays safe.</p></details>
+      <details><summary>Will the posts actually sound like me?</summary><p>Yes — that's the core of it. Upload your past LinkedIn posts and Voyce learns your rhythm, vocabulary, and tone, so what it writes reads like you wrote it, not generic AI.</p></details>
       <details><summary>Does it post automatically, or do I approve first?</summary><p>Your choice. Turn on "ask me before it posts" and Voyce writes on your schedule but holds each post for your one-tap approval. When you trust it, flip to full autopilot — every post logged with the news source it reacted to, and one click pauses everything.</p></details>
       <details><summary>Won't LinkedIn ban my account?</summary><p>No — Voyce posts through LinkedIn's official OAuth API, the same door Buffer and Hootsuite walk through. No browser bots, no cookies, no scraping, and never any auto-DMs, auto-connects, or pods.</p></details>
       <details><summary>What do I get for free?</summary><p>5 generations to try — text posts, carousels, and image posts — plus manual posting to LinkedIn. No credit card required.</p></details>
@@ -408,7 +458,7 @@
   <div class="wrap footer-inner">
     <div class="logo"><span class="logo-mark">V</span>oyce</div>
     <div class="footer-links"><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="mailto:r65581350@gmail.com">Contact</a></div>
-    <div class="footer-copy">© 2026 Voyce. All rights reserved.</div>
+    <div class="footer-copy">© 2026 Voyce. All rights reserved. &nbsp;·&nbsp; <span>Last updated: August 2026</span></div>
   </div>
 </footer>
 
