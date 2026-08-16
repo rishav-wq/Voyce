@@ -32,8 +32,9 @@
 
     .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);}
     .nav-inner{max-width:1140px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;}
-    .logo{font-family:var(--serif);font-style:italic;font-weight:500;font-size:23px;}
-    .logo b{font-family:var(--display);font-style:normal;font-weight:700;font-size:21px;}
+    /* Wordmark: cursive Fraunces-italic V flowing into "oyce" in Space Grotesk — matches the landing. */
+    .logo{display:inline-flex;align-items:baseline;gap:0;line-height:1.35;font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:-.02em;color:var(--ink);}
+    .logo .logo-mark{font-family:var(--serif);font-style:italic;font-weight:500;font-size:1.85em;line-height:0.85;letter-spacing:-0.07em;color:inherit;margin:0 -0.02em 0 0;}
     .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--body);font-weight:600;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:transform .1s, box-shadow .15s, background .15s;font-size:15px;padding:11px 20px;}
     .btn-primary{background:var(--accent);color:#fff;}
     .btn-primary:hover{background:var(--accent-deep);}
@@ -111,7 +112,7 @@
 <body>
   <nav class="nav">
     <div class="nav-inner">
-      <a class="logo" href="/"><b>V</b>oyce</a>
+      <a class="logo" href="/"><span class="logo-mark">V</span>oyce</a>
       <a class="btn btn-ghost" href="/login">Start free</a>
     </div>
   </nav>
