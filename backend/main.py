@@ -345,11 +345,7 @@ class GenerateRequest(BaseModel):
     profile_id: str = ""          # which saved profile to write as (defaults to the first)
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
-    carousel_format: str = "standard"  # carousel look: "standard" | "visual" (every point
-                                       # gets its own posture diagram) | "posture" (single
-                                       # skeleton hero) | "photo" (real annotated footage hero)
     carousel_theme: str = ""           # override the profile's carousel theme for this render
-                                       # (e.g. "knowella_deep" for the Knowella brand look)
 
 
 class VariationsRequest(BaseModel):
