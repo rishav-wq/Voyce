@@ -440,6 +440,11 @@ def serve_voice_check():
     return _page("voice-check.html")
 
 
+@app.get("/how-to-not-sound-like-ai-on-linkedin")
+def serve_guide_sound_like_ai():
+    return _page("how-to-not-sound-like-ai-on-linkedin.html")
+
+
 @app.get("/onboarding")
 def serve_onboarding():
     return _page("onboarding.html")
