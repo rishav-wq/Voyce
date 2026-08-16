@@ -501,7 +501,7 @@ function _makeEditable() {
     el.classList.remove("li-clamp"); el.style.maxHeight = "";
     const b = document.getElementById("li-see-more"); if (b) b.style.display = "none";
   });
-  el.addEventListener("blur", () => { saveDraft(); _applyFold(); });
+  el.addEventListener("blur", () => { saveDraft(); _updateActiveHistory(); _applyFold(); });
 }
 
 // ── Rewrites: two alternate versions of the whole post, alongside the original ─
@@ -737,13 +737,31 @@ function pickVariant(i) {
 
 // ── Generation history (this browser) ─────────────────────────────────────────
 const _HIST_KEY = "cm_history";
+// The Past entry currently in the editor, keyed by its ts, so edits update that
+// entry in place instead of leaving history stuck on the first draft.
+let _activeHistId = null;
 function _pushHistory(text) {
   if (!text || !text.trim()) return;
   let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
-  if (h[0] && h[0].text === text) return;   // dedupe consecutive identical
-  h.unshift({ text, ts: Date.now() });
+  if (h[0] && h[0].text === text) { _activeHistId = h[0].ts; return; }   // dedupe consecutive identical
+  const entry = { text, ts: Date.now() };
+  h.unshift(entry);
   h = h.slice(0, 25);
   try { localStorage.setItem(_HIST_KEY, JSON.stringify(h)); } catch (_) {}
+  _activeHistId = entry.ts;
+}
+// Sync the active Past entry with edits, so history reflects the post you actually
+// shaped — not just the draft the model first returned.
+function _updateActiveHistory() {
+  if (_activeHistId == null) return;
+  const text = (document.getElementById("linkedin-content")?.textContent || "").trim();
+  if (!text) return;
+  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
+  const it = h.find(e => e.ts === _activeHistId);
+  if (!it || it.text === text) return;
+  it.text = text;
+  try { localStorage.setItem(_HIST_KEY, JSON.stringify(h)); } catch (_) {}
+  _renderHistory();   // keep the Past tab live if it happens to be open
 }
 function toggleHistory() { showTool("history"); }
 
@@ -767,6 +785,7 @@ function _renderHistory() {
 function loadFromHistory(i) {
   let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
   const it = h[i]; if (!it) return;
+  _activeHistId = it.ts;   // edits from here update this same entry
   const el = document.getElementById("linkedin-content");
   el.textContent = it.text; _makeEditable(); _applyFold(); saveDraft();
   document.getElementById("output-section").classList.add("visible");
