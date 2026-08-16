@@ -231,6 +231,20 @@
   .price li.off{color:var(--ink-faint);opacity:.5;}
   @media(max-width:820px){.price-grid{grid-template-columns:1fr;max-width:430px;margin-inline:auto;}.pop-badge{left:50%;transform:translateX(-50%);}}
 
+  /* Comparison table */
+  .compare-wrap{margin-top:44px;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:16px;}
+  .compare{width:100%;border-collapse:collapse;font-size:14.5px;min-width:660px;text-align:left;}
+  .compare caption{caption-side:top;text-align:left;font-size:13px;color:var(--ink-faint);padding:14px 16px 0;}
+  .compare th,.compare td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top;}
+  .compare tbody tr:last-child th,.compare tbody tr:last-child td{border-bottom:none;}
+  .compare thead th{font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);border-bottom:1.5px solid var(--ink);}
+  .compare tbody th{font-weight:500;color:var(--ink-soft);font-family:var(--body);}
+  .compare .col-voyce{background:var(--paper-2);}
+  .compare thead th.col-voyce{color:var(--accent);}
+  .compare .yes{color:var(--success);font-weight:600;}
+  .compare .no{color:var(--ink-faint);}
+  .compare .mid{color:var(--ink-soft);}
+
   /* FAQ */
   .faq{max-width:780px;margin:48px auto 0;text-align:left;}
   details{border-bottom:1px solid var(--line);}
@@ -384,6 +398,81 @@
     <div class="founder">
       <p class="founder-q">"I kept telling myself I'd post on LinkedIn. I never did — the blank box won every morning. So I built the tool that does it for me: it learns how you write and <b>posts in your style, on schedule</b> — and shows me everything it did. Voyce is early, and I'm building it in the open. If you're a consultant or coach who knows you should post but doesn't — try it, and tell me what's broken."</p>
       <div class="founder-by"><div class="founder-av">R</div><div><div class="founder-name">Rishav</div><div class="founder-role">Founder of Voyce · building in public</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section id="compare">
+  <div class="wrap">
+    <span class="eyebrow">How it compares</span>
+    <h2 class="sec-title" style="margin-top:18px;">Voyce vs. the alternatives</h2>
+    <p class="sec-sub">The honest version — where Voyce wins, and where it doesn't.</p>
+    <div class="compare-wrap">
+      <table class="compare">
+        <caption>Monthly cost and capabilities vs. the common ways to stay active on LinkedIn.</caption>
+        <colgroup><col><col class="col-voyce"><col><col><col></colgroup>
+        <thead>
+          <tr>
+            <th scope="col">&nbsp;</th>
+            <th scope="col" class="col-voyce">Voyce</th>
+            <th scope="col">Other AI tools</th>
+            <th scope="col">A human ghostwriter</th>
+            <th scope="col">Doing it yourself</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Cost / month</th>
+            <td class="col-voyce"><b>$49</b></td>
+            <td>$30–65</td>
+            <td>$1,000–5,000</td>
+            <td>$0 + your time</td>
+          </tr>
+          <tr>
+            <th scope="row">Sounds like you</th>
+            <td class="col-voyce"><span class="yes">Yes</span> — learns from your posts</td>
+            <td class="mid">Varies</td>
+            <td><span class="yes">Yes</span></td>
+            <td><span class="yes">Yes</span> — it's you</td>
+          </tr>
+          <tr>
+            <th scope="row">Finds today's niche news</th>
+            <td class="col-voyce"><span class="yes">Yes</span></td>
+            <td class="mid">Some</td>
+            <td class="mid">If you brief them</td>
+            <td class="no">No — you hunt for it</td>
+          </tr>
+          <tr>
+            <th scope="row">Publishes on your schedule</th>
+            <td class="col-voyce"><span class="yes">Yes</span>, unattended</td>
+            <td><span class="yes">Yes</span></td>
+            <td class="no">No — drafts only</td>
+            <td class="no">No</td>
+          </tr>
+          <tr>
+            <th scope="row">Official LinkedIn API (account-safe)</th>
+            <td class="col-voyce"><span class="yes">Yes</span></td>
+            <td class="mid">Many use browser bots</td>
+            <td class="mid">—</td>
+            <td><span class="yes">Yes</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Carousels built in</th>
+            <td class="col-voyce"><span class="yes">Yes</span></td>
+            <td class="mid">Some</td>
+            <td class="no">Usually extra</td>
+            <td class="no">No — needs Canva</td>
+          </tr>
+          <tr>
+            <th scope="row">Your time each week</th>
+            <td class="col-voyce">Minutes</td>
+            <td class="mid">Hours — curate + approve</td>
+            <td>Minutes — brief them</td>
+            <td class="no">Hours</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
