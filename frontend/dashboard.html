@@ -1437,10 +1437,43 @@
     };
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePreviewModal(); });
 
-    async function previewPost(id, postType, seed) {
+    // Last generic preview per profile, so reopening shows it instantly instead of
+    // re-running the ~1-minute pipeline. Idea-specific previews (postType/seed) are
+    // always fresh and never cached.
+    const _previewCache = {};
+    let _lastPreviewCtx = null;
+    function regeneratePreview() {
+      if (!_lastPreviewCtx) return;
+      previewPost(_lastPreviewCtx.id, _lastPreviewCtx.postType, _lastPreviewCtx.seed, true);
+    }
+    function _renderPreview(id, data, postType, fromCache) {
+      const out = document.getElementById("preview-modal-body");
+      if (!out) return;
+      const tag = `${_escHtml(data.post_type || "Post")}${data.product_name ? " · " + _escHtml(data.product_name) : ""} · preview only`;
+      const note = fromCache
+        ? `<div style="font-size:12px;color:#98a0ae;margin-bottom:10px;">Showing your last preview — hit Regenerate for a fresh one.</div>` : "";
+      out.innerHTML = `
+        ${note}
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#98a0ae;margin-bottom:10px;">🕶 ${tag}</div>
+        <div style="white-space:pre-wrap;font-size:14px;color:#1d2027;line-height:1.6;border:1px solid #e4e7ec;background:#f6f7f9;border-radius:12px;padding:16px 18px;">${_escHtml(data.post)}</div>
+        <div style="margin-top:16px;display:flex;gap:9px;flex-wrap:wrap;">
+          <button class="act-btn" onclick="regeneratePreview()">↻ Regenerate</button>
+          <button class="act-btn" onclick="_copyPreview(this)">📋 Copy</button>
+          <button class="act-btn" onclick="closePreviewModal()">Close</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:#98a0ae;">Nothing was posted. Copy it into Create if you want to publish it.</div>`;
+    }
+
+    async function previewPost(id, postType, seed, force) {
       const modal = _previewModal();
       const out = document.getElementById("preview-modal-body");
       modal.style.display = "flex";
+      _lastPreviewCtx = { id, postType: postType || "", seed: seed || "" };
+      // Plain reopen of a profile's preview → show the cached one, no regeneration.
+      if (!force && !postType && !seed && _previewCache[id]) {
+        _renderPreview(id, _previewCache[id], "", true);
+        return;
+      }
       out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Generating${seed ? " that idea" : " a preview"} from today's news…</div>
         <div style="font-size:12.5px;color:#98a0ae;">This runs the real pipeline, so it takes up to a minute. Nothing gets posted.</div>`;
       try {
@@ -1451,16 +1484,8 @@
           { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Preview failed.");
-        const tag = `${_escHtml(data.post_type || "Post")}${data.product_name ? " · " + _escHtml(data.product_name) : ""} · preview only`;
-        out.innerHTML = `
-          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#98a0ae;margin-bottom:10px;">🕶 ${tag}</div>
-          <div style="white-space:pre-wrap;font-size:14px;color:#1d2027;line-height:1.6;border:1px solid #e4e7ec;background:#f6f7f9;border-radius:12px;padding:16px 18px;">${_escHtml(data.post)}</div>
-          <div style="margin-top:16px;display:flex;gap:9px;flex-wrap:wrap;">
-            <button class="act-btn" onclick="previewPost('${id}'${postType ? `,'${_escHtml(postType)}'` : ""})">↻ Regenerate</button>
-            <button class="act-btn" onclick="_copyPreview(this)">📋 Copy</button>
-            <button class="act-btn" onclick="closePreviewModal()">Close</button>
-          </div>
-          <div style="margin-top:12px;font-size:12px;color:#98a0ae;">Nothing was posted. Copy it into Create if you want to publish it.</div>`;
+        if (!postType && !seed) _previewCache[id] = data;   // cache only the generic preview
+        _renderPreview(id, data, postType, false);
       } catch (e) {
         out.innerHTML = `<div style="font-size:13px;color:#c0392b;padding:6px 0;">${_escHtml(e.message)}</div>
           <div style="margin-top:14px;"><button class="act-btn" onclick="closePreviewModal()">Close</button></div>`;
