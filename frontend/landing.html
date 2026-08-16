@@ -589,6 +589,21 @@
   </div>
 </footer>
 
+<!-- Pen wordmark rotates each write cycle: voice → take → posted -->
+<script>
+  (function () {
+    var ink = document.querySelector('.pen-ink');
+    if (!ink) return;
+    var phrases = ['your voice.', 'your take.', 'posted.'];
+    var i = 0;
+    // Swap at each loop boundary, when the ink is clipped/invisible, so the change is unseen.
+    ink.addEventListener('animationiteration', function () {
+      i = (i + 1) % phrases.length;
+      ink.textContent = phrases[i];
+    });
+  })();
+</script>
+
 <script
   async
   crossorigin="anonymous"
