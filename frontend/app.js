@@ -48,42 +48,7 @@ async function loadProfilePicker() {
     // Ideas need a profile to draw a niche from; the tool panel is always visible,
     // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
-    applyProfileScopedUI();
   } catch (_) {}
-}
-
-// Ergonomics/EHS work (KnowErgo assessments, the Knowella brand deck, skeleton and
-// footage heroes) is vertical-specific. Showing it on every profile makes the tool
-// look like someone else's product to a consultant or fractional exec, so these
-// controls only appear when the selected profile actually lives in that world.
-const _ERGO_HINTS = ["ergo", "knowella", "knowergo", "safety", "ehs", "occupational",
-                     "workplace injury", "physio", "musculoskeletal", "industrial"]
-
-function isErgoProfile() {
-  const p = _profiles.find((x) => x.id === getActiveProfileId()) || _profiles[0]
-  if (!p) return false
-  const hay = `${p.name || ""} ${p.industry || ""} ${p.designation || ""}`.toLowerCase()
-  return _ERGO_HINTS.some((k) => hay.includes(k))
-}
-
-function applyProfileScopedUI() {
-  const ergo = isErgoProfile()
-  const block = document.getElementById("ergo-block")
-  if (block) {
-    block.style.display = ergo ? "" : "none"
-    if (!ergo) block.open = false
-  }
-  for (const id of ["theme-opt-knowella", "fmt-opt-posture", "fmt-opt-photo"]) {
-    const opt = document.getElementById(id)
-    if (opt) opt.hidden = !ergo
-  }
-  // A hidden option can still be the current value after a profile switch — reset it.
-  if (!ergo) {
-    const theme = document.getElementById("carousel-theme")
-    if (theme && theme.value === "knowella_deep") theme.value = ""
-    const fmt = document.getElementById("carousel-format")
-    if (fmt && (fmt.value === "posture" || fmt.value === "photo")) fmt.value = "standard"
-  }
 }
 
 function _escHtmlCreate(s) {
@@ -977,36 +942,6 @@ function _showCarouselResult(data) {
   document.getElementById("carousel-section").classList.add("visible");
   markGenerated();
   document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-// Build a data carousel from a real KnowErgo assessment result JSON.
-async function generateErgoCarousel() {
-  const raw = (document.getElementById("ergo-json").value || "").trim();
-  if (!raw) { showError("Paste a KnowErgo assessment result JSON first."); return; }
-  let result;
-  try { result = JSON.parse(raw); }
-  catch (e) { showError("That's not valid JSON — paste the full /video/result response."); return; }
-  await _refreshToken();
-  const btn = document.getElementById("ergo-carousel-btn");
-  const bt = document.getElementById("ergo-btn-text"), bl = document.getElementById("ergo-btn-loader");
-  btn.disabled = true; bt.style.display = "none"; bl.style.display = "inline";
-  document.getElementById("error-banner").style.display = "none";
-  startGenProgress(["Reading the assessment…", "Scoring each joint…", "Designing the data slides…", "Rendering the PDF…"]);
-  try {
-    const res = await fetch("/generate/ergo-carousel", {
-      method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ result, profile_id: getActiveProfileId() })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Couldn't build the carousel from that assessment.");
-    _showCarouselResult(data);
-    toast("Data carousel ready from your assessment!", "success");
-  } catch (err) {
-    showError(err.message);
-  } finally {
-    stopGenProgress();
-    btn.disabled = false; bt.style.display = "inline"; bl.style.display = "none";
-  }
 }
 
 function downloadCarousel() {

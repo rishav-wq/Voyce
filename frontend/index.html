@@ -181,6 +181,7 @@
     }
     .tool-tab.filled .tool-dot { display: inline-block; }
     .tool-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 16px;
+      display: flex; flex-direction: column;
       scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent; }
     /* Touching ::-webkit-scrollbar opts Chrome into the legacy scrollbar, which
        ships arrow buttons at both ends unless they are explicitly removed. */
@@ -189,7 +190,7 @@
     .tool-body::-webkit-scrollbar-track { background: transparent; }
     .tool-body::-webkit-scrollbar-thumb { background: #d3d8e0; border-radius: 8px; }
     .tool-pane { display: none; }
-    .tool-pane.active { display: block; }
+    .tool-pane.active { display: block; margin: auto 0; }
     .tool-intro { font-size: 12.5px; color: #98a0ae; line-height: 1.5; margin-bottom: 12px; }
     .tool-run {
       display: inline-flex; align-items: center; gap: 7px; width: 100%; justify-content: center;
@@ -656,7 +657,7 @@
         <span>Compose</span>
         <span id="writing-as" style="display:none;align-items:center;gap:8px;margin-left:auto;text-transform:none;letter-spacing:0;font-size:13px;color:#5b6270;">
           ✍️ Writing as
-          <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';applyProfileScopedUI();" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
+          <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
           </select>
         </span>
       </div>
@@ -691,17 +692,6 @@
           <span id="carousel-btn-loader" style="display:none;">Generating…</span>
         </button>
       </div>
-      <details id="ergo-block" style="margin-top:14px;border:1px dashed #d3d8e0;border-radius:10px;padding:0 14px;display:none;">
-        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#5b6270;padding:12px 0;">📊 Turn a KnowErgo assessment into a data carousel</summary>
-        <div style="padding:0 0 14px;">
-          <p style="font-size:12.5px;color:#6d7482;margin:0 0 8px;line-height:1.5;">Paste a KnowErgo <code>/video/result</code> JSON — you'll get per-joint risk bars, a body-map, and the worst-joint stat, with real numbers from the assessment.</p>
-          <textarea id="ergo-json" placeholder='Paste the assessment result JSON here…' rows="4" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border:1.5px solid #d3d8e0;border-radius:8px;"></textarea>
-          <button class="generate-btn secondary" style="margin-top:8px;" id="ergo-carousel-btn" onclick="generateErgoCarousel()">
-            <span id="ergo-btn-text">📊 Build data carousel</span>
-            <span id="ergo-btn-loader" style="display:none;">Generating…</span>
-          </button>
-        </div>
-      </details>
       <style>
         .img-choice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 2px;}
         .img-choice-or{font-size:12.5px;color:#6d7482;}

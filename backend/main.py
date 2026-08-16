@@ -352,11 +352,6 @@ class GenerateRequest(BaseModel):
                                        # (e.g. "knowella_deep" for the Knowella brand look)
 
 
-class ErgoCarouselRequest(BaseModel):
-    result: dict                  # a KnowErgo GET /video/result/<id> JSON (real assessment)
-    profile_id: str = ""
-
-
 class VariationsRequest(BaseModel):
     post: str                     # an already-generated post to write alternate versions of
     profile_id: str = ""
@@ -838,37 +833,6 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
             profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
         context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
-        is_knowella = (profile or {}).get("carousel_theme") == "knowella_deep"
-        # Tell the renderer which look to use; "visual" routes every point to a diagram.
-        profile = {**(profile or {}), "carousel_format": request.carousel_format}
-        if request.carousel_format == "visual":
-            # Lead with the signature scorecard skeleton, then every point gets its own
-            # topic-matched posture diagram (illustrative — not a real assessment).
-            content.setdefault("content_slides", []).insert(0, {
-                "kind": "posture", "title": "This is what KnowErgo sees",
-                "body": "Every joint tracked, every angle scored, live.",
-                "risk": {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"},
-                "score": "REBA 8  ·  HIGH RISK",
-            })
-        elif request.carousel_format == "posture":
-            # Prepend the KnowErgo skeleton hero — a product-explainer visual. Its
-            # angles/score are illustrative of the product, not a real assessment.
-            content.setdefault("content_slides", []).insert(0, {
-                "kind": "posture", "title": "This is what KnowErgo sees",
-                "body": "Every joint tracked, every angle scored, live.",
-                "risk": {"trunk": "high", "neck": "medium", "left_leg": "medium", "left_arm": "low"},
-                "score": "REBA 8  ·  HIGH RISK",
-            })
-        elif request.carousel_format == "photo":
-            # Real annotated footage hero — uses a configured frame, or a bundled
-            # KnowErgo frame when the Knowella brand is active.
-            frame = (profile or {}).get("frame") or ("ergo-frame-1.png" if is_knowella else "")
-            if frame:
-                content.setdefault("content_slides", []).insert(0, {
-                    "kind": "photo", "image": frame,
-                    "title": "This is what KnowErgo sees",
-                    "body": "Real footage — every joint tracked, every angle scored.",
-                })
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
         auth_module.increment_gens(user["id"])
         return {
@@ -876,39 +840,6 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
             "pdf_base64": base64.b64encode(pdf_bytes).decode(),
             "hook":       content.get("hook_slide", {}).get("headline", ""),
         }
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
-
-
-@app.post("/generate/ergo-carousel")
-def generate_ergo_carousel(request: ErgoCarouselRequest, x_token: str = Header(None)):
-    """Turn a REAL KnowErgo assessment (GET /video/result JSON) into a data carousel —
-    per-joint risk bars, body-map, worst-joint stat — with numbers straight from the
-    assessment (this is the honest home for those data visuals). Renders to a PDF the
-    user can post like any other carousel."""
-    user = _require_user(x_token)
-    _check_gen_limit(user)
-    _rate_limit(f"gen:{user['id']}", 20)
-    try:
-        import base64
-        from carousel import render_carousel_pdf
-        from ergo_assessment import assessment_to_carousel
-        profile = _resolve_profile(user["id"], request.profile_id)
-        product_name = (profile or {}).get("product_name") or (profile or {}).get("name") or "KnowErgo"
-        content = assessment_to_carousel(request.result, product=product_name)
-        if not content:
-            raise HTTPException(status_code=400,
-                                detail="That doesn't look like a KnowErgo assessment result (no timeline data found).")
-        content.pop("_meta", None)
-        pdf_bytes = render_carousel_pdf(content, profile or {"name": product_name})
-        auth_module.increment_gens(user["id"])
-        return {
-            "post_text":  content.get("post_text", ""),
-            "pdf_base64": base64.b64encode(pdf_bytes).decode(),
-            "hook":       content.get("hook_slide", {}).get("headline", ""),
-        }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
 
