@@ -198,12 +198,21 @@
       7px 7px 0 -1px #fff, 7px 7px 0 0 var(--line),
       14px 14px 0 -1px #fff, 14px 14px 0 0 var(--line),
       0 26px 48px rgba(22,24,29,.16);}
-  @media(max-width:760px){.proof-grid{grid-template-columns:1fr;gap:40px;} .carousel-card{max-width:320px;margin:0 auto;}}
+  .proof-right{display:flex;flex-direction:column;gap:22px;min-width:0;}
+  .tweet-card{margin:0;background:#15181c;color:#e7e9ea;border:1px solid #2f3336;border-radius:16px;padding:18px 20px;}
+  .tweet-head{display:flex;align-items:center;gap:11px;margin-bottom:12px;}
+  .tweet-av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+  .tweet-name{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:5px;line-height:1.1;}
+  .tweet-check{color:#1d9bf0;font-size:13px;}
+  .tweet-handle{font-size:13px;color:#8b98a5;}
+  .tweet-body{font-size:16px;font-weight:600;line-height:1.42;}
+  @media(max-width:760px){.proof-grid{grid-template-columns:1fr;gap:40px;} .carousel-card{max-width:320px;margin:0 auto;} .proof-right{max-width:340px;margin:0 auto;width:100%;}}
   .post-cap{font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:9px;}
   .post-cap::before{content:"";width:18px;height:1.5px;background:var(--accent);}
   .post-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px 26px 18px;box-shadow:var(--shadow-lg);}
   .post-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-  .post-av{width:42px;height:42px;border-radius:50%;background:linear-gradient(140deg,#3a3a44,#16161c);color:#fff;font-family:var(--display);font-weight:700;font-size:16px;display:grid;place-items:center;flex-shrink:0;}
+  .post-av{width:42px;height:42px;border-radius:50%;background:linear-gradient(140deg,#3a3a44,#16161c);color:#fff;font-family:var(--display);font-weight:700;font-size:16px;display:grid;place-items:center;flex-shrink:0;overflow:hidden;}
+  .post-av img{width:100%;height:100%;object-fit:cover;}
   .post-name{font-size:14.5px;font-weight:600;color:var(--ink);font-family:var(--body);}
   .post-meta{font-size:12px;color:var(--ink-faint);}
   .post-meta b{color:#0a66c2;font-weight:600;}
@@ -382,7 +391,7 @@
         <div class="proof-left">
         <div class="post-card">
         <div class="post-head">
-          <div class="post-av">R</div>
+          <div class="post-av"><img src="/static/proof-avatar.png" alt="Rishav Raj"></div>
           <div>
             <div class="post-name">Rishav Raj</div>
             <div class="post-meta">AI/ML Engineer · Building Voyce in public</div>
@@ -399,7 +408,13 @@
       </div>
       <figure class="shot-card"><img src="/static/proof-article.png" alt="A LinkedIn post written with Voyce reacting to a Forbes article on the 2026 LinkedIn algorithm" loading="lazy"></figure>
       </div>
+      <div class="proof-right">
       <figure class="carousel-card"><img src="/static/proof-carousel-1.png" alt="A LinkedIn carousel written with Voyce: I analyzed LinkedIn's 2026 algorithm — here is what wins." loading="lazy"></figure>
+      <figure class="tweet-card">
+        <div class="tweet-head"><img class="tweet-av" src="/static/proof-avatar.png" alt="Rishav Raj"><div><div class="tweet-name">Rishav Raj <span class="tweet-check">✓</span></div><div class="tweet-handle">@rishavraj</div></div></div>
+        <div class="tweet-body">Where you show up matters much more than what you write.</div>
+      </figure>
+      </div>
       </div>
     </div>
   </div>
