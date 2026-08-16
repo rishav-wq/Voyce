@@ -435,6 +435,11 @@ def serve_dashboard():
     return _page("dashboard.html")
 
 
+@app.get("/voice-check")
+def serve_voice_check():
+    return _page("voice-check.html")
+
+
 @app.get("/onboarding")
 def serve_onboarding():
     return _page("onboarding.html")
@@ -478,6 +483,118 @@ def join_waitlist(req: WaitlistRequest, request: Request):
         "joined_at": datetime.utcnow().isoformat()
     })
     return {"status": "joined"}
+
+
+# ── Voice Check (free, no-login lead tool) ───────────────────────────────────
+# Paste your recent LinkedIn posts → a Voice Score, your Voice DNA, and ONE post
+# written in your voice + grounded in today's niche news. It's a throttled taste
+# of the paid engine (voice-learning + news + generation), so the upgrade to
+# "do this every day, auto-posted" is obvious. No scraping — you paste your posts.
+class VoiceCheckRequest(BaseModel):
+    posts: str          # a blob of your recent posts (blank-line or --- separated)
+    niche: str = ""     # what you post about (optional — inferred from posts if blank)
+    name: str = ""      # optional first name for the sample post
+    email: str = ""     # optional — captured as a lead / "email me the full report"
+
+
+@app.post("/voice-check")
+def voice_check(req: VoiceCheckRequest, request: Request):
+    _rate_limit(f"voicecheck:{_client_ip(request)}", 4, 3600)   # 4/hour/IP — it's LLM-costly
+    posts_blob = (req.posts or "").strip()
+    if len(posts_blob) < 60:
+        raise HTTPException(status_code=400,
+                            detail="Paste at least one full post — a line or two isn't enough to read your voice.")
+    name  = (req.name or "").strip()[:60] or "You"
+    niche = (req.niche or "").strip()[:120]
+    try:
+        from linkedin_data import parse_pasted_posts
+        from search import search_industry_news, format_news_context
+        from autonomous import generate_autonomous_post, POST_TYPE_LABELS
+        from llm import generate_json
+
+        parsed = parse_pasted_posts(posts_blob)
+        top_posts = parsed.get("top_posts") or []
+        if not top_posts:
+            raise HTTPException(status_code=400,
+                                detail="Couldn't read any posts from that. Paste 1-3 posts, each separated by a blank line.")
+
+        # 1) Judge their real posts → score + Voice DNA (signature phrases must be real).
+        joined = "\n\n---\n\n".join(p[:800] for p in top_posts[:5])
+        judge_prompt = f"""You are a sharp, honest LinkedIn content coach. Analyze the writer's REAL posts and profile their voice so they recognise themselves.
+
+POSTS:
+{joined}
+
+Return ONLY JSON:
+{{
+  "niche": "<their apparent field/topic in 2-4 words>",
+  "score": <integer 0-100: how distinct, human, and worth-reading their writing is>,
+  "dimensions": {{
+    "voice_distinctiveness": {{"score": <0-100>, "note": "<one line>"}},
+    "hook_strength": {{"score": <0-100>, "note": "<one line>"}},
+    "specificity": {{"score": <0-100>, "note": "<one line>"}},
+    "human_not_generic": {{"score": <0-100>, "note": "<how human vs templated-AI it reads, one line>"}}
+  }},
+  "voice_dna": {{
+    "tone": "<2-4 adjectives>",
+    "signature_phrases": ["<a word/phrase they ACTUALLY used>", "<another>"],
+    "hook_style": "<how they open, one line>",
+    "strength": "<the single best thing about their writing, one line>",
+    "fix": "<the single highest-leverage improvement, one line>"
+  }},
+  "verdict": "<one punchy sentence they'd screenshot>"
+}}
+Reward specificity, a clear point of view, and a human rhythm. Penalise vague motivation, buzzwords, and generic-AI tells (same-y openers, "Here's what I learned", empty closing questions). Base signature_phrases on words they truly used — never invent."""
+        analysis = generate_json(judge_prompt, max_tokens=700, temperature=0.4) or {}
+        niche = niche or (str(analysis.get("niche") or "").strip()) or "your field"
+
+        # 2) Build a temp profile carrying their voice, then 3) write ONE in-voice,
+        # news-grounded post with the REAL generator (same engine the paid product uses).
+        temp = {
+            "profile_type":      "personal",
+            "name":              name,
+            "industry":          niche,
+            "tone":              "conversational",
+            "linkedin_top_posts": top_posts,
+            "linkedin_analysis":  parsed.get("analysis") or {},
+        }
+        post_type = "expert_insight_p"
+        news = search_industry_news(niche, name, 3, post_type=post_type)
+        news_ctx = format_news_context(news)
+        sample_post = generate_autonomous_post(temp, news_ctx, post_type)
+        src = news[0] if news else {}
+
+        # Optional lead capture (funnel) — upsert so repeat checks don't duplicate.
+        email = (req.email or "").strip().lower()
+        if email and "@" in email:
+            try:
+                import db
+                db.voice_check_leads.update_one(
+                    {"email": email},
+                    {"$set": {"email": email, "niche": niche, "name": name,
+                              "score": analysis.get("score"),
+                              "at": datetime.utcnow().isoformat(), "ip": _client_ip(request)}},
+                    upsert=True)
+            except Exception:
+                logging.exception("voice-check lead capture failed")
+
+        return {
+            "score":           analysis.get("score"),
+            "dimensions":      analysis.get("dimensions") or {},
+            "voice_dna":       analysis.get("voice_dna") or {},
+            "verdict":         analysis.get("verdict", ""),
+            "sample_post":     sample_post,
+            "source_title":    src.get("title", ""),
+            "source_url":      src.get("url", ""),
+            "post_type_label": POST_TYPE_LABELS.get(post_type, "Expert Insight"),
+            "niche":           niche,
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logging.exception("voice-check failed")
+        raise HTTPException(status_code=502,
+                            detail="Couldn't run your Voice Check right now. Please try again in a moment.")
 
 
 # ── App Auth ──────────────────────────────────────────────────────────────────
