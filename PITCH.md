@@ -130,7 +130,7 @@ The LinkedIn-tools space is crowded. Here's where Voyce actually stands — incl
 | Layer | Technology |
 |---|---|
 | **Backend** | Python / FastAPI |
-| **AI generation** | Groq (LLaMA 3.3 70B) / Gemini, JSON mode |
+| **AI generation** | Google Gemini, JSON mode |
 | **News search** | Tavily Search API — real-time web search |
 | **Carousel PDFs** | Pillow — 1080×1080 slides rendered server-side |
 | **LinkedIn posting** | Official LinkedIn OAuth + REST API (v202503) |

@@ -30,8 +30,6 @@
     .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
     /* ── Top nav ── */
-    .nav-right { display: flex; align-items: center; gap: 16px; }
-    .nav-user { font-size: 13px; color: #555; font-weight: 600; }
     .nav-link { font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
     .nav-link:hover { color: #24365e; }
     .btn-add {
@@ -178,16 +176,6 @@
       gap: 16px;
       margin-bottom: 28px;
     }
-    .stat-card {
-      background: #ffffff;
-      border: 1px solid #e4e7ec;
-      border-radius: 14px;
-      padding: 18px 20px;
-      box-shadow: 0 1px 3px rgba(22,24,29,0.05);
-    }
-    .stat-label { font-size: 12px; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .stat-value { font-size: 26px; font-weight: 700; color: #16181d; }
-    .stat-sub { font-size: 12px; color: #82828c; margin-top: 4px; }
 
     button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
       outline: 2px solid #24365e;
@@ -226,30 +214,6 @@
     .badge-type.company  { background: #e8f0fe; color: #1a73e8; }
     .badge-type.personal { background: #fce8f3; color: #c2185b; }
     .badge-active   { background: #e6f4ea; color: #057642; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-    .badge-paused   { background: #f0f0f0; color: #888;    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-
-    .profile-meta-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 16px;
-      margin-bottom: 16px;
-    }
-    .meta-item { font-size: 12px; }
-    .meta-item .meta-key { color: #aaa; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; margin-bottom: 2px; }
-    .meta-item .meta-val { color: #333; font-weight: 500; }
-
-    .voice-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: #eaeef4;
-      color: #24365e;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 20px;
-      margin-bottom: 14px;
-    }
 
     .carousel-toggle-row {
       display: flex;
@@ -501,8 +465,6 @@
     }
     .cal-cell-badge.carousel { background: #fff0e6; color: #e65100; }
     .cal-cell-badge.text     { background: #e8f4fd; color: #0277bd; }
-    .cal-time { font-size: 10px; color: #bbb; margin-top: 3px; }
-    .cal-empty { font-size: 12px; color: #ddd; text-align: center; padding: 8px; }
 
     .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
 
@@ -520,8 +482,6 @@
 
     /* ── Mobile ── */
     @media (max-width: 760px) {
-      .nav-right { gap: 10px; }
-      .nav-user { display: none; }
       .btn-add { padding: 8px 12px; }
       .dash-body { padding: 18px 14px; }
 
@@ -531,8 +491,6 @@
       .li-banner-btn { margin-left: 0; }
 
       .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
-      .stat-card { padding: 14px 16px; }
-      .stat-value { font-size: 20px; }
 
       .modal-drawer { width: 100%; padding: 24px 18px; }
 
@@ -1100,7 +1058,6 @@
       const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
       const data = await res.json();
       liConnected = data.connected;
-      updateRail();
       updateLiBanner(data.connected);
       updateLiStat(data.connected);
       updateLiSidebar(data.connected);
@@ -1172,7 +1129,6 @@
       if (!res.ok) return;
       const profiles = await res.json();
       currentProfiles = profiles;
-      updateRail();
       _logCache = null;  // refetch the post log so calendar history stays current
       renderProfiles(profiles);
       updateStats(profiles);
@@ -1962,7 +1918,6 @@
       const section = document.getElementById("analytics-section");
       const empty   = document.getElementById("analytics-empty");
       const grid    = document.getElementById("analytics-grid");
-      const legend  = document.getElementById("analytics-legend");
       // Analytics is a real view now (it also holds post history), so the nav item
       // always stays available — only the chart cards below react to having data.
       if (!posts.length) {
@@ -1972,13 +1927,11 @@
         section.style.display = "";
         empty.style.display  = "";
         grid.style.display   = "none";
-        if (legend) legend.style.display = "none";
         return;
       }
       section.style.display = "";
       empty.style.display  = "none";
       grid.style.display   = "";
-      if (legend) legend.style.display = "";
 
       const labels = posts.map((p, i) => {
         const d = new Date(p.timestamp.endsWith('Z') ? p.timestamp : p.timestamp + 'Z');
@@ -2549,29 +2502,6 @@
     }
 
     // ── Plan banner ──────────────────────────────────────────────────────────
-    // ── Right rail rings ──────────────────────────────────────────────────────
-    function _setArc(id, frac) {
-      const c = document.getElementById(id); if (!c) return;
-      const C = 188.5;
-      c.style.strokeDashoffset = String(C * (1 - Math.max(0, Math.min(1, frac))));
-    }
-    function updateRail() {
-      const g = document.getElementById("ring-gens"); if (!g) return;
-      const info = window._genInfo;
-      let gleft = "—", gfrac = 0;
-      if (info) {
-        if (info.limit === -1) { gleft = "∞"; gfrac = 1; }
-        else { gleft = Math.max(0, info.limit - info.used); gfrac = info.limit ? gleft / info.limit : 0; }
-      }
-      g.textContent = gleft; _setArc("ring-gens-arc", gfrac);
-      const pcount = (currentProfiles || []).length;
-      const pmax = (info && info.limit === -1) ? 3 : 1;
-      const pe = document.getElementById("ring-profiles");
-      if (pe) { pe.textContent = pcount; _setArc("ring-profiles-arc", pmax ? Math.min(1, pcount / pmax) : 0); }
-      const le = document.getElementById("ring-linkedin");
-      if (le) { le.textContent = liConnected ? "✓" : "–"; le.style.color = liConnected ? "#18a07a" : "#98a0ae"; _setArc("ring-linkedin-arc", liConnected ? 1 : 0); }
-    }
-
     async function loadPlanBanner() {
       const bannerEl = document.getElementById("plan-banner");
       try {
@@ -2579,7 +2509,6 @@
         if (!res.ok) { bannerEl.style.display = "none"; return; }
         const data = await res.json();
         const info = data.gen_info;
-        window._genInfo = info; updateRail();
         if (!info) { bannerEl.style.display = "none"; return; }
         const banner  = document.getElementById("plan-banner");
         const badge   = document.getElementById("plan-badge");

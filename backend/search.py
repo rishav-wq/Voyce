@@ -118,7 +118,7 @@ def search_industry_news(
     template = random.choice(templates)
 
     # Add a random diversity angle to break repetition. Product-level angles
-    # (e.g. "OSHA regulation", "MSD injury cost" for an ergonomics product)
+    # (e.g. "LinkedIn algorithm change", "creator monetization" for a content product)
     # join the generic pool so each product's news stays niche-appropriate.
     angle = random.choice(_DIVERSITY_ANGLES + [a for a in (extra_angles or []) if a])
     query = f"{template.format(industry=industry)} {angle}".strip()

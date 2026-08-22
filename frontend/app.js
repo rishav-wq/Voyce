@@ -125,8 +125,6 @@ function authHeaders(extra) { return { "Content-Type": "application/json", "x-to
 let activeType = "text";
 let linkedInConnected = false;
 
-function isDryRun() { return false; }
-
 // ── Toast ─────────────────────────────────────────────────────────────────────
 let _toastTimer;
 function toast(msg, type = "") {
@@ -779,19 +777,18 @@ async function postToLinkedIn() {
       const fd = new FormData();
       fd.append("file", blob, "post-image." + _attachExt());
       fd.append("text", text);
-      fd.append("dry_run", isDryRun() ? "true" : "false");
       res = await fetch("/post/linkedin/image", { method: "POST", headers: { "x-token": getToken() }, body: fd });
     } else {
       res = await fetch("/post/linkedin", {
         method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ text, dry_run: isDryRun() })
+        body: JSON.stringify({ text })
       });
     }
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Failed to post.");
-    btn.textContent = isDryRun() ? "Dry Run OK!" : "Posted!";
+    btn.textContent = "Posted!";
     btn.classList.add("primary");
-    toast(isDryRun() ? "Dry run — post previewed in console." : "Posted to LinkedIn!", "success");
+    toast("Posted to LinkedIn!", "success");
   } catch (err) {
     toast(err.message, "error");
     btn.textContent = "Post Now";
@@ -830,8 +827,7 @@ async function confirmSchedule() {
       headers: authHeaders(),
       body: JSON.stringify({
         text: document.getElementById("linkedin-content").textContent,
-        schedule_time: new Date(val).toISOString(),
-        dry_run: isDryRun()
+        schedule_time: new Date(val).toISOString()
       })
     });
     const data = await res.json();
@@ -979,7 +975,6 @@ async function postCarousel() {
     const formData = new FormData();
     formData.append("file", blob, "carousel.pdf");
     formData.append("text", text);
-    formData.append("dry_run", isDryRun() ? "true" : "false");
 
     const res = await fetch("/post/linkedin/carousel", {
       method: "POST",
@@ -988,8 +983,8 @@ async function postCarousel() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Failed to post carousel.");
-    btn.textContent = isDryRun() ? "Dry Run OK!" : "Posted!";
-    toast(isDryRun() ? "Dry run — carousel previewed in console." : "Carousel posted to LinkedIn!", "success");
+    btn.textContent = "Posted!";
+    toast("Carousel posted to LinkedIn!", "success");
   } catch (err) {
     toast(err.message, "error");
     btn.textContent = "Post to LinkedIn";

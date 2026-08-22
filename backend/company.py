@@ -58,7 +58,7 @@ def save_company(profile: dict) -> dict:
         "allowed_hooks":    profile.get("allowed_hooks", []),
         "tone_shift":       profile.get("tone_shift", False),
         "knowledge":        profile.get("knowledge", ""),   # curated facts/rules the AI must use
-        "product_name":     profile.get("product_name", ""),  # optional subject label (e.g. "KnowErgo")
+        "product_name":     profile.get("product_name", ""),  # optional subject label (e.g. "Voyce")
     }
 
     db.companies.replace_one({"id": company_id}, {"_id": company_id, **entry}, upsert=True)

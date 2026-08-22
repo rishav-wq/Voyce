@@ -15,26 +15,8 @@
     h1, h2, h3, h4, .logo, .page-title, .output-section-title { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
     .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
 
-    /* ── Nav ── */
-    .dash-nav {
-      background: #fff;
-      border-bottom: 1px solid #eee;
-      padding: 0 32px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
     .logo { font-size: 20px; font-weight: 700; color: #16181d; }
     .logo span { color: #24365e; }
-    .nav-right { display: flex; align-items: center; gap: 16px; }
-    .nav-user { font-size: 13px; color: #555; font-weight: 600; }
-    .nav-link { font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
-    .nav-link:hover { color: #24365e; }
-    .nav-link.active { color: #24365e; font-weight: 600; }
 
     .li-status-pill {
       display: flex;
@@ -54,15 +36,6 @@
     .li-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
     .li-status-pill.connected .dot { background: #057642; }
 
-    .dry-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: #888;
-      cursor: pointer;
-    }
-    .dry-toggle input { accent-color: #24365e; width: 14px; height: 14px; }
 
     /* ── App shell: sidebar + main ── */
     .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
@@ -400,9 +373,6 @@
       letter-spacing: 0.5px;
     }
     .platform-badge.linkedin  { background: #e8f0fe; color: #1a73e8; }
-    .platform-badge.twitter   { background: #e8f5fd; color: #1da1f2; }
-    .platform-badge.email     { background: #fce8f3; color: #c2185b; }
-    .platform-badge.blog      { background: #e8f5e9; color: #2e7d32; }
 
     .card-actions { display: flex; gap: 6px; align-items: center; }
     .action-btn {
@@ -447,13 +417,6 @@
       font-family: 'Space Grotesk', sans-serif; flex: 0 0 auto; }
     .li-name { font-size: 14.5px; font-weight: 700; color: #16181d; line-height: 1.15; }
     .li-sub { font-size: 12px; color: #6d7482; }
-
-    /* Twitter tweets */
-    .tweet {
-      padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .tweet:last-child { border-bottom: none; }
 
     /* LinkedIn card spans full width */
     #card-linkedin { grid-column: 1 / -1; }
@@ -558,14 +521,6 @@
 
     /* ── Mobile ── */
     @media (max-width: 760px) {
-      .dash-nav {
-        height: auto;
-        flex-wrap: wrap;
-        padding: 10px 14px;
-        gap: 8px 12px;
-      }
-      .nav-right { flex-wrap: wrap; gap: 8px 12px; }
-      .nav-user { display: none; }
       .page-body { padding: 20px 14px; }
 
       .btn-row { flex-direction: column; }
