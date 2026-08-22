@@ -8,10 +8,10 @@ _client = MongoClient(os.getenv("MONGO_URI"))
 _db = _client["voyce"]
 
 users     = _db["users"]
-sessions  = _db["sessions"]
 companies = _db["companies"]
 post_log  = _db["post_log"]
 li_tokens = _db["linkedin_tokens"]
+ig_tokens = _db["instagram_tokens"]   # long-lived IG tokens; refreshed on a weekly cron
 waitlist  = _db["waitlist"]
 payments  = _db["payments"]
 scheduled = _db["scheduled_posts"]

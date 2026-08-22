@@ -51,3 +51,15 @@ services:
         sync: false             # production domain, e.g. https://voyce.co.in
       - key: REDIRECT_URI
         sync: false             # must match LinkedIn app + this domain, e.g. https://voyce.co.in/auth/linkedin/callback
+      # ── Instagram publishing (founder account) ──
+      - key: MEDIA_UPLOAD_SECRET
+        sync: false             # gates POST /media/upload; copy from backend/.env
+      - key: PUBLIC_BASE_URL
+        sync: false             # public base for /media URLs, e.g. https://voyce.co.in
+      # The live token lives in Mongo (instagram_tokens) and is extended by the
+      # weekly ig_token_refresh job. These two are the seed/fallback for a fresh
+      # database — set them once, then the app owns the rotation.
+      - key: IG_ACCESS_TOKEN
+        sync: false
+      - key: IG_USER_ID
+        sync: false

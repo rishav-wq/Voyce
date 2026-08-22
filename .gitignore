@@ -33,3 +33,5 @@ Thumbs.db
 
 # Throwaway design previews — build them in the scratchpad, not the repo
 PREVIEW-*.html
+# staged media for Instagram publishing (ephemeral)
+backend/media/

@@ -70,6 +70,16 @@ class _RevalidatingStatic(StaticFiles):
 
 app.mount("/static", _RevalidatingStatic(directory=frontend_path), name="static")
 
+# ── Media store (public URLs for Instagram publishing) ───────────────────────
+# Instagram's API ingests media by fetching a public HTTPS URL — it never accepts
+# uploaded bytes. Files land here (ephemeral on Render's disk; IG fetches within
+# minutes of publish, so persistence doesn't matter) and are served read-only at
+# /media/{name}. Uploads are gated by MEDIA_UPLOAD_SECRET so only founder tooling
+# can stock the store.
+media_path = os.path.join(os.path.dirname(__file__), "media")
+os.makedirs(media_path, exist_ok=True)
+app.mount("/media", StaticFiles(directory=media_path), name="media")
+
 
 def _page(name: str) -> FileResponse:
     """An app page, served with the same revalidate-don't-trust rule as /static —
@@ -221,6 +231,19 @@ def _refresh_all_crons():
             _setup_company_cron(company)
 
 
+def _refresh_ig_token():
+    """Instagram's long-lived tokens die after ~60 days, and the value in the
+    Render dashboard can't rewrite itself. Refreshing weekly (well inside the
+    window) means one failed run is survivable; the new token lands in Mongo."""
+    try:
+        import instagram as ig
+        result = ig.refresh_if_stale()
+        if result:
+            logging.info("Instagram token refreshed — %s days left", result.get("days_left"))
+    except Exception:
+        logging.exception("Instagram token refresh failed")
+
+
 @app.on_event("startup")
 def startup():
     _refresh_all_crons()
@@ -235,6 +258,21 @@ def startup():
         trigger="date",
         run_date=datetime.now() + timedelta(seconds=15),
         id="catchup_startup",
+        replace_existing=True,
+    )
+    # Instagram token upkeep: weekly, plus one check shortly after boot so a long
+    # outage can't land us past the expiry with no run in between.
+    scheduler.add_job(
+        _refresh_ig_token,
+        trigger=CronTrigger(day_of_week="mon", hour=4, minute=30, timezone="Asia/Kolkata"),
+        id="ig_token_refresh",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _refresh_ig_token,
+        trigger="date",
+        run_date=datetime.now() + timedelta(seconds=45),
+        id="ig_token_startup",
         replace_existing=True,
     )
 
@@ -1506,6 +1544,28 @@ def refresh_analytics(x_token: str = Header(None)):
             update_post_engagement(entry.get("company_id", ""), urn, engagement)
     posts = [e for e in log if e.get("status") == "posted"]
     return list(reversed(posts[-14:]))
+
+
+@app.post("/media/upload")
+async def upload_media(
+    request: Request,
+    file: UploadFile = File(...),
+    x_media_secret: str = Header(None),
+):
+    """Stage a file for Instagram publishing. Returns the public URL the IG API
+    can ingest from. Gated by MEDIA_UPLOAD_SECRET — fails closed when unset."""
+    secret = os.getenv("MEDIA_UPLOAD_SECRET", "")
+    if not secret or x_media_secret != secret:
+        raise HTTPException(status_code=403, detail="Bad or missing media secret")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".jpg", ".jpeg", ".mp4"):
+        raise HTTPException(status_code=400, detail="Only .jpg/.jpeg/.mp4 — the formats Instagram ingests")
+    name = f"{secrets.token_hex(8)}{ext}"
+    data = await file.read()
+    with open(os.path.join(media_path, name), "wb") as f:
+        f.write(data)
+    base = os.getenv("PUBLIC_BASE_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+    return {"name": name, "url": f"{base}/media/{name}", "bytes": len(data)}
 
 
 @app.post("/post/linkedin/carousel")
