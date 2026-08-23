@@ -38,3 +38,6 @@ backend/media/
 
 # generated reel music beds (regenerate with tools/make_reel_bed.py)
 marketing/audio/
+
+# rendered reels (regenerate with tools/post_reel.py)
+marketing/reels/
