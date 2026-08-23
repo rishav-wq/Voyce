@@ -41,3 +41,6 @@ marketing/audio/
 
 # rendered reels (regenerate with tools/post_reel.py)
 marketing/reels/
+
+# local dev binaries (cloudflared quick tunnel)
+.tools/
