@@ -1,7 +1,7 @@
 """
 Publish a local video (e.g. a Claude Design export) to @voyce.app as a Reel.
 
-Flow: upload the MP4 to the deployed backend's /media/upload (public URL) →
+Flow: upload the MP4 to the deployed backend's /media-upload (public URL) →
 hand that URL to the Instagram API → poll ingestion → publish.
 
 Usage (from repo root):
@@ -32,7 +32,7 @@ _ENV = dotenv_values(os.path.join(os.path.dirname(__file__), "..", "backend", ".
 def upload(base: str, path: str, secret: str) -> str:
     with open(path, "rb") as f:
         res = requests.post(
-            f"{base.rstrip('/')}/media/upload",
+            f"{base.rstrip('/')}/media-upload",
             headers={"x-media-secret": secret},
             files={"file": (os.path.basename(path), f, "video/mp4")},
             timeout=300,

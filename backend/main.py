@@ -74,8 +74,10 @@ app.mount("/static", _RevalidatingStatic(directory=frontend_path), name="static"
 # Instagram's API ingests media by fetching a public HTTPS URL — it never accepts
 # uploaded bytes. Files land here (ephemeral on Render's disk; IG fetches within
 # minutes of publish, so persistence doesn't matter) and are served read-only at
-# /media/{name}. Uploads are gated by MEDIA_UPLOAD_SECRET so only founder tooling
-# can stock the store.
+# /media/{name}. Uploads land on POST /media-upload — deliberately NOT under
+# /media, because the StaticFiles mount below claims that whole prefix and only
+# answers GET/HEAD, which would make an upload route there return 405.
+# Gated by MEDIA_UPLOAD_SECRET so only founder tooling can stock the store.
 media_path = os.path.join(os.path.dirname(__file__), "media")
 os.makedirs(media_path, exist_ok=True)
 app.mount("/media", StaticFiles(directory=media_path), name="media")
@@ -1546,7 +1548,7 @@ def refresh_analytics(x_token: str = Header(None)):
     return list(reversed(posts[-14:]))
 
 
-@app.post("/media/upload")
+@app.post("/media-upload")
 async def upload_media(
     request: Request,
     file: UploadFile = File(...),

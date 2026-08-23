@@ -6,7 +6,7 @@ Render a Voyce reel and publish it to Instagram — one command, no editor.
     python tools/post_reel.py --list
 
 Chain: make_reel_bed (music, synced to this reel's beats) -> reel_render (frames
--> ffmpeg, music muxed in the same pass) -> /media/upload (a public URL, because
+-> ffmpeg, music muxed in the same pass) -> /media-upload (a public URL, because
 Meta fetches media rather than accepting an upload) -> instagram.publish_reel.
 
 Needs in backend/.env: IG_ACCESS_TOKEN, IG_USER_ID, MEDIA_UPLOAD_SECRET,
@@ -53,7 +53,7 @@ def upload(path: str) -> str:
     if not secret:
         sys.exit("MEDIA_UPLOAD_SECRET missing from backend/.env")
     with open(path, "rb") as fh:
-        res = requests.post(f"{base}/media/upload",
+        res = requests.post(f"{base}/media-upload",
                             headers={"x-media-secret": secret},
                             files={"file": (os.path.basename(path), fh, "video/mp4")},
                             timeout=600)
