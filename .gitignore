@@ -35,3 +35,6 @@ Thumbs.db
 PREVIEW-*.html
 # staged media for Instagram publishing (ephemeral)
 backend/media/
+
+# generated reel music beds (regenerate with tools/make_reel_bed.py)
+marketing/audio/
