@@ -11,17 +11,21 @@ A * before a word marks it for the Fraunces italic accent, matching the hero's
 "Sound like you."
 """
 
+# Retimed after auditing the render as a contact sheet: roughly 40% of the old
+# runtime held a frame with nothing changing, which is exactly where a viewer
+# swipes. Nothing now sits still for more than about 2.5s, and the payoff is a
+# beat rather than a card someone waits out.
 _BASE = dict(
-    dur=27.5,
-    hookOut=2.20,
-    tNav=6.40,        # Create is clicked
-    tSource=7.20,     # the source pastes in
-    tGenerate=10.60,  # Generate is clicked
-    tWrite=11.80,     # slide to the preview, the post writes
-    typeDur=4.00,
-    tPublish=18.20,   # Post now
-    tBack=20.60,      # back to Today, the log entry lands
-    payoffAt=23.40,
+    dur=22.00,
+    hookOut=1.90,     # the hook line clears; the app is already moving behind it
+    tNav=5.00,        # Create is clicked
+    tSource=5.80,     # the source pastes in
+    tGenerate=8.60,   # Generate is clicked
+    tWrite=9.60,      # slide to the preview, the post writes
+    typeDur=3.20,
+    tPublish=14.60,   # Post now
+    tBack=16.80,      # back to Today, the log entry lands
+    payoffAt=19.40,   # 2.6s of payoff, not 4
 )
 
 _NEWS = {
@@ -51,12 +55,16 @@ DEMOS = {
         "source": _SOURCE,
         "post": _POST,
         "logline": "logged: reuters.com · published 8:00 AM",
+        # step 0 is the hook itself — it now lives in the caption slot over a
+        # product that is already moving, instead of a static card nothing
+        # happens on for two seconds.
         "steps": [
-            {"k": "a", "at": 2.30,  "cap": "Set your niche *once."},
-            {"k": "b", "at": 6.40,  "cap": "It finds *today's news."},
-            {"k": "c", "at": 11.90, "cap": "Writes your take, in *your voice."},
-            {"k": "d", "at": 18.20, "cap": "One tap. *Published."},
-            {"k": "e", "at": 21.00, "cap": "While you were *with a client."},
+            {"k": "h", "at": 0.00,  "cap": "I didn't write *this post.", "big": True},
+            {"k": "a", "at": 2.05,  "cap": "Set your niche *once."},
+            {"k": "b", "at": 5.00,  "cap": "It finds *today's news."},
+            {"k": "c", "at": 9.70,  "cap": "Writes your take, in *your voice."},
+            {"k": "d", "at": 14.60, "cap": "One tap. *Published."},
+            {"k": "e", "at": 17.10, "cap": "While you were *with a client."},
         ],
         "bed": "voyce-bed-fullflow.wav",
         "caption": (
@@ -82,11 +90,12 @@ DEMOS = {
         "post": _POST,
         "logline": "source logged · one-click pause · official LinkedIn API",
         "steps": [
-            {"k": "a", "at": 2.30,  "cap": "You see the *source it used."},
-            {"k": "b", "at": 6.40,  "cap": "And the draft, *before it goes out."},
-            {"k": "c", "at": 11.90, "cap": "Your voice — *not generic AI."},
-            {"k": "d", "at": 18.20, "cap": "Post it, or *pause it."},
-            {"k": "e", "at": 21.00, "cap": "Every post *logged."},
+            {"k": "h", "at": 0.00,  "cap": "Letting software post *as you.", "big": True},
+            {"k": "a", "at": 2.05,  "cap": "You see the *source it used."},
+            {"k": "b", "at": 5.00,  "cap": "And the draft, *before it goes out."},
+            {"k": "c", "at": 9.70,  "cap": "Your voice — *not generic AI."},
+            {"k": "d", "at": 14.60, "cap": "Post it, or *pause it."},
+            {"k": "e", "at": 17.10, "cap": "Every post *logged."},
         ],
         "bed": "voyce-bed-trust.wav",
         "caption": (

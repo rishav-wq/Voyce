@@ -53,13 +53,19 @@
 
   #cap{position:absolute;left:82px;right:82px;top:214px;z-index:30;font-family:'SG';font-weight:700;
     font-size:74px;line-height:1.08;letter-spacing:-.035em;color:var(--ink)}
+  /* the hook rides the same slot, just louder */
+  #cap.big{font-size:104px;line-height:1.02;letter-spacing:-.045em}
+  #hookkick{position:absolute;left:82px;top:150px;z-index:30}
   #cap .w{display:inline-block;margin-right:.08em}
   #cap .hl{font-family:'FR';font-style:italic;font-weight:500;color:var(--accent);letter-spacing:-.01em;position:relative}
   #cap .hl::after{content:'';position:absolute;left:.02em;right:.02em;bottom:.04em;height:.09em;
     background:var(--accent);border-radius:2px;opacity:.85}
 
   /* ── The app ─────────────────────────────────────────────────────────────── */
-  #screen{position:absolute;left:68px;width:944px;top:496px;height:1010px;z-index:20;
+  /* Smaller at rest than it wants to be, deliberately: a window that already
+     fills the frame has nowhere to push in to, and shot variety is what the
+     audit said was missing most. Close-ups scale this up to ~1.3. */
+  #screen{position:absolute;left:150px;width:780px;top:520px;height:900px;z-index:20;
     background:var(--card);border:2px solid var(--line);border-radius:34px;
     overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
 
@@ -338,10 +344,7 @@
     </svg>
   </div>
 
-  <div class="overlay" id="hook">
-    <div class="eyebrow kick" id="hookkick">REAL DEMO</div>
-    <h1 id="hooktext"></h1>
-  </div>
+  <div class="eyebrow" id="hookkick">REAL DEMO</div>
 
   <div class="overlay" id="payoff">
     <div class="stamp">posted.</div>
@@ -383,8 +386,6 @@ function markup(s){
     return `<span class="w${hl?' hl':''}">${txt}</span>`;
   }).join(' ');
 }
-if (S.hook) $('hooktext').innerHTML = S.hook.split(' ')
-  .map(w=>w.startsWith('*')?`<span class="it">${w.slice(1)}</span>`:w).join(' ');
 if (S.kicker) $('hookkick').textContent = S.kicker;
 if (S.news){ $('newshl').textContent=S.news.headline; $('newssrc').textContent=S.news.source; }
 if (S.profile){ $('pname').textContent=S.profile.name; $('pniche').textContent=S.profile.niche;
@@ -394,7 +395,12 @@ if (S.logline) $('logsrc').textContent = S.logline;
    ends in a full stop renders as "again…." in the activity row */
 if (POST) $('log-new-txt').textContent = POST.split('\n')[0].slice(0,46).replace(/[.\s]+$/, '') + '…';
 
-function setCap(step){ const el=$('cap'); if(el.dataset.k===step.k) return; el.dataset.k=step.k; el.innerHTML=markup(step.cap); }
+function setCap(step){
+  const el=$('cap');
+  el.classList.toggle('big', !!step.big);
+  if(el.dataset.k===step.k) return;
+  el.dataset.k=step.k; el.innerHTML=markup(step.cap);
+}
 function activeStep(t){ let c=STEPS[0]; for(const s of STEPS) if(t>=s.at) c=s; return c; }
 
 /* Which screen is showing at t. Each mark advances one screen, and easeDram
@@ -411,28 +417,14 @@ function screenPos(t){
 function seek(t){
   $('prog').style.width = (clamp(t/DUR,0,1)*1080)+'px';
 
-  /* hook */
-  const hk=$('hook');
-  if (t < HOOK + 0.44){
-    const p=(t-HOOK)/0.42;
-    if(p<=0){hk.style.opacity=1;hk.style.transform='scale(1)';hk.style.filter='none';}
-    else{const e=easeDram(p);hk.style.opacity=String(1-e);hk.style.transform=`scale(${1+0.05*e})`;hk.style.filter=`blur(${5*e}px)`;}
-    hk.style.display='flex';
-  } else hk.style.display='none';
+  /* the eyebrow belongs to the hook line only */
+  $('hookkick').style.opacity = String(clamp((t-0.1)/0.35,0,1) * clamp((HOOK-t)/0.35,0,1));
 
   /* caption */
   const step=activeStep(t)||{k:'',cap:'',at:0};
   setCap(step);
-  [...$('cap').querySelectorAll('.w')].forEach((w,i)=>{
-    const st=step.at+0.12+i*0.062;
-    const p=easeOut((t-st)/0.42), sp=spring(clamp((t-st)/0.42,0,1));
-    w.style.opacity=String(clamp(p*1.35,0,1));
-    w.style.transform=`translateY(${(1-sp)*26}px) scale(${0.90+0.10*sp})`;
-  });
-
-  /* Which control is being approached right now. Resolved before the screen
-     transform is written, because the zoom below changes every rect and the
-     cursor, ring and pill are all placed from post-transform geometry. */
+  /* Which control is being approached right now. Resolved up front: the
+     caption defers to the coach card, and the shot system focuses on it. */
   const legs=[
     {el:$('nav-create'), at:T_NAV,
      txt:"Today's news is in. Open **Create** to turn it into your post.", dx: 300, dy: 380},
@@ -444,29 +436,82 @@ function seek(t){
   let active=null;
   for(const leg of legs){ if(t>=leg.at-1.35 && t<=leg.at+0.85){ active=leg; break; } }
 
-  /* app rises in */
+  /* One voice at a time: the coach card says the same thing the caption does,
+     so the caption steps back while a card is up. */
+  const coachUp = active ? clamp((t-(active.at-1.35))/0.25,0,1)*clamp((active.at+0.85-t)/0.32,0,1) : 0;
+  /* all the way out, not down to a ghost: the window grows over this slot during
+     a close-up, and a faint caption showing through the browser chrome reads as
+     a rendering fault rather than a design choice */
+  $('cap').style.opacity = String(1 - coachUp);
+  [...$('cap').querySelectorAll('.w')].forEach((w,i)=>{
+    const st=step.at+0.12+i*0.062;
+    const p=easeOut((t-st)/0.42), sp=spring(clamp((t-st)/0.42,0,1));
+    w.style.opacity=String(clamp(p*1.35,0,1));
+    w.style.transform=`translateY(${(1-sp)*26}px) scale(${0.90+0.10*sp})`;
+  });
+
+
+  /* app rises in — from the very start, so the opening second has the product
+     moving in it rather than a static card */
   const scr=$('screen');
-  const rise=spring((t-(HOOK+0.10))/0.85);
-  scr.style.opacity=String(clamp((t-(HOOK+0.10))/0.4,0,1));
-  scr.style.transform=`translateY(${(1-rise)*120}px) scale(${0.95+0.05*rise})`;
+  const rise=spring((t-0.35)/0.95);
+  scr.style.opacity=String(clamp((t-0.35)/0.45,0,1));
+  scr.style.transform=`translateY(${(1-rise)*140}px) scale(${0.94+0.06*rise})`;
   $('urlpath').textContent = (t>=T_NAV && t<T_BACK) ? '/tool' : '/setup';
 
-  /* Push in on whatever is being clicked, anchored to that control so it stays
-     put while everything around it grows. Measuring at scale 1 first, then
-     setting the origin to the point we measured, is what keeps the zoom from
-     sliding the target out from under the cursor. */
+  /* ── Shots ──
+     The audit's headline finding was that the whole reel sat at one camera
+     position. These are the cuts: wide for context and screen changes, tight
+     on the control or the text when that is the subject. Scale and focal point
+     are both interpolated, so it reads as a push rather than a jump. */
   const zw=$('zoomwrap');
-  zw.style.transform='none';
-  const zAmt = active ? spring(clamp((t-(active.at-0.95))/0.75,0,1))
-                       * clamp((active.at+0.85-t)/0.45,0,1) : 0;
-  if (zAmt > 0.002){
-    /* Anchored to the window's own centre, not the control. The window is 944
-       wide inside 1080, so there are only 68px of margin — scaling about a
-       point near one edge pushes the opposite edge straight out of frame, and
-       a demo that crops its own UI is worse than one that never pushed in. */
-    const s0=scr.getBoundingClientRect();
-    zw.style.transformOrigin=`${s0.left+s0.width/2}px ${s0.top+s0.height/2}px`;
-    zw.style.transform=`scale(${1+0.05*zAmt})`;
+  zw.style.transform='none';                       // measure at rest
+  const C = el => { const b=el.getBoundingClientRect(); return {x:b.left+b.width/2, y:b.top+b.height/2}; };
+  const FOCUS = {
+    none: C(scr), nav: C($('nav-create')), ta: C($('ta')),
+    gen:  C($('btn-gen')), body: C($('libody')), post: C($('btn-post')),
+  };
+  const SHOTS=[
+    {at:0.00,        s:1.00, f:'none'},
+    {at:T_NAV-0.85,  s:1.18, f:'nav'},    // in for the nav click
+    {at:T_NAV+0.95,  s:1.00, f:'none'},   // out, the screens slide
+    {at:T_SRC+0.45,  s:1.22, f:'ta'},     // in on the source typing
+    {at:T_GEN-0.75,  s:1.30, f:'gen'},    // tight on Generate
+    {at:T_WRT+0.25,  s:1.00, f:'none'},   // out for the screen change
+    {at:T_WRT+1.15,  s:1.24, f:'body'},   // in on the post writing itself
+    {at:T_POST-0.85, s:1.30, f:'post'},   // tight on Post now
+    {at:T_POST+1.15, s:1.08, f:'post'},   // ease off after the click
+    {at:T_BACK+0.35, s:1.00, f:'none'},   // wide for the activity log
+  ];
+  let a=SHOTS[0], b2=SHOTS[0];
+  for(let k=0;k<SHOTS.length;k++){ if(t>=SHOTS[k].at){ a=SHOTS[k]; b2=SHOTS[k+1]||SHOTS[k]; } }
+  const kp = (b2===a) ? 1 : easeDram((t-b2.at)/0.62 + 1);
+  const sNow = a.s + (b2.s - a.s) * kp;
+  const fa=FOCUS[a.f], fb=FOCUS[b2.f];
+  const fx = fa.x + (fb.x - fa.x) * kp, fy = fa.y + (fb.y - fa.y) * kp;
+  if (sNow > 1.002){
+    const pull = clamp((sNow-1)/0.28, 0, 1) * 0.55;
+    const dy = (940 - fy) * pull;
+
+    /* Scaling about a focal point near one edge throws the opposite edge out of
+       frame — the same arithmetic that cropped the product last time. Work out
+       where the window lands and pull it back so it either fits with a margin
+       or bleeds fully; a half-cut card edge reads as a mistake, a full bleed
+       reads as a close-up. */
+    const sb = scr.getBoundingClientRect();
+    const L = fx + (sb.left - fx) * sNow;
+    const R = fx + (sb.right - fx) * sNow;
+    let dx = 0;
+    if (R - L <= 1080 - 40){
+      if (R > 1080 - 20) dx = (1080 - 20) - R;
+      if (L + dx < 20)   dx = 20 - L;
+    } else {
+      if (L > 0)    dx = -L;
+      if (R + dx < 1080) dx = 1080 - R;
+    }
+
+    zw.style.transformOrigin=`${fx}px ${fy}px`;
+    zw.style.transform=`translate(${dx}px, ${dy}px) scale(${sNow})`;
   }
   scr.querySelector('.lipill .dot').style.opacity=String(0.5+0.5*Math.abs(Math.sin(t*2.2)));
 
