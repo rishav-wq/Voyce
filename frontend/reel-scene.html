@@ -63,6 +63,18 @@
     background:var(--card);border:2px solid var(--line);border-radius:34px;
     overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
 
+  /* Browser chrome. The reference demo frames the product in a real window —
+     traffic lights and a URL do more for "this is shipping software" than any
+     amount of polish on the app itself. */
+  .chrome{display:flex;align-items:center;gap:11px;padding:15px 22px;background:#eceff4;
+    border-bottom:2px solid var(--line);flex:none}
+  .chrome i{width:15px;height:15px;border-radius:50%;display:block}
+  .chrome .r{background:#ff5f57}.chrome .y{background:#febc2e}.chrome .g{background:#28c840}
+  .chrome .url{flex:1;margin-left:14px;background:#fff;border:2px solid var(--line);
+    border-radius:11px;padding:9px 18px;font-family:'IN4';font-size:19px;color:var(--ink-faint);
+    display:flex;align-items:center;gap:10px}
+  .chrome .url b{font-family:'IN6';color:var(--ink-soft);font-weight:400}
+
   .appbar{display:flex;align-items:center;gap:16px;padding:24px 30px;border-bottom:2px solid var(--line);background:#fff;flex:none}
   .appbar .lg{display:flex;align-items:baseline;font-family:'SG';font-weight:700;font-size:32px;color:var(--ink);letter-spacing:-.02em}
   .appbar .lg .v{font-family:'FR';font-style:italic;font-weight:500;font-size:58px;line-height:.58;letter-spacing:-.07em}
@@ -138,7 +150,38 @@
   .react{display:flex;align-items:center;gap:9px;font-family:'IN6';font-size:19px;color:var(--ink-faint)}
   .react svg{width:24px;height:24px;fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-  #cursor{position:absolute;z-index:55;width:46px;height:46px;pointer-events:none}
+  #cursor{position:absolute;z-index:57;width:56px;height:70px;pointer-events:none;
+    filter:drop-shadow(0 5px 12px rgba(10,14,24,.4))}
+
+  /* Coach mark — a dark pill anchored to whatever is about to be clicked. This
+     is what turns a cursor drifting across a screen into a walkthrough: the
+     viewer is told the intent before they watch the action. */
+  #coach{position:absolute;z-index:56;width:430px;background:#14161b;color:#fff;
+    border-radius:20px;overflow:hidden;box-shadow:0 22px 50px rgba(10,14,24,.42)}
+  #coach .body{display:flex;gap:14px;padding:20px 22px 16px}
+  #coach .mark{width:26px;height:26px;flex:none;margin-top:2px;transform:rotate(45deg);
+    border-radius:5px;background:linear-gradient(140deg,#b7c6e8,#8fa5d6)}
+  #coach .txt{font-family:'IN4';font-size:23px;line-height:1.38;color:#e8eaee}
+  #coach .txt b{font-family:'IN7';color:#fff}
+  #coach .foot{display:flex;align-items:center;gap:12px;padding:12px 22px 14px;
+    border-top:2px solid rgba(255,255,255,.10)}
+  #coach .by{font-family:'IN4';font-size:18px;color:#7d8694;flex:1;display:flex;align-items:baseline;gap:4px}
+  #coach .by .v{font-family:'FR';font-style:italic;font-weight:600;font-size:26px;line-height:.7;color:#9fb0d8}
+  #coach .next{font-family:'IN7';font-size:19px;color:#14161b;background:#fff;
+    border-radius:10px;padding:8px 15px;display:flex;align-items:center;gap:8px}
+  /* the tail is positioned from JS, because the card gets clamped to the frame
+     and a fixed tail would end up pointing at nothing */
+  #coach::after{content:'';position:absolute;left:var(--tail,36px);bottom:-9px;width:20px;height:20px;
+    background:#14161b;transform:rotate(45deg);border-radius:4px}
+
+  /* Spotlight ring — the control lifts out of the page instead of the cursor
+     merely arriving somewhere near it. */
+  #spot{position:absolute;z-index:54;border:3px solid var(--accent);border-radius:15px;
+    box-shadow:0 0 0 6px rgba(36,54,94,.13), 0 0 44px rgba(36,54,94,.24);pointer-events:none}
+
+  /* Step label — the viewer always knows which part of the flow they are in. */
+  #stepchip{position:absolute;z-index:31;top:104px;right:82px;font-family:'IN7';font-size:21px;
+    letter-spacing:.17em;text-transform:uppercase;color:var(--ink-faint)}
 
   /* ── Hook + payoff ───────────────────────────────────────────────────────── */
   .overlay{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;justify-content:center;
@@ -165,7 +208,12 @@
   <div id="chip"><span class="v">V</span>oyce</div>
   <div id="cap"></div>
 
+  <div id="zoomwrap">
   <div id="screen">
+    <div class="chrome">
+      <i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">&#128274; voyce.co.in<b id="urlpath">/setup</b></span>
+    </div>
     <div class="appbar">
       <span class="lg"><span class="v">V</span>oyce</span>
       <span class="sp"></span>
@@ -269,9 +317,24 @@
     </div>
   </div>
 
+  </div>
+
+  <div id="stepchip">01 · Today</div>
+  <div id="spot"></div>
+  <div id="coach">
+    <div class="body"><span class="mark"></span><span class="txt" id="coachtxt"></span></div>
+    <div class="foot">
+      <span class="by">Powered by <span class="v">V</span>oyce</span>
+      <span class="next">Next <span>&#8594;</span></span>
+    </div>
+  </div>
+
+  <!-- A chunky pointing hand, not a thin arrow: at 1080 wide on a phone, a
+       system-sized arrow disappears against the UI it is meant to be driving. -->
   <div id="cursor">
-    <svg viewBox="0 0 24 24" width="46" height="46">
-      <path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14.2 L19 14 Z" fill="#fff" stroke="#16181d" stroke-width="1.3"/>
+    <svg viewBox="0 0 32 40" width="56" height="70">
+      <path d="M11 3.6c0-1.45 1.15-2.6 2.6-2.6s2.6 1.15 2.6 2.6V17.1h1.15v-3.3c0-1.3 1.05-2.35 2.35-2.35s2.35 1.05 2.35 2.35V18.1h1.1v-2.25c0-1.2.95-2.15 2.15-2.15s2.15.95 2.15 2.15V19.1h1.0c1.2 0 2.2.95 2.2 2.15v5.65c0 6.25-4.3 10.9-10.4 10.9h-2.55c-3.65 0-6.2-1.45-8.1-4.35l-5.25-8.1c-.7-1.1-.4-2.55.7-3.25 1.1-.7 2.55-.4 3.25.65L11 23.2V3.6z"
+            fill="#fff" stroke="#14161b" stroke-width="1.7" stroke-linejoin="round"/>
     </svg>
   </div>
 
@@ -367,11 +430,44 @@ function seek(t){
     w.style.transform=`translateY(${(1-sp)*26}px) scale(${0.90+0.10*sp})`;
   });
 
+  /* Which control is being approached right now. Resolved before the screen
+     transform is written, because the zoom below changes every rect and the
+     cursor, ring and pill are all placed from post-transform geometry. */
+  const legs=[
+    {el:$('nav-create'), at:T_NAV,
+     txt:"Today's news is in. Open **Create** to turn it into your post.", dx: 300, dy: 380},
+    {el:$('btn-gen'),    at:T_GEN,
+     txt:"Hit **Generate** — Voyce writes it in your voice, not a template.", dx:-260, dy: 320},
+    {el:$('btn-post'),   at:T_POST,
+     txt:"Looks right? **Post now** sends it straight to LinkedIn.", dx:-320, dy: 420},
+  ];
+  let active=null;
+  for(const leg of legs){ if(t>=leg.at-1.35 && t<=leg.at+0.85){ active=leg; break; } }
+
   /* app rises in */
   const scr=$('screen');
   const rise=spring((t-(HOOK+0.10))/0.85);
   scr.style.opacity=String(clamp((t-(HOOK+0.10))/0.4,0,1));
   scr.style.transform=`translateY(${(1-rise)*120}px) scale(${0.95+0.05*rise})`;
+  $('urlpath').textContent = (t>=T_NAV && t<T_BACK) ? '/tool' : '/setup';
+
+  /* Push in on whatever is being clicked, anchored to that control so it stays
+     put while everything around it grows. Measuring at scale 1 first, then
+     setting the origin to the point we measured, is what keeps the zoom from
+     sliding the target out from under the cursor. */
+  const zw=$('zoomwrap');
+  zw.style.transform='none';
+  const zAmt = active ? spring(clamp((t-(active.at-0.95))/0.75,0,1))
+                       * clamp((active.at+0.85-t)/0.45,0,1) : 0;
+  if (zAmt > 0.002){
+    /* Anchored to the window's own centre, not the control. The window is 944
+       wide inside 1080, so there are only 68px of margin — scaling about a
+       point near one edge pushes the opposite edge straight out of frame, and
+       a demo that crops its own UI is worse than one that never pushed in. */
+    const s0=scr.getBoundingClientRect();
+    zw.style.transformOrigin=`${s0.left+s0.width/2}px ${s0.top+s0.height/2}px`;
+    zw.style.transform=`scale(${1+0.05*zAmt})`;
+  }
   scr.querySelector('.lipill .dot').style.opacity=String(0.5+0.5*Math.abs(Math.sin(t*2.2)));
 
   /* ── screens slide, exactly as the app navigates ── */
@@ -426,28 +522,51 @@ function seek(t){
   $('log-new').style.opacity = String(clamp((t-(T_BACK+0.5))/0.5,0,1));
   $('log-new').style.transform = `translateY(${(1-spring((t-(T_BACK+0.5))/0.7))*22}px)`;
 
-  /* ── cursor: travels to whatever is about to be clicked ── */
-  const cur=$('cursor');
-  const legs=[
-    {el:$('nav-create'), at:T_NAV,  fromDx:280, fromDy:360},
-    {el:$('btn-gen'),    at:T_GEN,  fromDx:-240, fromDy:300},
-    {el:$('btn-post'),   at:T_POST, fromDx:-300, fromDy:400},
-  ];
-  let shown=false;
-  for(const leg of legs){
-    const start=leg.at-1.15, end=leg.at+0.75;
-    if(t>=start && t<=end){
-      const b=leg.el.getBoundingClientRect();
-      const to={x:b.left+b.width*0.55, y:b.top+b.height*0.55};
-      const from={x:to.x+leg.fromDx, y:to.y+leg.fromDy};
-      const p=easeOut((t-start)/0.9);
-      cur.style.opacity=String(clamp((t-start)/0.22,0,1)*clamp((end-t)/0.3,0,1));
-      cur.style.left=(from.x+(to.x-from.x)*p)+'px';
-      cur.style.top =(from.y+(to.y-from.y)*p)+'px';
-      shown=true; break;
-    }
+  /* ── the walkthrough layer: pill, ring, cursor ──
+     Rects are read here, after the zoom has been applied, so all three stay
+     locked to the control even as the card leans in and panels grow. */
+  const cur=$('cursor'), coach=$('coach'), spot=$('spot');
+  if(active){
+    const b=active.el.getBoundingClientRect();
+    const vis = clamp((t-(active.at-1.35))/0.25,0,1) * clamp((active.at+0.85-t)/0.32,0,1);
+    const settle = spring(clamp((t-(active.at-1.05))/0.55,0,1));
+
+    const to={x:b.left+b.width*0.55, y:b.top+b.height*0.55};
+    const from={x:to.x+active.dx, y:to.y+active.dy};
+    const p=easeOut((t-(active.at-1.15))/0.92);
+    cur.style.opacity=String(vis);
+    cur.style.left=(from.x+(to.x-from.x)*p)+'px';
+    cur.style.top =(from.y+(to.y-from.y)*p)+'px';
+
+    const pad=10;
+    spot.style.opacity=String(vis*settle);
+    spot.style.left=(b.left-pad)+'px';
+    spot.style.top=(b.top-pad)+'px';
+    spot.style.width=(b.width+pad*2)+'px';
+    spot.style.height=(b.height+pad*2)+'px';
+
+    /* **term** -> bold, so the control being named pops out of the sentence */
+    $('coachtxt').innerHTML=active.txt.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    /* keep the card inside the frame, then aim its tail at the control */
+    const cw=coach.offsetWidth||430;
+    const cl=Math.max(28, Math.min(b.left-26, 1080-cw-28));
+    coach.style.opacity=String(vis*settle);
+    coach.style.left=cl+'px';
+    coach.style.top=(b.top-coach.offsetHeight-28)+'px';
+    coach.style.setProperty('--tail',
+      Math.max(24, Math.min(cw-44, b.left+b.width/2-cl-10))+'px');
+    coach.style.transform=`translateY(${(1-settle)*14}px) scale(${0.94+0.06*settle})`;
+  } else {
+    cur.style.opacity='0'; spot.style.opacity='0'; coach.style.opacity='0';
   }
-  if(!shown) cur.style.opacity='0';
+
+  /* step label */
+  const sc=$('stepchip');
+  sc.textContent = t>=T_BACK ? '04 · Posted'
+                 : t>=T_WRT  ? '03 · Preview'
+                 : t>=T_NAV  ? '02 · Create'
+                 :             '01 · Today';
+  sc.style.opacity = String(clamp((t-(HOOK+0.3))/0.5,0,1) * (t<PAYOFF ? 1 : 0));
 
   /* payoff */
   const po=$('payoff');
