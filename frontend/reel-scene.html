@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voyce reel scene</title>
+<!--
+  A reel, authored as a designed page instead of drawn in PIL.
+
+  Every visual property is a pure function of t, set by seek(t) — there are no
+  CSS transitions or keyframes anywhere, because an animation with its own clock
+  screenshots non-deterministically. The renderer calls seek(i/fps) then grabs a
+  frame, so the same second always produces the same pixels.
+
+  Content comes from window.REEL_SPEC, so one scene file serves every demo reel.
+-->
+<style>
+  @font-face { font-family: 'SG';  src: url('../backend/fonts/SpaceGrotesk.ttf'); font-weight: 300 700; }
+  @font-face { font-family: 'FR';  src: url('../backend/fonts/Fraunces-Italic.ttf'); font-style: italic; font-weight: 100 900; }
+  @font-face { font-family: 'IN4'; src: url('../backend/fonts/Inter-Regular.ttf'); }
+  @font-face { font-family: 'IN6'; src: url('../backend/fonts/Inter-SemiBold.ttf'); }
+  @font-face { font-family: 'IN7'; src: url('../backend/fonts/Inter-Bold.ttf'); }
+
+  :root {
+    --ink: #14161b; --ink-soft: #5b6270; --paper: #fff;
+    --wash: #e7ebf4; --wash2: #d3dcee;
+    --navy: #24365e; --navy-mid: #31497e; --night: #0b1220;
+    --peri: #8fa5d6; --peri-soft: #b7c6e8;
+    --live: #2fa37a; --dead: #3a4356;
+    --accent: #8fa5d6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body {
+    font-family: 'IN4', system-ui, sans-serif;
+    background: var(--night);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── The constant brand ground ─────────────────────────────────────────── */
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  #ground {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(780px 640px at 18% 6%,  rgba(49,73,126,.72), transparent 62%),
+      radial-gradient(700px 580px at 88% 76%, rgba(30,48,88,.78),  transparent 60%),
+      radial-gradient(900px 720px at 50% 108%, rgba(143,165,214,.16), transparent 58%),
+      linear-gradient(172deg, #10192c 0%, #0b1220 54%, #070d18 100%);
+  }
+  #grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(143,165,214,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(143,165,214,.055) 1px, transparent 1px);
+    background-size: 96px 96px;
+    -webkit-mask-image: radial-gradient(90% 68% at 50% 44%, #000 28%, transparent 78%);
+    mask-image: radial-gradient(90% 68% at 50% 44%, #000 28%, transparent 78%);
+  }
+  #vignette {
+    position: absolute; inset: 0; pointer-events: none; z-index: 40;
+    background: radial-gradient(120% 82% at 50% 44%, transparent 54%, rgba(4,8,16,.42) 100%);
+  }
+
+  /* progress hairline — an IG-native "this is going somewhere" cue */
+  #prog { position: absolute; top: 0; left: 0; height: 6px; background: var(--accent); z-index: 45; }
+
+  /* ── Brand chip ────────────────────────────────────────────────────────── */
+  #chip {
+    position: absolute; top: 96px; left: 82px; z-index: 30;
+    display: flex; align-items: baseline; color: var(--peri-soft);
+    font-family: 'SG'; font-weight: 700; font-size: 44px; letter-spacing: -.02em;
+  }
+  #chip .v {
+    font-family: 'FR'; font-style: italic; font-weight: 500;
+    font-size: 81px; line-height: .6; letter-spacing: -.07em; margin-right: -2px;
+  }
+
+  /* ── Caption band (the spoken line) ────────────────────────────────────── */
+  #cap {
+    position: absolute; left: 82px; right: 82px; top: 232px; z-index: 30;
+    font-family: 'SG'; font-weight: 700; font-size: 76px; line-height: 1.1;
+    letter-spacing: -.028em; color: #fff;
+  }
+  #cap .hl { color: var(--accent); }
+  #cap .w { display: inline-block; margin-right: .24em; }
+
+  /* ── The product screen ────────────────────────────────────────────────── */
+  /* Sized so the app's own type stays legible at phone-viewing distance —
+     a desktop dashboard scaled into 9:16 is unreadable, so this is the app
+     drawn at the scale a phone actually shows it. */
+  #screen {
+    position: absolute; left: 70px; width: 940px; top: 520px; z-index: 20;
+    background: linear-gradient(168deg,#fff,#f2f5fa);
+    border-radius: 44px; overflow: hidden;
+    border: 3px solid rgba(255,255,255,.85);
+    box-shadow: 0 48px 90px rgba(4,10,24,.55), 0 4px 12px rgba(4,10,24,.4);
+  }
+  .bar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 26px 34px; border-bottom: 2px solid rgba(36,54,94,.10);
+    background: rgba(255,255,255,.7);
+  }
+  .bar .lg { display: flex; align-items: baseline; font-family:'SG'; font-weight:700; font-size:34px; color: var(--navy); letter-spacing:-.02em; }
+  .bar .lg .v { font-family:'FR'; font-style:italic; font-weight:500; font-size:62px; line-height:.6; letter-spacing:-.07em; }
+  .bar .spacer { flex: 1; }
+  .pill {
+    font-family:'IN7'; font-size: 23px; letter-spacing:.02em;
+    padding: 11px 22px; border-radius: 999px;
+    background: rgba(47,163,122,.12); color: var(--live);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pill .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--live); }
+
+  .body { padding: 30px 34px 36px; }
+  .row { display: flex; align-items: center; gap: 20px; }
+  .ava {
+    width: 74px; height: 74px; border-radius: 50%; flex: none;
+    background: radial-gradient(circle at 34% 28%, var(--peri), var(--navy));
+    display: grid; place-items: center; color: #fff;
+    font-family:'FR'; font-style: italic; font-weight: 600; font-size: 40px;
+  }
+  .who .nm { font-family:'IN7'; font-size: 30px; color: var(--ink); }
+  .who .sb { font-family:'IN4'; font-size: 23px; color: #8c98ad; margin-top: 3px; }
+
+  .label {
+    font-family:'IN7'; font-size: 19px; letter-spacing: .14em; text-transform: uppercase;
+    color: #97a3b8; margin: 30px 0 14px;
+  }
+
+  /* news card */
+  .news {
+    border: 2px solid rgba(36,54,94,.14); border-radius: 26px;
+    padding: 24px 26px; background: #fff;
+    box-shadow: 0 10px 26px rgba(20,32,60,.07);
+    display: flex; gap: 18px; align-items: flex-start;
+  }
+  .news .livedot { width: 16px; height: 16px; border-radius: 50%; background: var(--live); margin-top: 10px; flex: none; }
+  .news .hl { font-family:'IN7'; font-size: 28px; color: var(--ink); line-height: 1.32; }
+  .news .src { font-family:'IN4'; font-size: 21px; color: #8c98ad; margin-top: 8px; }
+
+  /* compose card */
+  .compose {
+    border: 2px solid rgba(36,54,94,.12); border-radius: 26px;
+    padding: 26px; background: #fff; box-shadow: 0 10px 26px rgba(20,32,60,.07);
+  }
+  .compose .txt {
+    font-family:'IN4'; font-size: 29px; line-height: 1.45; color: var(--ink);
+    margin-top: 20px; min-height: 92px; white-space: pre-wrap;
+  }
+  .caret { display: inline-block; width: 3px; height: 30px; background: var(--navy); vertical-align: -5px; margin-left: 2px; }
+  .voicechip {
+    display: inline-flex; align-items: center; gap: 10px; margin-top: 18px;
+    font-family:'IN7'; font-size: 21px; color: var(--navy);
+    background: var(--wash); border: 2px solid rgba(36,54,94,.16);
+    border-radius: 999px; padding: 10px 20px;
+  }
+
+  /* action row */
+  .actions { display: flex; align-items: center; gap: 16px; margin-top: 26px; }
+  .btn {
+    font-family:'IN7'; font-size: 26px; border-radius: 18px;
+    padding: 18px 34px; border: 2px solid rgba(36,54,94,.18);
+    color: var(--navy); background: #fff;
+  }
+  .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); position: relative; overflow: hidden; }
+  .btn.done { background: var(--live); border-color: var(--live); color: #fff; }
+  .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.45); transform: translate(-50%,-50%); }
+  .logline { font-family:'IN4'; font-size: 21px; color: #8c98ad; margin-top: 22px; }
+
+  /* cursor — the thing that makes a still UI read as a recording */
+  #cursor { position: absolute; z-index: 35; width: 46px; height: 46px; pointer-events: none; }
+  #cursor svg { filter: drop-shadow(0 3px 8px rgba(0,0,0,.45)); }
+
+  /* ── Hook + payoff overlays ────────────────────────────────────────────── */
+  .overlay {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 82px 240px;
+    background:
+      radial-gradient(800px 640px at 22% 14%, rgba(90,124,190,.55), transparent 62%),
+      linear-gradient(158deg, #24365e 0%, #16233f 66%, #0d1729 100%);
+  }
+  .overlay .kick {
+    font-family:'IN7'; font-size: 32px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 34px;
+  }
+  .overlay h1 { font-family:'SG'; font-weight: 700; font-size: 116px; line-height: 1.06; letter-spacing: -.032em; color: #fff; }
+  #payoff { align-items: center; text-align: center; justify-content: center; padding-bottom: 180px; }
+  #payoff .stamp {
+    font-family:'SG'; font-weight:700; font-size: 100px; letter-spacing: -.02em; color:#fff;
+    background: linear-gradient(155deg,#31497e,#24365e 55%,#16233f);
+    border-radius: 34px; padding: 26px 64px 32px;
+    box-shadow: 0 40px 80px rgba(6,12,26,.55);
+  }
+  #payoff .lock {
+    display: flex; align-items: baseline; justify-content: center; margin-top: 46px;
+    font-family:'SG'; font-weight:700; font-size: 120px; color:#fff; letter-spacing:-.02em;
+  }
+  #payoff .lock .v { font-family:'FR'; font-style:italic; font-weight:500; font-size: 222px; line-height:.55; letter-spacing:-.07em; color: var(--accent); }
+  #payoff .url {
+    font-family:'SG'; font-weight: 600; font-size: 40px; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--peri-soft); margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="ground"></div>
+  <div id="grid"></div>
+
+  <div id="chip"><span class="v">V</span>oyce</div>
+  <div id="cap"></div>
+
+  <div id="screen">
+    <div class="bar">
+      <span class="lg"><span class="v">V</span>oyce</span>
+      <span class="spacer"></span>
+      <span class="pill" id="autopill"><span class="dot"></span>Autopilot ON</span>
+    </div>
+    <div class="body">
+      <div class="row">
+        <div class="ava">R</div>
+        <div class="who">
+          <div class="nm" id="profname">Rishav — AI agents</div>
+          <div class="sb" id="profniche">niche: AI for consultants · posts 8:00 AM</div>
+        </div>
+      </div>
+
+      <div class="label" id="lbl-news">Today's news</div>
+      <div class="news" id="news">
+        <span class="livedot"></span>
+        <div>
+          <div class="hl" id="newshl">LinkedIn changes how reach is measured</div>
+          <div class="src" id="newssrc">reuters.com · 23 min ago</div>
+        </div>
+      </div>
+
+      <div class="label" id="lbl-post">Your post</div>
+      <div class="compose" id="compose">
+        <div class="row">
+          <div class="ava" style="width:56px;height:56px;font-size:31px">R</div>
+          <div class="who">
+            <div class="nm" style="font-size:26px">Rishav Raj</div>
+            <div class="sb" style="font-size:20px">Fractional CMO · now</div>
+          </div>
+        </div>
+        <div class="txt" id="posttxt"></div>
+        <span class="voicechip" id="voicechip">sounds like you ✓</span>
+      </div>
+
+      <div class="actions">
+        <span class="btn" id="btn-preview">Preview</span>
+        <span class="btn primary" id="btn-publish">Publish</span>
+      </div>
+      <div class="logline" id="logline"></div>
+    </div>
+  </div>
+
+  <div id="cursor">
+    <svg viewBox="0 0 24 24" width="46" height="46">
+      <path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14.2 L19 14 Z" fill="#fff" stroke="#14161b" stroke-width="1.2"/>
+    </svg>
+  </div>
+
+  <div class="overlay" id="hook">
+    <div class="kick" id="hookkick">REAL DEMO</div>
+    <h1 id="hooktext">I didn't write this post.</h1>
+  </div>
+
+  <div class="overlay" id="payoff">
+    <div class="stamp">posted.</div>
+    <div class="lock"><span class="v">V</span>oyce</div>
+    <div class="url">voyce.co.in</div>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="prog"></div>
+</div>
+
+<script>
+/* ── Everything below is a pure function of t ──────────────────────────────
+   No CSS transitions, no keyframes: a screenshot must depend only on seek(t). */
+
+const S = window.REEL_SPEC || {};
+const DUR      = S.dur      ?? 24.0;
+const HOOK_OUT = S.hookOut  ?? 2.20;
+const PAYOFF   = S.payoffAt ?? 20.60;
+const STEPS    = S.steps    || [];
+const POST     = S.post     ?? "";
+const ACCENT   = S.accent   ?? "#8fa5d6";
+
+document.documentElement.style.setProperty('--accent', ACCENT);
+
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3.2);
+const easeDram = t => { t = clamp(t, 0, 1); return 3*t*t - 2*t*t*t; };
+function spring(t){ t = clamp(t,0,1); return t<=0?0 : t>=1?1 : 1 - Math.exp(-6.5*t)*Math.cos(7.0*t)/1.09; }
+function springPop(t){ t = clamp(t,0,1); return t<=0?0 : t>=1?1 : 1 - Math.exp(-5.0*t)*Math.cos(9.5*t); }
+
+/* content set once */
+if (S.hook)     $('hooktext').textContent = S.hook;
+if (S.kicker)   $('hookkick').textContent = S.kicker;
+if (S.news)     { $('newshl').textContent = S.news.headline; $('newssrc').textContent = S.news.source; }
+if (S.profile)  { $('profname').textContent = S.profile.name; $('profniche').textContent = S.profile.niche; }
+
+/* caption words, pre-split so each can pop on its own beat */
+function setCaption(step){
+  const el = $('cap');
+  if (el.dataset.k === step.k) return;
+  el.dataset.k = step.k;
+  el.innerHTML = step.cap.split(' ').map(w => {
+    const hl = w.startsWith('*');
+    const t = hl ? w.slice(1) : w;
+    return `<span class="w${hl ? ' hl' : ''}">${t}</span>`;
+  }).join(' ');
+}
+
+function activeStep(t){
+  let cur = STEPS[0];
+  for (const s of STEPS) if (t >= s.at) cur = s;
+  return cur;
+}
+
+function seek(t){
+  /* progress hairline */
+  $('prog').style.width = (clamp(t / DUR, 0, 1) * 1080) + 'px';
+
+  /* ── hook overlay: readable instantly, then cut ── */
+  const hk = $('hook');
+  if (t < HOOK_OUT + 0.44){
+    const p = (t - HOOK_OUT) / 0.42;
+    if (p <= 0){ hk.style.opacity = 1; hk.style.transform = 'scale(1)'; hk.style.filter = 'none'; }
+    else {
+      const e = easeDram(p);
+      hk.style.opacity = String(1 - e);
+      hk.style.transform = `scale(${1 + 0.06*e})`;
+      hk.style.filter = `blur(${5*e}px)`;
+    }
+    hk.style.display = 'flex';
+  } else hk.style.display = 'none';
+
+  /* ── caption ── */
+  const step = activeStep(t) || {k:'', cap:'', at:0};
+  setCaption(step);
+  const capEl = $('cap');
+  [...capEl.querySelectorAll('.w')].forEach((w, i) => {
+    const st = step.at + 0.12 + i * 0.062;
+    const p = easeOut((t - st) / 0.42);
+    const sp = springPop(clamp((t - st) / 0.42, 0, 1));
+    const sp2 = spring(clamp((t - st) / 0.42, 0, 1));
+    w.style.opacity = String(clamp(p * 1.35, 0, 1));
+    w.style.transform = `translateY(${(1 - sp2) * 26}px) scale(${0.90 + 0.10 * sp2})`;
+  });
+
+  /* ── the product screen rises in after the hook ── */
+  const scr = $('screen');
+  const rise = spring((t - (HOOK_OUT + 0.10)) / 0.85);
+  scr.style.opacity = String(clamp((t - (HOOK_OUT + 0.10)) / 0.4, 0, 1));
+  scr.style.transform = `translateY(${(1 - rise) * 120}px) scale(${0.94 + 0.06*rise})`;
+
+  /* reveal the app's sections as the story reaches them */
+  const showAt = (el, at, dy) => {
+    if (t < at - 0.02){ el.style.display = 'none'; return; }
+    el.style.display = '';
+    const p = spring((t - at) / 0.7);
+    el.style.opacity = String(clamp((t - at) / 0.35, 0, 1));
+    el.style.transform = `translateY(${(1 - p) * (dy ?? 26)}px)`;
+  };
+  showAt($('lbl-news'), S.tNews ?? 6.4, 16);
+  showAt($('news'),     S.tNews ?? 6.4, 30);
+  showAt($('lbl-post'), S.tWrite ?? 10.6, 16);
+  showAt($('compose'),  S.tWrite ?? 10.6, 30);
+
+  /* live dot pulses so the news card reads as arriving, not static */
+  const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.0));
+  $('news').querySelector('.livedot').style.opacity = String(t > (S.tNews ?? 6.4) ? pulse : 0);
+  $('autopill').querySelector('.dot').style.opacity = String(0.5 + 0.5*Math.abs(Math.sin(t*2.2)));
+
+  /* ── the post types itself ── */
+  const tw = S.tWrite ?? 10.6;
+  const typeDur = S.typeDur ?? 3.4;
+  const chars = Math.floor(clamp((t - tw - 0.55) / typeDur, 0, 1) * POST.length);
+  const typing = t > tw + 0.55 && chars < POST.length;
+  $('posttxt').innerHTML = POST.slice(0, Math.max(0, chars)).replace(/\n/g, '<br>')
+    + (typing && Math.floor(t * 2) % 2 === 0 ? '<span class="caret"></span>' : '');
+
+  /* voice-match chip lands once the text is down */
+  const vp = springPop((t - (tw + typeDur + 0.7)) / 0.55);
+  const vc = $('voicechip');
+  vc.style.opacity = String(clamp((t - (tw + typeDur + 0.7)) / 0.3, 0, 1));
+  vc.style.transform = `scale(${0.6 + 0.4*vp})`;
+
+  /* ── publish: cursor travels, clicks, the button turns ── */
+  const tp = S.tPublish ?? 16.4;
+  const btn = $('btn-publish');
+  const cur = $('cursor');
+  /* Track the button's real box — the card grows as content lands, so any
+     hardcoded target drifts into empty space below it. */
+  const r = btn.getBoundingClientRect();
+  const to = {x: r.left + r.width * 0.58, y: r.top + r.height * 0.52};
+  const from = {x: to.x + 250, y: to.y - 420};
+  const travel = easeOut((t - (tp - 1.1)) / 0.85);
+  if (t > tp - 1.3 && t < PAYOFF - 0.2){
+    cur.style.opacity = String(clamp((t - (tp - 1.3)) / 0.25, 0, 1));
+    cur.style.left = (from.x + (to.x - from.x) * travel) + 'px';
+    cur.style.top  = (from.y + (to.y - from.y) * travel) + 'px';
+  } else cur.style.opacity = '0';
+
+  /* click ripple at the moment of contact */
+  const oldRip = btn.querySelector('.ripple');
+  if (oldRip) oldRip.remove();
+  if (t >= tp && t < tp + 0.6){
+    const rp = clamp((t - tp) / 0.6, 0, 1);
+    const rip = document.createElement('span');
+    rip.className = 'ripple';
+    const d = 40 + 320 * rp;
+    rip.style.cssText = `left:${r.width*0.58}px;top:${r.height*0.52}px;width:${d}px;height:${d}px;opacity:${0.45*(1-rp)}`;
+    btn.appendChild(rip);
+  }
+
+  if (t >= tp){
+    btn.className = 'btn done';
+    btn.textContent = 'Published ✓';
+    const rp = clamp((t - tp) / 0.6, 0, 1);
+    btn.style.transform = `scale(${1 - 0.05*Math.sin(Math.PI*rp)})`;
+  } else {
+    btn.className = 'btn primary';
+    btn.textContent = 'Publish';
+    btn.style.transform = 'scale(1)';
+  }
+
+  const lp = clamp((t - (tp + 0.45)) / 0.4, 0, 1);
+  $('logline').style.opacity = String(lp);
+  $('logline').textContent = lp > 0 ? (S.logline ?? 'logged: reuters.com · published 8:00 AM') : '';
+
+  /* ── payoff ── */
+  const po = $('payoff');
+  if (t >= PAYOFF){
+    po.style.display = 'flex';
+    const e = easeOut((t - PAYOFF) / 0.45);
+    po.style.opacity = String(e);
+    const sp2 = springPop((t - PAYOFF - 0.16) / 0.55);
+    const st = po.querySelector('.stamp');
+    st.style.opacity = String(clamp((t - PAYOFF - 0.16) / 0.2, 0, 1));
+    st.style.transform = `scale(${1 + (1 - sp2) * 1.05}) rotate(${-3 * sp2}deg)`;
+    po.querySelector('.lock').style.opacity = String(easeOut((t - PAYOFF - 0.48) / 0.45));
+    po.querySelector('.url').style.opacity  = String(easeOut((t - PAYOFF - 0.70) / 0.45));
+  } else { po.style.display = 'none'; }
+}
+
+window.seek = seek;
+window.__ready = true;
+seek(0);
+</script>
+</body>
+</html>
