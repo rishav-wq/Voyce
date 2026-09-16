@@ -8,450 +8,463 @@
 
   Every visual property is a pure function of t, set by seek(t) — there are no
   CSS transitions or keyframes anywhere, because an animation with its own clock
-  screenshots non-deterministically. The renderer calls seek(i/fps) then grabs a
-  frame, so the same second always produces the same pixels.
+  screenshots non-deterministically. The renderer calls seek(i/fps), grabs the
+  frame, and the same second always produces the same pixels.
 
-  Content comes from window.REEL_SPEC, so one scene file serves every demo reel.
+  Palette, type and shadows come straight from frontend/landing.html so the reel
+  and the site a viewer lands on read as one brand. The walkthrough follows the
+  real product: Today -> Create -> preview -> posted, with the screens sliding
+  the way they do in the app and a cursor doing the clicking.
 -->
 <style>
-  @font-face { font-family: 'SG';  src: url('../backend/fonts/SpaceGrotesk.ttf'); font-weight: 300 700; }
-  @font-face { font-family: 'FR';  src: url('../backend/fonts/Fraunces-Italic.ttf'); font-style: italic; font-weight: 100 900; }
-  @font-face { font-family: 'IN4'; src: url('../backend/fonts/Inter-Regular.ttf'); }
-  @font-face { font-family: 'IN6'; src: url('../backend/fonts/Inter-SemiBold.ttf'); }
-  @font-face { font-family: 'IN7'; src: url('../backend/fonts/Inter-Bold.ttf'); }
+  @font-face { font-family:'SG';  src:url('../backend/fonts/SpaceGrotesk.ttf'); font-weight:300 700; }
+  @font-face { font-family:'FR';  src:url('../backend/fonts/Fraunces-Italic.ttf'); font-style:italic; font-weight:100 900; }
+  @font-face { font-family:'IN4'; src:url('../backend/fonts/Inter-Regular.ttf'); }
+  @font-face { font-family:'IN6'; src:url('../backend/fonts/Inter-SemiBold.ttf'); }
+  @font-face { font-family:'IN7'; src:url('../backend/fonts/Inter-Bold.ttf'); }
 
-  :root {
-    --ink: #14161b; --ink-soft: #5b6270; --paper: #fff;
-    --wash: #e7ebf4; --wash2: #d3dcee;
-    --navy: #24365e; --navy-mid: #31497e; --night: #0b1220;
-    --peri: #8fa5d6; --peri-soft: #b7c6e8;
-    --live: #2fa37a; --dead: #3a4356;
-    --accent: #8fa5d6;
+  /* lifted from landing.html */
+  :root{
+    --ink:#16181d; --ink-soft:#5b6270; --ink-faint:#98a0ae;
+    --paper:#ffffff; --paper-2:#f3f5f8; --card:#ffffff;
+    --line:#e4e7ec; --line-2:#d3d8e0;
+    --accent:#24365e; --accent-deep:#1c2b4d; --accent-wash:#e7ebf4;
+    --success:#1aa07a;
+    --shadow:0 1px 2px rgba(22,24,29,.04), 0 18px 44px rgba(22,24,29,.08);
+    --shadow-lg:0 40px 90px rgba(22,24,29,.16);
   }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1080px;height:1920px;overflow:hidden}
+  body{font-family:'IN4',system-ui,sans-serif;background:var(--paper);-webkit-font-smoothing:antialiased}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 1080px; height: 1920px; overflow: hidden; }
-  body {
-    font-family: 'IN4', system-ui, sans-serif;
-    background: var(--night);
-    -webkit-font-smoothing: antialiased;
-  }
+  #stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:var(--paper)}
+  #ground{position:absolute;inset:0;
+    background:radial-gradient(900px 700px at 78% 4%, #f8fafd 0%, transparent 60%),
+               linear-gradient(176deg,#fff 0%,#fff 56%,var(--paper-2) 100%)}
+  #prog{position:absolute;top:0;left:0;height:6px;background:var(--accent);z-index:60}
 
-  /* ── The constant brand ground ─────────────────────────────────────────── */
-  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
-  #ground {
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(780px 640px at 18% 6%,  rgba(49,73,126,.72), transparent 62%),
-      radial-gradient(700px 580px at 88% 76%, rgba(30,48,88,.78),  transparent 60%),
-      radial-gradient(900px 720px at 50% 108%, rgba(143,165,214,.16), transparent 58%),
-      linear-gradient(172deg, #10192c 0%, #0b1220 54%, #070d18 100%);
-  }
-  #grid {
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(143,165,214,.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(143,165,214,.055) 1px, transparent 1px);
-    background-size: 96px 96px;
-    -webkit-mask-image: radial-gradient(90% 68% at 50% 44%, #000 28%, transparent 78%);
-    mask-image: radial-gradient(90% 68% at 50% 44%, #000 28%, transparent 78%);
-  }
-  #vignette {
-    position: absolute; inset: 0; pointer-events: none; z-index: 40;
-    background: radial-gradient(120% 82% at 50% 44%, transparent 54%, rgba(4,8,16,.42) 100%);
-  }
+  #chip{position:absolute;top:88px;left:82px;z-index:30;display:flex;align-items:baseline;
+    color:var(--ink);font-family:'SG';font-weight:700;font-size:46px;letter-spacing:-.02em}
+  #chip .v{font-family:'FR';font-style:italic;font-weight:500;font-size:85px;line-height:.58;letter-spacing:-.07em;margin-right:-3px}
 
-  /* progress hairline — an IG-native "this is going somewhere" cue */
-  #prog { position: absolute; top: 0; left: 0; height: 6px; background: var(--accent); z-index: 45; }
+  .eyebrow{display:inline-flex;align-items:center;gap:14px;font-family:'IN7';font-size:26px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+  .eyebrow::before{content:'';width:44px;height:3px;background:var(--accent)}
 
-  /* ── Brand chip ────────────────────────────────────────────────────────── */
-  #chip {
-    position: absolute; top: 96px; left: 82px; z-index: 30;
-    display: flex; align-items: baseline; color: var(--peri-soft);
-    font-family: 'SG'; font-weight: 700; font-size: 44px; letter-spacing: -.02em;
-  }
-  #chip .v {
-    font-family: 'FR'; font-style: italic; font-weight: 500;
-    font-size: 81px; line-height: .6; letter-spacing: -.07em; margin-right: -2px;
-  }
+  #cap{position:absolute;left:82px;right:82px;top:214px;z-index:30;font-family:'SG';font-weight:700;
+    font-size:74px;line-height:1.08;letter-spacing:-.035em;color:var(--ink)}
+  #cap .w{display:inline-block;margin-right:.08em}
+  #cap .hl{font-family:'FR';font-style:italic;font-weight:500;color:var(--accent);letter-spacing:-.01em;position:relative}
+  #cap .hl::after{content:'';position:absolute;left:.02em;right:.02em;bottom:.04em;height:.09em;
+    background:var(--accent);border-radius:2px;opacity:.85}
 
-  /* ── Caption band (the spoken line) ────────────────────────────────────── */
-  #cap {
-    position: absolute; left: 82px; right: 82px; top: 232px; z-index: 30;
-    font-family: 'SG'; font-weight: 700; font-size: 76px; line-height: 1.1;
-    letter-spacing: -.028em; color: #fff;
-  }
-  #cap .hl { color: var(--accent); }
-  #cap .w { display: inline-block; margin-right: .24em; }
+  /* ── The app ─────────────────────────────────────────────────────────────── */
+  #screen{position:absolute;left:68px;width:944px;top:496px;height:1010px;z-index:20;
+    background:var(--card);border:2px solid var(--line);border-radius:34px;
+    overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
 
-  /* ── The product screen ────────────────────────────────────────────────── */
-  /* Sized so the app's own type stays legible at phone-viewing distance —
-     a desktop dashboard scaled into 9:16 is unreadable, so this is the app
-     drawn at the scale a phone actually shows it. */
-  #screen {
-    position: absolute; left: 70px; width: 940px; top: 520px; z-index: 20;
-    background: linear-gradient(168deg,#fff,#f2f5fa);
-    border-radius: 44px; overflow: hidden;
-    border: 3px solid rgba(255,255,255,.85);
-    box-shadow: 0 48px 90px rgba(4,10,24,.55), 0 4px 12px rgba(4,10,24,.4);
-  }
-  .bar {
-    display: flex; align-items: center; gap: 14px;
-    padding: 26px 34px; border-bottom: 2px solid rgba(36,54,94,.10);
-    background: rgba(255,255,255,.7);
-  }
-  .bar .lg { display: flex; align-items: baseline; font-family:'SG'; font-weight:700; font-size:34px; color: var(--navy); letter-spacing:-.02em; }
-  .bar .lg .v { font-family:'FR'; font-style:italic; font-weight:500; font-size:62px; line-height:.6; letter-spacing:-.07em; }
-  .bar .spacer { flex: 1; }
-  .pill {
-    font-family:'IN7'; font-size: 23px; letter-spacing:.02em;
-    padding: 11px 22px; border-radius: 999px;
-    background: rgba(47,163,122,.12); color: var(--live);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .pill .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--live); }
+  .appbar{display:flex;align-items:center;gap:16px;padding:24px 30px;border-bottom:2px solid var(--line);background:#fff;flex:none}
+  .appbar .lg{display:flex;align-items:baseline;font-family:'SG';font-weight:700;font-size:32px;color:var(--ink);letter-spacing:-.02em}
+  .appbar .lg .v{font-family:'FR';font-style:italic;font-weight:500;font-size:58px;line-height:.58;letter-spacing:-.07em}
+  .appbar .sp{flex:1}
+  .lipill{display:flex;align-items:center;gap:11px;font-family:'IN7';font-size:20px;color:var(--success);
+    background:rgba(26,160,122,.10);border:2px solid rgba(26,160,122,.24);border-radius:999px;padding:9px 18px}
+  .lipill .dot{width:12px;height:12px;border-radius:50%;background:var(--success)}
 
-  .body { padding: 30px 34px 36px; }
-  .row { display: flex; align-items: center; gap: 20px; }
-  .ava {
-    width: 74px; height: 74px; border-radius: 50%; flex: none;
-    background: radial-gradient(circle at 34% 28%, var(--peri), var(--navy));
-    display: grid; place-items: center; color: #fff;
-    font-family:'FR'; font-style: italic; font-weight: 600; font-size: 40px;
-  }
-  .who .nm { font-family:'IN7'; font-size: 30px; color: var(--ink); }
-  .who .sb { font-family:'IN4'; font-size: 23px; color: #8c98ad; margin-top: 3px; }
+  /* nav rail — Today / Create / Instagram, as in the app */
+  .nav{display:flex;gap:10px;padding:18px 30px;border-bottom:2px solid var(--line);background:#fff;flex:none}
+  .np{font-family:'IN6';font-size:23px;color:var(--ink-soft);border:2px solid transparent;
+    border-radius:13px;padding:11px 24px}
+  .np.on{background:var(--accent-wash);color:var(--accent);font-family:'IN7';border-color:rgba(36,54,94,.18)}
 
-  .label {
-    font-family:'IN7'; font-size: 19px; letter-spacing: .14em; text-transform: uppercase;
-    color: #97a3b8; margin: 30px 0 14px;
-  }
+  /* the sliding track */
+  .viewport{position:relative;flex:1;overflow:hidden}
+  .track{position:absolute;inset:0;display:flex;width:400%}
+  .panel{width:25%;height:100%;padding:28px 30px;overflow:hidden}
 
-  /* news card */
-  .news {
-    border: 2px solid rgba(36,54,94,.14); border-radius: 26px;
-    padding: 24px 26px; background: #fff;
-    box-shadow: 0 10px 26px rgba(20,32,60,.07);
-    display: flex; gap: 18px; align-items: flex-start;
-  }
-  .news .livedot { width: 16px; height: 16px; border-radius: 50%; background: var(--live); margin-top: 10px; flex: none; }
-  .news .hl { font-family:'IN7'; font-size: 28px; color: var(--ink); line-height: 1.32; }
-  .news .src { font-family:'IN4'; font-size: 21px; color: #8c98ad; margin-top: 8px; }
+  .label{font-family:'IN7';font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
+  .row{display:flex;align-items:center;gap:18px}
+  .ava{width:66px;height:66px;border-radius:50%;flex:none;
+    background:radial-gradient(circle at 34% 28%,#7d93c6,var(--accent));
+    display:grid;place-items:center;color:#fff;font-family:'FR';font-style:italic;font-weight:600;font-size:36px}
+  .nm{font-family:'IN7';font-size:27px;color:var(--ink)}
+  .sb{font-family:'IN4';font-size:20px;color:var(--ink-faint);margin-top:2px}
 
-  /* compose card */
-  .compose {
-    border: 2px solid rgba(36,54,94,.12); border-radius: 26px;
-    padding: 26px; background: #fff; box-shadow: 0 10px 26px rgba(20,32,60,.07);
-  }
-  .compose .txt {
-    font-family:'IN4'; font-size: 29px; line-height: 1.45; color: var(--ink);
-    margin-top: 20px; min-height: 92px; white-space: pre-wrap;
-  }
-  .caret { display: inline-block; width: 3px; height: 30px; background: var(--navy); vertical-align: -5px; margin-left: 2px; }
-  .voicechip {
-    display: inline-flex; align-items: center; gap: 10px; margin-top: 18px;
-    font-family:'IN7'; font-size: 21px; color: var(--navy);
-    background: var(--wash); border: 2px solid rgba(36,54,94,.16);
-    border-radius: 999px; padding: 10px 20px;
-  }
+  .tile{border:2px solid var(--line);border-radius:20px;padding:22px 24px;background:#fff;box-shadow:var(--shadow)}
+  .tile + .tile{margin-top:16px}
+  .tile .k{font-family:'IN4';font-size:20px;color:var(--ink-faint)}
+  .tile .v2{font-family:'SG';font-weight:700;font-size:40px;color:var(--ink);letter-spacing:-.02em;margin-top:4px}
+  .news{display:flex;gap:16px;align-items:flex-start}
+  .news .livedot{width:14px;height:14px;border-radius:50%;background:var(--success);margin-top:9px;flex:none}
+  .news .hl2{font-family:'IN7';font-size:26px;color:var(--ink);line-height:1.3}
+  .news .src{font-family:'IN4';font-size:19px;color:var(--ink-faint);margin-top:6px}
 
-  /* action row */
-  .actions { display: flex; align-items: center; gap: 16px; margin-top: 26px; }
-  .btn {
-    font-family:'IN7'; font-size: 26px; border-radius: 18px;
-    padding: 18px 34px; border: 2px solid rgba(36,54,94,.18);
-    color: var(--navy); background: #fff;
-  }
-  .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); position: relative; overflow: hidden; }
-  .btn.done { background: var(--live); border-color: var(--live); color: #fff; }
-  .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.45); transform: translate(-50%,-50%); }
-  .logline { font-family:'IN4'; font-size: 21px; color: #8c98ad; margin-top: 22px; }
+  .logrow{display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:2px solid var(--line)}
+  .logrow:last-child{border-bottom:none}
+  .logrow .tick{width:30px;height:30px;border-radius:50%;background:rgba(26,160,122,.14);color:var(--success);
+    display:grid;place-items:center;font-size:18px;font-family:'IN7';flex:none}
+  .logrow .txt{font-family:'IN4';font-size:22px;color:var(--ink-soft);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .logrow .when{font-family:'IN4';font-size:19px;color:var(--ink-faint);flex:none}
 
-  /* cursor — the thing that makes a still UI read as a recording */
-  #cursor { position: absolute; z-index: 35; width: 46px; height: 46px; pointer-events: none; }
-  #cursor svg { filter: drop-shadow(0 3px 8px rgba(0,0,0,.45)); }
+  /* create screen */
+  .tabs{display:flex;gap:9px}
+  .tab{font-family:'IN6';font-size:21px;color:var(--ink-soft);border:2px solid var(--line);border-radius:13px;padding:11px 20px;background:#fff}
+  .tab.on{background:var(--accent-wash);border-color:rgba(36,54,94,.28);color:var(--accent);font-family:'IN7'}
+  .ta{margin-top:16px;border:2px solid var(--line);border-radius:18px;padding:22px 24px;min-height:210px;background:#fff;
+    font-family:'IN4';font-size:25px;line-height:1.5;color:var(--ink)}
+  .ta .ph{color:var(--ink-faint)}
+  .srcchip{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px;font-family:'IN6';font-size:19px;
+    color:var(--accent);background:var(--accent-wash);border-radius:999px;padding:8px 16px}
+  .srcchip .dot{width:11px;height:11px;border-radius:50%;background:var(--success)}
+  .genrow{display:flex;align-items:center;gap:13px;margin-top:20px}
+  .btn{font-family:'IN7';font-size:24px;border-radius:15px;padding:16px 28px;border:2px solid var(--line-2);color:var(--ink);background:#fff}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);position:relative;overflow:hidden}
+  .btn.done{background:var(--success);border-color:var(--success);color:#fff}
+  .ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.45);transform:translate(-50%,-50%)}
+  .spin{width:24px;height:24px;border-radius:50%;display:inline-block;border:4px solid rgba(255,255,255,.35);
+    border-top-color:#fff;vertical-align:-4px;margin-right:11px}
 
-  /* ── Hook + payoff overlays ────────────────────────────────────────────── */
-  .overlay {
-    position: absolute; inset: 0; z-index: 50;
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 0 82px 240px;
-    background:
-      radial-gradient(800px 640px at 22% 14%, rgba(90,124,190,.55), transparent 62%),
-      linear-gradient(158deg, #24365e 0%, #16233f 66%, #0d1729 100%);
-  }
-  .overlay .kick {
-    font-family:'IN7'; font-size: 32px; letter-spacing: .18em; text-transform: uppercase;
-    color: var(--accent); margin-bottom: 34px;
-  }
-  .overlay h1 { font-family:'SG'; font-weight: 700; font-size: 116px; line-height: 1.06; letter-spacing: -.032em; color: #fff; }
-  #payoff { align-items: center; text-align: center; justify-content: center; padding-bottom: 180px; }
-  #payoff .stamp {
-    font-family:'SG'; font-weight:700; font-size: 100px; letter-spacing: -.02em; color:#fff;
-    background: linear-gradient(155deg,#31497e,#24365e 55%,#16233f);
-    border-radius: 34px; padding: 26px 64px 32px;
-    box-shadow: 0 40px 80px rgba(6,12,26,.55);
-  }
-  #payoff .lock {
-    display: flex; align-items: baseline; justify-content: center; margin-top: 46px;
-    font-family:'SG'; font-weight:700; font-size: 120px; color:#fff; letter-spacing:-.02em;
-  }
-  #payoff .lock .v { font-family:'FR'; font-style:italic; font-weight:500; font-size: 222px; line-height:.55; letter-spacing:-.07em; color: var(--accent); }
-  #payoff .url {
-    font-family:'SG'; font-weight: 600; font-size: 40px; letter-spacing: .13em;
-    text-transform: uppercase; color: var(--peri-soft); margin-top: 40px;
-  }
+  /* preview screen — the real LinkedIn card */
+  .phead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .phead .sp{flex:1}
+  .act{font-family:'IN6';font-size:19px;color:var(--ink-soft);border:2px solid var(--line);border-radius:11px;padding:8px 14px}
+  .licard{border:2px solid var(--line);border-radius:20px;padding:24px;background:#fff;box-shadow:var(--shadow)}
+  .libody{font-family:'IN4';font-size:26px;line-height:1.48;color:var(--ink);margin-top:18px;white-space:pre-wrap;min-height:170px}
+  .caret{display:inline-block;width:3px;height:28px;background:var(--accent);vertical-align:-5px;margin-left:2px}
+  .seemore{font-family:'IN6';font-size:22px;color:var(--ink-faint);margin-top:8px}
+  .voicechip{display:inline-flex;align-items:center;gap:9px;margin-top:16px;font-family:'IN7';font-size:19px;
+    color:var(--accent);background:var(--accent-wash);border:2px solid rgba(36,54,94,.18);border-radius:999px;padding:9px 18px}
+  .reactbar{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:16px;border-top:2px solid var(--line)}
+  .react{display:flex;align-items:center;gap:9px;font-family:'IN6';font-size:19px;color:var(--ink-faint)}
+  .react svg{width:24px;height:24px;fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  #cursor{position:absolute;z-index:55;width:46px;height:46px;pointer-events:none}
+
+  /* ── Hook + payoff ───────────────────────────────────────────────────────── */
+  .overlay{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;justify-content:center;
+    padding:0 82px 300px;background:var(--paper)}
+  .overlay .kick{margin-bottom:40px}
+  .overlay h1{font-family:'SG';font-weight:700;font-size:120px;line-height:1.02;letter-spacing:-.045em;color:var(--ink)}
+  .overlay h1 .it{font-family:'FR';font-style:italic;font-weight:500;color:var(--accent);letter-spacing:-.01em;position:relative}
+  .overlay h1 .it::after{content:'';position:absolute;left:.02em;right:.02em;bottom:.06em;height:.08em;
+    background:var(--accent);border-radius:3px;opacity:.9}
+
+  #payoff{align-items:center;text-align:center;justify-content:center;padding-bottom:220px}
+  #payoff .stamp{font-family:'SG';font-weight:700;font-size:92px;letter-spacing:-.02em;color:#fff;
+    background:var(--accent);border-radius:26px;padding:22px 58px 28px;box-shadow:var(--shadow-lg)}
+  #payoff .lock{display:flex;align-items:baseline;justify-content:center;margin-top:50px;
+    font-family:'SG';font-weight:700;font-size:120px;color:var(--ink);letter-spacing:-.03em}
+  #payoff .lock .v{font-family:'FR';font-style:italic;font-weight:500;font-size:222px;line-height:.54;letter-spacing:-.07em}
+  #payoff .url{font-family:'IN7';font-size:29px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:42px}
+  #payoff .trust{font-family:'IN4';font-size:25px;color:var(--ink-faint);margin-top:20px}
 </style>
 </head>
 <body>
 <div id="stage">
   <div id="ground"></div>
-  <div id="grid"></div>
-
   <div id="chip"><span class="v">V</span>oyce</div>
   <div id="cap"></div>
 
   <div id="screen">
-    <div class="bar">
+    <div class="appbar">
       <span class="lg"><span class="v">V</span>oyce</span>
-      <span class="spacer"></span>
-      <span class="pill" id="autopill"><span class="dot"></span>Autopilot ON</span>
+      <span class="sp"></span>
+      <span class="lipill"><span class="dot"></span>LinkedIn connected</span>
     </div>
-    <div class="body">
-      <div class="row">
-        <div class="ava">R</div>
-        <div class="who">
-          <div class="nm" id="profname">Rishav — AI agents</div>
-          <div class="sb" id="profniche">niche: AI for consultants · posts 8:00 AM</div>
-        </div>
-      </div>
+    <div class="nav">
+      <span class="np on" id="nav-today">Today</span>
+      <span class="np" id="nav-create">Create</span>
+      <span class="np" id="nav-ig">Instagram</span>
+    </div>
 
-      <div class="label" id="lbl-news">Today's news</div>
-      <div class="news" id="news">
-        <span class="livedot"></span>
-        <div>
-          <div class="hl" id="newshl">LinkedIn changes how reach is measured</div>
-          <div class="src" id="newssrc">reuters.com · 23 min ago</div>
-        </div>
-      </div>
+    <div class="viewport">
+      <div class="track" id="track">
 
-      <div class="label" id="lbl-post">Your post</div>
-      <div class="compose" id="compose">
-        <div class="row">
-          <div class="ava" style="width:56px;height:56px;font-size:31px">R</div>
-          <div class="who">
-            <div class="nm" style="font-size:26px">Rishav Raj</div>
-            <div class="sb" style="font-size:20px">Fractional CMO · now</div>
+        <!-- 1 · Today -->
+        <div class="panel">
+          <div class="row">
+            <div class="ava" id="ava1">R</div>
+            <div>
+              <div class="nm" id="pname">Rishav — AI agents</div>
+              <div class="sb" id="pniche">niche: AI for consultants</div>
+            </div>
+          </div>
+          <div class="tile" style="margin-top:22px;display:flex;align-items:center;gap:20px">
+            <div style="flex:1"><div class="k">Autopilot</div><div class="v2">On · posts 8:00 AM</div></div>
+            <span class="lipill"><span class="dot"></span>armed</span>
+          </div>
+          <div class="label" style="margin-top:24px">Today's news · your niche</div>
+          <div class="tile news">
+            <span class="livedot"></span>
+            <div>
+              <div class="hl2" id="newshl">LinkedIn changes how reach is measured</div>
+              <div class="src" id="newssrc">reuters.com · 23 min ago</div>
+            </div>
+          </div>
+          <div class="label" style="margin-top:24px">Already posted</div>
+          <div class="tile">
+            <div class="logrow"><span class="tick">&#10003;</span><span class="txt">The second engagement is harder than the first&#8230;</span><span class="when">yesterday</span></div>
+            <div class="logrow"><span class="tick">&#10003;</span><span class="txt">Fractional work is a distribution problem&#8230;</span><span class="when">Mon</span></div>
           </div>
         </div>
-        <div class="txt" id="posttxt"></div>
-        <span class="voicechip" id="voicechip">sounds like you ✓</span>
-      </div>
 
-      <div class="actions">
-        <span class="btn" id="btn-preview">Preview</span>
-        <span class="btn primary" id="btn-publish">Publish</span>
+        <!-- 2 · Create -->
+        <div class="panel">
+          <div class="tabs">
+            <span class="tab on">Paste Text</span><span class="tab">Website URL</span><span class="tab">YouTube URL</span>
+          </div>
+          <div class="ta" id="ta"></div>
+          <div class="genrow">
+            <span class="btn primary" id="btn-gen">Generate</span>
+            <span class="btn">Carousel</span>
+          </div>
+        </div>
+
+        <!-- 3 · Preview -->
+        <div class="panel">
+          <div class="phead">
+            <span class="label" style="margin:0">LinkedIn preview</span>
+            <span class="sp"></span>
+            <span class="act">Copy</span><span class="act">Schedule</span>
+            <span class="btn primary" id="btn-post" style="font-size:20px;padding:11px 20px;border-radius:11px">Post now</span>
+          </div>
+          <div class="licard">
+            <div class="row">
+              <div class="ava" style="width:58px;height:58px;font-size:31px">R</div>
+              <div><div class="nm" style="font-size:25px" id="liname">Rishav Raj</div>
+                   <div class="sb" style="font-size:19px">now · 🌐 Anyone</div></div>
+            </div>
+            <div class="libody" id="libody"></div>
+            <div class="seemore" id="seemore">…see more</div>
+            <span class="voicechip" id="voicechip">sounds like you ✓</span>
+            <div class="reactbar">
+              <span class="react"><svg viewBox="0 0 24 24"><path d="M7 10v11M2 21h4V10H2zM7 10l4-8a2 2 0 0 1 3 2l-1 6h5a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 19 21H7"/></svg>Like</span>
+              <span class="react"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-4.2A8.4 8.4 0 1 1 21 11.5z"/></svg>Comment</span>
+              <span class="react"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4m14 4v2a4 4 0 0 1-4 4H3"/></svg>Repost</span>
+              <span class="react"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>Send</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 · Today, after -->
+        <div class="panel">
+          <div class="label">Activity</div>
+          <div class="tile" id="logtile">
+            <div class="logrow" id="log-new" style="opacity:0">
+              <span class="tick">✓</span>
+              <span class="txt" id="log-new-txt">Reach is being measured differently again…</span>
+              <span class="when">just now</span>
+            </div>
+            <div class="logrow"><span class="tick">✓</span><span class="txt">The second engagement is harder than the first…</span><span class="when">yesterday</span></div>
+            <div class="logrow"><span class="tick">✓</span><span class="txt">Fractional work is a distribution problem…</span><span class="when">Mon</span></div>
+          </div>
+          <div class="tile" style="margin-top:18px;display:flex;align-items:center;gap:20px">
+            <div style="flex:1"><div class="k">Next post</div><div class="v2">Tomorrow · 8:00 AM</div></div>
+            <span class="lipill"><span class="dot"></span>armed</span>
+          </div>
+          <div class="sb" id="logsrc" style="margin-top:18px;font-size:21px">logged: reuters.com · published 8:00 AM</div>
+        </div>
+
       </div>
-      <div class="logline" id="logline"></div>
     </div>
   </div>
 
   <div id="cursor">
     <svg viewBox="0 0 24 24" width="46" height="46">
-      <path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14.2 L19 14 Z" fill="#fff" stroke="#14161b" stroke-width="1.2"/>
+      <path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14.2 L19 14 Z" fill="#fff" stroke="#16181d" stroke-width="1.3"/>
     </svg>
   </div>
 
   <div class="overlay" id="hook">
-    <div class="kick" id="hookkick">REAL DEMO</div>
-    <h1 id="hooktext">I didn't write this post.</h1>
+    <div class="eyebrow kick" id="hookkick">REAL DEMO</div>
+    <h1 id="hooktext"></h1>
   </div>
 
   <div class="overlay" id="payoff">
     <div class="stamp">posted.</div>
     <div class="lock"><span class="v">V</span>oyce</div>
     <div class="url">voyce.co.in</div>
+    <div class="trust">Preview first · pause anytime · every post logged with its source</div>
   </div>
 
-  <div id="vignette"></div>
   <div id="prog"></div>
 </div>
 
 <script>
-/* ── Everything below is a pure function of t ──────────────────────────────
-   No CSS transitions, no keyframes: a screenshot must depend only on seek(t). */
-
+/* Pure functions of t — no CSS transitions, no keyframes. */
 const S = window.REEL_SPEC || {};
-const DUR      = S.dur      ?? 24.0;
-const HOOK_OUT = S.hookOut  ?? 2.20;
-const PAYOFF   = S.payoffAt ?? 20.60;
-const STEPS    = S.steps    || [];
-const POST     = S.post     ?? "";
-const ACCENT   = S.accent   ?? "#8fa5d6";
-
-document.documentElement.style.setProperty('--accent', ACCENT);
+const DUR    = S.dur      ?? 27.5;
+const HOOK   = S.hookOut  ?? 2.20;
+const T_NAV  = S.tNav     ?? 6.40;   // click Create
+const T_SRC  = S.tSource  ?? 7.20;   // source pastes in
+const T_GEN  = S.tGenerate?? 10.60;  // click Generate
+const T_WRT  = S.tWrite   ?? 11.80;  // slide to preview, post writes
+const TYPE   = S.typeDur  ?? 4.00;
+const T_POST = S.tPublish ?? 18.20;
+const T_BACK = S.tBack    ?? 20.60;  // slide back to Today
+const PAYOFF = S.payoffAt ?? 23.40;
+const STEPS  = S.steps || [];
+const POST   = S.post   ?? "";
+const SOURCE = S.source ?? "";
 
 const $ = id => document.getElementById(id);
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3.2);
-const easeDram = t => { t = clamp(t, 0, 1); return 3*t*t - 2*t*t*t; };
-function spring(t){ t = clamp(t,0,1); return t<=0?0 : t>=1?1 : 1 - Math.exp(-6.5*t)*Math.cos(7.0*t)/1.09; }
-function springPop(t){ t = clamp(t,0,1); return t<=0?0 : t>=1?1 : 1 - Math.exp(-5.0*t)*Math.cos(9.5*t); }
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const easeOut=t=>1-Math.pow(1-clamp(t,0,1),3.2);
+const easeDram=t=>{t=clamp(t,0,1);return 3*t*t-2*t*t*t;};
+const spring=t=>{t=clamp(t,0,1);return t<=0?0:t>=1?1:1-Math.exp(-6.5*t)*Math.cos(7.0*t)/1.09;};
+const springPop=t=>{t=clamp(t,0,1);return t<=0?0:t>=1?1:1-Math.exp(-5.0*t)*Math.cos(9.5*t);};
 
-/* content set once */
-if (S.hook)     $('hooktext').textContent = S.hook;
-if (S.kicker)   $('hookkick').textContent = S.kicker;
-if (S.news)     { $('newshl').textContent = S.news.headline; $('newssrc').textContent = S.news.source; }
-if (S.profile)  { $('profname').textContent = S.profile.name; $('profniche').textContent = S.profile.niche; }
-
-/* caption words, pre-split so each can pop on its own beat */
-function setCaption(step){
-  const el = $('cap');
-  if (el.dataset.k === step.k) return;
-  el.dataset.k = step.k;
-  el.innerHTML = step.cap.split(' ').map(w => {
-    const hl = w.startsWith('*');
-    const t = hl ? w.slice(1) : w;
-    return `<span class="w${hl ? ' hl' : ''}">${t}</span>`;
+function markup(s){
+  return s.split(' ').map(w=>{
+    const hl=w.startsWith('*'); const txt=hl?w.slice(1):w;
+    return `<span class="w${hl?' hl':''}">${txt}</span>`;
   }).join(' ');
 }
+if (S.hook) $('hooktext').innerHTML = S.hook.split(' ')
+  .map(w=>w.startsWith('*')?`<span class="it">${w.slice(1)}</span>`:w).join(' ');
+if (S.kicker) $('hookkick').textContent = S.kicker;
+if (S.news){ $('newshl').textContent=S.news.headline; $('newssrc').textContent=S.news.source; }
+if (S.profile){ $('pname').textContent=S.profile.name; $('pniche').textContent=S.profile.niche;
+                $('liname').textContent=S.profile.author||S.profile.name; $('ava1').textContent=(S.profile.name||'R')[0]; }
+if (S.logline) $('logsrc').textContent = S.logline;
+/* trim trailing punctuation before the ellipsis, or a sentence that already
+   ends in a full stop renders as "again…." in the activity row */
+if (POST) $('log-new-txt').textContent = POST.split('\n')[0].slice(0,46).replace(/[.\s]+$/, '') + '…';
 
-function activeStep(t){
-  let cur = STEPS[0];
-  for (const s of STEPS) if (t >= s.at) cur = s;
-  return cur;
+function setCap(step){ const el=$('cap'); if(el.dataset.k===step.k) return; el.dataset.k=step.k; el.innerHTML=markup(step.cap); }
+function activeStep(t){ let c=STEPS[0]; for(const s of STEPS) if(t>=s.at) c=s; return c; }
+
+/* Which screen is showing at t. Each mark advances one screen, and easeDram
+   clamps to [0,1], so summing them gives both the index and the slide between
+   them. Measuring progress from the previous stop instead of the destination
+   was the bug that made every transition fire the instant the reel began. */
+function screenPos(t){
+  const marks = [T_NAV, T_WRT, T_BACK];
+  let pos = 0;
+  for (const m of marks) pos += easeDram((t - m) / 0.62);
+  return Math.min(pos, marks.length);
 }
 
 function seek(t){
-  /* progress hairline */
-  $('prog').style.width = (clamp(t / DUR, 0, 1) * 1080) + 'px';
+  $('prog').style.width = (clamp(t/DUR,0,1)*1080)+'px';
 
-  /* ── hook overlay: readable instantly, then cut ── */
-  const hk = $('hook');
-  if (t < HOOK_OUT + 0.44){
-    const p = (t - HOOK_OUT) / 0.42;
-    if (p <= 0){ hk.style.opacity = 1; hk.style.transform = 'scale(1)'; hk.style.filter = 'none'; }
-    else {
-      const e = easeDram(p);
-      hk.style.opacity = String(1 - e);
-      hk.style.transform = `scale(${1 + 0.06*e})`;
-      hk.style.filter = `blur(${5*e}px)`;
-    }
-    hk.style.display = 'flex';
-  } else hk.style.display = 'none';
+  /* hook */
+  const hk=$('hook');
+  if (t < HOOK + 0.44){
+    const p=(t-HOOK)/0.42;
+    if(p<=0){hk.style.opacity=1;hk.style.transform='scale(1)';hk.style.filter='none';}
+    else{const e=easeDram(p);hk.style.opacity=String(1-e);hk.style.transform=`scale(${1+0.05*e})`;hk.style.filter=`blur(${5*e}px)`;}
+    hk.style.display='flex';
+  } else hk.style.display='none';
 
-  /* ── caption ── */
-  const step = activeStep(t) || {k:'', cap:'', at:0};
-  setCaption(step);
-  const capEl = $('cap');
-  [...capEl.querySelectorAll('.w')].forEach((w, i) => {
-    const st = step.at + 0.12 + i * 0.062;
-    const p = easeOut((t - st) / 0.42);
-    const sp = springPop(clamp((t - st) / 0.42, 0, 1));
-    const sp2 = spring(clamp((t - st) / 0.42, 0, 1));
-    w.style.opacity = String(clamp(p * 1.35, 0, 1));
-    w.style.transform = `translateY(${(1 - sp2) * 26}px) scale(${0.90 + 0.10 * sp2})`;
+  /* caption */
+  const step=activeStep(t)||{k:'',cap:'',at:0};
+  setCap(step);
+  [...$('cap').querySelectorAll('.w')].forEach((w,i)=>{
+    const st=step.at+0.12+i*0.062;
+    const p=easeOut((t-st)/0.42), sp=spring(clamp((t-st)/0.42,0,1));
+    w.style.opacity=String(clamp(p*1.35,0,1));
+    w.style.transform=`translateY(${(1-sp)*26}px) scale(${0.90+0.10*sp})`;
   });
 
-  /* ── the product screen rises in after the hook ── */
-  const scr = $('screen');
-  const rise = spring((t - (HOOK_OUT + 0.10)) / 0.85);
-  scr.style.opacity = String(clamp((t - (HOOK_OUT + 0.10)) / 0.4, 0, 1));
-  scr.style.transform = `translateY(${(1 - rise) * 120}px) scale(${0.94 + 0.06*rise})`;
+  /* app rises in */
+  const scr=$('screen');
+  const rise=spring((t-(HOOK+0.10))/0.85);
+  scr.style.opacity=String(clamp((t-(HOOK+0.10))/0.4,0,1));
+  scr.style.transform=`translateY(${(1-rise)*120}px) scale(${0.95+0.05*rise})`;
+  scr.querySelector('.lipill .dot').style.opacity=String(0.5+0.5*Math.abs(Math.sin(t*2.2)));
 
-  /* reveal the app's sections as the story reaches them */
-  const showAt = (el, at, dy) => {
-    if (t < at - 0.02){ el.style.display = 'none'; return; }
-    el.style.display = '';
-    const p = spring((t - at) / 0.7);
-    el.style.opacity = String(clamp((t - at) / 0.35, 0, 1));
-    el.style.transform = `translateY(${(1 - p) * (dy ?? 26)}px)`;
-  };
-  showAt($('lbl-news'), S.tNews ?? 6.4, 16);
-  showAt($('news'),     S.tNews ?? 6.4, 30);
-  showAt($('lbl-post'), S.tWrite ?? 10.6, 16);
-  showAt($('compose'),  S.tWrite ?? 10.6, 30);
+  /* ── screens slide, exactly as the app navigates ── */
+  const pos = screenPos(t);
+  $('track').style.transform = `translateX(${-pos*25}%)`;
+  const idx = Math.round(pos);
+  $('nav-today').className  = 'np' + ((idx===0||idx===3)?' on':'');
+  $('nav-create').className = 'np' + ((idx===1||idx===2)?' on':'');
+  $('nav-ig').className     = 'np';
 
-  /* live dot pulses so the news card reads as arriving, not static */
-  const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.0));
-  $('news').querySelector('.livedot').style.opacity = String(t > (S.tNews ?? 6.4) ? pulse : 0);
-  $('autopill').querySelector('.dot').style.opacity = String(0.5 + 0.5*Math.abs(Math.sin(t*2.2)));
+  /* source pastes in */
+  const n = Math.floor(clamp((t-T_SRC)/1.9,0,1)*SOURCE.length);
+  const srcTyping = t>T_SRC && n<SOURCE.length;
+  $('ta').innerHTML = n>0
+    ? `<span class="srcchip"><span class="dot"></span>today's news · reuters.com</span><br>${SOURCE.slice(0,n)}${srcTyping&&Math.floor(t*2)%2===0?'<span class="caret"></span>':''}`
+    : `<span class="ph">Paste an article, notes or a link — or leave it empty and Voyce pulls today's news for your niche.</span>`;
 
-  /* ── the post types itself ── */
-  const tw = S.tWrite ?? 10.6;
-  const typeDur = S.typeDur ?? 3.4;
-  const chars = Math.floor(clamp((t - tw - 0.55) / typeDur, 0, 1) * POST.length);
-  const typing = t > tw + 0.55 && chars < POST.length;
-  $('posttxt').innerHTML = POST.slice(0, Math.max(0, chars)).replace(/\n/g, '<br>')
-    + (typing && Math.floor(t * 2) % 2 === 0 ? '<span class="caret"></span>' : '');
+  /* Generate: press, then work */
+  const gen=$('btn-gen');
+  gen.innerHTML = (t>=T_GEN && t<T_WRT) ? '<span class="spin"></span>Writing…' : 'Generate';
+  gen.style.transform = (t>=T_GEN && t<T_GEN+0.5)
+    ? `scale(${1-0.05*Math.sin(Math.PI*clamp((t-T_GEN)/0.5,0,1))})` : 'scale(1)';
 
-  /* voice-match chip lands once the text is down */
-  const vp = springPop((t - (tw + typeDur + 0.7)) / 0.55);
-  const vc = $('voicechip');
-  vc.style.opacity = String(clamp((t - (tw + typeDur + 0.7)) / 0.3, 0, 1));
-  vc.style.transform = `scale(${0.6 + 0.4*vp})`;
+  /* the post writes itself */
+  const c=Math.floor(clamp((t-T_WRT-0.5)/TYPE,0,1)*POST.length);
+  const typing=t>T_WRT+0.5&&c<POST.length;
+  $('libody').innerHTML=POST.slice(0,Math.max(0,c)).replace(/\n/g,'<br>')
+    +(typing&&Math.floor(t*2)%2===0?'<span class="caret"></span>':'');
+  $('seemore').style.opacity=String(clamp((t-(T_WRT+TYPE+0.2))/0.4,0,1));
+  const vt=T_WRT+TYPE+0.5, vp=springPop((t-vt)/0.55);
+  $('voicechip').style.opacity=String(clamp((t-vt)/0.3,0,1));
+  $('voicechip').style.transform=`scale(${0.6+0.4*vp})`;
 
-  /* ── publish: cursor travels, clicks, the button turns ── */
-  const tp = S.tPublish ?? 16.4;
-  const btn = $('btn-publish');
-  const cur = $('cursor');
-  /* Track the button's real box — the card grows as content lands, so any
-     hardcoded target drifts into empty space below it. */
-  const r = btn.getBoundingClientRect();
-  const to = {x: r.left + r.width * 0.58, y: r.top + r.height * 0.52};
-  const from = {x: to.x + 250, y: to.y - 420};
-  const travel = easeOut((t - (tp - 1.1)) / 0.85);
-  if (t > tp - 1.3 && t < PAYOFF - 0.2){
-    cur.style.opacity = String(clamp((t - (tp - 1.3)) / 0.25, 0, 1));
-    cur.style.left = (from.x + (to.x - from.x) * travel) + 'px';
-    cur.style.top  = (from.y + (to.y - from.y) * travel) + 'px';
-  } else cur.style.opacity = '0';
+  /* Post now */
+  const btn=$('btn-post');
+  const oldR=btn.querySelector('.ripple'); if(oldR) oldR.remove();
+  if(t>=T_POST){
+    btn.className='btn done'; btn.textContent='Posted ✓';
+    const rp=clamp((t-T_POST)/0.6,0,1);
+    btn.style.transform=`scale(${1-0.05*Math.sin(Math.PI*rp)})`;
+    if(rp<1){
+      const b=btn.getBoundingClientRect();
+      const rip=document.createElement('span'); rip.className='ripple';
+      const d=26+220*rp;
+      rip.style.cssText=`left:${b.width*0.5}px;top:${b.height*0.5}px;width:${d}px;height:${d}px;opacity:${0.45*(1-rp)}`;
+      btn.appendChild(rip);
+    }
+  } else { btn.className='btn primary'; btn.textContent='Post now'; btn.style.transform='scale(1)'; }
+  btn.style.fontSize='20px'; btn.style.padding='11px 20px'; btn.style.borderRadius='11px';
 
-  /* click ripple at the moment of contact */
-  const oldRip = btn.querySelector('.ripple');
-  if (oldRip) oldRip.remove();
-  if (t >= tp && t < tp + 0.6){
-    const rp = clamp((t - tp) / 0.6, 0, 1);
-    const rip = document.createElement('span');
-    rip.className = 'ripple';
-    const d = 40 + 320 * rp;
-    rip.style.cssText = `left:${r.width*0.58}px;top:${r.height*0.52}px;width:${d}px;height:${d}px;opacity:${0.45*(1-rp)}`;
-    btn.appendChild(rip);
+  /* the new entry lands in the activity log */
+  $('log-new').style.opacity = String(clamp((t-(T_BACK+0.5))/0.5,0,1));
+  $('log-new').style.transform = `translateY(${(1-spring((t-(T_BACK+0.5))/0.7))*22}px)`;
+
+  /* ── cursor: travels to whatever is about to be clicked ── */
+  const cur=$('cursor');
+  const legs=[
+    {el:$('nav-create'), at:T_NAV,  fromDx:280, fromDy:360},
+    {el:$('btn-gen'),    at:T_GEN,  fromDx:-240, fromDy:300},
+    {el:$('btn-post'),   at:T_POST, fromDx:-300, fromDy:400},
+  ];
+  let shown=false;
+  for(const leg of legs){
+    const start=leg.at-1.15, end=leg.at+0.75;
+    if(t>=start && t<=end){
+      const b=leg.el.getBoundingClientRect();
+      const to={x:b.left+b.width*0.55, y:b.top+b.height*0.55};
+      const from={x:to.x+leg.fromDx, y:to.y+leg.fromDy};
+      const p=easeOut((t-start)/0.9);
+      cur.style.opacity=String(clamp((t-start)/0.22,0,1)*clamp((end-t)/0.3,0,1));
+      cur.style.left=(from.x+(to.x-from.x)*p)+'px';
+      cur.style.top =(from.y+(to.y-from.y)*p)+'px';
+      shown=true; break;
+    }
   }
+  if(!shown) cur.style.opacity='0';
 
-  if (t >= tp){
-    btn.className = 'btn done';
-    btn.textContent = 'Published ✓';
-    const rp = clamp((t - tp) / 0.6, 0, 1);
-    btn.style.transform = `scale(${1 - 0.05*Math.sin(Math.PI*rp)})`;
-  } else {
-    btn.className = 'btn primary';
-    btn.textContent = 'Publish';
-    btn.style.transform = 'scale(1)';
-  }
-
-  const lp = clamp((t - (tp + 0.45)) / 0.4, 0, 1);
-  $('logline').style.opacity = String(lp);
-  $('logline').textContent = lp > 0 ? (S.logline ?? 'logged: reuters.com · published 8:00 AM') : '';
-
-  /* ── payoff ── */
-  const po = $('payoff');
-  if (t >= PAYOFF){
-    po.style.display = 'flex';
-    const e = easeOut((t - PAYOFF) / 0.45);
-    po.style.opacity = String(e);
-    const sp2 = springPop((t - PAYOFF - 0.16) / 0.55);
-    const st = po.querySelector('.stamp');
-    st.style.opacity = String(clamp((t - PAYOFF - 0.16) / 0.2, 0, 1));
-    st.style.transform = `scale(${1 + (1 - sp2) * 1.05}) rotate(${-3 * sp2}deg)`;
-    po.querySelector('.lock').style.opacity = String(easeOut((t - PAYOFF - 0.48) / 0.45));
-    po.querySelector('.url').style.opacity  = String(easeOut((t - PAYOFF - 0.70) / 0.45));
-  } else { po.style.display = 'none'; }
+  /* payoff */
+  const po=$('payoff');
+  if(t>=PAYOFF){
+    po.style.display='flex';
+    po.style.opacity=String(easeOut((t-PAYOFF)/0.45));
+    const sp2=springPop((t-PAYOFF-0.16)/0.55);
+    const st=po.querySelector('.stamp');
+    st.style.opacity=String(clamp((t-PAYOFF-0.16)/0.2,0,1));
+    st.style.transform=`scale(${1+(1-sp2)*0.9}) rotate(${-3*sp2}deg)`;
+    po.querySelector('.lock').style.opacity =String(easeOut((t-PAYOFF-0.48)/0.45));
+    po.querySelector('.url').style.opacity  =String(easeOut((t-PAYOFF-0.70)/0.45));
+    po.querySelector('.trust').style.opacity=String(easeOut((t-PAYOFF-0.88)/0.45));
+  } else po.style.display='none';
 }
 
-window.seek = seek;
-window.__ready = true;
-seek(0);
+window.seek=seek; window.__ready=true; seek(0);
 </script>
 </body>
 </html>
