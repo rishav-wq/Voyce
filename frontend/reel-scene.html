@@ -377,6 +377,11 @@ const $ = id => document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const easeOut=t=>1-Math.pow(1-clamp(t,0,1),3.2);
 const easeDram=t=>{t=clamp(t,0,1);return 3*t*t-2*t*t*t;};
+/* Smootherstep. Smoothstep (3t²−2t³) has a non-zero second derivative at both
+   ends, so a move that uses it starts and stops with a small jolt — which is
+   exactly what a camera push makes visible. This one flattens acceleration at
+   both ends, so the move eases in and settles instead of snapping. */
+const glide=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);};
 const spring=t=>{t=clamp(t,0,1);return t<=0?0:t>=1?1:1-Math.exp(-6.5*t)*Math.cos(7.0*t)/1.09;};
 const springPop=t=>{t=clamp(t,0,1);return t<=0?0:t>=1?1:1-Math.exp(-5.0*t)*Math.cos(9.5*t);};
 
@@ -410,7 +415,7 @@ function activeStep(t){ let c=STEPS[0]; for(const s of STEPS) if(t>=s.at) c=s; r
 function screenPos(t){
   const marks = [T_NAV, T_WRT, T_BACK];
   let pos = 0;
-  for (const m of marks) pos += easeDram((t - m) / 0.62);
+  for (const m of marks) pos += glide((t - m) / 0.78);
   return Math.min(pos, marks.length);
 }
 
@@ -442,7 +447,13 @@ function seek(t){
   /* all the way out, not down to a ghost: the window grows over this slot during
      a close-up, and a faint caption showing through the browser chrome reads as
      a rendering fault rather than a design choice */
-  $('cap').style.opacity = String(1 - coachUp);
+  /* and fade out just before the line changes — swapping innerHTML under a
+     visible caption is a hard cut, which is the one edit in here the eye
+     always catches */
+  let nextAt = Infinity;
+  for (const s of STEPS) if (s.at > step.at) nextAt = Math.min(nextAt, s.at);
+  const exit = clamp((nextAt - t) / 0.26, 0, 1);
+  $('cap').style.opacity = String((1 - coachUp) * exit);
   [...$('cap').querySelectorAll('.w')].forEach((w,i)=>{
     const st=step.at+0.12+i*0.062;
     const p=easeOut((t-st)/0.42), sp=spring(clamp((t-st)/0.42,0,1));
@@ -464,6 +475,15 @@ function seek(t){
      position. These are the cuts: wide for context and screen changes, tight
      on the control or the text when that is the subject. Scale and focal point
      are both interpolated, so it reads as a push rather than a jump. */
+  /* A camera that never fully stops. Half the runtime used to be frame-identical
+     to the frame before it — the moves were smooth but the reel kept freezing
+     between them, which is what actually reads as unsmooth. Three slow sines on
+     different periods never repeat together, so nothing is ever truly still
+     without anything being distractingly in motion. */
+  const driftS = 0.011*Math.sin(t*0.62) + 0.004*Math.sin(t*1.13);
+  const driftX = 11*Math.cos(t*0.33);
+  const driftY = 14*Math.sin(t*0.41);
+
   const zw=$('zoomwrap');
   zw.style.transform='none';                       // measure at rest
   const C = el => { const b=el.getBoundingClientRect(); return {x:b.left+b.width/2, y:b.top+b.height/2}; };
@@ -471,21 +491,22 @@ function seek(t){
     none: C(scr), nav: C($('nav-create')), ta: C($('ta')),
     gen:  C($('btn-gen')), body: C($('libody')), post: C($('btn-post')),
   };
+  /* Eight shots, not ten, and each move runs about a second instead of 0.62.
+     Ten moves across 22s meant the camera was travelling almost continuously
+     and never settled, which reads as restless rather than smooth. */
   const SHOTS=[
-    {at:0.00,        s:1.00, f:'none'},
-    {at:T_NAV-0.85,  s:1.18, f:'nav'},    // in for the nav click
-    {at:T_NAV+0.95,  s:1.00, f:'none'},   // out, the screens slide
-    {at:T_SRC+0.45,  s:1.22, f:'ta'},     // in on the source typing
-    {at:T_GEN-0.75,  s:1.30, f:'gen'},    // tight on Generate
-    {at:T_WRT+0.25,  s:1.00, f:'none'},   // out for the screen change
-    {at:T_WRT+1.15,  s:1.24, f:'body'},   // in on the post writing itself
-    {at:T_POST-0.85, s:1.30, f:'post'},   // tight on Post now
-    {at:T_POST+1.15, s:1.08, f:'post'},   // ease off after the click
-    {at:T_BACK+0.35, s:1.00, f:'none'},   // wide for the activity log
+    {at:0.00,        s:1.00, f:'none', d:0.95},
+    {at:T_NAV-0.70,  s:1.16, f:'nav',  d:1.00},  // in for the nav click
+    {at:T_SRC+0.60,  s:1.22, f:'ta',   d:1.15},  // hold through the typing
+    {at:T_GEN-0.45,  s:1.30, f:'gen',  d:0.90},  // tight on Generate
+    {at:T_WRT+0.35,  s:1.02, f:'none', d:0.95},  // out for the screen change
+    {at:T_WRT+1.55,  s:1.22, f:'body', d:1.20},  // in on the post writing itself
+    {at:T_POST-0.65, s:1.30, f:'post', d:1.00},  // tight on Post now
+    {at:T_BACK+0.30, s:1.00, f:'none', d:1.15},  // wide for the activity log
   ];
   let a=SHOTS[0], b2=SHOTS[0];
   for(let k=0;k<SHOTS.length;k++){ if(t>=SHOTS[k].at){ a=SHOTS[k]; b2=SHOTS[k+1]||SHOTS[k]; } }
-  const kp = (b2===a) ? 1 : easeDram((t-b2.at)/0.62 + 1);
+  const kp = (b2===a) ? 1 : glide((t-b2.at)/(b2.d||1.0) + 1);
   const sNow = a.s + (b2.s - a.s) * kp;
   const fa=FOCUS[a.f], fb=FOCUS[b2.f];
   const fx = fa.x + (fb.x - fa.x) * kp, fy = fa.y + (fb.y - fa.y) * kp;
@@ -511,9 +532,18 @@ function seek(t){
     }
 
     zw.style.transformOrigin=`${fx}px ${fy}px`;
-    zw.style.transform=`translate(${dx}px, ${dy}px) scale(${sNow})`;
+    zw.style.transform=
+      `translate(${dx+driftX}px, ${dy+driftY}px) scale(${sNow+driftS})`;
+  } else {
+    /* even at rest the window breathes */
+    const sb2=scr.getBoundingClientRect();
+    zw.style.transformOrigin=`${sb2.left+sb2.width/2}px ${sb2.top+sb2.height/2}px`;
+    zw.style.transform=
+      `translate(${driftX}px, ${driftY}px) scale(${1+driftS})`;
   }
-  scr.querySelector('.lipill .dot').style.opacity=String(0.5+0.5*Math.abs(Math.sin(t*2.2)));
+  /* every live indicator breathes, not just the one in the app bar */
+  const beat = String(0.45+0.55*Math.abs(Math.sin(t*2.2)));
+  scr.querySelectorAll('.lipill .dot, .news .livedot').forEach(el=>{ el.style.opacity=beat; });
 
   /* ── screens slide, exactly as the app navigates ── */
   const pos = screenPos(t);
@@ -563,9 +593,15 @@ function seek(t){
   } else { btn.className='btn primary'; btn.textContent='Post now'; btn.style.transform='scale(1)'; }
   btn.style.fontSize='20px'; btn.style.padding='11px 20px'; btn.style.borderRadius='11px';
 
-  /* the new entry lands in the activity log */
-  $('log-new').style.opacity = String(clamp((t-(T_BACK+0.5))/0.5,0,1));
-  $('log-new').style.transform = `translateY(${(1-spring((t-(T_BACK+0.5))/0.7))*22}px)`;
+  /* The activity log was the longest dead stretch left: the entry landed and
+     then the screen sat there. Cascading all three rows gives the final screen
+     something to do for the second and a half it is on. */
+  [...$('logtile').querySelectorAll('.logrow')].forEach((r,i)=>{
+    const at = T_BACK + 0.45 + i*0.34;
+    const p = spring((t-at)/0.72);
+    r.style.opacity = String(clamp((t-at)/0.4,0,1));
+    r.style.transform = `translateY(${(1-p)*26}px)`;
+  });
 
   /* ── the walkthrough layer: pill, ring, cursor ──
      Rects are read here, after the zoom has been applied, so all three stay
@@ -625,6 +661,10 @@ function seek(t){
     po.querySelector('.lock').style.opacity =String(easeOut((t-PAYOFF-0.48)/0.45));
     po.querySelector('.url').style.opacity  =String(easeOut((t-PAYOFF-0.70)/0.45));
     po.querySelector('.trust').style.opacity=String(easeOut((t-PAYOFF-0.88)/0.45));
+    /* the payoff was the longest frozen stretch in the reel — a slow continuing
+       push keeps it alive all the way to the last frame */
+    const pz = 1 + 0.075*easeOut((t-PAYOFF)/2.6) + driftS;
+    po.style.transform=`translate(${driftX*0.6}px, ${driftY*0.6}px) scale(${pz})`;
   } else po.style.display='none';
 }
 

@@ -21,7 +21,11 @@ import shutil
 import subprocess
 
 W, H = 1080, 1920
-FPS = 30
+# 60, not 30. A camera push from 1.0 to 1.3 over a second is 18 frames at 30fps
+# and the steps are visible — screenshot-stepped motion has no motion blur to
+# hide them the way a real screen recording does. Doubling the frames is the
+# cheapest fix available and Instagram plays 60fps natively.
+FPS = 60
 
 SCENE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      "frontend", "reel-scene.html")
@@ -58,7 +62,11 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
            "-f", "image2pipe", "-vcodec", "mjpeg", "-r", str(fps), "-i", "-"]
     if has_audio:
         cmd += ["-i", audio_path]
-    cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", str(crf),
+    # 'fast', not 'medium': at 1080x1920x60 the encoder competes with the
+    # screenshot loop for the same cores, and starving Playwright is what makes
+    # a capture time out mid-render. The quality difference at this crf is not
+    # visible after Instagram re-encodes anyway.
+    cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", str(crf),
             "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
             "-maxrate", "8M", "-bufsize", "16M", "-movflags", "+faststart"]
     if has_audio:
@@ -83,10 +91,19 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
             page.evaluate("document.fonts.ready")
             page.wait_for_timeout(400)
 
+            page.set_default_timeout(120_000)
             for i in range(total):
                 page.evaluate("t => window.seek(t)", i / fps)
-                proc.stdin.write(page.screenshot(type="jpeg", quality=92))
-                if progress and i % 15 == 0:
+                # One retry: a frame can occasionally stall when the encoder has
+                # the CPU, and losing the whole render to a single slow capture
+                # after two minutes of work is not a reasonable failure mode.
+                try:
+                    shot = page.screenshot(type="jpeg", quality=92, timeout=60_000)
+                except Exception:
+                    page.wait_for_timeout(250)
+                    shot = page.screenshot(type="jpeg", quality=92, timeout=120_000)
+                proc.stdin.write(shot)
+                if progress and i % 30 == 0:
                     progress(i, total)
             browser.close()
     finally:

@@ -16,7 +16,7 @@ A * before a word marks it for the Fraunces italic accent, matching the hero's
 # swipes. Nothing now sits still for more than about 2.5s, and the payoff is a
 # beat rather than a card someone waits out.
 _BASE = dict(
-    dur=22.00,
+    dur=21.30,
     hookOut=1.90,     # the hook line clears; the app is already moving behind it
     tNav=5.00,        # Create is clicked
     tSource=5.80,     # the source pastes in
@@ -25,7 +25,8 @@ _BASE = dict(
     typeDur=3.20,
     tPublish=14.60,   # Post now
     tBack=16.80,      # back to Today, the log entry lands
-    payoffAt=19.40,   # 2.6s of payoff, not 4
+    payoffAt=18.70,   # was 19.40: the measurement found 1.2s of dead air here,
+                      # after the activity rows settle and before the close
 )
 
 _NEWS = {
