@@ -60,6 +60,48 @@ def _call(model_name: str, prompt: str, system: str, max_tokens: int,
     return _safe_text(resp)
 
 
+_YT_READ_PROMPT = (
+    "Write out what this video actually says, in clear English prose. "
+    "If the speaker is not speaking English, translate rather than transliterate. "
+    "Keep every concrete claim, number, example and opinion — this is source material "
+    "for a post, so substance matters more than brevity. Do not describe the visuals, "
+    "the channel or the thumbnail. No preamble."
+)
+
+
+def read_youtube(url: str, max_output_tokens: int = 8192) -> str:
+    """Have Gemini watch a YouTube video and write out what it says.
+
+    The transcript scraper talks to YouTube from our own server, and YouTube
+    blocks cloud-provider IPs — so on Render it fails for every video, no matter
+    what the video is. This path goes server → Google → YouTube, so our IP is
+    never in the conversation and the block does not apply.
+
+    It costs tokens and takes ~30s, which is why it is the fallback rather than
+    the first thing tried. Returns a faithful rendition, not a verbatim
+    transcript, so the caller labels it as such and nothing quotes it as speech.
+    """
+    last = None
+    for model_name in (MODEL, FALLBACK_MODEL):
+        try:
+            model = genai.GenerativeModel(model_name)
+            resp = model.generate_content(
+                [{"file_data": {"file_uri": url}}, _YT_READ_PROMPT],
+                generation_config={"max_output_tokens": max_output_tokens,
+                                   "temperature": 0.2},
+            )
+            text = _safe_text(resp).strip()
+            if text:
+                print(f"[youtube] read by {model_name}: {len(text)} chars", flush=True)
+                return text
+            last = RuntimeError(f"{model_name} returned nothing for the video")
+        except Exception as exc:
+            last = exc
+            print(f"[youtube] {model_name} could not read {url}: "
+                  f"{type(exc).__name__}: {exc}", flush=True)
+    raise last or RuntimeError("Could not read that video.")
+
+
 def generate(prompt: str, system: str = None, max_tokens: int = 2048,
              temperature: float = 0.8, json_mode: bool = False) -> str:
     """Robust generation: try primary → fallback → primary, retrying on ANY

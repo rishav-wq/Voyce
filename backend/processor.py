@@ -174,6 +174,33 @@ def _pick_transcript(transcript_list):
     return chosen, chosen.language
 
 
+def _youtube_via_gemini(url: str, caption_error: Exception) -> str:
+    """Fallback when the captions cannot be fetched: let Gemini watch the video.
+
+    Gemini writes a faithful rendition rather than a verbatim transcript, so it
+    is labelled as such — otherwise the generator would quote it as if those
+    were the speaker's exact words.
+    """
+    try:
+        from llm import read_youtube
+        body = read_youtube(url).strip()
+    except Exception as exc:
+        print(f"[youtube] Gemini could not read {url} either: "
+              f"{type(exc).__name__}: {exc}", flush=True)
+        # Report the original caption failure — it is the more specific of the two.
+        raise ValueError(_youtube_error(caption_error)) from exc
+
+    if len(body) < 80:
+        raise ValueError(
+            "There was not enough spoken content in that video to write a post from. "
+            "Try a longer one, or paste the text directly."
+        )
+    note = ("[Watched and summarised by AI because this video's captions could not be "
+            "fetched. Treat it as a faithful account of the content, not as the "
+            "speaker's exact words — do not quote it verbatim.]")
+    return (note + chr(10) * 2 + body)[:8000]
+
+
 def process_youtube(url: str) -> str:
     video_id = extract_youtube_id(url)
     if not video_id:
@@ -182,12 +209,17 @@ def process_youtube(url: str) -> str:
             "Paste a full watch URL like https://www.youtube.com/watch?v=..."
         )
 
+    # Captions first: instant, free, and the speaker's exact words. It talks to
+    # YouTube from our server though, and YouTube blocks cloud-provider IPs, so
+    # on Render this leg fails for every video. Gemini picks it up from there.
     try:
         transcript_list = YouTubeTranscriptApi().list(video_id)
         transcript, source_language = _pick_transcript(transcript_list)
         fetched = transcript.fetch()
     except Exception as exc:
-        raise ValueError(_youtube_error(exc)) from exc
+        print(f"[youtube] captions unavailable for {video_id} "
+              f"({type(exc).__name__}); asking Gemini to watch it", flush=True)
+        return _youtube_via_gemini(url, exc)
 
     parts = [(getattr(s, "text", None) or (s.get("text", "") if isinstance(s, dict) else ""))
              for s in fetched]
