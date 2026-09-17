@@ -859,6 +859,11 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         raise HTTPException(status_code=400, detail="Content cannot be empty")
     try:
         raw_text = process_input(request.input_type, request.content)
+    except ValueError as e:
+        # processor.py raises ValueError carrying a message already written for the
+        # user (which video, which cause). The generic wrapper below would replace
+        # it with "Could not read that YouTube transcript", losing the reason.
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
@@ -1048,6 +1053,11 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
 
     try:
         raw_text = process_input(request.input_type, request.content)
+    except ValueError as e:
+        # processor.py raises ValueError carrying a message already written for the
+        # user (which video, which cause). The generic wrapper below would replace
+        # it with "Could not read that YouTube transcript", losing the reason.
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
@@ -1087,6 +1097,11 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
         raise HTTPException(status_code=400, detail="Add a few words about the image or paste your content.")
     try:
         raw_text = process_input(request.input_type, request.content)
+    except ValueError as e:
+        # processor.py raises ValueError carrying a message already written for the
+        # user (which video, which cause). The generic wrapper below would replace
+        # it with "Could not read that YouTube transcript", losing the reason.
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
     try:
@@ -1112,6 +1127,12 @@ def post_linkedin(request: PostRequest, x_token: str = Header(None)):
         return {"status": "dry_run", "preview": text}
     try:
         return li.post_to_linkedin(user["id"], text)
+    except ValueError as e:
+        # linkedin.py already turned the API status into something actionable;
+        # the blanket handler below would replace it with "reconnect LinkedIn",
+        # which is the wrong advice for a rate limit or a duplicate post.
+        logging.exception("LinkedIn text post rejected")
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception:
         logging.exception("LinkedIn text post failed")
         raise HTTPException(status_code=502, detail="Failed to post to LinkedIn. Please reconnect LinkedIn and try again.")

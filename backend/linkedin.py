@@ -1,6 +1,8 @@
 import os
 import base64
 import json
+from datetime import datetime, timedelta, timezone
+
 import requests
 from dotenv import load_dotenv
 
@@ -70,6 +72,15 @@ def _decode_id_token(id_token: str) -> dict:
 
 def save_token(user_id: str, token_data: dict):
     entry = {"access_token": token_data["access_token"]}
+    # LinkedIn access tokens last 60 days and the exchange tells us exactly how
+    # many seconds are left. That was being discarded, so is_connected() could
+    # only ever answer "a token string exists" — the sidebar kept reading
+    # "LinkedIn Connected" long after the token died, and the first sign of
+    # trouble was a post failing. instagram.py already stored this; LinkedIn did not.
+    expires_in = int(token_data.get("expires_in") or 0)
+    if expires_in > 0:
+        entry["expires_at"] = (datetime.now(timezone.utc)
+                               + timedelta(seconds=expires_in)).isoformat()
     if "id_token" in token_data:
         claims = _decode_id_token(token_data["id_token"])
         entry["person_id"] = claims.get("sub", "")
@@ -80,8 +91,30 @@ def get_token(user_id: str) -> str | None:
     return _get_token_entry(user_id).get("access_token")
 
 
+def token_expires_at(user_id: str) -> datetime | None:
+    raw = _get_token_entry(user_id).get("expires_at")
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def token_expired(user_id: str) -> bool:
+    """True only when we know it has expired.
+
+    Tokens saved before expiry was recorded have no expires_at. Those are left
+    alone rather than signing everyone out the moment this deploys — they will
+    get a real expiry the next time they reconnect.
+    """
+    at = token_expires_at(user_id)
+    return at is not None and at <= datetime.now(timezone.utc)
+
+
 def is_connected(user_id: str) -> bool:
-    return bool(_get_token_entry(user_id).get("access_token"))
+    return bool(_get_token_entry(user_id).get("access_token")) and not token_expired(user_id)
 
 
 def logout(user_id: str):
@@ -93,6 +126,31 @@ def _get_person_id(user_id: str) -> str:
     if not person_id:
         raise ValueError("Person ID not found. Please reconnect LinkedIn.")
     return person_id
+
+
+def describe_api_failure(status: int, body: str = "") -> str:
+    """Turn a LinkedIn API status into something the user can act on.
+
+    Every failure used to surface as "Failed to post to LinkedIn. Please
+    reconnect LinkedIn and try again." — which is wrong advice for a rate limit
+    or a duplicate post, and confusing next to a sidebar reading "Connected".
+    """
+    snippet = (body or "").strip()[:180]
+    if status in (401, 403):
+        return ("LinkedIn rejected the request — your access has expired or was revoked. "
+                "Reconnect LinkedIn from the sidebar and post again.")
+    if status == 422:
+        return ("LinkedIn refused this post. It is usually a duplicate of something you "
+                "already published, or the text breaks one of their formatting rules."
+                + (f" LinkedIn said: {snippet}" if snippet else ""))
+    if status == 429:
+        return ("LinkedIn is rate-limiting this account right now. Wait a few minutes "
+                "and try again — the post text is still here.")
+    if 500 <= status < 600:
+        return (f"LinkedIn is having problems on their side ({status}). Try again in a "
+                f"few minutes — nothing was published.")
+    return (f"LinkedIn rejected the post ({status})."
+            + (f" They said: {snippet}" if snippet else " Try again shortly."))
 
 
 def _escape_little_text(text: str) -> str:
@@ -275,5 +333,8 @@ def post_to_linkedin(user_id: str, text: str) -> dict:
         },
         timeout=15,
     )
-    response.raise_for_status()
+    if not response.ok:
+        # ValueError so the API layer passes the specific reason through instead
+        # of replacing every failure with "please reconnect LinkedIn".
+        raise ValueError(describe_api_failure(response.status_code, response.text))
     return {"status": "posted", "id": response.headers.get("x-restli-id", "")}
