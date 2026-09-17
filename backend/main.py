@@ -1430,8 +1430,15 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
         raise HTTPException(status_code=502, detail="Could not generate a preview. Please try again.")
 
 
+class IdeasRequest(BaseModel):
+    # Whatever the user typed into the composer: a topic, rough notes, a link's
+    # text. Ideas were niche + news only, so there was no way to steer them.
+    context: str = ""
+
+
 @app.post("/companies/{company_id}/ideas")
-def suggest_ideas(company_id: str, x_token: str = Header(None)):
+def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
+                  x_token: str = Header(None)):
     """Propose a short menu of post ideas for the coming days, tailored to the
     profile and grounded in today's live news — spanning different post types so
     the menu covers strategy, not five news reactions. Nothing is posted; no
@@ -1461,8 +1468,15 @@ def suggest_ideas(company_id: str, x_token: str = Header(None)):
         kb = (subject.get("knowledge") or "").strip()
         kb_block = ("\nKNOWLEDGE BASE — draw ideas from these facts/rules and honour any "
                     "'never say' rules; do not contradict or invent around them:\n" + kb[:2000] + "\n") if kb else ""
+        NL = chr(10)
+        steer = (request.context if request else "").strip()[:1200]
+        steer_block = ((NL + "WHAT THEY WANT TO POST ABOUT — this is the brief, and it "
+                        "outranks the news below. Every idea must be about this. Use the "
+                        "news only where it genuinely supports it, and ignore it entirely "
+                        "where it does not:" + NL + steer + NL) if steer else "")
+
         prompt = f"""You are a LinkedIn content strategist for {who} ({subject.get('industry', '')}).
-{kb_block}
+{kb_block}{steer_block}
 Propose 5 DISTINCT post ideas for the coming days. Each must use a DIFFERENT post type from this menu — spread across the menu, do not repeat a type:
 {type_menu}
 

@@ -63,9 +63,18 @@ async function suggestIdeasCreate() {
   const pid = getActiveProfileId() || (_profiles[0] && _profiles[0].id);
   if (!pid) { toast("Create a profile first, then I can suggest ideas.", "warn"); return; }
   showTool("ideas");
-  out.innerHTML = `<div class="tool-empty">Reading today's news and drafting ideas… about 10 seconds, and nothing gets posted.</div>`;
+  const seeded = !!((document.getElementById("content-input") || {}).value || "").trim();
+  out.innerHTML = `<div class="tool-empty">${seeded
+    ? "Drafting ideas from what you typed, plus today's news…"
+    : "Reading today's news and drafting ideas…"} about 10 seconds, and nothing gets posted.</div>`;
   try {
-    const res = await fetch(`/companies/${pid}/ideas`, { method: "POST", headers: { "x-token": getToken() } });
+    // Whatever is in the composer steers the ideas. Without it they could only
+    // ever be "your niche + today's news", which is why they came back generic.
+    const seed = (document.getElementById("content-input") || {}).value || "";
+    const res = await fetch(`/companies/${pid}/ideas`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ context: seed.trim().slice(0, 1200) }),
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
     _createIdeas = data.ideas || [];

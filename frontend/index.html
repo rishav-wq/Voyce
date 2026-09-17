@@ -131,7 +131,7 @@
        the post is never interrupted and stays readable while you compare a
        rewrite against it. Sticky, not fixed — it follows the scroll without
        hard-coded offsets, and it collapses to a normal block below 1200px. */
-    .workspace { display: grid; grid-template-columns: minmax(0,1fr) 356px; gap: 24px; align-items: stretch; }
+    .workspace { display: grid; grid-template-columns: minmax(0,1fr) 356px; gap: 24px; align-items: start; }
     .work-main { min-width: 0; }
     .work-tools {
       position: sticky; top: 20px; max-height: calc(100vh - 40px);
@@ -163,7 +163,11 @@
     .tool-body::-webkit-scrollbar-track { background: transparent; }
     .tool-body::-webkit-scrollbar-thumb { background: #d3d8e0; border-radius: 8px; }
     .tool-pane { display: none; }
-    .tool-pane.active { display: block; margin: auto 0; }
+    /* Centring the pane looked tidy while it held one button, but the panel
+       stretched to the work column's height, so the content floated in the
+       middle of a tall empty box — and once ideas loaded it centred a
+       scrolling list. Content starts at the top; the panel fits what is in it. */
+    .tool-pane.active { display: block; }
     .tool-intro { font-size: 12.5px; color: #98a0ae; line-height: 1.5; margin-bottom: 12px; }
     .tool-run {
       display: inline-flex; align-items: center; gap: 7px; width: 100%; justify-content: center;
@@ -835,7 +839,9 @@
       <div class="tool-body">
 
         <div class="tool-pane active" id="tool-ideas" role="tabpanel">
-          <p class="tool-intro">What to post about, from your niche and today's news. Nothing gets posted.</p>
+          <p class="tool-intro">What to post about, from your niche and today's news.
+            <strong style="color:#5b6270;font-weight:600;">Type a topic or rough notes in the box on the left</strong>
+            and the ideas follow that instead. Nothing gets posted.</p>
           <button type="button" class="tool-run" id="ideas-run" onclick="suggestIdeasCreate()">💡 Suggest post ideas</button>
           <div id="ideas-out"></div>
         </div>
