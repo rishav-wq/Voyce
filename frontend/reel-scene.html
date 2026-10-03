@@ -61,6 +61,13 @@
     letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
   .eyebrow::before{content:'';width:44px;height:3px;background:var(--accent)}
 
+  /* A plate under the captions. They have always sat over the product, but at
+     the old 1.16-1.30x there was empty page behind them; at 2.3x the UI fills
+     the frame and the type lands on buttons and nav labels. Fades out well
+     before it reaches the screen's resting top edge, so at a wide shot there
+     is nothing to see -- it only does work once the camera is close. */
+  #capscrim{position:absolute;left:0;right:0;top:0;height:530px;z-index:25;pointer-events:none;
+    background:linear-gradient(180deg,#fff 0%,#fff 52%,rgba(255,255,255,.88) 72%,rgba(255,255,255,0) 100%)}
   #cap{position:absolute;left:82px;right:82px;top:214px;z-index:30;font-family:'SG';font-weight:700;
     font-size:74px;line-height:1.08;letter-spacing:-.035em;color:var(--ink)}
   /* the hook rides the same slot, just louder */
@@ -145,7 +152,11 @@
     color:var(--accent);background:var(--accent-wash);border-radius:999px;padding:8px 16px}
   .srcchip .dot{width:11px;height:11px;border-radius:50%;background:var(--success)}
   .genrow{display:flex;align-items:center;gap:13px;margin-top:20px}
-  .btn{font-family:'IN7';font-size:24px;border-radius:15px;padding:16px 28px;border:2px solid var(--line-2);color:var(--ink);background:#fff}
+  /* min-width is not cosmetic here: the camera focuses on this button's
+     centre, and letting 'Generate' reflow to 'Writing...' moved that
+     centre 18px in one frame, which the push then had to chase. */
+  .btn{font-family:'IN7';font-size:24px;border-radius:15px;padding:16px 28px;border:2px solid var(--line-2);color:var(--ink);background:#fff;
+       min-width:214px;display:inline-flex;align-items:center;justify-content:center;gap:10px;box-sizing:border-box}
   .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);position:relative;overflow:hidden}
   .btn.done{background:var(--success);border-color:var(--success);color:#fff}
   .ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.45);transform:translate(-50%,-50%)}
@@ -221,6 +232,7 @@
 <body>
 <div id="stage">
   <div id="ground"></div>
+  <div id="capscrim"></div>
   <div id="chip"><span class="v">V</span>oyce</div>
   <div id="cap"></div>
 
@@ -481,6 +493,19 @@ function seek(t){
   scr.style.transform=`translateY(${(1-rise)*140}px) scale(${0.94+0.06*rise})`;
   $('urlpath').textContent = (t>=T_NAV && t<T_BACK) ? '/tool' : '/setup';
 
+  /* The slide runs before the camera measures, not after. Focal points like
+     the Generate button live inside the sliding track, so measuring them
+     before this frame's slide is applied means the camera chases a position
+     the panel has already left, then snaps when the slide settles. That lag
+     measured 21px in a single frame. */
+  /* ── screens slide, exactly as the app navigates ── */
+  const pos = screenPos(t);
+  $('track').style.transform = `translateX(${-pos*25}%)`;
+  const idx = Math.round(pos);
+  $('nav-today').className  = 'np' + ((idx===0||idx===3)?' on':'');
+  $('nav-create').className = 'np' + ((idx===1||idx===2)?' on':'');
+  $('nav-ig').className     = 'np';
+
   /* ── Shots ──
      The audit's headline finding was that the whole reel sat at one camera
      position. These are the cuts: wide for context and screen changes, tight
@@ -491,9 +516,6 @@ function seek(t){
      between them, which is what actually reads as unsmooth. Three slow sines on
      different periods never repeat together, so nothing is ever truly still
      without anything being distractingly in motion. */
-  const driftS = 0.011*Math.sin(t*0.62) + 0.004*Math.sin(t*1.13);
-  const driftX = 11*Math.cos(t*0.33);
-  const driftY = 14*Math.sin(t*0.41);
 
   const zw=$('zoomwrap');
   zw.style.transform='none';                       // measure at rest
@@ -512,63 +534,108 @@ function seek(t){
      than pumping in and out. Seven moves became six, each held, and the range
      now runs to 2.3x. Above that the window is wider than the frame and bleeds,
      which the clamp handles and which is what a close-up should look like. */
+  /* Every move now lands before the screen it is looking at starts moving.
+     The pull-out used to finish 0.4s after the slide began, so the camera was
+     still interpolating toward a button that was travelling off-frame at
+     23px per frame -- two motions fighting, which reads as a stumble rather
+     than a move. Wide shots land on T_WRT and T_BACK exactly; the slide then
+     happens inside a camera that is already still. */
   const SHOTS=[
-    {at:0.00,        s:1.00, f:'none', d:1.00},  // establish, hold ~4s
+    {at:0.00,        s:1.00, f:'none', d:1.00},  // establish, hold ~3s
     {at:T_NAV-0.70,  s:1.45, f:'nav',  d:1.05},  // in for the nav click
     {at:T_GEN-1.00,  s:2.10, f:'gen',  d:1.20},  // one sustained push: source + Generate
-    {at:T_WRT+0.40,  s:1.15, f:'none', d:1.00},  // out — the screen slide needs the width
-    {at:T_WRT+2.40,  s:2.00, f:'body', d:1.25},  // in on the post writing itself
+    {at:T_WRT,       s:1.15, f:'none', d:0.90},  // out, landing as the slide starts
+    {at:T_WRT+2.60,  s:2.00, f:'body', d:1.30},  // in on the post writing itself
     {at:T_POST-0.60, s:2.30, f:'post', d:1.05},  // tight on Post now
-    {at:T_BACK+0.30, s:1.00, f:'none', d:1.20},  // wide for the activity log
+    {at:T_BACK,      s:1.00, f:'none', d:1.20},  // wide, landing as it slides back
   ];
   let a=SHOTS[0], b2=SHOTS[0];
   for(let k=0;k<SHOTS.length;k++){ if(t>=SHOTS[k].at){ a=SHOTS[k]; b2=SHOTS[k+1]||SHOTS[k]; } }
   const kp = (b2===a) ? 1 : glide((t-b2.at)/(b2.d||1.0) + 1);
-  const sNow = a.s + (b2.s - a.s) * kp;
+  const base = a.s + (b2.s - a.s) * kp;
   const fa=FOCUS[a.f], fb=FOCUS[b2.f];
   const fx = fa.x + (fb.x - fa.x) * kp, fy = fa.y + (fb.y - fa.y) * kp;
-  if (sNow > 1.002){
-    const pull = clamp((sNow-1)/0.28, 0, 1) * 0.55;
-    const dy = (940 - fy) * pull;
 
-    /* Scaling about a focal point near one edge throws the opposite edge out of
-       frame — the same arithmetic that cropped the product last time. Work out
-       where the window lands and pull it back so it either fits with a margin
-       or bleeds fully; a half-cut card edge reads as a mistake, a full bleed
-       reads as a close-up. */
+  /* A camera that never fully stops. Half the runtime used to be frame-identical
+     to the frame before it -- the moves were smooth but the reel kept freezing
+     between them, which is what actually reads as unsmooth. Three slow sines on
+     different periods never repeat together, so nothing is ever truly still
+     without anything being distractingly in motion.
+
+     Gated by how settled the shot is, though. At full strength through a push
+     the drift subtracts from the move about as often as it adds, so the zoom
+     speed visibly wobbles; it reversed the camera's direction nine times in
+     21s. settled is 1 while a shot is held and 0 at the midpoint of a move,
+     so the breathing is there exactly where the freezing was. */
+  const settled = 1 - 4*kp*(1-kp);
+  const driftS = settled * (0.011*Math.sin(t*0.62) + 0.004*Math.sin(t*1.13));
+  const driftX = settled * 11*Math.cos(t*0.33);
+  const driftY = settled * 14*Math.sin(t*0.41);
+  const sNow = base + driftS;
+  {
+    /* Framing, as one smooth rule rather than a constraint solver.
+
+       The previous version clamped the scaled window against the frame edges,
+       and which edge was binding swapped mid-move: it held the right edge
+       while the window was wider than the frame, then the left edge once it
+       fitted. Continuous, but with a corner -- dx flicked 28px to 13px in a
+       single frame on the way out of the close-up, which is the jitter during
+       zoom. Worse, it was defending against a gap that cannot happen: the
+       browser mock is inset about 150px either side at rest, so an edge
+       inside the frame is simply what this scene looks like.
+
+       So the rule is just: at rest, leave the screen where the design puts it;
+       zoomed in, bring the subject to the middle. smoothstep rather than a
+       bare clamp because clamp has corners at both ends, and a corner in
+       position is a step in velocity. */
+    const ramp = u => { const k = clamp(u, 0, 1); return k*k*(3 - 2*k); };
+    const dy = (940 - fy) * 0.55 * ramp((base - 1) / 0.28);
+
+    /* Framing, written so the constraint cannot produce a corner.
+
+       Every version before this one picked dx by testing the window against
+       the frame edges, and the binding edge changes over mid-move: while the
+       window is wider than the frame it must not open a gap, and once it is
+       narrower it must not hang off the side. Selecting between those is a
+       min() of two crossing lines, which is a V -- dx flicked 28px to 13px in
+       one frame coming out of the close-up. That is the jitter during zoom.
+
+       But the admissible range is never really two rules. It is always an
+       interval centred on whatever puts the window's middle in the frame's
+       middle, whose half-width is how much slack the current scale leaves --
+       and that slack passes smoothly through zero at the scale where the
+       window exactly fills the frame. So: start at centred, slide toward the
+       subject by at most the slack. tanh rather than a clamp because it
+       approaches the limit instead of colliding with it, and the pan ramps in
+       with the zoom so that at rest the screen stays where the design puts
+       it. Every dx this can produce is in range by construction. */
     const sb = scr.getBoundingClientRect();
-    const L = fx + (sb.left - fx) * sNow;
+    const L = fx + (sb.left  - fx) * sNow;
     const R = fx + (sb.right - fx) * sNow;
-    let dx = 0;
-    if (R - L <= 1080 - 40){
-      if (R > 1080 - 20) dx = (1080 - 20) - R;
-      if (L + dx < 20)   dx = 20 - L;
-    } else {
-      if (L > 0)    dx = -L;
-      if (R + dx < 1080) dx = 1080 - R;
-    }
+    const c = (L + R) / 2;
+    /* slack is how far the window may travel either way while still covering
+       the frame. It is negative while the window is narrower than the frame,
+       and crosses zero at the scale where it exactly fills it -- about 1.39x
+       here. Taking its magnitude is what the last attempt got wrong: the
+       camera then bounced off that crossing instead of passing through it,
+       which is a V in position and so a step in velocity, worth 21px. The pan
+       has to leave with zero slope instead, which is what the smoothstep gate
+       does, so below 1.39x the window simply sits centred and the move glides
+       through the crossing without noticing it. Panning only once the frame is
+       full is also the right grammar: there is nothing to pan to before. */
+    const slack = ((R - L) - 1080) / 2;
+    const gate  = ramp(slack / 240) * ramp((base - 1) / 0.45);
+    const dx = (540 - c)
+             + Math.max(slack, 0) * Math.tanh(1.5 * (c - fx) / Math.max(slack, 1)) * gate;
 
     zw.style.transformOrigin=`${fx}px ${fy}px`;
     zw.style.transform=
-      `translate(${dx+driftX}px, ${dy+driftY}px) scale(${sNow+driftS})`;
-  } else {
-    /* even at rest the window breathes */
-    const sb2=scr.getBoundingClientRect();
-    zw.style.transformOrigin=`${sb2.left+sb2.width/2}px ${sb2.top+sb2.height/2}px`;
-    zw.style.transform=
-      `translate(${driftX}px, ${driftY}px) scale(${1+driftS})`;
+      `translate(${dx+driftX}px, ${dy+driftY}px) scale(${sNow})`;
   }
   /* every live indicator breathes, not just the one in the app bar */
   const beat = String(0.45+0.55*Math.abs(Math.sin(t*2.2)));
   scr.querySelectorAll('.lipill .dot, .news .livedot').forEach(el=>{ el.style.opacity=beat; });
 
-  /* ── screens slide, exactly as the app navigates ── */
-  const pos = screenPos(t);
-  $('track').style.transform = `translateX(${-pos*25}%)`;
-  const idx = Math.round(pos);
-  $('nav-today').className  = 'np' + ((idx===0||idx===3)?' on':'');
-  $('nav-create').className = 'np' + ((idx===1||idx===2)?' on':'');
-  $('nav-ig').className     = 'np';
 
   /* source pastes in */
   const n = Math.floor(clamp((t-T_SRC)/1.05,0,1)*SOURCE.length);
