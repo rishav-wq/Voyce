@@ -22,7 +22,8 @@ _BASE = dict(
     tSource=5.80,     # the source pastes in
     tGenerate=8.60,   # Generate is clicked
     tWrite=9.60,      # slide to the preview, the post writes
-    typeDur=3.20,
+    typeDur=2.20,     # was 3.20 — typing is a non-essential stretch and the
+                      # guidance is to speed those 1.5-2x rather than cut them
     tPublish=14.60,   # Post now
     tBack=16.80,      # back to Today, the log entry lands
     payoffAt=18.70,   # was 19.40: the measurement found 1.2s of dead air here,

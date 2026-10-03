@@ -42,8 +42,8 @@ def _ffmpeg() -> str:
         raise RuntimeError("ffmpeg not found. Install it, or pip install imageio-ffmpeg")
 
 
-def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
-           fps: int = FPS, progress=None, blur: int = 1) -> str:
+def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 18,
+           fps: int = FPS, progress=None, blur: int = 1, ss: int = 2) -> str:
     """Render a scene spec to a publish-ready MP4.
 
     spec drives frontend/reel-scene.html via window.REEL_SPEC — see DEMOS in
@@ -66,13 +66,30 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
     capture_fps = fps * blur
     total = int(dur * capture_fps)
 
+    # Supersampling. At device_scale_factor 1 the page is rasterised at exactly
+    # the output resolution, so glyph edges get whatever anti-aliasing Chromium
+    # manages at final size and nothing more. Capturing at 2x and letting
+    # Lanczos do the reduction is proper supersampled AA — and since this reel
+    # is almost entirely type, it is the single biggest quality lever available.
+    # It also averages the JPEG capture artifacts away before they reach h264.
+    ss = max(1, int(ss))
+    cap_w, cap_h = W * ss, H * ss
+
     has_audio = bool(audio_path) and os.path.exists(audio_path)
     cmd = [_ffmpeg(), "-y", "-loglevel", "error",
            "-f", "image2pipe", "-vcodec", "mjpeg", "-r", str(capture_fps), "-i", "-"]
     if has_audio:
         cmd += ["-i", audio_path]
+    # Filter order matters: average and downscale while still at capture
+    # resolution, so both operations work on the most information available.
+    vf = []
     if blur > 1:
-        cmd += ["-vf", f"tmix=frames={blur}:weights='{' '.join(['1'] * blur)}',fps={fps}"]
+        vf.append(f"tmix=frames={blur}:weights='{' '.join(['1'] * blur)}'")
+        vf.append(f"fps={fps}")
+    if ss > 1:
+        vf.append(f"scale={W}:{H}:flags=lanczos")
+    if vf:
+        cmd += ["-vf", ",".join(vf)]
     # 'fast', not 'medium': at 1080x1920x60 the encoder competes with the
     # screenshot loop for the same cores, and starving Playwright is what makes
     # a capture time out mid-render. The quality difference at this crf is not
@@ -93,7 +110,7 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
                                               "--disable-lcd-text",
                                               "--hide-scrollbars"])
             page = browser.new_page(viewport={"width": W, "height": H},
-                                    device_scale_factor=1)
+                                    device_scale_factor=ss)
             # REEL_SPEC must exist before the scene's script runs
             page.add_init_script(f"window.REEL_SPEC = {json.dumps(spec)};")
             page.goto("file:///" + SCENE.replace("\\", "/"))
@@ -109,10 +126,10 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
                 # the CPU, and losing the whole render to a single slow capture
                 # after two minutes of work is not a reasonable failure mode.
                 try:
-                    shot = page.screenshot(type="jpeg", quality=92, timeout=60_000)
+                    shot = page.screenshot(type="jpeg", quality=96, timeout=60_000)
                 except Exception:
                     page.wait_for_timeout(250)
-                    shot = page.screenshot(type="jpeg", quality=92, timeout=120_000)
+                    shot = page.screenshot(type="jpeg", quality=96, timeout=120_000)
                 proc.stdin.write(shot)
                 if progress and i % 30 == 0:
                     progress(i, total)
@@ -137,7 +154,7 @@ def preview(spec: dict, times, out_dir: str) -> list:
     paths = []
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--force-color-profile=srgb", "--hide-scrollbars"])
-        page = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=1)
+        page = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
         page.add_init_script(f"window.REEL_SPEC = {json.dumps(spec)};")
         page.goto("file:///" + SCENE.replace("\\", "/"))
         page.wait_for_function("window.__ready === true", timeout=15000)
