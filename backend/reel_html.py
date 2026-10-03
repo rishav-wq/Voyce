@@ -43,7 +43,7 @@ def _ffmpeg() -> str:
 
 
 def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
-           fps: int = FPS, progress=None) -> str:
+           fps: int = FPS, progress=None, blur: int = 1) -> str:
     """Render a scene spec to a publish-ready MP4.
 
     spec drives frontend/reel-scene.html via window.REEL_SPEC — see DEMOS in
@@ -55,13 +55,24 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
         raise RuntimeError("playwright missing. pip install playwright && playwright install chromium")
 
     dur = float(spec.get("dur", 24.0))
-    total = int(dur * fps)
+    # Accumulation motion blur: capture at blur x the output rate and let ffmpeg
+    # average each window of frames back down. Screen content is synthetically
+    # sharp — every frame is a perfectly crisp UI with none of the shutter blur a
+    # real camera produces — so a virtual camera pushing across it reads as
+    # judder rather than movement. Averaging restores the missing cue. Doing it
+    # at the encode stage avoids the colour and opacity artifacts you get from
+    # blending layers in the DOM.
+    blur = max(1, int(blur))
+    capture_fps = fps * blur
+    total = int(dur * capture_fps)
 
     has_audio = bool(audio_path) and os.path.exists(audio_path)
     cmd = [_ffmpeg(), "-y", "-loglevel", "error",
-           "-f", "image2pipe", "-vcodec", "mjpeg", "-r", str(fps), "-i", "-"]
+           "-f", "image2pipe", "-vcodec", "mjpeg", "-r", str(capture_fps), "-i", "-"]
     if has_audio:
         cmd += ["-i", audio_path]
+    if blur > 1:
+        cmd += ["-vf", f"tmix=frames={blur}:weights='{' '.join(['1'] * blur)}',fps={fps}"]
     # 'fast', not 'medium': at 1080x1920x60 the encoder competes with the
     # screenshot loop for the same cores, and starving Playwright is what makes
     # a capture time out mid-render. The quality difference at this crf is not
@@ -93,7 +104,7 @@ def render(spec: dict, out_path: str, audio_path: str = None, crf: int = 20,
 
             page.set_default_timeout(120_000)
             for i in range(total):
-                page.evaluate("t => window.seek(t)", i / fps)
+                page.evaluate("t => window.seek(t)", i / capture_fps)
                 # One retry: a frame can occasionally stall when the encoder has
                 # the CPU, and losing the whole render to a single slow capture
                 # after two minutes of work is not a reasonable failure mode.
