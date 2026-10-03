@@ -11,23 +11,26 @@ A * before a word marks it for the Fraunces italic accent, matching the hero's
 "Sound like you."
 """
 
-# Retimed after auditing the render as a contact sheet: roughly 40% of the old
-# runtime held a frame with nothing changing, which is exactly where a viewer
-# swipes. Nothing now sits still for more than about 2.5s, and the payoff is a
-# beat rather than a card someone waits out.
+# Rebuilt on the five beats a demo is supposed to run: hook, problem, solution,
+# proof, action. The old cut ran hook and solution and spent the saved seconds
+# on more solution, which is the one mistake every framework warns about by
+# name. The solution beat is 4s shorter than it was; the problem and proof
+# beats are what that bought.
 _BASE = dict(
-    dur=21.30,
-    hookOut=1.90,     # the hook line clears; the app is already moving behind it
-    tNav=5.00,        # Create is clicked
-    tSource=5.80,     # the source pastes in
+    dur=23.00,
+    hookOut=1.90,     # the hook line clears
+    tProblem=2.10,    # their empty composer gets named
+    tDays=3.40,       # and dated -- the number is the beat, not the picture
+    tApp=4.40,        # only now does the product appear
+    tNav=6.40,        # Create is clicked
+    tSource=7.00,     # the source pastes in
     tGenerate=8.60,   # Generate is clicked
-    tWrite=9.60,      # slide to the preview, the post writes
-    typeDur=2.20,     # was 3.20 — typing is a non-essential stretch and the
-                      # guidance is to speed those 1.5-2x rather than cut them
-    tPublish=14.60,   # Post now
-    tBack=16.80,      # back to Today, the log entry lands
-    payoffAt=18.70,   # was 19.40: the measurement found 1.2s of dead air here,
-                      # after the activity rows settle and before the close
+    tWrite=9.50,      # slide to the preview, the post resolves
+    typeDur=2.10,     # the scramble, not a typewriter
+    tPublish=13.60,   # Post now
+    tBack=15.10,      # back to Today
+    proofAt=16.10,    # the receipt: logged, with its source
+    payoffAt=19.00,   # the card, and the ask
 )
 
 _NEWS = {
@@ -57,16 +60,24 @@ DEMOS = {
         "source": _SOURCE,
         "post": _POST,
         "logline": "logged: reuters.com · published 8:00 AM",
-        # step 0 is the hook itself — it now lives in the caption slot over a
-        # product that is already moving, instead of a static card nothing
-        # happens on for two seconds.
+        "before": {
+            "name": "Rishav Raj",
+            "sub": "Consultant \u00b7 AI for consultants",
+            "ph": "Start a post\u2026",
+            "pre": "Your last post \u00b7 ",
+            "count": 23,
+            "post": " days ago",
+        },
         "steps": [
-            {"k": "h", "at": 0.00,  "cap": "I didn't write *this post.", "big": True},
-            {"k": "a", "at": 2.05,  "cap": "Set your niche *once."},
-            {"k": "b", "at": 5.00,  "cap": "It finds *today's news."},
-            {"k": "c", "at": 9.70,  "cap": "Writes your take, in *your voice."},
-            {"k": "d", "at": 14.60, "cap": "One tap. *Published."},
-            {"k": "e", "at": 17.10, "cap": "While you were *with a client."},
+            {"k": "h",  "at": 0.00,  "cap": "I didn't write *this post.", "big": True},
+            {"k": "p1", "at": 2.10,  "cap": "You know you should *post."},
+            {"k": "p2", "at": 3.45,  "cap": "Your last one was *23 days ago."},
+            {"k": "a",  "at": 5.30,  "cap": "So: set your niche *once."},
+            {"k": "b",  "at": 7.00,  "cap": "It finds *today's news."},
+            {"k": "c",  "at": 10.40, "cap": "Writes your take, in *your voice."},
+            {"k": "d",  "at": 13.60, "cap": "One tap. *Published."},
+            {"k": "e",  "at": 15.30, "cap": "While you were *with a client."},
+            {"k": "f",  "at": 16.30, "cap": "Logged, with the *source it used."},
         ],
         "bed": "voyce-bed-fullflow.wav",
         "caption": (
@@ -91,13 +102,24 @@ DEMOS = {
         "source": _SOURCE,
         "post": _POST,
         "logline": "source logged · one-click pause · official LinkedIn API",
+        "before": {
+            "name": "Rishav Raj",
+            "sub": "Consultant \u00b7 AI for consultants",
+            "ph": "Scheduled \u2014 posting as you at 8:00 AM\u2026",
+            "pre": "Sent as you this week \u00b7 ",
+            "count": 3,
+            "post": " you never saw",
+        },
         "steps": [
-            {"k": "h", "at": 0.00,  "cap": "Letting software post *as you.", "big": True},
-            {"k": "a", "at": 2.05,  "cap": "You see the *source it used."},
-            {"k": "b", "at": 5.00,  "cap": "And the draft, *before it goes out."},
-            {"k": "c", "at": 9.70,  "cap": "Your voice — *not generic AI."},
-            {"k": "d", "at": 14.60, "cap": "Post it, or *pause it."},
-            {"k": "e", "at": 17.10, "cap": "Every post *logged."},
+            {"k": "h",  "at": 0.00,  "cap": "Letting software post *as you.", "big": True},
+            {"k": "p1", "at": 2.10,  "cap": "The scary part isn't *the writing."},
+            {"k": "p2", "at": 3.45,  "cap": "It's not knowing *what it will say."},
+            {"k": "a",  "at": 5.30,  "cap": "So you see the *source it used."},
+            {"k": "b",  "at": 7.00,  "cap": "And the draft, *before it goes out."},
+            {"k": "c",  "at": 10.40, "cap": "Your voice -- *not generic AI."},
+            {"k": "d",  "at": 13.60, "cap": "Post it, or *pause it."},
+            {"k": "e",  "at": 15.30, "cap": "Official LinkedIn API. *No bots."},
+            {"k": "f",  "at": 16.30, "cap": "Every post *logged."},
         ],
         "bed": "voyce-bed-trust.wav",
         "caption": (

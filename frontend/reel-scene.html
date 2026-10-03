@@ -61,6 +61,27 @@
     letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
   .eyebrow::before{content:'';width:44px;height:3px;background:var(--accent)}
 
+  /* The before-state. The reel used to open on the product, which made the
+     hook a claim rather than a situation the viewer recognises. This is the
+     thing they actually know: their own empty composer, and a date they would
+     rather not look at. Deliberately not our UI -- the contrast only works if
+     this reads as the place they already are. */
+  #before{position:absolute;left:150px;width:780px;top:556px;z-index:19;box-sizing:border-box;
+    background:#fff;border:2px solid var(--line);border-radius:22px;padding:34px;
+    box-shadow:var(--shadow);opacity:0}
+  #before .brow{display:flex;align-items:center;gap:20px}
+  #before .bava{width:76px;height:76px;border-radius:50%;background:var(--paper-2);
+    border:2px solid var(--line);display:flex;align-items:center;justify-content:center;
+    font-family:'IN7';font-size:34px;color:var(--ink-soft)}
+  #before .bnm{font-family:'IN7';font-size:30px;color:var(--ink)}
+  #before .bsb{font-family:'IN4';font-size:22px;color:var(--ink-faint);margin-top:4px}
+  #before .bbox{margin-top:28px;border:2px solid var(--line);border-radius:16px;
+    padding:26px 28px;min-height:148px;font-family:'IN4';font-size:27px;color:var(--ink-faint)}
+  #before .bcaret{display:inline-block;width:3px;height:30px;background:var(--ink-soft);
+    vertical-align:-6px;margin-left:3px}
+  #before .bmeta{margin-top:26px;font-family:'IN4';font-size:24px;color:var(--ink-faint);opacity:0}
+  #before .bdays{font-family:'IN7';color:#c2410c}
+
   /* A plate under the captions. They have always sat over the product, but at
      the old 1.16-1.30x there was empty page behind them; at 2.3x the UI fills
      the frame and the type lands on buttons and nav labels. Fades out well
@@ -237,6 +258,14 @@
   <div id="cap"></div>
 
   <div id="zoomwrap">
+  <div id="before">
+    <div class="brow">
+      <div class="bava">R</div>
+      <div><div class="bnm">Rishav Raj</div><div class="bsb">Consultant &#183; AI for consultants</div></div>
+    </div>
+    <div class="bbox"><span id="bph">Start a post&#8230;</span><span class="bcaret" id="bcaret"></span></div>
+    <div class="bmeta"><span id="bpre">Your last post &#183; </span><span class="bdays"><span id="bdays">0</span><span id="bpost"> days ago</span></span></div>
+  </div>
   <div id="screen">
     <div class="chrome">
       <i class="r"></i><i class="y"></i><i class="g"></i>
@@ -369,9 +398,10 @@
   <div class="eyebrow" id="hookkick">REAL DEMO</div>
 
   <div class="overlay" id="payoff">
+    <div id="burst" style="position:absolute;left:50%;top:44%;width:0;height:0"></div>
     <div class="stamp">posted.</div>
     <div class="lock"><span class="v">V</span>oyce</div>
-    <div class="url">voyce.co.in</div>
+    <div class="url">Try it &#183; voyce.co.in</div>
     <div class="trust">Preview first · pause anytime · every post logged with its source</div>
   </div>
 
@@ -379,6 +409,16 @@
   <div id="prog"></div>
 </div>
 
+<script src="vendor/gsap/gsap.min.js"></script>
+<script src="vendor/gsap/SplitText.min.js"></script>
+<script src="vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="vendor/gsap/MorphSVGPlugin.min.js"></script>
+<script src="vendor/gsap/CustomEase.min.js"></script>
+<script src="vendor/gsap/CustomWiggle.min.js"></script>
+<script src="vendor/gsap/Physics2DPlugin.min.js"></script>
+<script src="vendor/gsap/Flip.min.js"></script>
+<script src="vendor/gsap/TextPlugin.min.js"></script>
+<script src="reel-fx.js"></script>
 <script>
 /* Pure functions of t — no CSS transitions, no keyframes. */
 const S = window.REEL_SPEC || {};
@@ -392,6 +432,19 @@ const TYPE   = S.typeDur  ?? 4.00;
 const T_POST = S.tPublish ?? 18.20;
 const T_BACK = S.tBack    ?? 20.60;  // slide back to Today
 const PAYOFF = S.payoffAt ?? 23.40;
+/* The three beats the reel used not to have. A demo is supposed to run hook,
+   problem, solution, proof, action; ours ran hook and solution and spent the
+   saved time on more solution. */
+const T_PROB = S.tProblem ?? 2.10;   // the before-state gets named
+const T_DAYS = S.tDays    ?? 3.40;   // and dated, which is the part that stings
+const T_APP  = S.tApp     ?? 4.50;   // only now does the product exist
+const T_PROOF= S.proofAt  ?? 15.40;  // the receipt, not another feature
+
+/* The before-state is per-demo. The flagship's problem is not posting at all;
+   the trust cut's is software posting things you never saw. Same card, same
+   beat, different sentence -- hardcoding the first one quietly gave the second
+   demo the wrong problem. */
+const BEFORE = S.before || {};
 const STEPS  = S.steps || [];
 const POST   = S.post   ?? "";
 const SOURCE = S.source ?? "";
@@ -488,8 +541,8 @@ function seek(t){
   /* app rises in — from the very start, so the opening second has the product
      moving in it rather than a static card */
   const scr=$('screen');
-  const rise=spring((t-0.35)/0.95);
-  scr.style.opacity=String(clamp((t-0.35)/0.45,0,1));
+  const rise=spring((t-T_APP)/0.95);
+  scr.style.opacity=String(clamp((t-T_APP)/0.45,0,1));
   scr.style.transform=`translateY(${(1-rise)*140}px) scale(${0.94+0.06*rise})`;
   $('urlpath').textContent = (t>=T_NAV && t<T_BACK) ? '/tool' : '/setup';
 
@@ -541,14 +594,15 @@ function seek(t){
      than a move. Wide shots land on T_WRT and T_BACK exactly; the slide then
      happens inside a camera that is already still. */
   const SHOTS=[
-    {at:0.00,        s:1.00, f:'none', d:1.00},  // establish, hold ~3s
-    {at:T_NAV-0.70,  s:1.45, f:'nav',  d:1.05},  // in for the nav click
+    {at:0.00,        s:1.00, f:'none', d:1.00},  // the problem beat plays wide
+    {at:T_NAV-0.70,  s:1.45, f:'nav',  d:0.90},  // in for the nav click
     {at:T_GEN-1.00,  s:2.10, f:'gen',  d:1.20},  // one sustained push: source + Generate
     {at:T_WRT,       s:1.15, f:'none', d:0.90},  // out, landing as the slide starts
-    {at:T_WRT+2.60,  s:2.00, f:'body', d:1.30},  // in on the post writing itself
-    {at:T_POST-0.60, s:2.30, f:'post', d:1.05},  // tight on Post now
+    {at:T_WRT+2.20,  s:2.00, f:'body', d:1.20},  // in on the post resolving
+    {at:T_POST-0.60, s:2.30, f:'post', d:1.30},  // continues straight on to Post now
     {at:T_BACK,      s:1.00, f:'none', d:1.20},  // wide, landing as it slides back
   ];
+
   let a=SHOTS[0], b2=SHOTS[0];
   for(let k=0;k<SHOTS.length;k++){ if(t>=SHOTS[k].at){ a=SHOTS[k]; b2=SHOTS[k+1]||SHOTS[k]; } }
   const kp = (b2===a) ? 1 : glide((t-b2.at)/(b2.d||1.0) + 1);
@@ -651,10 +705,10 @@ function seek(t){
     ? `scale(${1-0.05*Math.sin(Math.PI*clamp((t-T_GEN)/0.5,0,1))})` : 'scale(1)';
 
   /* the post writes itself */
-  const c=Math.floor(clamp((t-T_WRT-0.5)/TYPE,0,1)*POST.length);
-  const typing=t>T_WRT+0.5&&c<POST.length;
-  $('libody').innerHTML=POST.slice(0,Math.max(0,c)).replace(/\n/g,'<br>')
-    +(typing&&Math.floor(t*2)%2===0?'<span class="caret"></span>':'');
+  /* The post body is written by the effects timeline now -- characters
+     resolving out of noise rather than a caret marching along. A typewriter
+     says a person is at the keyboard, which is the opposite of the claim the
+     reel is making. */
   $('seemore').style.opacity=String(clamp((t-(T_WRT+TYPE+0.2))/0.4,0,1));
   const vt=T_WRT+TYPE+0.5, vp=springPop((t-vt)/0.55);
   $('voicechip').style.opacity=String(clamp((t-vt)/0.3,0,1));
@@ -752,7 +806,44 @@ function seek(t){
     const pz = 1 + 0.075*easeOut((t-PAYOFF)/2.6) + driftS;
     po.style.transform=`translate(${driftX*0.6}px, ${driftY*0.6}px) scale(${pz})`;
   } else po.style.display='none';
+
+  /* The effects timeline runs last, after the scene has set its own state, so
+     that where the two touch the same element -- the post body -- the effect
+     wins rather than racing. */
+  ReelFX.seek(MASTER, t);
 }
+
+/* -- the effects timeline ---------------------------------------------------
+   GSAP owns what is genuinely animation: the before-state, the post resolving
+   out of noise, the burst. The camera and the product's own state stay
+   hand-rolled above, deliberately -- the camera was measured smooth and a
+   tween engine would not improve it, and innerHTML is not a thing you tween.
+
+   Everything is positioned absolutely on one paused master. Nothing plays;
+   the renderer owns time and seeks it per frame. */
+if (BEFORE.name) { $('before').querySelector('.bnm').textContent = BEFORE.name; }
+if (BEFORE.sub)  { $('before').querySelector('.bsb').textContent = BEFORE.sub; }
+if (BEFORE.ph)   { $('bph').textContent   = BEFORE.ph; }
+if (BEFORE.pre)  { $('bpre').textContent  = BEFORE.pre; }
+if (BEFORE.post) { $('bpost').textContent = BEFORE.post; }
+
+const FXR = ReelFX.init({fps:60}), FX = FXR.fx;
+const MASTER = FXR.master();
+
+/* The problem beat. Their composer, empty, with a caret going nowhere and a
+   date doing the actual work -- 23 is the number that makes a consultant
+   wince, and counting up to it earns more attention than printing it. */
+MASTER.fromTo('#before', {y:74, opacity:0}, {y:0, opacity:1, duration:0.80, ease:'glide'}, 0.35);
+MASTER.to('#bcaret', {opacity:0, duration:0.42, repeat:13, yoyo:true, ease:'none'}, 1.00);
+MASTER.to('#before .bmeta', {opacity:1, duration:0.38, ease:'smooth'}, T_DAYS-0.18);
+MASTER.add(FX.countUp($('bdays'), BEFORE.count ?? 23, {dur:0.85}), T_DAYS);
+MASTER.to('#before', {opacity:0, y:-48, scale:0.965, duration:0.52, ease:'glide'}, T_APP-0.44);
+
+/* The post writing itself. */
+MASTER.add(FX.scrambleTo($('libody'), POST, {dur:TYPE, band:0.22}), T_WRT+0.50);
+
+/* The one burst in the reel. Everything else earns attention without one. */
+MASTER.add(FX.burst($('burst'), {count:30, size:13, dur:1.35}), PAYOFF+0.12);
 
 window.seek=seek; window.__ready=true; seek(0);
 </script>
