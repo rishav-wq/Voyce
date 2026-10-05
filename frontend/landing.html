@@ -6,12 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — The AI ghostwriter that actually posts</title>
   <meta name="description" content="Voyce writes and posts your LinkedIn content daily — in a voice that sounds like you. Built for consultants and coaches who win clients on LinkedIn but never have time to post." />
-  <!-- Open Graph / social sharing. TODO at deploy: set og:url and og:image to absolute production URLs. -->
+  <!-- Open Graph / social sharing.
+       og:image was never set, so LinkedIn fell back to scraping the page and used
+       the first <img> it found — proof-avatar.png, which is a photo of Rishav.
+       Every shared link previewed as a personal profile rather than a product.
+       Crawlers cannot resolve relative paths, so these URLs must be absolute. -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Voyce" />
+  <meta property="og:url" content="https://voyce.co.in/" />
   <meta property="og:title" content="Voyce — The AI ghostwriter that actually posts" />
   <meta property="og:description" content="Voyce writes and posts your LinkedIn content daily — in a style that sounds like you wrote it. Set up in 3 minutes." />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:image" content="https://voyce.co.in/static/og-image.png" />
+  <meta property="og:image:secure_url" content="https://voyce.co.in/static/og-image.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Voyce — the AI ghostwriter that actually posts" />
+  <!-- summary_large_image, not summary: summary renders a small square thumbnail
+       and crops a 1200x630 card to an unreadable centre. -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://voyce.co.in/static/og-image.png" />
   <meta name="twitter:title" content="Voyce — The AI ghostwriter that actually posts" />
   <meta name="twitter:description" content="LinkedIn posts, carousels, and image posts — written and published automatically, in your style." />
   <!-- Structured data so AI answer engines (ChatGPT, Perplexity, Gemini) and Google can lift clean answers about Voyce. -->
