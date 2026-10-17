@@ -1201,8 +1201,10 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
                 notify.autopilot_paused(company, reason="pass_limit" if pass_used_up else "")
             return log_entry
 
-        if not li.is_connected(user_id):
-            raise ValueError("LinkedIn not connected for this user")
+        # A profile can publish to its own LinkedIn account (see linkedin.connection_for).
+        conn = li.connection_for(company, user_id)
+        if not li.is_connected(conn):
+            raise ValueError("LinkedIn not connected for this profile")
 
         NEWS_HEAVY  = ("trend_commentary", "industry_stat", "trend_reaction", "stat_reaction")
         num_results = 6 if post_type in NEWS_HEAVY else 3
@@ -1285,7 +1287,7 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
                 notify.post_ready(company, pending_id, POST_TYPE_LABELS.get(post_type, post_type),
                                   payload["post_text"], sources, held_reason)
         else:
-            result = _publish_payload(user_id, payload)
+            result = _publish_payload(conn, payload)
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
             if result.get("fallback_from"):
@@ -1430,7 +1432,10 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         })
         logger.info(f"[Approval] DIY video {pending_id} marked as posted manually")
         return {"status": "posted_manually"}
-    result = _publish_payload(user_id, pend)  # raises on failure → item stays pending
+    # Publish through the profile's own LinkedIn if it has one, else the owner's.
+    company = db.companies.find_one({"id": pend.get("company_id", "")}, {"_id": 0}) or {}
+    conn = li.connection_for(company, user_id)
+    result = _publish_payload(conn, pend)  # raises on failure → item stays pending
     db.pending_posts.update_one(
         {"id": pending_id},
         {"$set": {"status": "approved", "approved_at": datetime.now().isoformat()},

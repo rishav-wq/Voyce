@@ -14,9 +14,17 @@ _P = {"_id": 0}
 DEFAULT_TZ = "Asia/Kolkata"
 
 
+# Old names some browsers still report (Chrome says "Asia/Calcutta"): store the
+# current one, so the same zone never looks like two.
+_TZ_ALIASES = {"Asia/Calcutta": "Asia/Kolkata", "Asia/Saigon": "Asia/Ho_Chi_Minh",
+               "Asia/Katmandu": "Asia/Kathmandu", "Asia/Rangoon": "Asia/Yangon",
+               "Europe/Kiev": "Europe/Kyiv", "America/Buenos_Aires": "America/Argentina/Buenos_Aires"}
+
+
 def valid_tz(tz: str) -> str:
     """The IANA name if it's real (e.g. "America/New_York"), else ""."""
     tz = (tz or "").strip()
+    tz = _TZ_ALIASES.get(tz, tz)
     if not tz:
         return ""
     try:

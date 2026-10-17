@@ -97,6 +97,72 @@
     });
   };
 
+  // Show a link to hand to someone else, with a Copy button.
+  // Usage: voyceShowLink({ title, message, link, note })
+  window.voyceShowLink = function (opts) {
+    opts = opts || {};
+    if (!styleInjected) {
+      const s = document.createElement("style");
+      s.textContent = CSS;
+      document.head.appendChild(s);
+      styleInjected = true;
+    }
+    return new Promise(function (resolve) {
+      const overlay = document.createElement("div");
+      overlay.className = "vc-overlay";
+      const box = document.createElement("div");
+      box.className = "vc-box wide";
+      box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true");
+      box.setAttribute("aria-labelledby", "vc-title");
+      const h = document.createElement("h3"); h.className = "vc-title"; h.id = "vc-title";
+      h.textContent = opts.title || "Share this link";
+      const msg = document.createElement("p"); msg.className = "vc-msg"; msg.style.marginBottom = "12px";
+      msg.textContent = opts.message || "";
+      const row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;margin-bottom:10px;";
+      const input = document.createElement("input");
+      input.type = "text"; input.readOnly = true; input.value = opts.link || "";
+      input.setAttribute("aria-label", "Invite link");
+      input.style.cssText = "flex:1;min-width:0;font-size:13px;padding:9px 10px;border:1.5px solid #d3d8e0;border-radius:8px;color:#16181d;background:#f9fafb;";
+      const copy = document.createElement("button"); copy.type = "button"; copy.className = "vc-btn vc-ok"; copy.textContent = "Copy";
+      row.appendChild(input); row.appendChild(copy);
+      box.appendChild(h); box.appendChild(msg); box.appendChild(row);
+      if (opts.note) {
+        const note = document.createElement("p"); note.className = "vc-msg";
+        note.style.cssText = "font-size:12.5px;color:#6b7280;margin:0 0 14px;";
+        note.textContent = opts.note; box.appendChild(note);
+      }
+      const actions = document.createElement("div"); actions.className = "vc-actions";
+      const done = document.createElement("button"); done.type = "button"; done.className = "vc-btn vc-cancel"; done.textContent = "Done";
+      actions.appendChild(done); box.appendChild(actions);
+      overlay.appendChild(box);
+      const prevFocus = document.activeElement;
+      function close() {
+        document.removeEventListener("keydown", onKey, true);
+        overlay.remove();
+        if (prevFocus && prevFocus.focus) prevFocus.focus();
+        resolve();
+      }
+      function onKey(e) {
+        if (e.key === "Escape") { e.stopPropagation(); close(); }
+        if (e.key === "Tab") {
+          const f = [input, copy, done];
+          const idx = f.indexOf(document.activeElement);
+          e.preventDefault(); f[(idx + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+        }
+      }
+      copy.onclick = async function () {
+        try { await navigator.clipboard.writeText(input.value); }
+        catch (_) { input.select(); document.execCommand && document.execCommand("copy"); }
+        copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy"; }, 1600);
+      };
+      done.onclick = close;
+      overlay.onclick = function (e) { if (e.target === overlay) close(); };
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(overlay);
+      input.focus(); input.select();
+    });
+  };
+
   // A choice between options, one of which may need a ticked acknowledgement
   // before it can be confirmed (e.g. "post without asking me").
   // Usage: const v = await voyceChoose({ title, message, confirmText,

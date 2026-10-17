@@ -142,6 +142,18 @@ def post_failed(company: dict, error: str, local_day: str) -> bool:
     """Today's run produced nothing on LinkedIn. One email per profile per day."""
     name = company.get("name", "your profile")
     uid = company.get("user_id", "")
+    if "LinkedIn not connected" in (error or "") and company.get("li_conn"):
+        # The profile posts to someone else's LinkedIn (a client's): they have to
+        # reconnect, through a fresh invite link from the owner.
+        bucket = datetime.now().toordinal() // 3
+        subject = f"{name} needs its LinkedIn reconnected"
+        intro = (f"Today's post for {html.escape(name)} couldn't go out: the LinkedIn account connected to "
+                 "this profile has expired or was disconnected. LinkedIn asks every app to reconnect about "
+                 "every 60 days.")
+        nxt = "Open the profile in Voyce, create a new invite link, and send it to them to reconnect."
+        text = f"{html.unescape(intro)}\n\n{nxt}\n\nOpen Voyce: {_QUEUE_URL}"
+        body = _layout("A profile's LinkedIn needs reconnecting", [intro, nxt], button=("Open Voyce", _QUEUE_URL))
+        return send(uid, f"li_reconnect:{company.get('li_conn')}:{bucket}", "li_reconnect", subject, text, body)
     if "LinkedIn not connected" in (error or ""):
         # One reminder every few days, not one per profile per day.
         bucket = datetime.now().toordinal() // 3
@@ -163,6 +175,22 @@ def post_failed(company: dict, error: str, local_day: str) -> bool:
     text = f"{html.unescape(intro)}\n\n{html.unescape(nxt)}\n\nOpen Voyce: {_QUEUE_URL}"
     body = _layout("A post didn't go out", [intro, nxt], button=("Open Voyce", _QUEUE_URL))
     return send(uid, f"failed:{company.get('id')}:{local_day}", "post_failed", subject, text, body)
+
+
+def client_connected(company: dict, li_name: str = "") -> bool:
+    """Someone connected their LinkedIn to one of the owner's profiles."""
+    uid = company.get("user_id", "")
+    prof = company.get("name", "your profile")
+    who = li_name or "The person you invited"
+    subject = f"{who} connected their LinkedIn to {prof}"
+    intro = (f"{html.escape(who)} connected their LinkedIn account to the Voyce profile "
+             f"<strong>{html.escape(prof)}</strong>. Posts for this profile will now publish to their LinkedIn.")
+    nxt = ("If daily posting is set to ask first, you'll approve each post before it goes out. "
+           "You can switch the profile back to your own LinkedIn at any time.")
+    text = f"{html.unescape(intro).replace('<strong>', '').replace('</strong>', '')}\n\n{nxt}\n\nOpen Voyce: {_QUEUE_URL}"
+    body = _layout("A LinkedIn account was connected", [intro, nxt], button=("Open Voyce", _QUEUE_URL))
+    return send(uid, f"client_connected:{company.get('id')}:{datetime.now().isoformat()[:16]}",
+                "client_connected", subject, text, body)
 
 
 def autopilot_paused(company: dict, reason: str = "") -> bool:
@@ -236,3 +264,33 @@ def sweep_expiries():
                         break
         except Exception:
             logger.exception(f"[notify] expiry sweep failed for {uid}")
+
+    # Profiles that post to someone else's LinkedIn: warn the owner before that
+    # connection lapses, so they can send a fresh invite in time.
+    try:
+        profile_conns = list(db.companies.find({"active": True, "li_conn": {"$exists": True}},
+                                               {"_id": 0, "id": 1, "name": 1, "user_id": 1, "li_conn": 1}))
+    except Exception:
+        logger.exception("[notify] expiry sweep could not read profile connections")
+        return
+    for c in profile_conns:
+        try:
+            conn, uid = c.get("li_conn"), c.get("user_id")
+            exp = li.token_expires_at(conn) if conn else None
+            if not exp or not uid:
+                continue
+            exp_naive = exp.astimezone().replace(tzinfo=None) if exp.tzinfo else exp
+            days = (exp_naive - now).days
+            if 0 <= days <= 7:
+                when = "tomorrow" if days <= 1 else f"in {days} days"
+                prof = c.get("name", "a profile")
+                intro = (f"The LinkedIn account connected to {html.escape(prof)} expires {when}. After that, "
+                         "Voyce can't publish for this profile. Send them a new invite link from the profile "
+                         "card so they can reconnect.")
+                send(uid, f"li_expiring:{conn}:{exp_naive.date().isoformat()}", "li_expiring",
+                     f"{prof}: LinkedIn connection expires {when}",
+                     f"{html.unescape(intro)}\n\nOpen Voyce: {_QUEUE_URL}",
+                     _layout("A profile's LinkedIn connection is expiring", [intro],
+                             button=("Open Voyce", _QUEUE_URL)))
+        except Exception:
+            logger.exception(f"[notify] profile connection sweep failed for {c.get('id')}")

@@ -133,6 +133,21 @@ function authHeaders(extra) { return { "Content-Type": "application/json", "x-to
 
 let activeType = "text";
 let linkedInConnected = false;
+// A profile can post to its own LinkedIn account (a client's). Posting from the
+// Create page goes through the selected profile's connection, not just the user's.
+function _activeProfile() { return (_profiles || []).find(p => p.id === getActiveProfileId()); }
+function _ensurePostingConnected() {
+  const p = _activeProfile();
+  if (p && p.li && p.li.own_account) {
+    if (p.li.connected) return true;
+    toast("This profile's LinkedIn connection has expired — send a new invite from Profiles.", "warn");
+    return false;
+  }
+  if (linkedInConnected) return true;
+  toast("Connect LinkedIn first — opening the connect window…", "warn");
+  connectLinkedIn();
+  return false;
+}
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 let _toastTimer;
@@ -804,7 +819,7 @@ function loadFromHistory(i) {
 
 // ── Post Now ──────────────────────────────────────────────────────────────────
 async function postToLinkedIn() {
-  if (!linkedInConnected) { toast("Connect LinkedIn first — opening the connect window…", "warn"); connectLinkedIn(); return; }
+  if (!_ensurePostingConnected()) return;
   const text = _postText();
   if (!text) { toast("Generate content first.", "warn"); return; }
   await _refreshToken();
@@ -822,11 +837,12 @@ async function postToLinkedIn() {
       const fd = new FormData();
       fd.append("file", blob, "post-image." + _attachExt());
       fd.append("text", text);
+      fd.append("profile_id", getActiveProfileId());
       res = await fetch("/post/linkedin/image", { method: "POST", headers: { "x-token": getToken() }, body: fd });
     } else {
       res = await fetch("/post/linkedin", {
         method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, profile_id: getActiveProfileId() })
       });
     }
     const data = await res.json();
@@ -842,7 +858,7 @@ async function postToLinkedIn() {
 
 // ── Schedule ──────────────────────────────────────────────────────────────────
 function openSchedule() {
-  if (!linkedInConnected) { toast("Connect LinkedIn first — opening the connect window…", "warn"); connectLinkedIn(); return; }
+  if (!_ensurePostingConnected()) return;
   if (!document.getElementById("linkedin-content").textContent) { toast("Generate content first.", "warn"); return; }
   const d = new Date(Date.now() + 5 * 60 * 1000);
   document.getElementById("schedule-time").value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -871,7 +887,8 @@ async function confirmSchedule() {
       headers: authHeaders(),
       body: JSON.stringify({
         text: _postText(),
-        schedule_time: new Date(val).toISOString()
+        schedule_time: new Date(val).toISOString(),
+        profile_id: getActiveProfileId()
       })
     });
     const data = await res.json();
@@ -1005,7 +1022,7 @@ function viewCarouselSlides() {
 }
 
 async function postCarousel() {
-  if (!linkedInConnected) { toast("Connect LinkedIn first — opening the connect window…", "warn"); connectLinkedIn(); return; }
+  if (!_ensurePostingConnected()) return;
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
 
   const text = document.getElementById("carousel-post-text").textContent;
@@ -1019,6 +1036,7 @@ async function postCarousel() {
     const formData = new FormData();
     formData.append("file", blob, "carousel.pdf");
     formData.append("text", text);
+    formData.append("profile_id", getActiveProfileId());
 
     const res = await fetch("/post/linkedin/carousel", {
       method: "POST",

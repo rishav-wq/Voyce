@@ -588,7 +588,7 @@
         <ul style="list-style:none;margin-bottom:28px;">
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-gens"><strong>Unlimited</strong> generations</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong></span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post history with sources</span></li>
           <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
@@ -1216,7 +1216,8 @@
 
           <div style="font-size:12.5px;color:#5b6270;line-height:1.5;margin:2px 0 14px;">
             ${voiceLine}<br>
-            <span style="color:#98a0ae;">Posts about:</span> ${p.industry}
+            <span style="color:#98a0ae;">Posts about:</span> ${p.industry}<br>
+            ${_liRow(raw)}
           </div>
 
           <div style="border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
@@ -1521,17 +1522,32 @@
     }
 
     // Post times are wall-clock times in each profile's own time zone.
-    function _browserTz() {
-      try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) { return ""; }
+    // Browsers still report some zones by their old names — Chrome says
+    // "Asia/Calcutta" for India — so map those to today's name before storing,
+    // showing or comparing, or every Indian user would be told to "switch" from
+    // Kolkata time to Calcutta time.
+    const _TZ_ALIASES = { "Asia/Calcutta": "Asia/Kolkata", "Asia/Saigon": "Asia/Ho_Chi_Minh",
+      "Asia/Katmandu": "Asia/Kathmandu", "Asia/Rangoon": "Asia/Yangon", "Europe/Kiev": "Europe/Kyiv",
+      "America/Buenos_Aires": "America/Argentina/Buenos_Aires" };
+    function _canonTz(tz) { return _TZ_ALIASES[tz] || tz; }
+    function _sameZone(a, b) {
+      if (_canonTz(a) === _canonTz(b)) return true;
+      try {   // any other alias pair: let the browser resolve both
+        const r = z => new Intl.DateTimeFormat("en-US", { timeZone: z }).resolvedOptions().timeZone;
+        return r(a) === r(b);
+      } catch (_) { return false; }
     }
-    function _tzCity(tz) { return (tz || "Asia/Kolkata").split("/").pop().replace(/_/g, " "); }
+    function _browserTz() {
+      try { return _canonTz(Intl.DateTimeFormat().resolvedOptions().timeZone || ""); } catch (_) { return ""; }
+    }
+    function _tzCity(tz) { return _canonTz(tz || "Asia/Kolkata").split("/").pop().replace(/_/g, " "); }
     function _timeLabel(p) { return `${p.post_time} ${_tzCity(p.timezone)} time`; }
     // Profiles made before time zones existed run on India time. If the person
     // looking at the card is somewhere else, offer the one-click fix.
     function _tzNudge(p) {
       const here = _browserTz();
       const tz = p.timezone || "Asia/Kolkata";
-      if (!here || here === tz || !/^[A-Za-z_]+(\/[A-Za-z0-9_+\-]+)*$/.test(here)) return "";
+      if (!here || _sameZone(here, tz) || !/^[A-Za-z_]+(\/[A-Za-z0-9_+\-]+)*$/.test(here)) return "";
       return `<div style="font-size:11.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f3dfa6;border-radius:8px;padding:7px 10px;margin-top:10px;line-height:1.45;">
         Post times for this profile are in ${_escHtml(_tzCity(tz))} time.
         <a href="#" onclick="fixTimezone('${p.id}', '${here}');return false;" style="color:#24365e;font-weight:600;">Use ${_escHtml(_tzCity(here))} time</a>
@@ -1592,6 +1608,48 @@
 
     function toggleLiPanel(id) {
       document.getElementById(`li-panel-${id}`).classList.toggle("open");
+    }
+
+    // Which LinkedIn a profile publishes to: the user's own, or another account
+    // (a client's) connected through an invite link.
+    function _liRow(p) {
+      const l = p.li || {};
+      if (l.own_account) {
+        const nm = _escHtml(l.name || "a connected account");
+        return l.connected
+          ? `<span style="color:#98a0ae;">Posts as:</span> <strong style="color:#16181d;">${nm}</strong> · <a href="#" onclick="disconnectProfileLinkedIn('${p.id}');return false;" style="color:#98a0ae;">use my LinkedIn instead</a>`
+          : `<span style="color:#b9770e;">⚠ ${nm}'s LinkedIn connection has expired</span> · <a href="#" onclick="inviteLinkedIn('${p.id}');return false;" style="color:#24365e;">send a new invite</a>`;
+      }
+      return `<span style="color:#98a0ae;">Posts as:</span> your LinkedIn · <a href="#" onclick="inviteLinkedIn('${p.id}');return false;" style="color:#24365e;">post to a different LinkedIn account</a>`;
+    }
+
+    async function inviteLinkedIn(id) {
+      const p = (currentProfiles || []).find(x => x.id === id);
+      const res = await fetch(`/companies/${id}/linkedin-invite`, { method: "POST", headers: ah() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (isProRequired(data)) { toast("Posting to a different LinkedIn account is a Pro feature.", "warn"); openUpgradeModal(); }
+        else toast(data.detail || "Couldn't create the invite link.", "error");
+        return;
+      }
+      await voyceShowLink({
+        title: "Invite someone to connect their LinkedIn",
+        message: `Send this link to the person whose LinkedIn should post for "${p ? p.name : "this profile"}". They open it on their own device, sign in to LinkedIn and click Allow.`,
+        link: data.url,
+        note: `The link works once, for ${data.expires_days || 7} days. Only invite people who've agreed to Voyce publishing on their behalf — they can disconnect at any time in their LinkedIn settings.`,
+      });
+    }
+
+    async function disconnectProfileLinkedIn(id) {
+      const p = (currentProfiles || []).find(x => x.id === id);
+      const ok = await voyceConfirm(
+        `"${p ? p.name : "This profile"}" will stop posting to ${p && p.li && p.li.name ? p.li.name + "'s" : "that"} LinkedIn and post to yours instead.`,
+        { title: "Use your own LinkedIn?", confirmText: "Switch to my LinkedIn" });
+      if (!ok) return;
+      const res = await fetch(`/companies/${id}/linkedin-disconnect`, { method: "POST", headers: ah() });
+      if (!res.ok) { toast("Couldn't disconnect that LinkedIn account.", "error"); return; }
+      toast("This profile now posts to your LinkedIn.", "success");
+      loadProfiles();
     }
 
     async function toggleApproval(id) {
@@ -2321,7 +2379,7 @@
         const prof = document.getElementById("upgrade-profiles");
         if (prof) prof.innerHTML = inIndia
           ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
-          : "Up to <strong>3 profiles</strong>";
+          : "Up to <strong>3 profiles</strong>, each can post to its own LinkedIn";
         const gens = document.getElementById("upgrade-gens");
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"

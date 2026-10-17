@@ -14,7 +14,7 @@
       <ul style="list-style:none;margin:0 0 28px;padding:0;">
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-gens"><strong>Unlimited</strong> generations</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong></span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post history with sources</span></li>
         <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
@@ -88,7 +88,7 @@
         const prof = document.getElementById("upgrade-profiles");
         if (prof) prof.innerHTML = inIndia
           ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
-          : "Up to <strong>3 profiles</strong>";
+          : "Up to <strong>3 profiles</strong>, each can post to its own LinkedIn";
         const gens = document.getElementById("upgrade-gens");
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"

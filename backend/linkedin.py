@@ -64,17 +64,47 @@ def get_auth_url(state: str) -> str:
 OAUTH_STATE_TTL = timedelta(minutes=10)
 
 
-def register_state(state: str, user_id: str, nonce: str):
-    """Remember a connect attempt. `nonce` also goes to the starting browser as
-    an HttpOnly cookie; the callback must present both. Stored in Mongo, not
+# ── Connections ──────────────────────────────────────────────────────────────
+# A "connection" is one LinkedIn member's token. The account owner's own
+# LinkedIn is keyed by their user id (as it always was). A profile can instead
+# post to a different member — say, a fractional CMO's client — keyed
+# "profile:<id>" and recorded on the profile as `li_conn`. Every helper below
+# takes a connection key, so the publishing code never cares which kind it is.
+
+def profile_conn_key(company_id: str) -> str:
+    return f"profile:{company_id}"
+
+
+def connection_for(company: dict | None, user_id: str = "") -> str:
+    """The LinkedIn connection a profile publishes through."""
+    if company and company.get("li_conn"):
+        return company["li_conn"]
+    return (company or {}).get("user_id") or user_id
+
+
+def connection_info(conn: str) -> dict:
+    entry = _get_token_entry(conn)
+    exp = token_expires_at(conn)
+    return {"connected": bool(entry.get("access_token")) and not token_expired(conn),
+            "name": entry.get("name", ""),
+            "expires_at": exp.isoformat() if exp else None}
+
+
+def register_state(state: str, target, nonce: str):
+    """Remember a connect attempt. `target` says where the token goes:
+    {"conn", "owner_id", optional "company_id" and "invite_id"} (a bare user id
+    means the owner's own LinkedIn). `nonce` also goes to the starting browser
+    as an HttpOnly cookie; the callback must present both. Stored in Mongo, not
     memory, so a deploy in the middle of connecting doesn't break it."""
-    db.oauth_states.insert_one({"_id": state, "user_id": user_id, "nonce": nonce,
-                                "created_at": datetime.now(timezone.utc)})
+    if isinstance(target, str):
+        target = {"conn": target, "owner_id": target}
+    db.oauth_states.insert_one({"_id": state, "user_id": target.get("owner_id", ""), "target": target,
+                                "nonce": nonce, "created_at": datetime.now(timezone.utc)})
 
 
-def consume_state(state: str, nonce: str) -> str | None:
-    """The user to attach the LinkedIn account to — only for a state that is
-    unused, under 10 minutes old, and returning to the browser that started it.
+def consume_state(state: str, nonce: str) -> dict | None:
+    """Where to attach the LinkedIn account — only for a state that is unused,
+    under 10 minutes old, and returning to the browser that started it.
 
     Without the browser check, anyone could start a connect, send the genuine
     LinkedIn link to someone else, and have that person's LinkedIn attached to
@@ -90,7 +120,8 @@ def consume_state(state: str, nonce: str) -> str | None:
             created = created.replace(tzinfo=timezone.utc)   # Mongo hands dates back naive (UTC)
         if datetime.now(timezone.utc) - created > OAUTH_STATE_TTL:
             return None
-    return doc.get("user_id")
+    target = doc.get("target") or {"conn": doc.get("user_id", ""), "owner_id": doc.get("user_id", "")}
+    return target if target.get("conn") else None
 
 
 def exchange_code_for_token(code: str) -> dict:
@@ -130,6 +161,11 @@ def save_token(user_id: str, token_data: dict):
     if "id_token" in token_data:
         claims = _decode_id_token(token_data["id_token"])
         entry["person_id"] = claims.get("sub", "")
+        # Shown on the profile card ("Posts as: Jane Smith"), so it's clear
+        # which LinkedIn account each profile publishes to.
+        entry["name"] = (claims.get("name")
+                         or " ".join(x for x in (claims.get("given_name"), claims.get("family_name")) if x)
+                         or "")
     _save_token_entry(user_id, entry)
 
 

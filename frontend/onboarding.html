@@ -263,7 +263,8 @@
         tone:             "conversational",
         post_time:        "09:00",
         // 9am where the person actually is, not 9am in India.
-        timezone:         (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) { return ""; } })(),
+        // (Chrome reports India as the old "Asia/Calcutta"; store today's name.)
+        timezone:         (() => { try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; return z === "Asia/Calcutta" ? "Asia/Kolkata" : z; } catch (_) { return ""; } })(),
         profile_type:     "personal",
         carousel_enabled: false,
       };

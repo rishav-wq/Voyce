@@ -3,7 +3,7 @@ import re
 import secrets
 from html import escape as html_escape
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -166,6 +166,17 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _conn_for(user: dict, profile_id: str = "") -> str:
+    """The LinkedIn connection a manual post publishes through: the chosen
+    profile's own account if it has one, otherwise the user's."""
+    if profile_id:
+        company = get_company(profile_id)
+        if not company or company.get("user_id") != user["id"]:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return li.connection_for(company, user["id"])
+    return user["id"]
+
+
 def _is_pro(user: dict) -> bool:
     # By plan, not by "unlimited generations": an India pass is Pro with a
     # generation allowance, and must still unlock daily posting.
@@ -293,6 +304,7 @@ def _ensure_indexes():
     try:
         db.oauth_states.create_index("created_at", expireAfterSeconds=600)
         db.run_claims.create_index("created", expireAfterSeconds=3 * 86400)
+        db.li_invites.create_index("created_at", expireAfterSeconds=8 * 86400)
     except Exception:
         logging.exception("could not create TTL indexes")
 
@@ -351,7 +363,8 @@ def _restore_scheduled_jobs():
             _do_scheduled_post,
             trigger="date",
             run_date=run_at,
-            args=[entry.get("text", ""), entry["id"], "dry run" in entry.get("status", ""), entry.get("user_id", "")],
+            args=[entry.get("text", ""), entry["id"], "dry run" in entry.get("status", ""),
+                  entry.get("li_conn") or entry.get("user_id", "")],
             id=entry["id"],
             replace_existing=True,
         )
@@ -447,12 +460,14 @@ class HashtagsRequest(BaseModel):
 class PostRequest(BaseModel):
     text: str
     dry_run: bool = False
+    profile_id: str = ""   # which profile is posting; its own LinkedIn if it has one
 
 
 class ScheduleRequest(BaseModel):
     text: str
     schedule_time: datetime
     dry_run: bool = False
+    profile_id: str = ""
 
 
 _POST_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -936,20 +951,41 @@ def linkedin_callback(request: Request, code: str = None, error: str = None, sta
     if error or not code:
         return _oauth_result_page(False, "LinkedIn wasn't connected",
                                   "The connection was cancelled. You can close this window and try again from Voyce.")
-    user_id = li.consume_state(state, request.cookies.get(_LI_OAUTH_COOKIE, ""))
-    if not user_id:
+    target = li.consume_state(state, request.cookies.get(_LI_OAUTH_COOKIE, ""))
+    if not target:
         return _oauth_result_page(False, "This connect link has expired",
                                   "Connect links work once, for 10 minutes, in the browser that started them. "
                                   "Go back to Voyce and click Connect LinkedIn again.")
+    company_id, invite_id = target.get("company_id"), target.get("invite_id")
+    if company_id:
+        # Connecting someone's LinkedIn to a profile through an invite: the
+        # invite must still be open and the profile still the inviter's.
+        invite = db.li_invites.find_one({"_id": invite_id}) if invite_id else None
+        company = get_company(company_id)
+        if (not invite or invite.get("used") or not company
+                or company.get("user_id") != target.get("owner_id") or invite.get("company_id") != company_id):
+            return _oauth_result_page(False, "This invite link is no longer valid",
+                                      "Ask the person who sent it for a new link.")
     try:
         token_data = li.exchange_code_for_token(code)
-        li.save_token(user_id, token_data)
-        return _oauth_result_page(True, "LinkedIn connected",
-                                  "You can close this window and go back to Voyce.")
+        li.save_token(target["conn"], token_data)
     except Exception:
         logging.exception("LinkedIn token exchange failed")
         return _oauth_result_page(False, "LinkedIn didn't finish connecting",
                                   "Something went wrong on the way back from LinkedIn. Close this window and try again.")
+    if not company_id:
+        return _oauth_result_page(True, "LinkedIn connected",
+                                  "You can close this window and go back to Voyce.")
+    db.companies.update_one({"id": company_id}, {"$set": {"li_conn": target["conn"]}})
+    db.li_invites.update_one({"_id": invite_id}, {"$set": {"used": True, "used_at": datetime.now().isoformat()}})
+    li_name = li.connection_info(target["conn"]).get("name", "")
+    import notify
+    notify.client_connected(company, li_name)
+    owner = db.users.find_one({"id": target.get("owner_id")}, {"name": 1}) or {}
+    return _oauth_result_page(True, "Your LinkedIn is connected",
+                              f"{owner.get('name') or 'Your Voyce contact'} can now publish posts they approve "
+                              f"to your LinkedIn from Voyce. You can disconnect at any time in LinkedIn's settings, "
+                              "under Data privacy → Permitted services. You can close this window.")
 
 
 @app.get("/auth/linkedin/status")
@@ -966,6 +1002,108 @@ def linkedin_logout(x_token: str = Header(None)):
     if user:
         li.logout(user["id"])
     return {"disconnected": True}
+
+
+# ── A profile on its own LinkedIn account ────────────────────────────────────
+# A fractional CMO's client can't connect their LinkedIn from the CMO's browser:
+# the connect flow only finishes in the browser that started it. So the owner
+# makes an invite link, the client opens it on their own device and approves on
+# LinkedIn, and the token lands on that profile alone.
+
+INVITE_TTL = timedelta(days=7)
+
+
+def _invite_valid(invite: dict | None) -> bool:
+    """Unused and under 7 days old. Stored as naive UTC (Mongo returns it that way)."""
+    if not invite or invite.get("used"):
+        return False
+    created = invite.get("created_at")
+    if not isinstance(created, datetime):
+        return False
+    if created.tzinfo is not None:
+        created = created.astimezone(timezone.utc).replace(tzinfo=None)
+    return datetime.utcnow() - created <= INVITE_TTL
+
+
+@app.post("/companies/{company_id}/linkedin-invite")
+def create_linkedin_invite(company_id: str, x_token: str = Header(None)):
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    _require_pro(user, "linkedin_accounts")
+    _rate_limit(f"li-invite:{user['id']}", 20, 86400)
+    token = secrets.token_urlsafe(24)
+    db.li_invites.insert_one({"_id": token, "owner_id": user["id"], "company_id": company_id,
+                              "used": False, "created_at": datetime.utcnow()})
+    import notify
+    return {"url": f"{notify.APP_URL}/connect/{token}", "expires_days": INVITE_TTL.days}
+
+
+def _invite_page(title: str, body_html: str, button: tuple[str, str] | None = None) -> HTMLResponse:
+    btn = (f'<p style="margin:26px 0 0;"><a href="{html_escape(button[1])}" style="display:inline-block;background:#24365e;'
+           f'color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:9px;">{html_escape(button[0])}</a></p>'
+           if button else "")
+    return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect LinkedIn · Voyce</title>
+<meta name="robots" content="noindex"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;background:#f6f7f9;color:#16181d;margin:0;padding:56px 20px;">
+<div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:30px 28px;">
+<p style="font-size:20px;font-weight:700;margin:0 0 14px;">{html_escape(title)}</p>
+<div style="font-size:15px;color:#444;line-height:1.6;">{body_html}</div>{btn}
+</div></body></html>""")
+
+
+@app.get("/connect/{token}")
+def linkedin_invite_page(token: str):
+    invite = db.li_invites.find_one({"_id": token})
+    company = get_company(invite["company_id"]) if invite else None
+    if not _invite_valid(invite) or not company or company.get("user_id") != invite.get("owner_id"):
+        return _invite_page("This invite link is no longer valid",
+                            "<p>Invite links work once, for 7 days. Ask the person who sent it for a new one.</p>")
+    owner = db.users.find_one({"id": invite["owner_id"]}, {"name": 1}) or {}
+    who, prof = html_escape(owner.get("name") or "Someone"), html_escape(company.get("name") or "a profile")
+    return _invite_page(
+        "Connect your LinkedIn to Voyce",
+        f"<p><strong>{who}</strong> has invited you to connect your LinkedIn account to the Voyce profile "
+        f"<strong>{prof}</strong>. Once connected, Voyce can publish posts as you that {who} approves.</p>"
+        "<p>Voyce uses LinkedIn's official sign-in. It never sees your password, never sends messages or "
+        "connection requests, and you can disconnect at any time in LinkedIn's settings, under "
+        "Data privacy → Permitted services.</p>"
+        "<p style=\"font-size:13px;color:#6b7280;\">Not expecting this? You can simply close this page.</p>",
+        ("Connect my LinkedIn", f"/connect/{token}/go"))
+
+
+@app.get("/connect/{token}/go")
+def linkedin_invite_go(token: str):
+    """Start the connect flow in the invitee's own browser (so the browser-binding
+    cookie belongs to them), then hand them to LinkedIn's consent screen."""
+    invite = db.li_invites.find_one({"_id": token})
+    company = get_company(invite["company_id"]) if invite else None
+    if not _invite_valid(invite) or not company or company.get("user_id") != invite.get("owner_id"):
+        return _invite_page("This invite link is no longer valid",
+                            "<p>Invite links work once, for 7 days. Ask the person who sent it for a new one.</p>")
+    state, nonce = secrets.token_urlsafe(16), secrets.token_urlsafe(24)
+    li.register_state(state, {"conn": li.profile_conn_key(company["id"]), "owner_id": invite["owner_id"],
+                              "company_id": company["id"], "invite_id": token}, nonce)
+    resp = RedirectResponse(li.get_auth_url(state), status_code=302)
+    resp.set_cookie(_LI_OAUTH_COOKIE, nonce, max_age=int(li.OAUTH_STATE_TTL.total_seconds()),
+                    httponly=True, samesite="lax", path="/auth/linkedin",
+                    secure=li.REDIRECT_URI.startswith("https://"))
+    return resp
+
+
+@app.post("/companies/{company_id}/linkedin-disconnect")
+def disconnect_profile_linkedin(company_id: str, x_token: str = Header(None)):
+    """Stop this profile posting to its own LinkedIn; it falls back to the owner's."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    if company.get("li_conn"):
+        li.logout(company["li_conn"])
+        db.companies.update_one({"id": company_id}, {"$unset": {"li_conn": ""}})
+    return {"ok": True}
 
 
 # ── Generate ──────────────────────────────────────────────────────────────────
@@ -1271,14 +1409,15 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
 @app.post("/post/linkedin")
 def post_linkedin(request: PostRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
-    if not li.is_connected(user["id"]):
+    conn = _conn_for(user, request.profile_id)
+    if not li.is_connected(conn):
         raise HTTPException(status_code=401, detail="LinkedIn not connected.")
     text = "\n".join(line.strip() for line in request.text.splitlines())
     if request.dry_run:
         print(f"\n[DRY RUN] Would post to LinkedIn:\n{text}\n")
         return {"status": "dry_run", "preview": text}
     try:
-        return li.post_to_linkedin(user["id"], text)
+        return li.post_to_linkedin(conn, text)
     except ValueError as e:
         # linkedin.py already turned the API status into something actionable;
         # the blanket handler below would replace it with "reconnect LinkedIn",
@@ -1294,7 +1433,8 @@ def post_linkedin(request: PostRequest, x_token: str = Header(None)):
 @app.post("/schedule/linkedin")
 def schedule_linkedin(request: ScheduleRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
-    if not li.is_connected(user["id"]):
+    conn = _conn_for(user, request.profile_id)
+    if not li.is_connected(conn):
         raise HTTPException(status_code=401, detail="LinkedIn not connected.")
     run_at = _as_naive_local(request.schedule_time)
     if run_at <= datetime.now():
@@ -1304,12 +1444,13 @@ def schedule_linkedin(request: ScheduleRequest, x_token: str = Header(None)):
         _do_scheduled_post,
         trigger="date",
         run_date=run_at,
-        args=[request.text, job_id, request.dry_run, user["id"]],
+        args=[request.text, job_id, request.dry_run, conn],
         id=job_id,
     )
     entry = {
         "id": job_id,
         "user_id": user["id"],
+        "li_conn": conn,
         "text": request.text,
         "preview": request.text[:80] + ("..." if len(request.text) > 80 else ""),
         "scheduled_at": run_at.isoformat(),
@@ -1416,6 +1557,11 @@ def get_companies(x_token: str = Header(None)):
         c["recent_post_types"] = info["recent_post_types"]
         c["week_plan"] = get_week_plan(c)
         c["post_type_descriptions"] = POST_TYPE_DESCRIPTIONS
+        # Which LinkedIn this profile publishes to: its own (a client's), or the user's.
+        info = li.connection_info(li.connection_for(c, user["id"]))
+        c["li"] = {"own_account": bool(c.get("li_conn")), "connected": info["connected"],
+                   "name": info["name"] if c.get("li_conn") else "", "expires_at": info["expires_at"]}
+        c.pop("li_conn", None)
     return companies
 
 
@@ -1452,6 +1598,8 @@ def remove_company(company_id: str, x_token: str = Header(None)):
         scheduler.remove_job(f"auto_{company_id}")
     except Exception:
         pass
+    if company.get("li_conn"):
+        li.logout(company["li_conn"])
     delete_company(company_id)
     return {"deleted": company_id}
 
@@ -1763,7 +1911,9 @@ def get_analytics(x_token: str = Header(None)):
 @app.post("/analytics/refresh")
 def refresh_analytics(x_token: str = Header(None)):
     user = _require_user(x_token)
-    user_company_ids = [c["id"] for c in list_companies(user["id"])]
+    companies = list_companies(user["id"])
+    user_company_ids = [c["id"] for c in companies]
+    conns = {c["id"]: li.connection_for(c, user["id"]) for c in companies}
     log = get_post_log(user_company_ids)
     # Update each entry in place — never rewrite the collection. Only this
     # user's posted entries are even fetched, and each engagement result lands
@@ -1774,7 +1924,7 @@ def refresh_analytics(x_token: str = Header(None)):
         urn = entry.get("post_urn", "")
         if not urn:
             continue
-        engagement = li.get_post_engagement(user["id"], urn)
+        engagement = li.get_post_engagement(conns.get(entry.get("company_id", ""), user["id"]), urn)
         if engagement:
             entry["engagement"] = engagement
             update_post_engagement(entry.get("company_id", ""), urn, engagement)
@@ -1787,17 +1937,19 @@ async def post_linkedin_carousel(
     file: UploadFile = File(...),
     text: str = Form(...),
     dry_run: bool = Form(False),
+    profile_id: str = Form(""),
     x_token: str = Header(None),
 ):
     user = _require_user(x_token)
-    if not li.is_connected(user["id"]):
+    conn = _conn_for(user, profile_id)
+    if not li.is_connected(conn):
         raise HTTPException(status_code=401, detail="LinkedIn not connected.")
     pdf_bytes = await file.read()
     if dry_run:
         print(f"\n[DRY RUN] Would post carousel to LinkedIn:\n{text}\n")
         return {"status": "dry_run", "preview": text}
     try:
-        return li.upload_and_post_carousel(user["id"], pdf_bytes, text)
+        return li.upload_and_post_carousel(conn, pdf_bytes, text)
     except Exception:
         logging.exception("LinkedIn carousel post failed")
         raise HTTPException(status_code=502, detail="Failed to post the carousel to LinkedIn. Please reconnect LinkedIn and try again.")
@@ -1808,17 +1960,19 @@ async def post_linkedin_image(
     file: UploadFile = File(...),
     text: str = Form(...),
     dry_run: bool = Form(False),
+    profile_id: str = Form(""),
     x_token: str = Header(None),
 ):
     user = _require_user(x_token)
-    if not li.is_connected(user["id"]):
+    conn = _conn_for(user, profile_id)
+    if not li.is_connected(conn):
         raise HTTPException(status_code=401, detail="LinkedIn not connected.")
     image_bytes = await file.read()
     if dry_run:
         print(f"\n[DRY RUN] Would post image to LinkedIn:\n{text}\n")
         return {"status": "dry_run", "preview": text}
     try:
-        return li.upload_and_post_image(user["id"], image_bytes, text)
+        return li.upload_and_post_image(conn, image_bytes, text)
     except Exception:
         logging.exception("LinkedIn image post failed")
         raise HTTPException(status_code=502, detail="Failed to post the image to LinkedIn. Please reconnect LinkedIn and try again.")
