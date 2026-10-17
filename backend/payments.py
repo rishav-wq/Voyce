@@ -116,7 +116,16 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
     record = db.payments.find_one({"order_id": order_id})
     if record and record.get("status") == "paid":
         return
-    expires_at = (datetime.now() + timedelta(days=PRO_DURATION_DAYS)).isoformat()
+    # Renewing early stacks on the time already paid for, instead of throwing
+    # the remaining days away (the dashboard invites renewal 5 days out).
+    start = datetime.now()
+    user = db.users.find_one({"id": user_id}, {"plan": 1, "plan_expires_at": 1}) or {}
+    if user.get("plan") == "pro" and user.get("plan_expires_at"):
+        try:
+            start = max(start, datetime.fromisoformat(user["plan_expires_at"]))
+        except (TypeError, ValueError):
+            pass
+    expires_at = (start + timedelta(days=PRO_DURATION_DAYS)).isoformat()
     db.payments.update_one(
         {"order_id": order_id},
         {"$set": {

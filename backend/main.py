@@ -7,8 +7,9 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Requ
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
 
 # Load backend/.env explicitly BEFORE importing local modules, so config is correct
@@ -31,7 +32,9 @@ import ratelimit
 import db
 
 logging.basicConfig(level=logging.INFO)
-app = FastAPI()
+# No public /docs or /openapi.json: the frontend never uses them, and they hand
+# anyone a complete map of every route.
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
@@ -46,6 +49,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    """Baseline browser protections on every response, static files included.
+    No CSP yet: Clerk and Razorpay load scripts and frames from their own
+    domains, so a policy needs tuning against the live pages first."""
+    response = await call_next(request)
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
 
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
@@ -78,7 +94,15 @@ def _page(name: str) -> FileResponse:
                         headers={"Cache-Control": "no-cache"})
 
 # ── Scheduler ────────────────────────────────────────────────────────────────
-scheduler = BackgroundScheduler()
+# APScheduler's defaults drop any run that starts more than 1s late, and one
+# autopilot run takes 30–120s, so profiles sharing a post time were silently
+# skipped once the pool filled. Allow an hour of lateness, collapse a backlog
+# into one run, and keep the pool small so parallel carousel renders can't
+# exhaust memory.
+scheduler = BackgroundScheduler(
+    executors={"default": ThreadPoolExecutor(4)},
+    job_defaults={"misfire_grace_time": 3600, "coalesce": True, "max_instances": 1},
+)
 scheduler.start()
 
 
@@ -117,9 +141,12 @@ def _rate_limit(key: str, limit: int, window: float = 60.0):
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    if fwd:
-        return fwd.split(",")[0].strip()
+    # Traffic arrives through Cloudflare, which sets CF-Connecting-IP to the real
+    # visitor. The first X-Forwarded-For entry is whatever the client typed, so
+    # keying rate limits on it let anyone reset their limit with a fake header.
+    cf_ip = request.headers.get("cf-connecting-ip", "").strip()
+    if cf_ip:
+        return cf_ip
     return request.client.host if request.client else "unknown"
 
 
@@ -216,9 +243,15 @@ def _setup_company_cron(company: dict):
 
 
 def _refresh_all_crons():
+    # Runs at startup: one profile with a bad post_time must not stop the app
+    # from booting for everyone else.
     for company in list_companies():
         if company.get("active", True):
-            _setup_company_cron(company)
+            try:
+                _setup_company_cron(company)
+            except Exception:
+                logging.exception(f"[Cron] could not schedule {company.get('id')} "
+                                  f"(post_time={company.get('post_time')!r})")
 
 
 @app.on_event("startup")
@@ -369,6 +402,9 @@ class ScheduleRequest(BaseModel):
     dry_run: bool = False
 
 
+_POST_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
 class CompanyRequest(BaseModel):
     name: str
     website_url: str = ""
@@ -377,6 +413,14 @@ class CompanyRequest(BaseModel):
     tone: str = "professional"
     post_time: str
     profile_type: str = "company"
+
+    @field_validator("post_time")
+    @classmethod
+    def _valid_post_time(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not _POST_TIME_RE.match(v):
+            raise ValueError("post_time must be HH:MM in 24-hour time, e.g. 09:00")
+        return v
     website_type: str = "own"
     carousel_enabled: bool = False
     designation: str = ""
@@ -496,6 +540,9 @@ class VoiceCheckRequest(BaseModel):
 @app.post("/voice-check")
 def voice_check(req: VoiceCheckRequest, request: Request):
     _rate_limit(f"voicecheck:{_client_ip(request)}", 4, 3600)   # 4/hour/IP — it's LLM-costly
+    # A ceiling no per-IP trick can get around: the tool needs no login, and each
+    # check costs several Gemini calls plus a Tavily search.
+    _rate_limit("voicecheck:all", 300, 86400)
     posts_blob = (req.posts or "").strip()
     if len(posts_blob) < 60:
         raise HTTPException(status_code=400,
@@ -1518,7 +1565,7 @@ def get_analytics(x_token: str = Header(None)):
     user_company_ids = [c["id"] for c in list_companies(user["id"])]
     log = get_post_log(user_company_ids)
     posts = [e for e in log if e.get("status") == "posted"]
-    return list(reversed(posts[-14:]))
+    return posts[:14]   # the log is newest-first, so these are the 14 latest
 
 
 @app.post("/analytics/refresh")
@@ -1540,7 +1587,7 @@ def refresh_analytics(x_token: str = Header(None)):
             entry["engagement"] = engagement
             update_post_engagement(entry.get("company_id", ""), urn, engagement)
     posts = [e for e in log if e.get("status") == "posted"]
-    return list(reversed(posts[-14:]))
+    return posts[:14]   # newest-first, same as /analytics
 
 
 @app.post("/post/linkedin/carousel")

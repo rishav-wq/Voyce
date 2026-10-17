@@ -15,6 +15,7 @@ import time
 
 import google.generativeai as genai
 from google.api_core import exceptions as _gexc
+from google.api_core import retry as _gretry
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,6 +33,19 @@ FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
 # Output length is controlled by the prompt, and you only pay for tokens actually
 # generated, so a high cap is safe (it's headroom, not a target).
 _MIN_OUTPUT_TOKENS = 4096
+
+# The SDK's own defaults are a 600s timeout per call and 600s of retries on 503,
+# so one Gemini brownout could pin an autopilot thread for 20+ minutes. Cap each
+# call at 60s and the 503 retries at 90s; generate() still adds its own
+# primary → fallback → primary attempts on top.
+_REQUEST_OPTIONS = {
+    "timeout": 60,
+    "retry": _gretry.Retry(
+        initial=1.0, maximum=8.0, multiplier=1.5,
+        predicate=_gretry.if_exception_type(_gexc.ServiceUnavailable),
+        timeout=90,
+    ),
+}
 
 
 def _safe_text(resp) -> str:
@@ -56,7 +70,8 @@ def _call(model_name: str, prompt: str, system: str, max_tokens: int,
         temperature=temperature,
         response_mime_type="application/json" if json_mode else "text/plain",
     )
-    resp = model.generate_content(prompt, generation_config=config)
+    resp = model.generate_content(prompt, generation_config=config,
+                                  request_options=_REQUEST_OPTIONS)
     return _safe_text(resp)
 
 
@@ -85,10 +100,13 @@ def read_youtube(url: str, max_output_tokens: int = 8192) -> str:
     for model_name in (MODEL, FALLBACK_MODEL):
         try:
             model = genai.GenerativeModel(model_name)
+            # Watching a video legitimately takes longer than a text call, so it
+            # gets its own cap; the loop's fallback model is the retry.
             resp = model.generate_content(
                 [{"file_data": {"file_uri": url}}, _YT_READ_PROMPT],
                 generation_config={"max_output_tokens": max_output_tokens,
                                    "temperature": 0.2},
+                request_options={"timeout": 180, "retry": None},
             )
             text = _safe_text(resp).strip()
             if text:
@@ -186,7 +204,8 @@ def generate_vision(prompt: str, images: list[bytes], system: str = None,
             temperature=temperature,
             response_mime_type="application/json" if json_mode else "text/plain",
         )
-        resp = model.generate_content([prompt, *parts], generation_config=config)
+        resp = model.generate_content([prompt, *parts], generation_config=config,
+                                      request_options=_REQUEST_OPTIONS)
         return _safe_text(resp)
 
     try:
