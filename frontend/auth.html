@@ -80,6 +80,13 @@
   <p id="auth-legal" style="display:none;font-size:12.5px;color:#5b6270;margin-top:16px;text-align:center;max-width:420px;line-height:1.5;">By creating an account you agree to the <a href="/terms" style="color:#24365e;">Terms</a> and <a href="/privacy" style="color:#24365e;">Privacy Policy</a>.</p>
 
   <script>
+    // Where to go after signing in: back to the page that sent you here, if it's one
+    // of ours (only /setup or /tool, so this can never redirect off the site).
+    const _next = (() => {
+      const n = new URLSearchParams(location.search).get("next") || "";
+      return /^\/(setup|tool)(#[a-z-]+)?$/.test(n) ? n : "";
+    })();
+
     async function startApp() {
       const clerk = window.Clerk;
       await clerk.load();
@@ -94,7 +101,7 @@
             localStorage.setItem("cm_user", JSON.stringify(user));
           }
         } catch (_) {}
-        window.location.href = "/tool";
+        window.location.href = _next || "/tool";
         return;
       }
 
@@ -104,7 +111,7 @@
       const isSignUp = location.pathname === "/signup";
       const opts = {
         routing:        "virtual",
-        afterSignInUrl:  "/tool",
+        afterSignInUrl:  _next || "/tool",
         afterSignUpUrl:  "/onboarding",
         signInUrl:       "/login",
         signUpUrl:       "/signup",

@@ -111,6 +111,15 @@ def _sources_line(sources: list) -> tuple[str, str]:
     return text, f"Based on: {links}"
 
 
+def _approve_url(pending_id: str) -> str:
+    """This post's private approve page, or the queue if it has no link."""
+    try:
+        tok = (db.pending_posts.find_one({"id": pending_id}, {"approve_token": 1}) or {}).get("approve_token")
+    except Exception:
+        tok = None
+    return f"{APP_URL}/approve/{tok}" if tok else _QUEUE_URL
+
+
 def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
                sources: list | None = None, held_reason: str = "") -> bool:
     """A post is waiting for the user's OK — either because they asked to approve
@@ -129,13 +138,46 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
         intro = (f"Voyce wrote today's {html.escape(post_type)} for {html.escape(name)}. "
                  "It won't go out until you approve it.")
     paras = [intro] + ([src_html] if src_html else [])
+    url = _approve_url(pending_id)
     text = (f"{html.unescape(intro)}\n\n{preview}\n\n"
             + (f"{src_text}\n\n" if src_text else "")
-            + f"Review and approve: {_QUEUE_URL}\n\nPosts you don't approve expire after 48 hours.")
+            + f"Review and approve (no login needed): {url}\n\nPosts you don't approve expire after 48 hours.")
     body = _layout("Ready for your OK" if not held_reason else "Held for your review",
-                   paras, button=("Review and approve", _QUEUE_URL), quote=preview,
+                   paras, button=("Review and approve", url), quote=preview,
                    footer="Posts you don't approve expire after 48 hours, so stale news never goes out.")
     return send(company.get("user_id", ""), f"ready:{pending_id}", "post_ready", subject, text, body)
+
+
+def approval_reminders() -> int:
+    """One nudge per held post, about 12 hours before it expires unseen."""
+    from autonomous import PENDING_TTL_HOURS
+    now = datetime.now()
+    newest = (now - timedelta(hours=PENDING_TTL_HOURS - 12)).isoformat()
+    oldest = (now - timedelta(hours=PENDING_TTL_HOURS - 1)).isoformat()
+    sent = 0
+    try:
+        items = list(db.pending_posts.find({"status": "pending", "created_at": {"$lt": newest, "$gt": oldest}},
+                                           {"_id": 0, "id": 1, "user_id": 1, "company_name": 1, "post_type": 1,
+                                            "post_text": 1, "created_at": 1}))
+    except Exception:
+        logger.exception("[notify] reminder sweep failed")
+        return 0
+    for p in items:
+        name = p.get("company_name") or "your profile"
+        hours = max(1, int((datetime.fromisoformat(p["created_at"]) + timedelta(hours=PENDING_TTL_HOURS) - now)
+                           .total_seconds() // 3600))
+        preview = (p.get("post_text") or "").strip()
+        preview = preview[:400].rstrip() + ("…" if len(preview) > 400 else "")
+        url = _approve_url(p["id"])
+        subject = f"Your post for {name} expires in {hours} hours"
+        intro = (f"Voyce's {html.escape(p.get('post_type') or 'post')} for {html.escape(name)} is still waiting. "
+                 f"If you don't approve it in the next {hours} hours, it won't go out.")
+        text = f"{html.unescape(intro)}\n\n{preview}\n\nReview and approve (no login needed): {url}"
+        body = _layout("Still waiting for your OK", [intro], button=("Review and approve", url), quote=preview,
+                       footer="This is the only reminder for this post.")
+        if send(p.get("user_id", ""), f"remind:{p['id']}", "approval_reminder", subject, text, body):
+            sent += 1
+    return sent
 
 
 def post_failed(company: dict, error: str, local_day: str) -> bool:

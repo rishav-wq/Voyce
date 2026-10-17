@@ -1,5 +1,6 @@
 import colorsys
 import io
+import logging
 import os
 import re
 
@@ -1932,7 +1933,24 @@ Return ONLY valid JSON in this shape:
 
 # ── PDF assembly ──────────────────────────────────────────────────────────────
 
-def render_carousel_pdf(content: dict, company: dict) -> bytes:
+def slide_previews(images: list, width: int = 540) -> list[str]:
+    """Base64 JPEGs, small enough to show in the queue and the approval email page,
+    so a carousel is never approved without seeing its slides."""
+    import base64
+    out = []
+    for im in images:
+        try:
+            t = im.convert("RGB")
+            t.thumbnail((width, int(width * 1.25)))
+            b = io.BytesIO()
+            t.save(b, format="JPEG", quality=72, optimize=True)
+            out.append(base64.b64encode(b.getvalue()).decode())
+        except Exception:
+            logging.exception("[Carousel] preview failed")
+    return out
+
+
+def render_carousel_pdf(content: dict, company: dict, previews: list | None = None) -> bytes:
     brand    = ""  # keep exported assets clean — no logo/watermark (user preference)
     hook     = content["hook_slide"]
     context  = content.get("context_slide")
@@ -1984,5 +2002,7 @@ def render_carousel_pdf(content: dict, company: dict) -> bytes:
     slides.append(_slide_cta_v3(cta["headline"], cta["cta"], total, name, p))
 
     buf = io.BytesIO()
+    if previews is not None:
+        previews.extend(slide_previews(slides))
     slides[0].save(buf, format="PDF", save_all=True, append_images=slides[1:], resolution=300)
     return buf.getvalue()

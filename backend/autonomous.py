@@ -887,16 +887,15 @@ def get_post_type_info(company: dict) -> dict:
     Returns data for the dashboard: the next post type that will be generated,
     and a list of the 3 most recently generated post types.
     """
-    next_type_key = _get_post_type(company)
-    next_type_label = POST_TYPE_LABELS.get(next_type_key, next_type_key)
-
     company_id = company.get("id", "default")
+    # The same forecast the calendar shows: today's post if it hasn't run yet,
+    # otherwise tomorrow's. (It used to predict a *second* run today.)
+    plan = get_week_plan(company, 2)
+    next_type_label = plan[1] if _runs_today(company_id) else plan[0]
+
     log = get_post_log([company_id])
     recent = []
-    
-    # log is sorted chronologically (oldest to newest usually, or we can reverse it)
-    # let's iterate in reverse
-    for entry in reversed(log):
+    for entry in log:   # newest first
         if entry.get("company_id") == company_id and entry.get("status") in ("posted", "dry_run_fired", "pending_approval"):
             pt_label = entry.get("post_type", "")
             if pt_label:
@@ -1318,11 +1317,12 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
             # demands named companies and numbers. Check every slide's text.
             v = _value_gate("\n".join(_strings_in(content)), subject["industry"], gate_context)
             report.update({"passed": bool(v.get("passes", True)), "reason": v.get("reason", "")})
-            pdf_bytes = render_carousel_pdf(content, subject)
+            previews: list = []
+            pdf_bytes = render_carousel_pdf(content, subject, previews=previews)
             post_text = content.get("post_text", "")
             payload = {"format": "carousel", "post_text": post_text, "publish_text": post_text,
                        "asset_b64": _b64.b64encode(pdf_bytes).decode(), "alt_text": "",
-                       "title": company["name"]}
+                       "title": company["name"], "slide_previews": previews}
         else:
             post_text = generate_autonomous_post(subject, news_context, post_type,
                                                  gate_context=gate_context, report=report)
@@ -1446,11 +1446,27 @@ def _save_pending(company: dict, post_type: str, payload: dict) -> str:
     """Store a held post. One pending item per profile: a fresh generation supersedes
     any older unapproved one (yesterday's news post shouldn't linger as an option)."""
     import uuid
-    db.pending_posts.update_many(
-        {"company_id": company["id"], "status": "pending"},
-        {"$set": {"status": "superseded"}})
+    import secrets
+    import base64 as _b64
+    old = [p["id"] for p in db.pending_posts.find({"company_id": company["id"], "status": "pending"}, {"id": 1})]
+    if old:
+        db.pending_posts.update_many({"id": {"$in": old}}, {"$set": {"status": "superseded"}})
+        db.post_log.update_many({"pending_id": {"$in": old}, "status": "pending_approval"},
+                                {"$set": {"status": "superseded"}})
+    if payload.get("format") == "tweet_card" and payload.get("asset_b64") and not payload.get("slide_previews"):
+        try:
+            from carousel import slide_previews
+            from PIL import Image
+            import io as _io
+            payload = {**payload, "slide_previews": slide_previews(
+                [Image.open(_io.BytesIO(_b64.b64decode(payload["asset_b64"])))])}
+        except Exception:
+            logger.exception("[Pending] card preview failed")
     pend = {
         "id":           uuid.uuid4().hex[:12],
+        # The link in the approval email: whoever holds it can approve or skip this
+        # one post, until it's handled or expires. Opening it only shows the post.
+        "approve_token": secrets.token_urlsafe(24),
         "user_id":      company.get("user_id", ""),
         "company_id":   company["id"],
         "company_name": company.get("name", ""),
@@ -1463,6 +1479,18 @@ def _save_pending(company: dict, post_type: str, payload: dict) -> str:
     return pend["id"]
 
 
+def expires_at(pend: dict) -> datetime | None:
+    try:
+        return datetime.fromisoformat(pend["created_at"]) + timedelta(hours=PENDING_TTL_HOURS)
+    except Exception:
+        return None
+
+
+def is_expired(pend: dict) -> bool:
+    exp = expires_at(pend)
+    return bool(exp and datetime.now() >= exp)
+
+
 def list_pending_posts(user_id: str) -> list:
     """Pending items for the dashboard queue (assets excluded — they're big).
     Lazily expires stale items first."""
@@ -1473,9 +1501,19 @@ def list_pending_posts(user_id: str) -> list:
         db.pending_posts.update_many({"id": {"$in": stale}}, {"$set": {"status": "expired"}})
         db.post_log.update_many({"pending_id": {"$in": stale}, "status": "pending_approval"},
                                 {"$set": {"status": "expired"}})
-    return list(db.pending_posts.find(
+    items = list(db.pending_posts.find(
         {"user_id": user_id, "status": "pending"},
-        {"_id": 0, "asset_b64": 0}).sort("created_at", -1))
+        {"_id": 0, "asset_b64": 0, "approve_token": 0}).sort("created_at", -1))
+    for p in items:
+        exp = expires_at(p)
+        # With their offset, so the browser reads them right (server time is UTC
+        # in production; a bare "09:00" was read as 9am local — 5½ hours off in India).
+        p["expires_at"] = exp.astimezone().isoformat() if exp else None
+        try:
+            p["created_at"] = datetime.fromisoformat(p["created_at"]).astimezone().isoformat()
+        except Exception:
+            pass
+    return items
 
 
 def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -> dict:
@@ -1487,6 +1525,15 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
     line rather than a copy of the caption."""
     pend = db.pending_posts.find_one({"id": pending_id, "user_id": user_id}, {"_id": 0})
     if not pend or pend.get("status") != "pending":
+        return {"error": "not_found"}
+    if is_expired(pend):
+        # Stale news must not ship — an email link opened days later included.
+        db.pending_posts.update_one({"id": pending_id, "status": "pending"}, {"$set": {"status": "expired"}})
+        db.post_log.update_many({"pending_id": pending_id, "status": "pending_approval"}, {"$set": {"status": "expired"}})
+        return {"error": "expired"}
+    # Claim it, so a second tap (or the email and the dashboard at once) can't publish twice.
+    if not db.pending_posts.update_one({"id": pending_id, "status": "pending"},
+                                       {"$set": {"status": "publishing"}}).modified_count:
         return {"error": "not_found"}
     edited_text = (edited_text or "").strip()
     if edited_text and edited_text != (pend.get("post_text") or "").strip():
@@ -1517,7 +1564,12 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
     # Publish through the profile's own LinkedIn if it has one, else the owner's.
     company = db.companies.find_one({"id": pend.get("company_id", "")}, {"_id": 0}) or {}
     conn = li.connection_for(company, user_id)
-    result = _publish_payload(conn, pend)  # raises on failure → item stays pending
+    try:
+        result = _publish_payload(conn, pend)
+    except Exception:
+        # Publishing failed: back in the queue, so the user can retry.
+        db.pending_posts.update_one({"id": pending_id, "status": "publishing"}, {"$set": {"status": "pending"}})
+        raise
     db.pending_posts.update_one(
         {"id": pending_id},
         {"$set": {"status": "approved", "approved_at": datetime.now().isoformat()},

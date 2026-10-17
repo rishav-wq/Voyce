@@ -38,7 +38,10 @@
 
 
     /* ── App shell: sidebar + main ── */
-    .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
+    .app-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; align-items: start; }
+    .nav-count { margin-left: auto; background: #b07d1a; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 20px; line-height: 1.7; }
+    .waiting-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff8e6; border: 1px solid #f0d58a; border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 14px; color: #5c4400; }
+    .waiting-banner a { background: #24365e; color: #fff; text-decoration: none; font-weight: 600; font-size: 13.5px; padding: 8px 14px; border-radius: 9px; white-space: nowrap; }
     .sidebar {
       position: sticky; top: 0; height: 100vh; background: #fff;
       border-right: 1px solid #e4e7ec; padding: 22px 16px;
@@ -106,7 +109,7 @@
       color: inherit;
     }
 @media (max-width: 860px) {
-      .app-shell { grid-template-columns: 1fr; }
+      .app-shell { grid-template-columns: minmax(0, 1fr); }
       .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4e7ec; padding: 12px 16px; }
       .sidebar .side-spacer, .sidebar .side-upsell { display: none; }
       .side-nav { flex-direction: row; flex-wrap: wrap; }
@@ -557,6 +560,7 @@
       <a class="side-item" href="/setup">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
         <span>Today</span>
+        <span class="nav-count" id="nav-pending-count" hidden></span>
       </a>
       <a class="side-item active" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
@@ -572,7 +576,7 @@
       </a>
     </nav>
     <div class="side-spacer"></div>
-    <a class="side-upsell" href="#" onclick="openUpgradeModal();return false;">
+    <a class="side-upsell" id="side-upsell" href="#" onclick="openUpgradeModal();return false;">
       <h4>⚡ Upgrade to Pro</h4>
       <p>Unlimited posts and daily auto-posting.</p>
     </a>
@@ -590,6 +594,7 @@
   </aside>
 
   <main class="page-body">
+    <div class="waiting-banner" id="waiting-banner" style="display:none;"></div>
     <div class="page-head">
     <!-- Progress strip -->
     <div class="progress-strip" id="progress-strip">

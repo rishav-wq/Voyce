@@ -46,7 +46,7 @@
     .btn-add:hover { background: #1c2b4d; }
 
     /* ── App shell: sidebar + main ── */
-    .app-shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; align-items: start; }
+    .app-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; align-items: start; }
     .sidebar {
       position: sticky; top: 0; height: 100vh; background: #ffffff;
       border-right: 1px solid #e4e7ec; padding: 22px 16px;
@@ -95,9 +95,9 @@
       padding: 0; margin: 0 -0.02em 0 0;
       color: inherit;
     }
-@media (max-width: 1100px) { .app-shell { grid-template-columns: 248px 1fr; } .rail { display: none; } }
+@media (max-width: 1100px) { .app-shell { grid-template-columns: 248px minmax(0, 1fr); } .rail { display: none; } }
     @media (max-width: 860px) {
-      .app-shell { grid-template-columns: 1fr; }
+      .app-shell { grid-template-columns: minmax(0, 1fr); }
       .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4e7ec; padding: 12px 16px; }
       .sidebar .side-spacer, .sidebar .side-upsell { display: none; }
       .side-nav { flex-direction: row; flex-wrap: wrap; }
@@ -262,6 +262,8 @@
     .cal-chip.fail  { background: #fdeceb; color: #c0392b; }
     .cal-chip.sched { background: #e7ebf4; color: #24365e; }
     .cal-chip.none  { background: #eef0f4; color: #a7aebb; }
+    .cal-chip.wait  { background: #fff4dc; color: #8a5a00; }
+    td.cal-st-wait  { box-shadow: inset 3px 0 0 #e0b04a; }
     td.cal-st-ok    { box-shadow: inset 3px 0 0 #18a07a; }
     td.cal-st-fail  { box-shadow: inset 3px 0 0 #e05555; }
     td.cal-st-sched { box-shadow: inset 3px 0 0 #a8b8d4; }
@@ -590,8 +592,8 @@
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post history with sources</span></li>
-          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>20</strong> previews or idea lists a day</span></li>
+          <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Every daily post logged with its source</span></li>
         </ul>
         <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
           Upgrade now — pay securely →
@@ -767,7 +769,7 @@
         </button>
         <button class="mode-tab" onclick="switchMode('company')">
           For a Company
-          <span>Brand style from website</span>
+          <span>Brand voice · posts from your LinkedIn</span>
         </button>
       </div>
 
@@ -894,7 +896,7 @@
     async function initClerk() {
       const clerk = window.Clerk;
       await clerk.load();
-      if (!clerk.user) { window.location.href = "/login"; return false; }
+      if (!clerk.user) { _toLogin(); return false; }
       await _refreshToken();
       setInterval(_refreshToken, 50000);
       window.addEventListener("focus", _refreshToken);
@@ -986,6 +988,7 @@
 
     // Today's "Last 7 days" tiles, computed from the log we already fetch.
     function renderGlance(log) {
+      window._lastLog = log;
       const head = document.getElementById("glance-head");
       const grid = document.getElementById("glance-grid");
       if (!head || !grid || !Array.isArray(log)) return;
@@ -1001,7 +1004,9 @@
       const todayStr = new Date().toISOString().slice(0, 10);
       const postedToday = recent.filter(e => (e.timestamp || "").slice(0, 10) === todayStr
                                           && e.status === "posted").length;
-      const waiting = recent.filter(e => e.status === "pending_approval").length;
+      // The queue is the truth; old log rows can still say "waiting".
+      const waiting = typeof window._pendingCount === "number" ? window._pendingCount
+        : recent.filter(e => e.status === "pending_approval").length;
       const active = (currentProfiles || []).filter(p => p.active);
       const next = [...active].sort((a, b) => (a.post_time || "").localeCompare(b.post_time || ""))[0];
       const postedWeek = recent.filter(e => e.status === "posted").length;
@@ -1025,6 +1030,11 @@
     }
 
     // ── Init (called by Clerk onload) ─────────────────────────────────────────
+    // Back to this page after signing in (the approval email's "Edit first" lands here).
+    function _toLogin() {
+      window.location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash);
+    }
+
     async function startApp() {
       const ok = await initClerk();
       if (!ok) return;
@@ -1066,10 +1076,14 @@
 
     function updateLiBanner(connected) {
       const b = document.getElementById("li-banner");
+      window._liKnown = true;
       if (connected) {
+        // Connected is the normal state: the sidebar says so. The banner is for fixing things.
         b.className = "li-banner connected";
-        b.innerHTML = `<p>✓ LinkedIn connected — active profiles can post on schedule.</p><button class="li-banner-btn" style="background:#888;" onclick="disconnectLinkedIn()">Disconnect</button>`;
+        b.innerHTML = "";
+        b.style.display = "none";
       } else {
+        b.style.display = (currentProfiles || []).length ? "" : "none";   // after there's a profile to post as
         b.className = "li-banner";
         b.innerHTML = `<p>LinkedIn not connected — connect it before scheduled or manual posting.</p><button class="li-banner-btn" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
       }
@@ -1125,11 +1139,15 @@
         // Token may have just been minted — refresh once and retry before giving up.
         await _refreshToken();
         res = await fetch("/companies", { headers: { "x-token": getToken() } });
-        if (res.status === 401) { window.location.href = "/login"; return; }
+        if (res.status === 401) { _toLogin(); return; }
       }
       if (!res.ok) return;
       const profiles = await res.json();
       currentProfiles = profiles;
+      window._profilesLoaded = true;
+      // The tiles and the empty-queue line read profiles; the log can arrive first.
+      if (window._lastLog) renderGlance(window._lastLog);
+      if (window._pendingCount === 0) { const s = document.getElementById("today-sub"); if (s) s.textContent = _todayIdleText(); }
       _logCache = null;  // refetch the post log so calendar history stays current
       renderProfiles(profiles);
       updateStats(profiles);
@@ -1185,7 +1203,8 @@
       const anyActive = profiles.some(p => p.active);
       statsRow.style.display = anyActive ? "" : "none";
       profilesHead.style.display = "";
-      if (liBanner) liBanner.style.display = "";
+      // Only to fix something: shown once we know LinkedIn is disconnected.
+      if (liBanner) liBanner.style.display = (window._liKnown && !liConnected) ? "" : "none";
 
       buildCalendar(profiles);
       grid.innerHTML = profiles.map(raw => {
@@ -1283,7 +1302,7 @@
               </div>
               </details>
             ` : `
-              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes a post as ${p.name} every day, for you to approve or to post automatically. <span style="color:#a7aebb;">(Pro)</span></div>
+              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes a post as ${p.name} every day, for you to approve or to post automatically.${_isFreePlan() ? ` <span style="color:#a7aebb;">(Pro)</span>` : ""}</div>
             `}
             ${_tzNudge(p)}
           </div>
@@ -1333,11 +1352,21 @@
         headers: {"Content-Type": "application/json", "x-token": getToken()},
         body: JSON.stringify({ post_type: chosenType }) });
       const data = await res.json();
+      if (res.status === 409 && String(data.detail || "").startsWith("WAITING:")) {
+        toast(data.detail.slice("WAITING:".length), "warn");
+        showView("today");
+        return;
+      }
       loadLog();
       if (data.status === "posted") { toast("Posted successfully!", "success"); loadAnalytics(); }
       else if (data.status === "pending_approval") { toast("Written and waiting for your approval below.", "success"); loadPending(); }
       else if (data.status === "skipped") { toast("Skipped: " + (data.error || "generation limit/plan restriction"), "warn"); }
       else toast("Failed: " + (data.error || "unknown error"), "error");
+    }
+
+    function _isFreePlan() {
+      const p = (window._planInfo || {}).plan;
+      return !!p && p !== "pro" && p !== "admin";
     }
 
     function isProRequired(data) {
@@ -1493,6 +1522,13 @@
 
     async function toggleProfile(id, active) {
       let choice = null;
+      if (active && _isFreePlan()) {
+        // Say it's Pro before they set it up, not after.
+        toast("Daily posting is a Pro feature.", "warn");
+        openUpgradeModal();
+        loadProfiles();   // the switch goes back to off
+        return;
+      }
       if (active) {
         const p = (currentProfiles || []).find(x => x.id === id);
         const who = p ? p.name : "this profile";
@@ -1702,10 +1738,13 @@
       // Sidebar badge: the whole point of Today is that this number is visible.
       const badge = document.getElementById("nav-pending-count");
       if (badge) { badge.textContent = items.length; badge.hidden = !items.length; }
+      const changed = window._pendingCount !== items.length;
+      window._pendingCount = items.length;
+      if (changed && window._lastLog) renderGlance(window._lastLog);
       const sub = document.getElementById("today-sub");
       if (sub) sub.textContent = items.length
         ? `${items.length} post${items.length === 1 ? "" : "s"} waiting for your approval. Nothing publishes until you say so.`
-        : "Nothing waiting on you. Voyce will queue the next post at its scheduled time.";
+        : _todayIdleText();
       if (!items.length) { section.style.display = "none"; box.innerHTML = ""; return; }
       section.style.display = "";
       box.innerHTML = items.map(p => {
@@ -1740,9 +1779,10 @@
           <div style="font-size:12px;color:#98a0ae;margin-bottom:8px;">
             <strong style="color:#5b6270;">${_escHtml(p.company_name)}</strong>${prodTag}
             · ${_escHtml(p.post_type)} · ${fmt}
-            · written ${new Date(p.created_at).toLocaleString()}
+            · written ${_fmtWhen(p.created_at)}${_expiresChip(p)}
           </div>
           ${held}
+          ${_slidesStrip(p)}
           <div id="diy-caption-${p.id}" contenteditable="true" spellcheck="true"
                oninput="markPendingEdited('${p.id}')"
                style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:6px;padding:10px 12px;border:1px solid #efe4c4;border-radius:8px;background:#fff;outline:none;">${_escHtml(p.post_text)}</div>
@@ -1752,6 +1792,32 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}</div>
         </div>`;
       }).join("");
+    }
+
+    // What to say when nothing is waiting — true to whether anything will be.
+    function _todayIdleText() {
+      if (!window._profilesLoaded) return "Nothing waiting on you.";
+      const active = (currentProfiles || []).filter(p => p.active);
+      if (!active.length) return "Nothing waiting. Daily posting is off, so Voyce only writes when you ask: turn it on in Profiles, or write a post in Create.";
+      const next = [...active].sort((a, b) => (a.post_time || "").localeCompare(b.post_time || ""))[0];
+      return `Nothing waiting. Voyce writes the next post at ${_timeLabel(next)} and ${next.approval_mode ? "emails it to you to approve" : "posts it"}.`;
+    }
+    function _fmtWhen(s) {
+      const d = new Date(s);
+      return isNaN(d) ? "" : d.toLocaleString([], { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    }
+    function _expiresChip(p) {
+      if (!p.expires_at || p.format === "diy_video") return "";
+      const h = Math.floor((new Date(p.expires_at) - Date.now()) / 36e5);
+      return ` · <span style="color:${h < 6 ? "#b42318" : "#a1780a"};font-weight:600;">${h < 1 ? "expires within the hour" : `expires in ${h} h`}</span>`;
+    }
+    // A carousel is never approved blind: its slides, or the card image.
+    function _slidesStrip(p) {
+      const imgs = p.slide_previews || [];
+      if (!imgs.length) return p.format === "carousel"
+        ? `<div style="font-size:12px;color:#98a0ae;margin-bottom:10px;">Slide previews show on posts written from today on.</div>` : "";
+      return `<div style="display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;margin-bottom:4px;">${imgs.map((b, i) =>
+        `<img src="data:image/jpeg;base64,${b}" alt="Slide ${i + 1}" loading="lazy" style="height:200px;width:auto;border-radius:8px;border:1px solid #e4e7ec;flex:none;">`).join("")}</div>`;
     }
 
     async function copyPendingText(id, which, btn) {
@@ -1787,11 +1853,20 @@
           body: JSON.stringify({ text: box ? box.innerText.trim() : "" }),
         });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 410) { toast(data.detail || "This post expired, so it won't go out.", "warn"); loadPending(); loadLog(); return; }
         if (!res.ok) throw new Error(data.detail || "Publish failed — the post is still in your queue.");
-        toast(data.status === "posted_manually" ? "Marked as posted — the calendar shows it as covered."
-          : data.posted_as === "text" ? "Approved — LinkedIn wouldn't take the image or PDF, so it went out as a text post."
-          : "Approved — posted to LinkedIn.", data.posted_as === "text" ? "warn" : "success");
-        loadPending();
+        const card = document.getElementById(`pending-${id}`);
+        if (card && data.status === "posted") {
+          // Stay on the card for a moment with the one thing you want next: the post itself.
+          const url = data.post_urn ? _liPostUrl(data.post_urn) : "";
+          card.innerHTML = `<div style="font-size:14px;font-weight:600;color:#1d7a4a;">✓ Posted to LinkedIn${data.posted_as === "text" ? " (as text: LinkedIn wouldn't take the image or PDF)" : ""}</div>
+            ${url ? `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:#24365e;font-weight:600;font-size:13.5px;">View it on LinkedIn →</a>` : ""}`;
+          setTimeout(loadPending, 8000);
+        } else {
+          toast(data.status === "posted_manually" ? "Marked as posted — the calendar shows it as covered."
+            : "Approved — posted to LinkedIn.", "success");
+          loadPending();
+        }
         loadLog();
       } catch (err) {
         toast(err.message, "error");
@@ -1904,7 +1979,7 @@
           const key = `${e.company_id}|${String(e.timestamp || "").slice(0, 10)}`;
           if (!byDay[key]) byDay[key] = e;
         }
-        _renderCalendarGrid(active, byDay);
+        _renderCalendarGrid(active, byDay, log || []);
       });
     }
 
@@ -1949,7 +2024,18 @@
       } catch (_) { toast("Couldn't update the plan — try again.", "warn"); }
     }
 
-    function _renderCalendarGrid(active, byDay) {
+    function _renderCalendarGrid(active, byDay, log) {
+      // Same rule as the server: carousels alternate with the profile's last post.
+      const DAILY = ["posted", "pending_approval", "expired", "discarded", "dry_run_fired"];
+      function _carouselOn(p, futureIdx) {
+        const last = log.find(e => e.company_id === p.id && DAILY.includes(e.status));
+        const lastCar = !!last && last.post_format === "carousel";
+        const ts = last ? String(last.timestamp || "") : "";
+        const ranToday = !!last && _localISO(new Date(ts.endsWith("Z") ? ts : ts + "Z")) === _localISO(new Date());
+        const start = ranToday ? 1 : 0;
+        if (futureIdx < start) return false;
+        return (futureIdx - start) % 2 === 0 ? !lastCar : lastCar;
+      }
       // One strip, two jobs: the last 3 days (what actually happened) + today and
       // the 3 days ahead (what's planned). History builds trust in the automation.
       const today = new Date();
@@ -1978,6 +2064,11 @@
           let st, chip, type;
           if (entry && (entry.status === "posted" || entry.status === "dry_run_fired")) {
             st = "ok"; chip = "✓ Posted"; type = entry.post_type || planType;
+          } else if (entry && entry.status === "pending_approval") {
+            st = "wait"; chip = "⏳ Waiting for you"; type = entry.post_type || planType;
+          } else if (entry && ["expired", "discarded", "superseded", "skipped"].includes(entry.status)) {
+            st = "none"; type = entry.post_type || planType;
+            chip = { expired: "Not approved", discarded: "Skipped", superseded: "Replaced", skipped: "Skipped" }[entry.status];
           } else if (entry) {
             st = "fail"; chip = "✗ Failed"; type = entry.post_type || planType;
           } else if (futureIdx < 0) {
@@ -2000,14 +2091,15 @@
           // format follows: explicit claim-type override = tweet card; __carousel__ = carousel;
           // otherwise the auto alternate-day carousel logic.
           const isCarousel = planned === "__carousel__" ||
-            (!planned && p.carousel_enabled && futureIdx >= 0 && (futureIdx % 2 === 1));
+            (!planned && p.carousel_enabled && futureIdx >= 0 && _carouselOn(p, futureIdx));
           const isCard = claimTypes.includes(planned) ||
             (!planned && ["hot take", "prediction", "stat reaction"].includes((type || "").toLowerCase()));
           let badge = "";
           if (st === "sched") {
             if (planned === "__video__") badge = `<div class="cal-cell-badge carousel">🎬 Your video</div>`;
-            else if (isCard)          badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
+            // Server order: a carousel day stays a carousel whatever its post type.
             else if (isCarousel) badge = `<div class="cal-cell-badge carousel">▤ Carousel</div>`;
+            else if (isCard)          badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
             else if (p.carousel_enabled) badge = `<div class="cal-cell-badge text">✎ Text</div>`;
           }
 
@@ -2219,7 +2311,7 @@
         ["Avg per post", avg === null ? "—" : avg,
          scored.length ? `across ${scored.length} measured post${scored.length === 1 ? "" : "s"}` : "refresh to measure"],
         ["Best post", best ? best.e : "—",
-         best ? `${best.p.post_type || "post"} · ${new Date(best.p.timestamp).toLocaleDateString()}` : `posted on ${days} day${days === 1 ? "" : "s"}`],
+         best ? `${best.p.post_type || "post"} · ${new Date(best.p.timestamp).toLocaleDateString()}` : `${days} day${days === 1 ? "" : "s"} with a post`],
       ];
       box.innerHTML = tiles.map(([k, v, d]) => `
         <div class="an-tile">
@@ -2249,6 +2341,7 @@
       pending_approval: ["Waiting for approval", "warn"],
       expired:          ["Expired — not approved", "muted"],
       discarded:        ["Skipped by you", "muted"],
+      superseded:       ["Replaced by a newer draft", "muted"],
       dry_run_fired:    ["Test run", "muted"],
       skipped:          ["Skipped", "muted"],
       error:            ["Failed", "bad"],
@@ -2395,6 +2488,8 @@
         if (prof) prof.innerHTML = inIndia
           ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
           : "Up to <strong>3 profiles</strong>, each can post to its own LinkedIn";
+        const drafts = document.getElementById("upgrade-drafts");
+        if (drafts) drafts.innerHTML = "<strong>" + (inIndia ? 5 : 20) + "</strong> previews or idea lists a day";
         const gens = document.getElementById("upgrade-gens");
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"
@@ -2704,6 +2799,7 @@
 
         banner.style.display = "flex";
 
+        window._planInfo = info;
         const sideUpsell = document.getElementById("side-upsell");
         if (info.plan === "admin" || info.plan === "pro") {
           if (sideUpsell) sideUpsell.style.display = "none";

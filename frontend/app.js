@@ -8,7 +8,7 @@ async function _refreshToken() {
 async function initClerk() {
   const clerk = window.Clerk;
   await clerk.load();
-  if (!clerk.user) { window.location.href = "/login"; return false; }
+  if (!clerk.user) { window.location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash); return false; }
   await _refreshToken();
   setInterval(_refreshToken, 50000);
   // Background tabs get their timers throttled and sleep pauses them entirely,
@@ -33,6 +33,7 @@ async function loadProfilePicker() {
     const res = await fetch("/companies", { headers: { "x-token": getToken() } });
     if (!res.ok) return;
     _profiles = await res.json();
+    updateProgress();
     if (!_profiles.length) return;
     let active = getActiveProfileId();
     if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
@@ -198,10 +199,32 @@ async function startApp() {
   checkLinkedInStatus();
   loadQueue();
   updateProgress();
+  loadWaiting();
+  const plan = ((user || {}).gen_info || {}).plan;
+  if (plan === "pro" || plan === "admin") {        // no upsell for people who already pay
+    const up = document.getElementById("side-upsell");
+    if (up) up.style.display = "none";
+  }
   applySeedTopic();
   // The composer starts empty on every visit — no stale post is auto-restored.
   // Previously generated posts live in the "Past" tab, loaded on demand.
   _syncToolRuns();
+}
+
+// Every login lands here, so a post waiting for approval has to be visible here too.
+async function loadWaiting() {
+  try {
+    const res = await fetch("/pending", { headers: { "x-token": getToken() } });
+    if (!res.ok) return;
+    const n = (await res.json()).length;
+    const badge = document.getElementById("nav-pending-count");
+    if (badge) { badge.textContent = n; badge.hidden = !n; }
+    const bar = document.getElementById("waiting-banner");
+    if (!bar) return;
+    bar.style.display = n ? "" : "none";
+    bar.innerHTML = n ? `<span><b>${n} post${n === 1 ? " is" : "s are"} waiting for your OK.</b> Nothing goes out until you approve${n === 1 ? " it" : ""}.</span>
+      <a href="/setup#today">Review ${n === 1 ? "it" : "them"} →</a>` : "";
+  } catch (_) {}
 }
 
 // First-run handoff from onboarding: pre-fill the generator with the user's topic
@@ -242,6 +265,7 @@ async function checkLinkedInStatus() {
     const data = await res.json();
     linkedInConnected = data.connected;
     updateLiPill(data.connected);
+    updateProgress();
   } catch (_) {}
 }
 
@@ -262,6 +286,9 @@ function updateProgress() {
   const li   = document.getElementById("pstep-linkedin");
   const auto = document.getElementById("pstep-automate");
   if (!gen || !li) return;
+  // Set up = LinkedIn connected and a profile posting daily. Then the strip is noise.
+  const strip = document.getElementById("progress-strip");
+  if (strip) strip.style.display = (linkedInConnected && (_profiles || []).some(p => p.active)) ? "none" : "";
   const liText = document.getElementById("linkedin-content");
   const carSec = document.getElementById("carousel-section");
   const hasGen = !!(liText && liText.textContent.trim()) ||

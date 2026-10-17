@@ -423,6 +423,13 @@ def startup():
         id="notify_expiries",
         replace_existing=True,
     )
+    # A held post gets one reminder ~12 hours before it expires unseen.
+    scheduler.add_job(
+        notify.approval_reminders,
+        trigger=CronTrigger(minute="*/30"),
+        id="notify_approval_reminders",
+        replace_existing=True,
+    )
 
 
 def _do_scheduled_post(text: str, job_id: str, dry_run: bool = False, user_id: str = ""):
@@ -1561,9 +1568,13 @@ def schedule_linkedin(request: ScheduleRequest, x_token: str = Header(None)):
 @app.get("/schedule/list")
 def list_scheduled(x_token: str = Header(None)):
     user = _require_user(x_token)
-    return list(
-        db.scheduled.find({"user_id": user["id"]}, {"_id": 0, "text": 0}).sort("scheduled_at", 1)
-    )
+    rows = list(db.scheduled.find({"user_id": user["id"]}, {"_id": 0, "text": 0}).sort("scheduled_at", 1))
+    for r in rows:
+        try:   # with its offset, so the browser shows the right local time
+            r["scheduled_at"] = datetime.fromisoformat(r["scheduled_at"]).astimezone().isoformat()
+        except Exception:
+            pass
+    return rows
 
 
 @app.delete("/schedule/{job_id}")
@@ -1823,9 +1834,152 @@ def approve_pending(pending_id: str, request: ApproveRequest | None = None,
         logging.exception("pending approve failed")
         raise HTTPException(status_code=502,
                             detail="LinkedIn publish failed — the post is still in your queue; try again.")
+    if result.get("error") == "expired":
+        raise HTTPException(status_code=410, detail="This post expired before it was approved, so it won't go out.")
     if result.get("error"):
         raise HTTPException(status_code=404, detail="That post is no longer pending.")
     return result
+
+
+_APPROVE_DONE = {
+    "approved":   ("Already posted", "This post was approved and is live on LinkedIn."),
+    "publishing": ("Posting now", "This post is being published. Check LinkedIn in a minute."),
+    "discarded":  ("Skipped", "You skipped this post, so it won't go out."),
+    "superseded": ("Replaced by a newer post", "Voyce wrote a newer post for this profile. That one is waiting in your queue."),
+    "expired":    ("This post expired", "It wasn't approved within 48 hours, so it won't go out. Stale news never ships."),
+}
+
+
+def _li_post_url(urn: str) -> str:
+    return f"https://www.linkedin.com/feed/update/{urn}/" if urn else ""
+
+
+def _approve_shell(title: str, inner: str) -> HTMLResponse:
+    return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{html_escape(title)} · Voyce</title>
+<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;background:#f6f7f9;color:#16181d;margin:0;padding:28px 16px 48px;">
+<div style="max-width:560px;margin:0 auto;">
+<div style="font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 18px 2px;"><span style="font-family:Georgia,serif;font-style:italic;font-size:26px;">V</span>oyce</div>
+<div style="background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:24px 22px;">
+<p style="font-size:20px;font-weight:700;margin:0 0 8px;">{html_escape(title)}</p>{inner}
+</div></div></body></html>""")
+
+
+def _btn(label: str, href: str = "", primary: bool = False, form_action: str = "") -> str:
+    style = ("display:inline-block;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px;"
+             + ("background:#24365e;color:#fff;border:1px solid #24365e;" if primary
+                else "background:#fff;color:#24365e;border:1px solid #d3d8e0;"))
+    if form_action:
+        return (f'<form method="post" action="{html_escape(form_action)}" style="display:inline;margin:0;">'
+                f'<button type="submit" style="{style}cursor:pointer;font-family:inherit;">{html_escape(label)}</button></form>')
+    return f'<a href="{html_escape(href)}" style="{style}">{html_escape(label)}</a>'
+
+
+def _pending_by_token(token: str) -> dict | None:
+    if not token or len(token) < 20:
+        return None
+    return db.pending_posts.find_one({"approve_token": token}, {"_id": 0})
+
+
+@app.get("/approve/{token}")
+def approve_page(token: str, request: Request):
+    """What the approval email opens. Showing the post changes nothing — email
+    scanners open links on their own — approving takes a tap on this page."""
+    _rate_limit(f"approvepage:{_client_ip(request)}", 30)
+    from autonomous import expires_at, is_expired
+    pend = _pending_by_token(token)
+    if not pend:
+        return _approve_shell("This link isn't valid", '<p style="color:#444;line-height:1.6;">It may be from an old email. '
+                              'Your queue in Voyce has everything waiting for you.</p>'
+                              f'<p style="margin:22px 0 0;">{_btn("Open Voyce", "/setup", primary=True)}</p>')
+    status = pend.get("status")
+    if status == "pending" and is_expired(pend):
+        status = "expired"
+    if status != "pending":
+        title, msg = _APPROVE_DONE.get(status, ("Nothing to do here", "This post is no longer waiting."))
+        live = ""
+        if status == "approved":
+            row = db.post_log.find_one({"pending_id": pend["id"], "status": "posted"}, {"post_urn": 1}) or {}
+            if row.get("post_urn"):
+                live = _btn("View it on LinkedIn", _li_post_url(row["post_urn"]), primary=True) + " "
+        return _approve_shell(title, f'<p style="color:#444;line-height:1.6;">{html_escape(msg)}</p>'
+                              f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{live}{_btn("Open Voyce", "/setup")}</p>')
+    if pend.get("format") == "diy_video":
+        return _approve_shell("Your video day", '<p style="color:#444;line-height:1.6;">This one is a video you make '
+                              'yourself. Open Voyce for the caption and the prompt for your video tool.</p>'
+                              f'<p style="margin:22px 0 0;">{_btn("Open Voyce", "/setup", primary=True)}</p>')
+    exp = expires_at(pend)
+    hours = max(1, int((exp - datetime.now()).total_seconds() // 3600)) if exp else 0
+    fmt = {"carousel": "Carousel", "tweet_card": "Image card"}.get(pend.get("format"), "Text post")
+    slides = "".join(f'<img src="data:image/jpeg;base64,{b}" alt="Slide {i}" style="height:220px;width:auto;border-radius:8px;'
+                     f'border:1px solid #e4e7ec;flex:none;">' for i, b in enumerate(pend.get("slide_previews") or [], 1))
+    if slides:
+        slides = (f'<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;margin:14px 0 4px;">{slides}</div>'
+                  + ('<p style="font-size:12.5px;color:#6b7280;margin:0 0 6px;">Swipe to see every slide.</p>' if pend.get("format") == "carousel" else ""))
+    elif pend.get("format") == "carousel":
+        slides = (f'<p style="margin:14px 0 4px;"><a href="/approve/{html_escape(token)}/slides.pdf" '
+                  'style="color:#24365e;font-weight:600;">View the slides (PDF)</a></p>')
+    inner = (f'<p style="font-size:13.5px;color:#6b7280;margin:0;">{html_escape(pend.get("company_name") or "")} · '
+             f'{html_escape(pend.get("post_type") or "")} · {fmt} · <b style="color:#b45309;">expires in {hours} h</b></p>'
+             f'{slides}'
+             f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
+             f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
+             f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
+             f'{_btn("Approve & post to LinkedIn", primary=True, form_action=f"/approve/{token}")}'
+             f'{_btn("Edit first", "/setup#today")}</div>'
+             f'<div style="margin:14px 0 0;">{_btn("Skip this post", form_action=f"/approve/{token}/skip")}</div>'
+             '<p style="font-size:12.5px;color:#6b7280;margin:18px 0 0;line-height:1.5;">Approving publishes it now to the '
+             'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>')
+    return _approve_shell("Ready for your OK", inner)
+
+
+@app.post("/approve/{token}")
+def approve_from_link(token: str, request: Request):
+    _rate_limit(f"approvelink:{_client_ip(request)}", 10)
+    from autonomous import approve_pending_post
+    pend = _pending_by_token(token)
+    if not pend or pend.get("status") != "pending":
+        return approve_page(token, request)
+    try:
+        result = approve_pending_post(pend["id"], pend["user_id"])
+    except Exception as e:
+        logging.exception("link approve failed")
+        # Publish errors are already written for people ("…reconnect LinkedIn from the sidebar").
+        reason = html_escape(str(e)[:300] or "LinkedIn didn't accept the post.")
+        return _approve_shell("It didn't go out", f'<p style="color:#444;line-height:1.6;">{reason}</p>'
+                              '<p style="color:#444;line-height:1.6;">The post is still waiting, so you can try again.</p>'
+                              f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{_btn("Try again", primary=True, form_action=f"/approve/{token}")}'
+                              f'{_btn("Open Voyce", "/setup")}</p>')
+    if result.get("error"):
+        return approve_page(token, request)
+    live = _btn("View it on LinkedIn", _li_post_url(result.get("post_urn", "")), primary=True) if result.get("post_urn") else ""
+    note = (f'<p style="color:#b45309;line-height:1.6;">It went out as text: the {html_escape(result.get("posted_as", ""))} '
+            'version failed.</p>' if result.get("posted_as") else "")
+    return _approve_shell("Posted ✓", f'<p style="color:#444;line-height:1.6;">It\'s live on LinkedIn.</p>{note}'
+                          f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{live}{_btn("Open Voyce", "/setup")}</p>')
+
+
+@app.post("/approve/{token}/skip")
+def skip_from_link(token: str, request: Request):
+    _rate_limit(f"approvelink:{_client_ip(request)}", 10)
+    from autonomous import discard_pending_post
+    pend = _pending_by_token(token)
+    if pend and pend.get("status") == "pending":
+        discard_pending_post(pend["id"], pend["user_id"])
+    return approve_page(token, request)
+
+
+@app.get("/approve/{token}/slides.pdf")
+def approve_slides(token: str, request: Request):
+    _rate_limit(f"approvepage:{_client_ip(request)}", 30)
+    import base64
+    pend = _pending_by_token(token)
+    full = db.pending_posts.find_one({"id": pend["id"]}, {"asset_b64": 1}) if pend else None
+    if not pend or pend.get("format") != "carousel" or not (full or {}).get("asset_b64"):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(content=base64.b64decode(full["asset_b64"]), media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="carousel.pdf"', "Cache-Control": "private, no-store"})
 
 
 @app.post("/pending/{pending_id}/discard")
@@ -1979,6 +2133,14 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     override = (request.post_type if request else "") or ""
+    if company.get("approval_mode", True):
+        waiting = db.pending_posts.find_one({"company_id": company_id, "status": "pending"}, {"_id": 0, "created_at": 1})
+        from autonomous import is_expired
+        if waiting and not is_expired(waiting):
+            # Writing a new one would quietly replace it (one waiting post per profile).
+            raise HTTPException(status_code=409, detail=(
+                f"WAITING:A post for {company.get('name', 'this profile')} is already waiting for your OK. "
+                "Approve or skip it first, so it isn't replaced."))
     # "Ask me before it posts" is a promise about everything Voyce writes, so it holds
     # here too: Post now generates immediately, but a profile in approval mode still
     # gets the post queued for review rather than published unseen.
@@ -2030,7 +2192,7 @@ def _with_outcomes(log: list) -> list:
             st = states.get(e.get("pending_id"))
             if st == "approved":
                 continue
-            if st in ("expired", "discarded"):
+            if st in ("expired", "discarded", "superseded"):
                 e = {**e, "status": st}
             elif (e.get("timestamp") or "") < cutoff:
                 e = {**e, "status": "expired"}
