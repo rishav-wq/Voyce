@@ -33,6 +33,10 @@ def save_company(profile: dict) -> dict:
         company_id = website_url.replace("https://", "").replace("http://", "").split("/")[0]
     else:
         company_id = re.sub(r"[^a-z0-9]+", "-", profile["name"].lower()).strip("-")
+    # The id is written into the dashboard's onclick handlers, so it may only hold
+    # characters that are inert there — a website typed as  x.com');alert(1)//
+    # used to become an id that ran as code in the page.
+    company_id = re.sub(r"[^a-z0-9.\-]+", "-", company_id.lower()).strip("-.") or uuid.uuid4().hex[:10]
 
     # The derived id is only stable for the SAME user re-creating the SAME
     # profile. Any other occupant of the slot — another user's profile with the

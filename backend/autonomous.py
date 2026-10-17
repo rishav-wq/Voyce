@@ -1076,6 +1076,45 @@ def _local_today(company: dict) -> date:
         return date.today()
 
 
+CLAIM_STALE_MINUTES = 20   # a claimed run older than this that never finished died mid-way
+
+
+def claim_scheduled_run(company: dict) -> str | None:
+    """Claim today's scheduled post for this profile; returns the claim key, or
+    None if it's already taken.
+
+    During a deploy the old and new servers both run the scheduler for about a
+    minute, and the startup catch-up can fire next to the cron, so the same
+    profile's daily post could be written and published twice. The first run to
+    claim the profile's local day wins. A claim that never finished (the server
+    was killed mid-run) is taken over after CLAIM_STALE_MINUTES, so a deploy can't
+    lose the day's post either. Manual "Post now" runs never claim."""
+    from pymongo.errors import DuplicateKeyError
+    key = f"{company['id']}:{_local_today(company).isoformat()}"
+    now = datetime.now()
+    try:
+        db.run_claims.insert_one({"_id": key, "started_at": now.isoformat(), "finished": False,
+                                  "created": datetime.utcnow()})
+        return key
+    except DuplicateKeyError:
+        stale = (now - timedelta(minutes=CLAIM_STALE_MINUTES)).isoformat()
+        r = db.run_claims.update_one(
+            {"_id": key, "finished": False, "started_at": {"$lt": stale}},
+            {"$set": {"started_at": now.isoformat(), "taken_over": True}})
+        return key if r.modified_count == 1 else None
+    except Exception:
+        logger.exception(f"[Claim] could not claim {key}; running anyway rather than skip the day")
+        return key
+
+
+def finish_scheduled_run(key: str):
+    try:
+        db.run_claims.update_one({"_id": key}, {"$set": {"finished": True,
+                                                         "finished_at": datetime.now().isoformat()}})
+    except Exception:
+        logger.exception(f"[Claim] could not mark {key} finished")
+
+
 def _strings_in(obj) -> list[str]:
     """Every piece of text in a generated carousel, whatever its schema."""
     if isinstance(obj, str):

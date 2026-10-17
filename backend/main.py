@@ -1,9 +1,10 @@
 import os
 import re
 import secrets
+from html import escape as html_escape
 import logging
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -140,6 +141,19 @@ def _rate_limit(key: str, limit: int, window: float = 60.0):
         )
 
 
+def _daily_cap(user: dict, kind: str, free_n: int, pro_n: int):
+    """A per-user, per-24h ceiling on endpoints that spend Gemini and Tavily
+    money without using a generation. Preview, for one, wrote a full post on
+    every click with no limit at all — a free account could loop it forever."""
+    pro = _is_pro(user)
+    n = pro_n if pro else free_n
+    if not ratelimit.allow(f"day:{kind}:{user['id']}", n, 86400):
+        raise HTTPException(
+            status_code=429,
+            detail=(f"You've used today's {n} {kind}. More are available within 24 hours."
+                    + ("" if pro else " Pro raises the limit.")))
+
+
 def _client_ip(request: Request) -> str:
     # Traffic arrives through Cloudflare, which sets CF-Connecting-IP to the real
     # visitor. The first X-Forwarded-For entry is whatever the client typed, so
@@ -219,11 +233,25 @@ def _with_profile_context(profile: dict | None, raw_text: str) -> str:
     return "\n".join(context) + "\n\nContent to repurpose:\n" + raw_text
 
 
+def _scheduled_run(company: dict):
+    """A scheduled daily post, run at most once per profile per local day across
+    every server instance (see autonomous.claim_scheduled_run)."""
+    from autonomous import claim_scheduled_run, finish_scheduled_run
+    key = claim_scheduled_run(company)
+    if not key:
+        logging.info(f"[Cron] {company.get('id')} already ran today — skipping duplicate")
+        return
+    try:
+        run_for_company(company)
+    finally:
+        finish_scheduled_run(key)
+
+
 def _run_company_by_id(company_id: str):
     """Fetch fresh company data at job fire time, then run."""
     company = get_company(company_id)
     if company and company.get("active"):
-        run_for_company(company)
+        _scheduled_run(company)
 
 
 def _setup_company_cron(company: dict):
@@ -255,8 +283,19 @@ def _refresh_all_crons():
                                   f"(post_time={company.get('post_time')!r})")
 
 
+def _ensure_indexes():
+    """Let Mongo clean up the short-lived records itself. Best-effort: an index
+    problem must never stop the app from starting."""
+    try:
+        db.oauth_states.create_index("created_at", expireAfterSeconds=600)
+        db.run_claims.create_index("created", expireAfterSeconds=3 * 86400)
+    except Exception:
+        logging.exception("could not create TTL indexes")
+
+
 @app.on_event("startup")
 def startup():
+    _ensure_indexes()
     _refresh_all_crons()
     _restore_scheduled_jobs()
     # Fire a catch-up sweep shortly after boot (off the startup thread, so the
@@ -375,7 +414,7 @@ def _catch_up_missed_posts():
             continue  # already covered today
         try:
             logging.info(f"[Catch-up] Missed daily post for {company.get('name')} — firing now")
-            run_for_company(company)
+            _scheduled_run(company)
         except Exception:
             logging.exception(f"[Catch-up] failed for {company.get('name')}")
 
@@ -812,7 +851,7 @@ async def payments_webhook(request: Request):
 
 # ── LinkedIn OAuth ─────────────────────────────────────────────────────────────
 @app.post("/auth/linkedin/start")
-def linkedin_start(x_token: str = Header(None)):
+def linkedin_start(response: Response, x_token: str = Header(None)):
     """Begin the LinkedIn OAuth handshake.
 
     The app session token is read from the X-Token header — never a query
@@ -822,23 +861,56 @@ def linkedin_start(x_token: str = Header(None)):
     """
     user = _require_user(x_token)
     state = secrets.token_urlsafe(16)
-    li.register_state(state, user["id"])
+    nonce = secrets.token_urlsafe(24)
+    li.register_state(state, user["id"], nonce)
+    # The callback only accepts this state from the browser holding this cookie.
+    # SameSite=Lax still sends it on LinkedIn's top-level redirect back to us.
+    response.set_cookie(_LI_OAUTH_COOKIE, nonce, max_age=int(li.OAUTH_STATE_TTL.total_seconds()),
+                        httponly=True, samesite="lax", path="/auth/linkedin",
+                        secure=li.REDIRECT_URI.startswith("https://"))
     return {"auth_url": li.get_auth_url(state)}
 
 
+_LI_OAUTH_COOKIE = "li_oauth"
+
+
+def _oauth_result_page(ok: bool, title: str, detail: str) -> HTMLResponse:
+    """What the connect popup shows. It used to be a bare script, so whenever
+    window.opener was missing (a phone handing off to a new tab, the LinkedIn
+    app) the person was left on a blank white page."""
+    msg = "linkedin_connected" if ok else "linkedin_error"
+    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Voyce · LinkedIn</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;background:#f6f7f9;color:#16181d;margin:0;padding:56px 20px;text-align:center;">
+<p style="font-size:18px;font-weight:600;margin:0 0 8px;">{html_escape(title)}</p>
+<p style="font-size:15px;color:#5b6270;line-height:1.5;max-width:420px;margin:0 auto 20px;">{html_escape(detail)}</p>
+<p><a href="/setup" style="color:#24365e;font-weight:600;">Back to Voyce</a></p>
+<script>try {{ if (window.opener) {{ window.opener.postMessage("{msg}", location.origin); window.close(); }} }} catch (e) {{}}</script>
+</body></html>"""
+    resp = HTMLResponse(page)
+    resp.delete_cookie(_LI_OAUTH_COOKIE, path="/auth/linkedin")
+    return resp
+
+
 @app.get("/auth/linkedin/callback")
-def linkedin_callback(code: str = None, error: str = None, state: str = ""):
+def linkedin_callback(request: Request, code: str = None, error: str = None, state: str = ""):
     if error or not code:
-        return HTMLResponse("<script>window.opener.postMessage('linkedin_error','*');window.close();</script>")
-    user_id = li.consume_state(state)
+        return _oauth_result_page(False, "LinkedIn wasn't connected",
+                                  "The connection was cancelled. You can close this window and try again from Voyce.")
+    user_id = li.consume_state(state, request.cookies.get(_LI_OAUTH_COOKIE, ""))
     if not user_id:
-        return HTMLResponse("<script>window.opener.postMessage('linkedin_error','*');window.close();</script>")
+        return _oauth_result_page(False, "This connect link has expired",
+                                  "Connect links work once, for 10 minutes, in the browser that started them. "
+                                  "Go back to Voyce and click Connect LinkedIn again.")
     try:
         token_data = li.exchange_code_for_token(code)
         li.save_token(user_id, token_data)
-        return HTMLResponse("<script>window.opener.postMessage('linkedin_connected','*');window.close();</script>")
+        return _oauth_result_page(True, "LinkedIn connected",
+                                  "You can close this window and go back to Voyce.")
     except Exception:
-        return HTMLResponse("<script>window.opener.postMessage('linkedin_error','*');window.close();</script>")
+        logging.exception("LinkedIn token exchange failed")
+        return _oauth_result_page(False, "LinkedIn didn't finish connecting",
+                                  "Something went wrong on the way back from LinkedIn. Close this window and try again.")
 
 
 @app.get("/auth/linkedin/status")
@@ -931,6 +1003,7 @@ def generate_variations(request: VariationsRequest, x_token: str = Header(None))
     Refinement of existing content, so it doesn't count against the gen limit."""
     user = _require_user(x_token)
     _rate_limit(f"gen:{user['id']}", 20)
+    _daily_cap(user, "rewrites", free_n=20, pro_n=100)
     if not request.post.strip():
         raise HTTPException(status_code=400, detail="Generate a post first, then I can write variations.")
     try:
@@ -976,6 +1049,7 @@ def generate_hashtags(request: HashtagsRequest, x_token: str = Header(None)):
     is refinement of existing content, so it doesn't spend a generation."""
     user = _require_user(x_token)
     _rate_limit(f"gen:{user['id']}", 20)
+    _daily_cap(user, "hashtag suggestions", free_n=20, pro_n=100)
     if not request.post.strip():
         raise HTTPException(status_code=400, detail="Generate a post first, then I can suggest hashtags.")
     try:
@@ -1477,6 +1551,8 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
     Optional: post_type forces a type (e.g. from a chosen idea); seed steers the
     post around a specific angle."""
     user = _require_user(x_token)
+    _rate_limit(f"gen:{user['id']}", 20)
+    _daily_cap(user, "previews", free_n=10, pro_n=60)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
@@ -1521,6 +1597,7 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     _rate_limit(f"ideas:{user['id']}", 12)
+    _daily_cap(user, "idea lists", free_n=15, pro_n=60)
     try:
         from autonomous import (COMPANY_ROTATION, PERSONAL_ROTATION, POST_TYPE_LABELS,
                                 POST_TYPE_DESCRIPTIONS)

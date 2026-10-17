@@ -1011,7 +1011,7 @@
         ["Posted today", postedToday, postedToday ? "already live on LinkedIn" : (active.length ? "nothing yet today" : "no profile is auto-posting")],
         ["Needs you", waiting || "—", waiting ? "waiting for your approval" : "nothing waiting"],
         ["Next post", next ? next.post_time : "—",
-         next ? `${_tzCity(next.timezone)} time · as ${next.name}${next.next_post_type ? ` · ${next.next_post_type}` : ""}` : "automation is off"],
+         next ? `${_tzCity(next.timezone)} time · as ${_escHtml(next.name)}${next.next_post_type ? ` · ${_escHtml(next.next_post_type)}` : ""}` : "automation is off"],
         ["This week", postedWeek, `across ${profileCount} profile${profileCount === 1 ? "" : "s"}`],
       ];
       grid.innerHTML = tiles.map(([k, v, d]) => `
@@ -1049,6 +1049,7 @@
     }
 
     window.addEventListener("message", e => {
+      if (e.origin !== location.origin) return;   // only our own callback page may report this
       if (e.data === "linkedin_connected") { liConnected=true; updateLiBanner(true); toast("LinkedIn connected!", "success"); checkLinkedIn(); }
       else if (e.data === "linkedin_error") toast("LinkedIn connection failed.", "error");
     });
@@ -1147,7 +1148,7 @@
         `<span><span style="color:#18a07a;">●</span> Auto-posting <strong>${active.length} profile${active.length > 1 ? "s" : ""}</strong></span>`,
       ];
       if (next && next.next_post_type) {
-        parts.push(`<span>Next: <strong>${next.next_post_type}</strong> · ${_timeLabel(next)} · as ${next.name}</span>`);
+        parts.push(`<span>Next: <strong>${_escHtml(next.next_post_type)}</strong> · ${_timeLabel(next)} · as ${_escHtml(next.name)}</span>`);
         if (next.next_post_type_desc) parts.push(`<span class="sb-dim">${next.next_post_type_desc}</span>`);
       }
       parts.push(`<span id="sb-li" class="sb-dim">LinkedIn: checking…</span>`);
@@ -1187,13 +1188,20 @@
       if (liBanner) liBanner.style.display = "";
 
       buildCalendar(profiles);
-      grid.innerHTML = profiles.map(p => {
+      grid.innerHTML = profiles.map(raw => {
+        // This card is built as HTML, and names, niches and the learned-voice
+        // summary are text a person or the AI wrote — escape them once, here.
+        // (The voice summary is Gemini's reading of uploaded posts, so a crafted
+        // post could otherwise put markup into the page.)
+        const p = { ...raw, name: _escHtml(raw.name), industry: _escHtml(raw.industry), tone: _escHtml(raw.tone),
+                    next_post_type: _escHtml(raw.next_post_type), next_post_type_desc: _escHtml(raw.next_post_type_desc) };
         const isPersonal = p.profile_type === "personal";
         const typeLabel  = isPersonal ? "Personal" : "Company";
         const typeClass  = isPersonal ? "personal" : "company";
-        const style      = p.linkedin_analysis && p.linkedin_analysis.writing_style;
+        const style      = raw.linkedin_analysis && raw.linkedin_analysis.writing_style;
+        const styleText  = String(style || "");
         const voiceLine  = style
-          ? `<span title="${String(style).replace(/"/g, "&quot;")}">✦ Writes in a learned voice: <em>${(s => s.length > 70 ? s.slice(0, 70) + "…" : s)(String(style))}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#98a0ae;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
+          ? `<span title="${_escHtml(styleText)}">✦ Writes in a learned voice: <em>${_escHtml(styleText.length > 70 ? styleText.slice(0, 70) + "…" : styleText)}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#98a0ae;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
           : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#24365e;">add past posts to learn the real voice</a>`;
 
         return `<div class="profile-card" id="card-${p.id}">
@@ -1948,7 +1956,7 @@
 
         return `<tr>
           <td colspan="7" style="padding:0;border:none;background:#fafafa;">
-            <div class="cal-profile-name">${p.name} <span style="font-weight:400;color:#bbb;">(${isPersonal ? 'personal' : 'company'})</span></div>
+            <div class="cal-profile-name">${_escHtml(p.name)} <span style="font-weight:400;color:#bbb;">(${isPersonal ? 'personal' : 'company'})</span></div>
           </td>
         </tr>
         <tr>${cells}</tr>`;

@@ -1,5 +1,6 @@
 import os
 import base64
+import hmac
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -38,8 +39,6 @@ def _warn_if_version_ageing():
 
 _warn_if_version_ageing()
 
-# OAuth state -> user_id mapping (short-lived, in-memory is fine)
-_oauth_states: dict[str, str] = {}
 
 
 def _get_token_entry(user_id: str) -> dict:
@@ -62,12 +61,36 @@ def get_auth_url(state: str) -> str:
     )
 
 
-def register_state(state: str, user_id: str):
-    _oauth_states[state] = user_id
+OAUTH_STATE_TTL = timedelta(minutes=10)
 
 
-def consume_state(state: str) -> str | None:
-    return _oauth_states.pop(state, None)
+def register_state(state: str, user_id: str, nonce: str):
+    """Remember a connect attempt. `nonce` also goes to the starting browser as
+    an HttpOnly cookie; the callback must present both. Stored in Mongo, not
+    memory, so a deploy in the middle of connecting doesn't break it."""
+    db.oauth_states.insert_one({"_id": state, "user_id": user_id, "nonce": nonce,
+                                "created_at": datetime.now(timezone.utc)})
+
+
+def consume_state(state: str, nonce: str) -> str | None:
+    """The user to attach the LinkedIn account to — only for a state that is
+    unused, under 10 minutes old, and returning to the browser that started it.
+
+    Without the browser check, anyone could start a connect, send the genuine
+    LinkedIn link to someone else, and have that person's LinkedIn attached to
+    their own Voyce account the moment they clicked Allow."""
+    if not state:
+        return None
+    doc = db.oauth_states.find_one_and_delete({"_id": state})   # one use, even if it fails below
+    if not doc or not nonce or not hmac.compare_digest(str(doc.get("nonce", "")), nonce):
+        return None
+    created = doc.get("created_at")
+    if isinstance(created, datetime):
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)   # Mongo hands dates back naive (UTC)
+        if datetime.now(timezone.utc) - created > OAUTH_STATE_TTL:
+            return None
+    return doc.get("user_id")
 
 
 def exchange_code_for_token(code: str) -> dict:

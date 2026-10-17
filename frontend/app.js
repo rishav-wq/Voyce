@@ -41,7 +41,7 @@ async function loadProfilePicker() {
     const sel  = document.getElementById("profile-picker");
     if (wrap && sel && _profiles.length >= 2) {  // only worth a picker with 2+ profiles
       sel.innerHTML = _profiles.map(p =>
-        `<option value="${p.id}" ${p.id === active ? "selected" : ""}>${p.name}${p.profile_type === "personal" ? "" : " · company"}</option>`
+        `<option value="${_escHtmlCreate(p.id)}" ${p.id === active ? "selected" : ""}>${_escHtmlCreate(p.name)}${p.profile_type === "personal" ? "" : " · company"}</option>`
       ).join("");
       wrap.style.display = "flex";
     }
@@ -196,6 +196,7 @@ function applySeedTopic() {
 }
 
 window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin) return;   // only our own callback page may report this
   if (e.data === "linkedin_connected") {
     linkedInConnected = true;
     updateLiPill(true);
@@ -896,9 +897,9 @@ function renderQueue(posts) {
   list.innerHTML = posts.map(p => {
     const statusKey = p.status.replace(/[^a-z_]/gi, "").toLowerCase();
     return `<div class="queue-item">
-      <span class="queue-preview">${p.preview}</span>
+      <span class="queue-preview">${_escHtmlCreate(p.preview)}</span>
       <span class="queue-time">${new Date(p.scheduled_at).toLocaleString()}</span>
-      <span class="queue-status ${statusKey}">${p.status}</span>
+      <span class="queue-status ${statusKey}">${_escHtmlCreate(p.status)}</span>
       ${p.status === "scheduled" ? `<button class="queue-cancel" onclick="cancelPost('${p.id}')" title="Cancel">✕</button>` : ""}
     </div>`;
   }).join("");
