@@ -586,7 +586,7 @@
       <button onclick="openUpgradeModal()">⚡ Upgrade</button>
     </div>
     <div class="side-foot">
-      <button class="li-status-pill" id="li-pill" onclick="handleLiClick()" style="width:100%;justify-content:center;margin-bottom:6px;">
+      <button class="li-status-pill" id="li-pill" onclick="handleLiClick()" style="width:100%;justify-content:center;margin-bottom:6px;visibility:hidden;">
         <span class="dot"></span>
         <span id="li-pill-text">Connect LinkedIn</span>
       </button>
@@ -599,12 +599,6 @@
   </aside>
 
   <main class="dash-body">
-
-    <!-- Page intro -->
-    <div class="page-intro" style="margin-bottom:20px;">
-      <h1 style="font-size:clamp(26px,3.5vw,34px);font-weight:700;letter-spacing:-0.04em;line-height:1.05;margin:0 0 6px;color:#16181d;">Profiles &amp; automation</h1>
-      <p style="font-size:14px;color:#6d7482;margin:0;line-height:1.6;max-width:560px;">Manage who Voyce writes as, set your tone, and turn on automatic daily posting — so every post sounds like <em class="you">you</em>. Just writing a one-off? <a href="/tool" style="color:#24365e;font-weight:600;text-decoration:none;">Go to Create →</a></p>
-    </div>
 
     <!-- Plan usage banner -->
     <div class="plan-banner" id="plan-banner" style="display:none;">
@@ -661,7 +655,7 @@
     <div class="view" id="view-today">
       <div class="view-head">
         <h1>Queue</h1>
-        <p id="today-sub">Everything waiting on you, and what goes out next.</p>
+        <p id="today-sub"><span class="skeleton-line" style="width:280px;max-width:100%;margin:4px 0 0;"></span></p>
       </div>
       <!-- the posts waiting for you + the next 7 days get moved in here -->
     </div>
@@ -987,7 +981,10 @@
       account:   [],
     };
 
+    let _viewsBuilt = false;
     function buildViews() {
+      if (_viewsBuilt) return;
+      _viewsBuilt = true;
       try {
         _buildViews();
       } catch (e) {
@@ -1117,9 +1114,12 @@
 
     // ── LinkedIn ──────────────────────────────────────────────────────────────
     async function checkLinkedIn() {
-      const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
-      const data = await res.json();
-      liConnected = data.connected;
+      let data = { connected: false };
+      try {
+        const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
+        if (res.ok) data = await res.json();
+      } catch (_) {}
+      liConnected = !!data.connected;
       updateLiBanner(data.connected);
       updateLiStat(data.connected);
       updateLiSidebar(data.connected);
@@ -1176,6 +1176,7 @@
       if (!pill) return;
       pill.classList.toggle("connected", connected);
       if (txt) txt.textContent = connected ? "LinkedIn Connected" : "Connect LinkedIn";
+      pill.style.visibility = "";   // hidden until we know which of the two it is
       const at = document.getElementById("acct-li-text"), ab = document.getElementById("acct-li-btn");
       if (at) at.textContent = connected
         ? "Connected. Voyce posts through LinkedIn's official API and never sees your password."
@@ -2952,6 +2953,10 @@
       localStorage.clear();
       window.location.href = "/login";
     }
+
+    // Lay the page out now. Waiting for sign-in (startApp) showed every section
+    // stacked on one page for a second or two before they moved into their views.
+    buildViews();
   </script>
   <script
     async

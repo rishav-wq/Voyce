@@ -26,12 +26,15 @@ function getToken() { return _clerkToken; }
 
 // ── Writing-as profile picker ────────────────────────────────────────────────
 let _profiles = [];
+// The setup strip waits for both answers, so a set-up account never sees it flash.
+let _profilesKnown = false, _liKnown = false;
 function getActiveProfileId() { return localStorage.getItem("cm_profile_id") || ""; }
 function setActiveProfile(id) { localStorage.setItem("cm_profile_id", id); }
 async function loadProfilePicker() {
   try {
     const res = await fetch("/companies", { headers: { "x-token": getToken() } });
-    if (!res.ok) return;
+    _profilesKnown = true;
+    if (!res.ok) { updateProgress(); return; }
     _profiles = await res.json();
     updateProgress();
     if (!_profiles.length) return;
@@ -49,7 +52,7 @@ async function loadProfilePicker() {
     // Ideas need a profile to draw a niche from; the tool panel is always visible,
     // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
-  } catch (_) {}
+  } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
 function _escHtmlCreate(s) {
@@ -280,9 +283,10 @@ async function checkLinkedInStatus() {
     const res = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
     const data = await res.json();
     linkedInConnected = data.connected;
-    updateLiPill(data.connected);
-    updateProgress();
   } catch (_) {}
+  _liKnown = true;
+  updateLiPill(linkedInConnected);
+  updateProgress();
 }
 
 function updateLiPill(connected) {
@@ -291,6 +295,7 @@ function updateLiPill(connected) {
   if (!pill) return;
   pill.classList.toggle("connected", connected);
   text.textContent = connected ? "LinkedIn Connected" : "Connect LinkedIn";
+  pill.style.visibility = "";   // hidden until we know which of the two it is
   updateProgress();
 }
 
@@ -303,8 +308,10 @@ function updateProgress() {
   const auto = document.getElementById("pstep-automate");
   if (!gen || !li) return;
   // Set up = LinkedIn connected and a profile posting daily. Then the strip is noise.
+  // Until both answers are in, it stays hidden rather than flashing.
   const strip = document.getElementById("progress-strip");
-  if (strip) strip.style.display = (linkedInConnected && (_profiles || []).some(p => p.active)) ? "none" : "";
+  const setUp = linkedInConnected && (_profiles || []).some(p => p.active);
+  if (strip) strip.style.display = (!_profilesKnown || !_liKnown || setUp) ? "none" : "";
   const liText = document.getElementById("linkedin-content");
   const carSec = document.getElementById("carousel-section");
   const hasGen = !!(liText && liText.textContent.trim()) ||
