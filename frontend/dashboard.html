@@ -596,7 +596,7 @@
         <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
           Upgrade now — pay securely →
         </button>
-        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro" style="color:#24365e;">need help?</a></div>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:hello@voyce.co.in?subject=Upgrade to Voyce Pro" style="color:#24365e;">need help?</a></div>
         <div style="text-align:center;font-size:12px;color:#aaa;margin-top:6px;">
           <a href="#" onclick="restorePurchase();return false;" style="color:#888;">Paid but still on Free? Restore purchase</a>
           &nbsp;·&nbsp;
@@ -2239,7 +2239,7 @@
       const config = await loadPaymentConfig();
       if (!config || !config.configured) {
         // Payments not set up on the server — fall back to email
-        window.location.href = "mailto:r65581350@gmail.com?subject=Upgrade to Voyce Pro&body=Hi, I'd like to upgrade my account to Pro.";
+        window.location.href = "mailto:hello@voyce.co.in?subject=Upgrade to Voyce Pro&body=Hi, I'd like to upgrade my account to Pro.";
         return;
       }
       btn.disabled = true;

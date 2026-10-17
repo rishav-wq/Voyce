@@ -405,8 +405,34 @@ function _setPreviewAuthor() {
   if (av) av.textContent = (name.trim()[0] || "Y").toUpperCase();
   if (nm) nm.textContent = name;
 }
+// The post as the user sees it. The preview is contenteditable, and pressing
+// Enter there inserts <div>/<br> elements that textContent silently drops, so
+// every line break typed by hand vanished from the posted text. innerText would
+// keep them, but it depends on layout and the "…see more" fold, so walk the DOM.
+function _editorText(el) {
+  if (!el) return "";
+  let out = "";
+  const walk = (node) => {
+    for (const n of node.childNodes) {
+      if (n.nodeType === Node.TEXT_NODE) { out += n.nodeValue; continue; }
+      if (n.nodeName === "BR") { out += "\n"; continue; }
+      if (/^(DIV|P|LI)$/.test(n.nodeName) && out && !out.endsWith("\n")) out += "\n";
+      walk(n);
+    }
+  };
+  walk(el);
+  return out.replace(/\s+$/, "");
+}
+function _postText() {
+  return _editorText(document.getElementById("linkedin-content"));
+}
+function _resetPostButton() {
+  const btn = document.getElementById("post-now-btn");
+  if (btn) { btn.disabled = false; btn.textContent = "Post now"; }
+}
+
 function saveDraft() {
-  const post = document.getElementById("linkedin-content")?.textContent || "";
+  const post = _postText();
   if (!post) { localStorage.removeItem(_DRAFT_KEY); return; }
   try {
     localStorage.setItem(_DRAFT_KEY, JSON.stringify(
@@ -446,6 +472,7 @@ function toggleFold() {
 
 function renderOutputs(data) {
   document.getElementById("linkedin-content").textContent = data.linkedin_post || "";
+  _resetPostButton();   // a new post can be posted, even after the last one was
   _makeEditable();
   _applyFold();
   _setPreviewAuthor();
@@ -481,7 +508,7 @@ function _makeEditable() {
 // A 120-character teaser was unreadable: the variants share their facts, so the
 // openings often diverge only after the first sentence.
 async function generateVariations() {
-  const post = (document.getElementById("linkedin-content").textContent || "").trim();
+  const post = _postText().trim();
   if (!post) { toast("Generate a post first, then I can rewrite it.", "warn"); return; }
   showTool("rewrites");
   await _refreshToken();
@@ -726,7 +753,7 @@ function _pushHistory(text) {
 // shaped — not just the draft the model first returned.
 function _updateActiveHistory() {
   if (_activeHistId == null) return;
-  const text = (document.getElementById("linkedin-content")?.textContent || "").trim();
+  const text = _postText().trim();
   if (!text) return;
   let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
   const it = h.find(e => e.ts === _activeHistId);
@@ -759,7 +786,7 @@ function loadFromHistory(i) {
   const it = h[i]; if (!it) return;
   _activeHistId = it.ts;   // edits from here update this same entry
   const el = document.getElementById("linkedin-content");
-  el.textContent = it.text; _makeEditable(); _applyFold(); saveDraft();
+  el.textContent = it.text; _resetPostButton(); _makeEditable(); _applyFold(); saveDraft();
   document.getElementById("output-section").classList.add("visible");
   _syncToolRuns();
   el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -769,7 +796,7 @@ function loadFromHistory(i) {
 // ── Post Now ──────────────────────────────────────────────────────────────────
 async function postToLinkedIn() {
   if (!linkedInConnected) { toast("Connect LinkedIn first — opening the connect window…", "warn"); connectLinkedIn(); return; }
-  const text = document.getElementById("linkedin-content").textContent;
+  const text = _postText();
   if (!text) { toast("Generate content first.", "warn"); return; }
   await _refreshToken();
 
@@ -800,8 +827,7 @@ async function postToLinkedIn() {
     toast("Posted to LinkedIn!", "success");
   } catch (err) {
     toast(err.message, "error");
-    btn.textContent = "Post Now";
-    btn.disabled = false;
+    _resetPostButton();
   }
 }
 
@@ -835,7 +861,7 @@ async function confirmSchedule() {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({
-        text: document.getElementById("linkedin-content").textContent,
+        text: _postText(),
         schedule_time: new Date(val).toISOString()
       })
     });
@@ -1035,7 +1061,7 @@ function attachRemove() {
 // Generate an on-brand illustration FOR THE CURRENT POST and attach it.
 // Used both by the "Add an AI image" toggle (during generate) and the Regenerate button.
 async function attachGenerateImage() {
-  const post = document.getElementById("linkedin-content").textContent.trim();
+  const post = _postText().trim();
   const source = post || document.getElementById("content-input").value.trim();
   if (!source) { toast("Generate or write a post first.", "warn"); return; }
 
@@ -1114,9 +1140,9 @@ async function attachHandleUpload(event) {
 // ── Copy ──────────────────────────────────────────────────────────────────────
 function copyContent(id, btn) {
   const el = document.getElementById(id);
-  // textContent, not innerText: the clamped preview visually hides lines, but the
-  // clipboard must always get the full post.
-  navigator.clipboard.writeText(el.textContent).then(() => {
+  // Not innerText: the clamped preview visually hides lines, but the clipboard
+  // must always get the full post — with any line breaks the user typed.
+  navigator.clipboard.writeText(el.isContentEditable ? _editorText(el) : el.textContent).then(() => {
     // The button has to be passed in. This used to grab the card's first
     // .action-btn, which stopped being the Copy button the moment anything was
     // added ahead of it — so Copy was relabelling Rewrites as "Copied!".

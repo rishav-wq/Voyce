@@ -16,6 +16,11 @@
     .auth-tagline { font-size: 15px; color: #5b6270; margin-bottom: 34px; text-align: center; }
     .you { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; color: #16181d; }
     #clerk-sign-in { width: 100%; max-width: 420px; }
+    /* Clerk's card has a fixed width that ran ~12px past a 390px phone screen. */
+    @media (max-width: 440px) {
+      body { padding: 16px; }
+      .cl-rootBox, .cl-cardBox, .cl-card { width: 100% !important; max-width: 100% !important; }
+    }
 
     /* ── Match Clerk widget to the Voyce design system ── */
     .cl-card, .cl-cardBox {
@@ -92,10 +97,16 @@
         return;
       }
 
-      clerk.mountSignIn(document.getElementById("clerk-sign-in"), {
+      // "Start free" lands on /signup. It used to open the sign-in form, which
+      // turns away an email it has never seen, so new visitors hit a wall at the
+      // very first step. Each form links to the other.
+      const isSignUp = location.pathname === "/signup";
+      const opts = {
         routing:        "virtual",
         afterSignInUrl:  "/tool",
         afterSignUpUrl:  "/onboarding",
+        signInUrl:       "/login",
+        signUpUrl:       "/signup",
         appearance: {
           variables: {
             colorPrimary:         "#24365e",
@@ -109,7 +120,14 @@
             borderRadius:         "11px",
           }
         }
-      });
+      };
+      const mount = document.getElementById("clerk-sign-in");
+      if (isSignUp) {
+        document.title = "Voyce — Create your free account";
+        clerk.mountSignUp(mount, opts);
+      } else {
+        clerk.mountSignIn(mount, opts);
+      }
     }
   </script>
 

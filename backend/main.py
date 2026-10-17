@@ -490,6 +490,11 @@ def serve_auth():
     return _page("auth.html")
 
 
+@app.get("/signup")
+def serve_signup():
+    return _page("auth.html")   # same page; it mounts the sign-up form on this path
+
+
 @app.get("/terms")
 def serve_terms():
     return _page("terms.html")
