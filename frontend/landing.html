@@ -518,9 +518,9 @@
           <tr>
             <th scope="row">Cost / month</th>
             <td class="col-voyce"><b id="cmp-voyce-price">$49</b></td>
-            <td>$20–100</td>
-            <td>$1,000–5,000</td>
-            <td>$0 + your time</td>
+            <td id="cmp-ai-price">$20–100</td>
+            <td id="cmp-gw-price">$1,000–5,000</td>
+            <td id="cmp-diy-price">$0 + your time</td>
           </tr>
           <tr>
             <th scope="row">Sounds like you</th>
@@ -582,7 +582,7 @@
   <div class="wrap sec-center">
     <span class="eyebrow">Pricing</span>
     <h2 class="sec-title" style="margin-top:18px;">Simple, honest pricing.</h2>
-    <p class="sec-sub">Start free. Upgrade when you want it handled. A human ghostwriter doing this job runs $1,000–$5,000 a month.</p>
+    <p class="sec-sub">Start free. Upgrade when you want it handled. <span id="gw-line">A human ghostwriter doing this job runs $1,000–$5,000 a month.</span></p>
     <div class="price-grid">
       <div class="price">
         <div class="price-tier">Free</div><div class="price-amt" id="free-amt">$0</div><div class="price-per">No credit card needed</div>
@@ -686,6 +686,12 @@
     set("pro-profiles", "3 profiles, each on its own LinkedIn · 1 on daily posting");
     set("pro-gens", "<b>" + (c.pass_generations || 60) + "</b> generations per pass");
     set("cmp-voyce-price", "₹" + rupees);
+    // One currency on the page: the AI tools bill in dollars (converted at
+    // ~₹95), and a ghostwriter in India charges less than one in the US.
+    set("cmp-ai-price", "₹1,900–9,500");
+    set("cmp-gw-price", "₹20,000–1,00,000");
+    set("cmp-diy-price", "₹0 + your time");
+    set("gw-line", "A ghostwriter in India doing this job charges ₹20,000–₹1,00,000 a month.");
   }).catch(function () {});
 </script>
 </body>
