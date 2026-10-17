@@ -883,7 +883,7 @@ def _tweet_card_for(post_text: str, company: dict):
         if not (10 <= len(hook) <= 180):
             return None
         name = company.get("name", "") or "Voyce"
-        handle = "@" + re.sub(r"[^a-z0-9]+", "", name.lower())[:24]
+        handle = (company.get("designation") or "").strip()   # real title, never an invented @handle
         avatar = None
         slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
         av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),

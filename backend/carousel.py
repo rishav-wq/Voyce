@@ -1050,7 +1050,8 @@ def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
                       rw: int = _RW, rh: int = 0, avatar: Image.Image = None) -> Image.Image:
     """Social-screenshot style, matched to the real genre: pure-black frame CROPPED TO
     CONTENT (dynamic height, like an actual screenshot), regular-weight statement text,
-    author row with avatar + verified mark + gray handle, subtle overflow dots top-right.
+    author row with avatar + name + the author's title (no verified mark, no invented
+    handle), subtle overflow dots top-right.
     Always the AUTHOR's own words and name. rh is ignored — height follows content."""
     pad_x = int(76 * _SCALE)
     inner_w = rw - pad_x * 2
@@ -1107,27 +1108,10 @@ def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
     tx = ax + av_r * 2 + int(26 * _SCALE)
     name_txt = (name or "")[:28]
     draw.text((tx, ay + int(2 * _SCALE)), name_txt, font=f_name, fill=(255, 255, 255))
-    nw = _tw(draw, name_txt, f_name)
-    # Verified seal: the scalloped 8-lobed starburst, not a plain circle
-    vb_r = int(17 * _SCALE)
-    vb_cx = tx + nw + int(18 * _SCALE) + vb_r
-    vb_cy = ay + int(2 * _SCALE) + draw.textbbox((0, 0), name_txt, font=f_name)[3] // 2 + int(3 * _SCALE)
-    import math
-    # Soft rosette: 8 overlapping petal circles + core — matches the real seal's rounded lobes
-    blue = (29, 155, 240)
-    petal_r = vb_r * 0.50
-    orbit = vb_r * 0.56
-    for i in range(8):
-        ang = math.pi * i / 4 + math.pi / 8
-        px = vb_cx + orbit * math.cos(ang)
-        py = vb_cy + orbit * math.sin(ang)
-        _draw_circle(draw, int(px), int(py), int(petal_r), blue)
-    _draw_circle(draw, vb_cx, vb_cy, int(vb_r * 0.88), blue)
-    ck = int(vb_r * 0.48)
-    draw.line([(vb_cx - ck, vb_cy + int(1 * _SCALE)), (vb_cx - ck // 3, vb_cy + ck * 2 // 3),
-               (vb_cx + ck, vb_cy - ck // 2)], fill=(255, 255, 255),
-              width=max(4, int(vb_r * 0.28)), joint="curve")
-    draw.text((tx, ay + int(50 * _SCALE)), (handle or "")[:32], font=f_handle, fill=(113, 118, 123))
+    # No verified seal and no @handle. Both were invented: the card implied an X
+    # post and a verification nobody had, and the made-up handle could belong to a
+    # stranger. The second line is the author's real title, when there is one.
+    draw.text((tx, ay + int(50 * _SCALE)), (handle or "")[:40], font=f_handle, fill=(113, 118, 123))
 
     # Overflow dots top-right (subtle platform chrome)
     dots_y = ay + int(18 * _SCALE)
@@ -1547,7 +1531,7 @@ def render_ai_image_png(content: dict, company: dict) -> bytes:
         if key_line and len(card_line.split()) > 16 and len(key_line.split()) < len(card_line.split()):
             card_line = key_line
         content = {**content, "card_headline": card_line}
-        handle = "@" + re.sub(r"[^a-z0-9]+", "", (brand or "voyce").lower())[:24]
+        handle = ((company or {}).get("designation") or "").strip()   # real title, never an invented @handle
         # Real photo avatar by convention: backend/assets/avatars/<name-slug>.png
         avatar_img = None
         try:

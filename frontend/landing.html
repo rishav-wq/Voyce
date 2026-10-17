@@ -55,24 +55,24 @@
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Web",
         "url": "https://voyce.co.in/",
-        "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and publishes to LinkedIn on your schedule through the official LinkedIn API.",
+        "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule to approve with one tap or post automatically, through the official LinkedIn API.",
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations, manual posting to LinkedIn, no credit card." },
-          { "@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Unlimited generations, auto-posting on your schedule, analytics. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Unlimited generations, daily posting on your schedule, post history with sources. A 30-day pass with no auto-charge." }
         ]
       },
       {
         "@type": "FAQPage",
         "@id": "https://voyce.co.in/#faq",
         "mainEntity": [
-          { "@type": "Question", "name": "What is Voyce?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and publishes to LinkedIn on your schedule — through the official LinkedIn API, so your account stays safe." } },
+          { "@type": "Question", "name": "What is Voyce?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule: approve it with one tap, or let it post for you. It connects through LinkedIn's official API." } },
           { "@type": "Question", "name": "Will the posts actually sound like me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the core of it. Upload your past LinkedIn posts and Voyce learns your rhythm, vocabulary, and tone, so what it writes reads like you wrote it, not generic AI." } },
-          { "@type": "Question", "name": "Does it post automatically, or do I approve first?", "acceptedAnswer": { "@type": "Answer", "text": "Your choice. Turn on ask-me-before-it-posts and Voyce writes on your schedule but holds each post for your one-tap approval. When you trust it, flip to full autopilot — every post logged with the news source it reacted to, and one click pauses everything." } },
-          { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "No — Voyce posts through LinkedIn's official OAuth API, the same door Buffer and Hootsuite walk through. No browser bots, no cookies, no scraping, and never any auto-DMs, auto-connects, or pods." } },
+          { "@type": "Question", "name": "Does it post automatically, or do I approve first?", "acceptedAnswer": { "@type": "Answer", "text": "You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it is based on, and nothing goes out until you tap Approve. If you would rather not check, switch to automatic posting. A post that fails Voyce's fact check is always held for you." } },
+          { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension or scraping, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration, and by default you approve every post." } },
           { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 generations to try — text posts, carousels, and image posts — plus manual posting to LinkedIn. No credit card required." } },
-          { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your profile data and posts are yours. Voyce only uses them to generate your content." } },
+          { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI provider, Google Gemini. The Privacy Policy has the details." } },
           { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
-          { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Create separate company and personal profiles, each with its own style, schedule, and topics." } }
+          { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet. Voyce posts to your personal LinkedIn profile. You can keep separate profiles with their own voice and topics, but they all publish from your personal account; posting to company pages needs a separate LinkedIn approval." } }
         ]
       }
     ]
@@ -212,8 +212,8 @@
       7px 7px 0 -1px #fff, 7px 7px 0 0 var(--line),
       14px 14px 0 -1px #fff, 14px 14px 0 0 var(--line),
       0 26px 48px rgba(22,24,29,.16);}
-  .proof-right{display:flex;flex-direction:column;gap:22px;min-width:0;}
-  .tweet-card{margin:0;background:#15181c;color:#e7e9ea;border:1px solid #2f3336;border-radius:16px;padding:22px;flex:1;display:flex;flex-direction:column;justify-content:center;}
+  .proof-right{display:flex;flex-direction:column;justify-content:center;gap:22px;min-width:0;}
+  .tweet-card{margin:0;background:#15181c;color:#e7e9ea;border:1px solid #2f3336;border-radius:16px;padding:22px;flex:none;display:flex;flex-direction:column;justify-content:center;}
   .tweet-head{display:flex;align-items:center;gap:11px;margin-bottom:16px;}
   .tweet-av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;}
   .tweet-name{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:5px;line-height:1.1;}
@@ -290,6 +290,7 @@
   .price ul{list-style:none;display:flex;flex-direction:column;gap:12px;}
   .price li{font-size:14px;display:flex;gap:11px;align-items:flex-start;color:var(--ink-soft);}
   .price.pop li{color:#d2cfc6;}
+  .price.pop li svg{color:#a99fd8;}
   .price li svg{width:17px;height:17px;color:var(--accent);flex-shrink:0;margin-top:2px;}
   .price li.off{color:var(--ink-faint);opacity:.5;}
   @media(max-width:820px){.price-grid{grid-template-columns:1fr;max-width:430px;margin-inline:auto;}.pop-badge{left:50%;transform:translateX(-50%);}}
@@ -385,7 +386,7 @@
     <h1 class="hero-h1" style="margin-top:26px;">Show up on LinkedIn.<br>Sound like <em class="you">you</em>.</h1>
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="hero-sub">Every other tool hands you a draft. Voyce finds today's news in your niche, writes your take in your voice, and publishes on schedule — while you're with clients. You win clients on LinkedIn. You never go invisible again.</p>
+        <p class="hero-sub">Most tools hand you a blank draft. Voyce finds today's news in your niche, writes your take in your voice, and has it ready on your schedule — approve it with one tap, or let it post for you while you're with clients. You win clients on LinkedIn. You never go invisible again.</p>
         <div class="hero-cta">
           <a class="btn btn-primary" href="/signup">Write my first post →</a>
           <a class="btn btn-ghost" href="#how">See how it works</a>
@@ -422,9 +423,8 @@
       <figure class="shot-card"><img src="/static/proof-article.png" alt="A LinkedIn post written with Voyce reacting to a Forbes article on the 2026 LinkedIn algorithm" loading="lazy"></figure>
       </div>
       <div class="proof-right">
-      <figure class="carousel-card"><img src="/static/proof-carousel-1.png" alt="A LinkedIn carousel written with Voyce: I analyzed LinkedIn's 2026 algorithm — here is what wins." loading="lazy"></figure>
       <figure class="tweet-card">
-        <div class="tweet-head"><img class="tweet-av" src="/static/proof-avatar.png" alt="Rishav Raj"><div><div class="tweet-name">Rishav Raj <span class="tweet-check">✓</span></div><div class="tweet-handle">@rishavraj</div></div></div>
+        <div class="tweet-head"><img class="tweet-av" src="/static/proof-avatar.png" alt="Rishav Raj"><div><div class="tweet-name">Rishav Raj</div><div class="tweet-handle">Building Voyce in public</div></div></div>
         <div class="tweet-body">Where you show up matters much more than what you write.</div>
       </figure>
       </div>
@@ -436,7 +436,7 @@
 <!-- Facts -->
 <div class="facts">
   <div class="wrap facts-grid">
-    <div class="fact"><div class="n tnum">7</div><div class="l">Posts a week — you set the cadence</div></div>
+    <div class="fact"><div class="n tnum">7</div><div class="l">Posts a week, at the time you pick</div></div>
     <div class="fact"><div class="n">3 min</div><div class="l">To set up your profile</div></div>
     <div class="fact"><div class="n tnum">5+</div><div class="l">Content formats</div></div>
     <div class="fact"><div class="n">0 hrs</div><div class="l">Of writing per week</div></div>
@@ -449,12 +449,12 @@
     <span class="eyebrow">What Voyce does</span>
     <h2 class="sec-title" style="margin-top:18px;">Everything LinkedIn needs.<br>Nothing else.</h2>
     <div class="feat-grid">
-      <div class="feat"><div class="feat-k">Auto-posting</div><h3>On your schedule, unattended</h3><p>Set a time once. Voyce finds today's news in your niche, writes your take, and posts — a rotating schedule of formats, zero keystrokes.</p></div>
+      <div class="feat"><div class="feat-k">Daily posting</div><h3>On your schedule, with your OK</h3><p>Set a time once. Voyce finds today's news in your niche, writes your take, and emails it to you to approve with one tap — or posts it for you, if you'd rather not check.</p></div>
       <div class="feat"><div class="feat-k">Carousels</div><h3>Branded, no Canva</h3><p>Designed PDF carousels from any idea, posted as LinkedIn documents — automatically.</p></div>
       <div class="feat"><div class="feat-k">Your voice</div><h3>Sounds like <em class="you">you</em></h3><p>Upload your past posts and Voyce matches your tone and phrasing — not generic AI.</p></div>
       <div class="feat"><div class="feat-k">Anywhere</div><h3>Paste &amp; go</h3><p>Drop in text, a URL, or a YouTube link — get ready-to-post content in seconds.</p></div>
-      <div class="feat"><div class="feat-k">Analytics</div><h3>See what lands</h3><p>Track which content performs best and watch engagement over time, all in one place.</p></div>
-      <div class="feat"><div class="feat-k">Profiles</div><h3>You &amp; your brand</h3><p>Your personal brand and a company page — different voices, one dashboard.</p></div>
+      <div class="feat"><div class="feat-k">History</div><h3>Every post, with its source</h3><p>See everything Voyce wrote and published, when it went out, and the news it was based on.</p></div>
+      <div class="feat"><div class="feat-k">Profiles</div><h3>A voice for each audience</h3><p>Separate profiles for each topic or audience, each with its own voice and schedule. Posts go to your personal LinkedIn.</p></div>
     </div>
   </div>
 </section>
@@ -467,7 +467,7 @@
     <p class="sec-sub">No design tools. No writers. Set up once, and Voyce handles the rest.</p>
     <div class="step-grid">
       <div class="step"><div class="step-n">STEP 01</div><h3>Tell it your topic</h3><p>One question — what you post about. Optionally upload past posts so it sounds exactly like you.</p></div>
-      <div class="step"><div class="step-n">STEP 02</div><h3>Connect LinkedIn</h3><p>Authorize Voyce once — official LinkedIn API, the same door Buffer uses. Upgrade to Pro and it publishes on your schedule, unattended.</p></div>
+      <div class="step"><div class="step-n">STEP 02</div><h3>Connect LinkedIn</h3><p>Authorize Voyce once — official LinkedIn API, the same door Buffer uses. Upgrade to Pro and it posts on your schedule, after your one-tap OK or on its own.</p></div>
       <div class="step"><div class="step-n">STEP 03</div><h3>Watch it post</h3><p>Text posts, carousels, and image posts — written, designed, and published for you.</p></div>
     </div>
   </div>
@@ -507,7 +507,7 @@
           <tr>
             <th scope="row">Cost / month</th>
             <td class="col-voyce"><b>$49</b></td>
-            <td>$30–65</td>
+            <td>$20–100</td>
             <td>$1,000–5,000</td>
             <td>$0 + your time</td>
           </tr>
@@ -527,15 +527,15 @@
           </tr>
           <tr>
             <th scope="row">Publishes on your schedule</th>
-            <td class="col-voyce"><span class="yes">Yes</span>, unattended</td>
+            <td class="col-voyce"><span class="yes">Yes</span> — one tap, or on its own</td>
             <td><span class="yes">Yes</span></td>
-            <td class="no">No — drafts only</td>
+            <td class="mid">Some do</td>
             <td class="no">No</td>
           </tr>
           <tr>
-            <th scope="row">Official LinkedIn API (account-safe)</th>
+            <th scope="row">Uses LinkedIn's official API</th>
             <td class="col-voyce"><span class="yes">Yes</span></td>
-            <td class="mid">Many use browser bots</td>
+            <td class="mid">Varies — check before you connect</td>
             <td class="mid">—</td>
             <td><span class="yes">Yes</span></td>
           </tr>
@@ -573,25 +573,24 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>5 generations</b> to try</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Posts, carousels &amp; images</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Post manually to LinkedIn</li>
-          <li class="off">Auto-posting on your schedule</li>
-          <li class="off">Multiple profiles</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Up to 3 profiles</li>
+          <li class="off">Daily posting on your schedule</li>
         </ul>
       </div>
       <div class="price pop">
-        <span class="pop-badge">Most popular</span>
-        <div class="price-tier">Pro</div><div class="price-amt"><sup>$</sup>49 <small>/mo</small></div><div class="price-per">founding price · billed as ₹4,699 · no auto-charge · renew anytime</div>
+        <div class="price-tier">Pro</div><div class="price-amt"><sup>$</sup>49 <small>/mo</small></div><div class="price-per">founding price · a 30-day pass, billed as ₹4,699 · no auto-charge</div>
         <a class="btn btn-primary" href="/signup">Upgrade to Pro →</a>
         <ul>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>Unlimited</b> generations</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><b>Auto-posting on your schedule</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><b>Daily posting on your schedule</b></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every post logged with its source</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Up to 15 profiles</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Analytics + style training</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Post history + voice training</li>
         </ul>
       </div>
     </div>
-    <div class="hero-trust" style="margin-top:30px;">🔒 Secured by Razorpay &nbsp;·&nbsp; ⚡ Pro activates instantly &nbsp;·&nbsp; 🛡️ Risk-free: a 30-day pass that simply expires — never a subscription that traps you</div>
+    <div class="hero-trust" style="margin-top:30px;">🔒 Secured by Razorpay &nbsp;·&nbsp; ⚡ Pro activates instantly &nbsp;·&nbsp; 🛡️ No subscription: a 30-day pass that simply expires — nothing to cancel</div>
   </div>
 </section>
 
@@ -601,14 +600,14 @@
     <span class="eyebrow">FAQ</span>
     <h2 class="sec-title" style="margin-top:18px;">Questions? Answered.</h2>
     <div class="faq">
-      <details open><summary>What is Voyce?</summary><p>Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and publishes to LinkedIn on your schedule — through the official LinkedIn API, so your account stays safe.</p></details>
+      <details open><summary>What is Voyce?</summary><p>Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule: approve it with one tap, or let it post for you. It connects through LinkedIn's official API.</p></details>
       <details><summary>Will the posts actually sound like me?</summary><p>Yes — that's the core of it. Upload your past LinkedIn posts and Voyce learns your rhythm, vocabulary, and tone, so what it writes reads like you wrote it, not generic AI.</p></details>
-      <details><summary>Does it post automatically, or do I approve first?</summary><p>Your choice. Turn on "ask me before it posts" and Voyce writes on your schedule but holds each post for your one-tap approval. When you trust it, flip to full autopilot — every post logged with the news source it reacted to, and one click pauses everything.</p></details>
-      <details><summary>Won't LinkedIn ban my account?</summary><p>No — Voyce posts through LinkedIn's official OAuth API, the same door Buffer and Hootsuite walk through. No browser bots, no cookies, no scraping, and never any auto-DMs, auto-connects, or pods.</p></details>
+      <details><summary>Does it post automatically, or do I approve first?</summary><p>You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it's based on, and nothing goes out until you tap Approve (unapproved posts expire after 48 hours, so stale news never ships). If you'd rather not check, switch to automatic posting. A post that fails Voyce's fact check is always held for you, either way.</p></details>
+      <details><summary>Won't LinkedIn ban my account?</summary><p>Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension or scraping, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration — and by default, you approve every post.</p></details>
       <details><summary>What do I get for free?</summary><p>5 generations to try — text posts, carousels, and image posts — plus manual posting to LinkedIn. No credit card required.</p></details>
-      <details><summary>Is my content private?</summary><p>Yes. Your profile data and posts are yours. Voyce only uses them to generate your content.</p></details>
+      <details><summary>Is my content private?</summary><p>Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI provider, Google Gemini — the <a href="/privacy">Privacy Policy</a> has the details.</p></details>
       <details><summary>Can I cancel anytime?</summary><p>There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to.</p></details>
-      <details><summary>Does it work for a company page too?</summary><p>Yes. Create separate company and personal profiles, each with its own style, schedule, and topics.</p></details>
+      <details><summary>Does it work for a company page too?</summary><p>Not yet. Voyce posts to your personal LinkedIn profile. You can keep separate profiles with their own voice and topics, but they all publish from your personal account — posting to company pages needs a separate LinkedIn approval.</p></details>
     </div>
   </div>
 </section>
