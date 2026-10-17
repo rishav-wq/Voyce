@@ -65,8 +65,8 @@ async function suggestIdeasCreate() {
   showTool("ideas");
   const seeded = !!((document.getElementById("content-input") || {}).value || "").trim();
   out.innerHTML = `<div class="tool-empty">${seeded
-    ? "Drafting ideas from what you typed, plus today's news…"
-    : "Reading today's news and drafting ideas…"} about 10 seconds, and nothing gets posted.</div>`;
+    ? "Drafting ideas from what you typed, plus the latest news…"
+    : "Reading the latest news and drafting ideas…"} about 10 seconds, and nothing gets posted.</div>`;
   try {
     // Whatever is in the composer steers the ideas. Without it they could only
     // ever be "your niche + today's news", which is why they came back generic.

@@ -121,7 +121,7 @@
     <div class="hero">
       <span class="eyebrow">Free · no login · nothing gets posted</span>
       <h1>Do you sound like <span class="you">you</span>—<br>or like every other AI post?</h1>
-      <p>Paste your recent LinkedIn posts. Get your <b>Voice Score</b>, your <b>Voice DNA</b>, and one post written in your voice, grounded in today's news.</p>
+      <p>Paste your recent LinkedIn posts. Get your <b>Voice Score</b>, your <b>Voice DNA</b>, and one post written in your voice, grounded in this week's news.</p>
     </div>
 
     <div class="card" id="form-card">
@@ -151,7 +151,7 @@
 
     <div class="loading" id="loading">
       <div class="spin"></div>
-      Reading your voice and today's news… this runs the real pipeline, so it takes up to a minute.
+      Reading your voice and the latest news… this runs the real pipeline, so it takes up to a minute.
     </div>
 
     <div id="result"></div>
@@ -246,7 +246,7 @@
           <div class="tag">A post written in your voice · ${esc(d.post_type_label||"Sample")}</div>
           <div class="post-head">
             <div class="post-av">${esc(av)}</div>
-            <div><div class="post-name">${esc(nm)}</div><div class="post-sub">now · grounded in today's news</div></div>
+            <div><div class="post-name">${esc(nm)}</div><div class="post-sub">now · grounded in this week's news</div></div>
           </div>
           <div class="post-body">${esc(d.sample_post)}</div>
           ${d.source_title?`<div class="post-src">Reacted to: ${d.source_url?`<a href="${esc(d.source_url)}" target="_blank" rel="noopener">${esc(d.source_title)}</a>`:esc(d.source_title)}</div>`:""}

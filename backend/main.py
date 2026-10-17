@@ -1066,7 +1066,7 @@ def linkedin_invite_page(token: str):
     return _invite_page(
         "Connect your LinkedIn to Voyce",
         f"<p><strong>{who}</strong> has invited you to connect your LinkedIn account to the Voyce profile "
-        f"<strong>{prof}</strong>. Once connected, Voyce can publish posts as you that {who} approves.</p>"
+        f"<strong>{prof}</strong>. Once connected, {who} can publish LinkedIn posts as you through Voyce.</p>"
         "<p>Voyce uses LinkedIn's official sign-in. It never sees your password, never sends messages or "
         "connection requests, and you can disconnect at any time in LinkedIn's settings, under "
         "Data privacy → Permitted services.</p>"

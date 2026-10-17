@@ -1353,7 +1353,7 @@
       const out = document.getElementById("preview-modal-body");
       if (!out) return;
       modal.style.display = "flex";
-      out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Reading today's news and drafting ideas…</div>
+      out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Reading the latest news and drafting ideas…</div>
         <div style="font-size:12.5px;color:#98a0ae;">About 10 seconds. Nothing gets posted.</div>`;
       try {
         const res = await fetch(`/companies/${id}/ideas`,
@@ -1447,7 +1447,7 @@
         _renderPreview(id, _previewCache[id], "", true);
         return;
       }
-      out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Generating${seed ? " that idea" : " a preview"} from today's news…</div>
+      out.innerHTML = `<div style="font-size:13.5px;color:#5b6270;padding:8px 0 4px;">Generating${seed ? " that idea" : " a preview"} from the latest news…</div>
         <div style="font-size:12.5px;color:#98a0ae;">This runs the real pipeline, so it takes up to a minute. Nothing gets posted.</div>`;
       try {
         const qs = new URLSearchParams();
@@ -1487,7 +1487,7 @@
         const who = p ? p.name : "this profile";
         choice = await voyceChoose({
           title: `Turn on daily posting for ${who}?`,
-          message: `Voyce will write a post every day at ${p ? _timeLabel(p) : "the scheduled time"}, from today's news in your niche. If this is a demo or prospect profile, keep it off.`,
+          message: `Voyce will write a post every day at ${p ? _timeLabel(p) : "the scheduled time"}, from this week's news in your niche. If this is a demo or prospect profile, keep it off.`,
           confirmText: "Turn on",
           options: [
             { value: "ask", title: "Ask me before each post (recommended)",
