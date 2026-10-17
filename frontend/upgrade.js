@@ -9,12 +9,12 @@
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:13px;font-weight:700;color:#24365e;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
         <div style="font-size:48px;font-weight:900;line-height:1;color:#16181d;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">4,699</span></div>
-        <div style="font-size:13px;color:#aaa;margin-top:4px;">That's $49 · a 30-day pass · no auto-charge</div>
+        <div id="upgrade-sub" style="font-size:13px;color:#6b7280;margin-top:4px;">That's $49 · a 30-day pass · no auto-charge</div>
       </div>
       <ul style="list-style:none;margin:0 0 28px;padding:0;">
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Up to <strong>15 profiles</strong></span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>15 profiles</strong></span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post history with sources</span></li>
         <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
@@ -79,6 +79,16 @@
         const pr = document.getElementById("upgrade-price");
         if (cur) cur.textContent = _CURRENCY_SYMBOLS[_payConfig.currency] || _payConfig.currency + " ";
         if (pr) pr.textContent = Number.isInteger(value) ? value.toLocaleString("en-IN") : value.toFixed(2);
+        // The server prices by the visitor's country; say what this price covers.
+        const inIndia = _payConfig.region === "IN";
+        const sub = document.getElementById("upgrade-sub");
+        if (sub) sub.textContent = inIndia
+          ? "Founding India price · a 30-day pass · no auto-charge"
+          : "That's $49 · a 30-day pass · no auto-charge";
+        const prof = document.getElementById("upgrade-profiles");
+        if (prof) prof.innerHTML = inIndia
+          ? "<strong>1 profile</strong> on daily posting · every profile for manual writing"
+          : "Up to <strong>15 profiles</strong>";
       }
     } catch (_) {}
     return _payConfig;

@@ -58,7 +58,8 @@
         "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds today's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule to approve with one tap or post automatically, through the official LinkedIn API.",
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations, manual posting to LinkedIn, no credit card." },
-          { "@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Unlimited generations, daily posting on your schedule, post history with sources. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Pro", "price": "49", "priceCurrency": "USD", "description": "Unlimited generations, daily posting on your schedule, post history with sources. A 30-day pass with no auto-charge." },
+          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: unlimited generations and one profile on daily posting. A 30-day pass with no auto-charge." }
         ]
       },
       {
@@ -506,7 +507,7 @@
         <tbody>
           <tr>
             <th scope="row">Cost / month</th>
-            <td class="col-voyce"><b>$49</b></td>
+            <td class="col-voyce"><b id="cmp-voyce-price">$49</b></td>
             <td>$20–100</td>
             <td>$1,000–5,000</td>
             <td>$0 + your time</td>
@@ -567,7 +568,7 @@
     <p class="sec-sub">Start free. Upgrade when you want it handled. A human ghostwriter doing this job runs $1,000–$5,000 a month.</p>
     <div class="price-grid">
       <div class="price">
-        <div class="price-tier">Free</div><div class="price-amt">$0</div><div class="price-per">No credit card needed</div>
+        <div class="price-tier">Free</div><div class="price-amt" id="free-amt">$0</div><div class="price-per">No credit card needed</div>
         <a class="btn btn-ghost" href="/signup">Get started free</a>
         <ul>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>5 generations</b> to try</span></li>
@@ -578,13 +579,13 @@
         </ul>
       </div>
       <div class="price pop">
-        <div class="price-tier">Pro</div><div class="price-amt"><sup>$</sup>49 <small>/mo</small></div><div class="price-per">founding price · a 30-day pass, billed as ₹4,699 · no auto-charge</div>
+        <div class="price-tier">Pro</div><div class="price-amt" id="pro-amt"><sup>$</sup>49 <small>/mo</small></div><div class="price-per" id="pro-per">founding price · a 30-day pass, billed as ₹4,699 · no auto-charge</div>
         <a class="btn btn-primary" href="/signup">Upgrade to Pro →</a>
         <ul>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>Unlimited</b> generations</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><b>Daily posting on your schedule</b></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every post logged with its source</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Up to 15 profiles</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-profiles">Up to 15 profiles</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Post history + voice training</li>
         </ul>
@@ -655,5 +656,19 @@
   src="https://clerk.voyce.co.in/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
   onload="startApp()"
 ></script>
+<script>
+  // Visitors in India see the India price. The server works it out from
+  // Cloudflare's country header and charges the same amount at checkout.
+  fetch("/payments/config").then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
+    if (!c || !c.configured || c.region !== "IN") return;
+    var rupees = (c.amount / 100).toLocaleString("en-IN");
+    function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+    set("free-amt", "₹0");
+    set("pro-amt", "<sup>₹</sup>" + rupees + " <small>/mo</small>");
+    set("pro-per", "founding India price · a 30-day pass · no auto-charge");
+    set("pro-profiles", "1 profile on daily posting");
+    set("cmp-voyce-price", "₹" + rupees);
+  }).catch(function () {});
+</script>
 </body>
 </html>

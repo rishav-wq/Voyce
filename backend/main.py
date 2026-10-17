@@ -799,18 +799,23 @@ def suggest_topics(req: TopicSuggestRequest, x_token: str = Header(None)):
 
 
 # ── Payments (Razorpay) ───────────────────────────────────────────────────────
+def _pricing_region(request: Request) -> str:
+    # Cloudflare adds the visitor's country to every request it proxies.
+    return payments.region_for(request.headers.get("cf-ipcountry", ""))
+
+
 @app.get("/payments/config")
-def payments_config():
-    return payments.get_config()
+def payments_config(request: Request):
+    return payments.get_config(_pricing_region(request))
 
 
 @app.post("/payments/create-order")
-def payments_create_order(x_token: str = Header(None)):
+def payments_create_order(request: Request, x_token: str = Header(None)):
     user = _require_user(x_token)
     if not payments.is_configured():
         raise HTTPException(status_code=503, detail="Payments are not configured")
     try:
-        order = payments.create_order(user["id"], user.get("email", ""))
+        order = payments.create_order(user["id"], user.get("email", ""), _pricing_region(request))
     except Exception:
         logging.exception("Razorpay order creation failed")
         raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
@@ -1455,6 +1460,15 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
         raise HTTPException(status_code=404, detail="Not found")
     if request.active:
         _require_pro(user, "automation")
+        # The India pass covers one profile on daily posting (see payments.py).
+        info = auth_module.get_gen_info(user["id"])
+        if info.get("plan_region") == payments.REGION_IN:
+            others = [c for c in list_companies(user["id"]) if c.get("active") and c.get("id") != company_id]
+            if len(others) >= payments.INDIA_AUTOPILOT_PROFILES:
+                raise HTTPException(status_code=403, detail=(
+                    f"PLAN_LIMIT:Your India plan includes {payments.INDIA_AUTOPILOT_PROFILES} profile on daily "
+                    f"posting. Turn off daily posting on \"{others[0].get('name', 'your other profile')}\" first — "
+                    "you can still write with every profile manually."))
         # Arming chooses the review mode in the same step. Without an explicit
         # choice it asks before every post; publishing unreviewed needs consent.
         approval = True if request.approval_mode is None else request.approval_mode

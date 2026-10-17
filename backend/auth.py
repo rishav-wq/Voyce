@@ -140,6 +140,8 @@ def get_gen_info(user_id: str) -> dict:
     info = {"used": used, "limit": limit, "plan": plan}
     if plan == "pro" and expires_at:
         info["expires_at"] = expires_at
+    if plan == "pro":
+        info["plan_region"] = user.get("plan_region", "INTL")   # "IN": 1 daily-posting profile
     return info
 
 

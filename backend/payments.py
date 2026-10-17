@@ -19,6 +19,14 @@ PRO_PRICE_AMOUNT   = int(os.getenv("PRO_PRICE_AMOUNT", "469900"))
 PRO_PRICE_CURRENCY = os.getenv("PRO_PRICE_CURRENCY", "INR")
 PRO_DURATION_DAYS  = int(os.getenv("PRO_DURATION_DAYS", "31"))
 
+# Location-based pricing. ₹4,699 is right for the $49 international buyer and
+# too much for India, so visitors in India pay a founding India price. Their pass
+# covers one profile on daily posting: AI cost grows with daily profiles, and at
+# this price several of them would eat the margin.
+PRO_PRICE_AMOUNT_IN      = int(os.getenv("PRO_PRICE_AMOUNT_IN", "199900"))   # ₹1,999
+REGION_IN, REGION_INTL   = "IN", "INTL"
+INDIA_AUTOPILOT_PROFILES = 1
+
 _API_BASE = "https://api.razorpay.com/v1"
 
 
@@ -26,26 +34,39 @@ def is_configured() -> bool:
     return bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)
 
 
-def get_config() -> dict:
+def region_for(country: str) -> str:
+    """From Cloudflare's CF-IPCountry. Anything not clearly India — including no
+    header at all (local dev, the onrender URL) — gets the international price."""
+    return REGION_IN if (country or "").strip().upper() == "IN" else REGION_INTL
+
+
+def price_for(region: str) -> int:
+    return PRO_PRICE_AMOUNT_IN if region == REGION_IN else PRO_PRICE_AMOUNT
+
+
+def get_config(region: str = REGION_INTL) -> dict:
     return {
         "configured": is_configured(),
         "key_id": RAZORPAY_KEY_ID,
-        "amount": PRO_PRICE_AMOUNT,
+        "amount": price_for(region),
         "currency": PRO_PRICE_CURRENCY,
+        "region": region,
+        "autopilot_profiles": INDIA_AUTOPILOT_PROFILES if region == REGION_IN else None,
     }
 
 
-def create_order(user_id: str, email: str) -> dict:
+def create_order(user_id: str, email: str, region: str = REGION_INTL) -> dict:
     """Create a Razorpay order and record it so /payments/verify can
-    confirm the order belongs to the paying user."""
+    confirm the order belongs to the paying user. The amount is set here, from
+    the region the server worked out — never taken from the browser."""
     resp = httpx.post(
         f"{_API_BASE}/orders",
         auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
         json={
-            "amount": PRO_PRICE_AMOUNT,
+            "amount": price_for(region),
             "currency": PRO_PRICE_CURRENCY,
             "receipt": f"voyce_pro_{user_id[:24]}",
-            "notes": {"user_id": user_id, "email": email, "product": "voyce_pro"},
+            "notes": {"user_id": user_id, "email": email, "product": "voyce_pro", "region": region},
         },
         timeout=15,
     )
@@ -57,6 +78,7 @@ def create_order(user_id: str, email: str) -> dict:
         "email":      email,
         "amount":     order["amount"],
         "currency":   order["currency"],
+        "region":     region,
         "status":     "created",
         "created_at": datetime.now().isoformat(),
     })
@@ -135,7 +157,10 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
             "paid_at":    datetime.now().isoformat(),
         }},
     )
+    # The plan follows the latest purchase: an India pass includes one profile on
+    # daily posting. Orders from before regional pricing count as international.
+    region = (record or {}).get("region", REGION_INTL)
     db.users.update_one(
         {"id": user_id},
-        {"$set": {"plan": "pro", "plan_expires_at": expires_at}},
+        {"$set": {"plan": "pro", "plan_expires_at": expires_at, "plan_region": region}},
     )
