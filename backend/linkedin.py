@@ -15,6 +15,29 @@ CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8000/auth/linkedin/callback")
 SCOPES = "openid profile w_member_social"
 
+# LinkedIn retires each monthly version of its /rest APIs about a year after
+# release, and a retired one can start failing at any time. 202503 sat past its
+# 2026-03-16 sunset for seven months. 202609 is active until 2027-09-15; see
+# learn.microsoft.com/linkedin/marketing/integrations/migrations. Override with
+# LINKEDIN_API_VERSION to move without a code change.
+API_VERSION = os.getenv("LINKEDIN_API_VERSION", "202609")
+
+
+def _warn_if_version_ageing():
+    try:
+        y, m = int(API_VERSION[:4]), int(API_VERSION[4:6])
+        sunset = datetime(y + 1, m, 15, tzinfo=timezone.utc)
+        days = (sunset - datetime.now(timezone.utc)).days
+        if days < 60:
+            import logging
+            logging.warning(f"LinkedIn API version {API_VERSION} sunsets in ~{days} days — "
+                            "bump LINKEDIN_API_VERSION (see the migrations page).")
+    except Exception:
+        pass
+
+
+_warn_if_version_ageing()
+
 # OAuth state -> user_id mapping (short-lived, in-memory is fine)
 _oauth_states: dict[str, str] = {}
 
@@ -175,7 +198,7 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
     person_id = _get_person_id(user_id)
     headers_base = {
         "Authorization": f"Bearer {access_token}",
-        "LinkedIn-Version": "202503",
+        "LinkedIn-Version": API_VERSION,
         "X-Restli-Protocol-Version": "2.0.0",
     }
 
@@ -187,7 +210,7 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
         timeout=15,
     )
     if not init_res.ok:
-        raise ValueError(f"LinkedIn document init failed {init_res.status_code}: {init_res.text}")
+        raise ValueError("Carousel upload: " + describe_api_failure(init_res.status_code, init_res.text))
     init_res.raise_for_status()
     val = init_res.json()["value"]
     upload_url   = val["uploadUrl"]
@@ -219,7 +242,7 @@ def upload_and_post_carousel(user_id: str, pdf_bytes: bytes, post_text: str, tit
         timeout=15,
     )
     if not post_res.ok:
-        raise ValueError(f"LinkedIn post failed {post_res.status_code}: {post_res.text}")
+        raise ValueError("Carousel post: " + describe_api_failure(post_res.status_code, post_res.text))
     post_res.raise_for_status()
     return {"status": "posted", "type": "carousel", "id": post_res.headers.get("x-restli-id", "")}
 
@@ -231,7 +254,7 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
     person_id = _get_person_id(user_id)
     headers_base = {
         "Authorization": f"Bearer {access_token}",
-        "LinkedIn-Version": "202503",
+        "LinkedIn-Version": API_VERSION,
         "X-Restli-Protocol-Version": "2.0.0",
     }
 
@@ -243,7 +266,7 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
         timeout=15,
     )
     if not init_res.ok:
-        raise ValueError(f"LinkedIn image init failed {init_res.status_code}: {init_res.text}")
+        raise ValueError("Image upload: " + describe_api_failure(init_res.status_code, init_res.text))
     val = init_res.json()["value"]
     upload_url = val["uploadUrl"]
     image_urn  = val["image"]
@@ -274,7 +297,7 @@ def upload_and_post_image(user_id: str, image_bytes: bytes, post_text: str, alt_
         timeout=15,
     )
     if not post_res.ok:
-        raise ValueError(f"LinkedIn image post failed {post_res.status_code}: {post_res.text}")
+        raise ValueError("Image post: " + describe_api_failure(post_res.status_code, post_res.text))
     return {"status": "posted", "type": "image", "id": post_res.headers.get("x-restli-id", "")}
 
 
@@ -288,7 +311,7 @@ def get_post_engagement(user_id: str, post_urn: str) -> dict:
         f"https://api.linkedin.com/rest/socialActions/{encoded}",
         headers={
             "Authorization": f"Bearer {access_token}",
-            "LinkedIn-Version": "202503",
+            "LinkedIn-Version": API_VERSION,
             "X-Restli-Protocol-Version": "2.0.0",
         },
         timeout=15,

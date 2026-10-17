@@ -1709,7 +1709,9 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || "Publish failed — the post is still in your queue.");
-        toast(data.status === "posted_manually" ? "Marked as posted — the calendar shows it as covered." : "Approved — posted to LinkedIn.", "success");
+        toast(data.status === "posted_manually" ? "Marked as posted — the calendar shows it as covered."
+          : data.posted_as === "text" ? "Approved — LinkedIn wouldn't take the image or PDF, so it went out as a text post."
+          : "Approved — posted to LinkedIn.", data.posted_as === "text" ? "warn" : "success");
         loadPending();
         loadLog();
       } catch (err) {

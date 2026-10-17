@@ -1247,6 +1247,11 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
             result = _publish_payload(user_id, payload)
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
+            if result.get("fallback_from"):
+                log_entry.update({"post_format": "text", "fallback_from": result["fallback_from"],
+                                  "post_text": result["fallback_text"],
+                                  "error": f"Posted as text: the {result['fallback_from']} failed "
+                                           f"({result.get('media_error', '')})"})
             auth_module.increment_gens(user_id)
             logger.info(f"[Autonomous] {POST_TYPE_LABELS.get(post_type, post_type)} posted for {company['name']}")
 
@@ -1269,20 +1274,50 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
 PENDING_TTL_HOURS = 48
 
 
+# Lines of a carousel caption that point at the slides make no sense alone.
+_SLIDE_REF = re.compile(r"\b(swipe|slides?|carousel|pdf|document)\b|[👇👉➡⬇→]", re.I)
+
+
+def _text_fallback(payload: dict) -> str:
+    """What to post as plain text if the image or PDF can't be published, or ""
+    if there isn't a real post left once the visual is gone."""
+    text = (payload.get("post_text") or payload.get("publish_text") or "").strip()
+    if payload.get("format") == "carousel":
+        text = "\n".join(l for l in text.splitlines() if not _SLIDE_REF.search(l))
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text if len(text.split()) >= 25 else ""
+
+
 def _publish_payload(user_id: str, payload: dict) -> dict:
     """Publish a generated payload to LinkedIn — the single publish path shared by
-    immediate posting and later approval."""
+    immediate posting and later approval.
+
+    Image and carousel posts go through LinkedIn's versioned /rest APIs, text
+    through the older ugcPosts endpoint. If the media path fails, the day's post
+    still goes out as text rather than not at all; the result says so."""
     import base64 as _b64
     fmt = payload.get("format", "text")
-    if fmt == "carousel":
-        pdf = _b64.b64decode(payload.get("asset_b64", ""))
-        return li.upload_and_post_carousel(user_id, pdf, payload.get("publish_text", ""),
-                                           title=payload.get("title", ""))
-    if fmt == "tweet_card":
+    if fmt not in ("carousel", "tweet_card"):
+        return li.post_to_linkedin(user_id, payload.get("publish_text", ""))
+    try:
+        if fmt == "carousel":
+            pdf = _b64.b64decode(payload.get("asset_b64", ""))
+            return li.upload_and_post_carousel(user_id, pdf, payload.get("publish_text", ""),
+                                               title=payload.get("title", ""))
         png = _b64.b64decode(payload.get("asset_b64", ""))
         return li.upload_and_post_image(user_id, png, payload.get("publish_text", ""),
                                         alt_text=payload.get("alt_text", "post card"))
-    return li.post_to_linkedin(user_id, payload.get("publish_text", ""))
+    except Exception as media_err:
+        text = _text_fallback(payload)
+        if not text:
+            raise
+        logger.warning(f"[Publish] {fmt} failed ({media_err}); posting it as text instead")
+        try:
+            result = li.post_to_linkedin(user_id, text)
+        except Exception as text_err:
+            raise ValueError(f"{media_err} The text-only retry failed too: {text_err}") from text_err
+        return {**result, "fallback_from": fmt, "fallback_text": text,
+                "media_error": str(media_err)[:300]}
 
 
 def _save_pending(company: dict, post_type: str, payload: dict) -> str:
@@ -1359,21 +1394,26 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         {"id": pending_id},
         {"$set": {"status": "approved", "approved_at": datetime.now().isoformat()},
          "$unset": {"asset_b64": ""}})
+    fell_back = result.get("fallback_from", "")
     _append_log({
         "company_id":   pend.get("company_id", ""),
         "company_name": pend.get("company_name", ""),
         "product_name": pend.get("product_name", ""),
         "post_type":    pend.get("post_type", ""),
-        "post_format":  "carousel" if pend.get("format") == "carousel" else "text",
+        "post_format":  "carousel" if pend.get("format") == "carousel" and not fell_back else "text",
         "timestamp":    datetime.now().isoformat(),
         "status":       "posted",
-        "post_text":    pend.get("post_text", ""),
+        "post_text":    result.get("fallback_text") or pend.get("post_text", ""),
         "post_urn":     result.get("id", ""),
         "sources":      pend.get("sources", []),
-        "error":        "",
+        "fallback_from": fell_back,
+        "error":        (f"Posted as text: the {fell_back} failed ({result.get('media_error', '')})"
+                         if fell_back else ""),
     })
-    logger.info(f"[Approval] Pending post {pending_id} approved and published")
-    return {"status": "posted", "post_urn": result.get("id", "")}
+    logger.info(f"[Approval] Pending post {pending_id} approved and published"
+                + (f" as text ({fell_back} failed)" if fell_back else ""))
+    return {"status": "posted", "post_urn": result.get("id", ""),
+            **({"posted_as": "text", "media_error": result.get("media_error", "")} if fell_back else {})}
 
 
 def discard_pending_post(pending_id: str, user_id: str) -> dict:
