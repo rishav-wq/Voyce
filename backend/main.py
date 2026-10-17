@@ -31,6 +31,7 @@ import auth as auth_module
 import payments
 import ratelimit
 import db
+from pymongo.errors import DuplicateKeyError
 
 logging.basicConfig(level=logging.INFO)
 # No public /docs or /openapi.json: the frontend never uses them, and they hand
@@ -143,17 +144,103 @@ def _rate_limit(key: str, limit: int, window: float = 60.0):
         )
 
 
-def _daily_cap(user: dict, kind: str, free_n: int, pro_n: int):
-    """A per-user, per-24h ceiling on endpoints that spend Gemini and Tavily
+# What each plan may spend per day on features that cost Gemini and Tavily
+# money without using a generation. Previews and idea lists share one pool:
+# each runs a paid news search and a writing call. Free accounts have no pool
+# — their previews and idea lists come out of the 5 free generations instead.
+#                 (free, India pass, Pro)
+DAILY_LIMITS = {
+    "drafts":    (None, 5,  20),
+    "rewrites":  (10,   30, 30),
+    "hashtags":  (10,   30, 30),
+}
+_DAILY_LABELS = {"drafts": "previews and idea lists", "rewrites": "rewrites", "hashtags": "hashtag suggestions"}
+
+
+def _plan_tier(user: dict) -> str:
+    """"free", "india" (a ₹ pass), "pro" or "admin"."""
+    info = auth_module.get_gen_info(user["id"])
+    plan = info.get("plan")
+    if plan == "admin":
+        return "admin"
+    if plan == "pro":
+        return "india" if info.get("plan_region") == payments.REGION_IN else "pro"
+    return "free"
+
+
+def _use_allowance(key: str, limit: int, window: int = 86400) -> tuple[bool, int]:
+    """Count one use against an allowance that starts with the first use and
+    lasts `window` seconds. Returns (allowed, seconds until it refills).
+    Kept in the database: the in-memory counters this replaces were wiped by
+    every deploy, which handed every account a fresh day's worth."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(seconds=window)
+    try:
+        if db.usage.update_one({"_id": key, "started_at": {"$gt": cutoff}, "count": {"$lt": limit}},
+                               {"$inc": {"count": 1}}).modified_count:
+            return True, 0
+        try:
+            # No allowance yet, or the last one has run out: start a new one.
+            db.usage.update_one({"_id": key, "started_at": {"$lte": cutoff}},
+                                {"$set": {"started_at": now, "count": 1}}, upsert=True)
+            return True, 0
+        except DuplicateKeyError:
+            # The current allowance exists and is used up.
+            started = (db.usage.find_one({"_id": key}) or {}).get("started_at") or now
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            return False, max(60, int((started + timedelta(seconds=window) - now).total_seconds()))
+    except Exception:
+        logging.exception("[Usage] allowance store unavailable; using the in-memory limit")
+        return ratelimit.allow(f"day:{key}", limit, window), 3600
+
+
+def _refund_allowance(key: str | None):
+    """Give back a use that produced nothing (the AI or the search failed)."""
+    if not key:
+        return
+    try:
+        db.usage.update_one({"_id": key, "count": {"$gt": 0}}, {"$inc": {"count": -1}})
+    except Exception:
+        logging.exception("[Usage] refund failed")
+
+
+def _refills_in(seconds: int) -> str:
+    hours = seconds // 3600
+    if hours >= 1:
+        return f"about {hours} hour{'s' if hours != 1 else ''}"
+    return f"{max(1, seconds // 60)} minutes"
+
+
+def _daily_cap(user: dict, pool: str) -> str | None:
+    """A per-account, per-24h ceiling on endpoints that spend Gemini and Tavily
     money without using a generation. Preview, for one, wrote a full post on
     every click with no limit at all — a free account could loop it forever."""
-    pro = _is_pro(user)
-    n = pro_n if pro else free_n
-    if not ratelimit.allow(f"day:{kind}:{user['id']}", n, 86400):
+    tier = _plan_tier(user)
+    if tier == "admin":
+        return None
+    free_n, india_n, pro_n = DAILY_LIMITS[pool]
+    n = {"free": free_n, "india": india_n, "pro": pro_n}[tier]
+    if n is None:
+        return None
+    key = f"{pool}:{user['id']}"
+    ok, wait = _use_allowance(key, n)
+    if not ok:
         raise HTTPException(
             status_code=429,
-            detail=(f"You've used today's {n} {kind}. More are available within 24 hours."
-                    + ("" if pro else " Pro raises the limit.")))
+            detail=(f"You've used today's {n} {_DAILY_LABELS[pool]}. More in {_refills_in(wait)}."
+                    + (" Pro raises the limit." if tier == "free" else "")))
+    return key   # so a use that fails can be given back
+
+
+def _spend_free_generation(user: dict, tier: str):
+    """A free account's previews and idea lists come out of its 5 generations."""
+    if tier != "free":
+        return
+    try:
+        auth_module.increment_gens(user["id"])
+    except Exception as e:
+        logging.error(f"[Gen] increment_gens failed: {e}")
 
 
 def _client_ip(request: Request) -> str:
@@ -305,6 +392,7 @@ def _ensure_indexes():
         db.oauth_states.create_index("created_at", expireAfterSeconds=600)
         db.run_claims.create_index("created", expireAfterSeconds=3 * 86400)
         db.li_invites.create_index("created_at", expireAfterSeconds=8 * 86400)
+        db.usage.create_index("started_at", expireAfterSeconds=2 * 86400)
     except Exception:
         logging.exception("could not create TTL indexes")
 
@@ -659,14 +747,21 @@ class VoiceCheckRequest(BaseModel):
 
 @app.post("/voice-check")
 def voice_check(req: VoiceCheckRequest, request: Request):
-    _rate_limit(f"voicecheck:{_client_ip(request)}", 4, 3600)   # 4/hour/IP — it's LLM-costly
-    # A ceiling no per-IP trick can get around: the tool needs no login, and each
-    # check costs several Gemini calls plus a Tavily search.
-    _rate_limit("voicecheck:all", 300, 86400)
     posts_blob = (req.posts or "").strip()
     if len(posts_blob) < 60:
         raise HTTPException(status_code=400,
                             detail="Paste at least one full post — a line or two isn't enough to read your voice.")
+    # No login, and each check costs several Gemini calls plus a Tavily search:
+    # 3 a day per visitor, and a ceiling no per-IP trick can get around.
+    vc_key = f"voicecheck:{_client_ip(request)}"
+    ok, wait = _use_allowance(vc_key, 3)
+    if not ok:
+        raise HTTPException(status_code=429, detail=(
+            f"You've run today's 3 Voice Checks. More in {_refills_in(wait)} — "
+            "or sign up free to write in your voice inside Voyce."))
+    if not _use_allowance("voicecheck:all", 300)[0]:
+        _refund_allowance(vc_key)
+        raise HTTPException(status_code=429, detail="Voice Check is very busy today. Please try again tomorrow.")
     name  = (req.name or "").strip()[:60] or "You"
     niche = (req.niche or "").strip()[:120]
     try:
@@ -753,9 +848,11 @@ Reward specificity, a clear point of view, and a human rhythm. Penalise vague mo
             "niche":           niche,
         }
     except HTTPException:
+        _refund_allowance(vc_key)   # the paste couldn't be read: not a run
         raise
     except Exception:
         logging.exception("voice-check failed")
+        _refund_allowance(vc_key)
         raise HTTPException(status_code=502,
                             detail="Couldn't run your Voice Check right now. Please try again in a moment.")
 
@@ -1180,7 +1277,7 @@ def generate_variations(request: VariationsRequest, x_token: str = Header(None))
     Refinement of existing content, so it doesn't count against the gen limit."""
     user = _require_user(x_token)
     _rate_limit(f"gen:{user['id']}", 20)
-    _daily_cap(user, "rewrites", free_n=20, pro_n=100)
+    _daily_cap(user, "rewrites")
     if not request.post.strip():
         raise HTTPException(status_code=400, detail="Generate a post first, then I can write variations.")
     try:
@@ -1226,7 +1323,7 @@ def generate_hashtags(request: HashtagsRequest, x_token: str = Header(None)):
     is refinement of existing content, so it doesn't spend a generation."""
     user = _require_user(x_token)
     _rate_limit(f"gen:{user['id']}", 20)
-    _daily_cap(user, "hashtag suggestions", free_n=20, pro_n=100)
+    _daily_cap(user, "hashtags")
     if not request.post.strip():
         raise HTTPException(status_code=400, detail="Generate a post first, then I can suggest hashtags.")
     try:
@@ -1742,16 +1839,20 @@ def discard_pending(pending_id: str, x_token: str = Header(None)):
 def preview_post(company_id: str, post_type: str = "", seed: str = "",
                  x_token: str = Header(None)):
     """Generate a sample post ON DEMAND — the real autopilot pipeline (rotation
-    post-type + live news → post) but WITHOUT publishing and WITHOUT counting
-    against the gen limit. Works whether or not daily automation is on.
+    post-type + live news → post) but WITHOUT publishing. On Pro it draws on the
+    daily previews-and-ideas allowance, not the generation count; on Free it
+    uses one of the 5 generations. Works whether or not daily automation is on.
     Optional: post_type forces a type (e.g. from a chosen idea); seed steers the
     post around a specific angle."""
     user = _require_user(x_token)
     _rate_limit(f"gen:{user['id']}", 20)
-    _daily_cap(user, "previews", free_n=10, pro_n=60)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
+    tier = _plan_tier(user)
+    if tier == "free":
+        _check_gen_limit(user)
+    cap = _daily_cap(user, "drafts")
     try:
         from autonomous import (generate_autonomous_post, _get_post_type, POST_TYPE_LABELS,
                                 COMPANY_ROTATION, PERSONAL_ROTATION)
@@ -1768,10 +1869,12 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
             # A chosen idea: make the generator build the post around this angle.
             news_context = f"PRIORITY ANGLE — write the post around this idea: {seed.strip()[:200]}\n\n" + news_context
         post_text = generate_autonomous_post(subject, news_context, pt)
+        _spend_free_generation(user, tier)
         return {"post": post_text, "post_type": POST_TYPE_LABELS.get(pt, pt),
                 "product_name": subject.get("product_name", "")}
     except Exception:
         logging.exception("preview generation failed")
+        _refund_allowance(cap)
         raise HTTPException(status_code=502, detail="Could not generate a preview. Please try again.")
 
 
@@ -1786,14 +1889,18 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
                   x_token: str = Header(None)):
     """Propose a short menu of post ideas for the coming days, tailored to the
     profile and grounded in today's live news — spanning different post types so
-    the menu covers strategy, not five news reactions. Nothing is posted; no
-    gen-limit cost. Each idea can be expanded via /preview (post_type + seed)."""
+    the menu covers strategy, not five news reactions. Nothing is posted. It
+    shares the daily allowance with previews on Pro and uses a generation on
+    Free. Each idea can be expanded via /preview (post_type + seed)."""
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     _rate_limit(f"ideas:{user['id']}", 12)
-    _daily_cap(user, "idea lists", free_n=15, pro_n=60)
+    tier = _plan_tier(user)
+    if tier == "free":
+        _check_gen_limit(user)
+    cap = _daily_cap(user, "drafts")
     try:
         from autonomous import (COMPANY_ROTATION, PERSONAL_ROTATION, POST_TYPE_LABELS,
                                 POST_TYPE_DESCRIPTIONS)
@@ -1847,9 +1954,14 @@ Return ONLY JSON:
                 "source_url": src_url.get(src, ""),
             })
         ideas = [i for i in ideas if i["hook"]]
+        if ideas:
+            _spend_free_generation(user, tier)
+        else:
+            _refund_allowance(cap)
         return {"ideas": ideas, "product_name": subject.get("product_name", "")}
     except Exception:
         logging.exception("idea generation failed")
+        _refund_allowance(cap)
         raise HTTPException(status_code=502, detail="Could not generate ideas right now. Please try again.")
 
 

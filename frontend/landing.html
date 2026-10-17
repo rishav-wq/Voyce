@@ -57,9 +57,9 @@
         "url": "https://voyce.co.in/",
         "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule to approve with one tap or post automatically, through the official LinkedIn API.",
         "offers": [
-          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations, manual posting to LinkedIn, no credit card." },
-          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited generations, daily posting on your schedule, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
-          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 generations per pass and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations (posts, previews or idea lists), manual posting to LinkedIn, no credit card." },
+          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited generations, 20 previews or idea lists a day, daily posting on your schedule, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
+          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 generations per pass, 5 previews or idea lists a day, and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
         ]
       },
       {
@@ -70,7 +70,7 @@
           { "@type": "Question", "name": "Will the posts actually sound like me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the core of it. Add a few of your past LinkedIn posts and Voyce writes in your rhythm, vocabulary, and tone, so it reads like you wrote it, not generic AI." } },
           { "@type": "Question", "name": "Does it post automatically, or do I approve first?", "acceptedAnswer": { "@type": "Answer", "text": "You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it is based on, and nothing goes out until you tap Approve. If you would rather not check, switch to automatic posting. A post that fails Voyce's fact and quality check is always held for you." } },
           { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration, and by default you approve every post." } },
-          { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 generations to try — text posts, carousels, and image posts — plus manual posting to LinkedIn. No credit card required." } },
+          { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 generations to try: each post, carousel, image, preview or idea list uses one. Plus manual posting to LinkedIn. No credit card required." } },
           { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI provider, Google Gemini. The Privacy Policy has the details." } },
           { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
           { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them." } }
@@ -604,7 +604,7 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every daily post logged with its source</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-profiles">Up to 3 profiles, each on its own LinkedIn</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>60 previews and idea lists a day</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-drafts">20 previews or idea lists a day</span></li>
         </ul>
       </div>
     </div>
@@ -622,7 +622,7 @@
       <details><summary>Will the posts actually sound like me?</summary><p>Yes — that's the core of it. Add a few of your past LinkedIn posts and Voyce writes in your rhythm, vocabulary, and tone, so it reads like you wrote it, not generic AI.</p></details>
       <details><summary>Does it post automatically, or do I approve first?</summary><p>You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it's based on, and nothing goes out until you tap Approve (unapproved posts expire after 48 hours, so stale news never ships). If you'd rather not check, switch to automatic posting. A post that fails Voyce's fact and quality check is always held for you, either way.</p></details>
       <details><summary>Won't LinkedIn ban my account?</summary><p>Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration — and by default, you approve every post.</p></details>
-      <details><summary>What do I get for free?</summary><p>5 generations to try — text posts, carousels, and image posts — plus manual posting to LinkedIn. No credit card required.</p></details>
+      <details><summary>What do I get for free?</summary><p>5 generations to try: each post, carousel, image, preview or idea list uses one. Plus manual posting to LinkedIn. No credit card required.</p></details>
       <details><summary>Is my content private?</summary><p>Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI provider, Google Gemini — the <a href="/privacy">Privacy Policy</a> has the details.</p></details>
       <details><summary>Can I cancel anytime?</summary><p>There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to.</p></details>
       <details><summary>Does it work for a company page too?</summary><p>Not yet — company pages need a separate LinkedIn approval. On Pro, though, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them.</p></details>
@@ -685,6 +685,7 @@
     set("pro-per", "founding India price · a 30-day pass · no auto-charge");
     set("pro-profiles", "3 profiles, each on its own LinkedIn · 1 on daily posting");
     set("pro-gens", "<b>" + (c.pass_generations || 60) + "</b> generations per pass");
+    set("pro-drafts", "5 previews or idea lists a day");
     set("cmp-voyce-price", "₹" + rupees);
     // One currency on the page: the AI tools bill in dollars (converted at
     // ~₹95), and a ghostwriter in India charges less than one in the US.

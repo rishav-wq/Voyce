@@ -76,6 +76,12 @@ async function suggestIdeasCreate() {
       body: JSON.stringify({ context: seed.trim().slice(0, 1200) }),
     });
     const data = await res.json();
+    if (data.detail === "LIMIT_REACHED") {
+      // Free accounts: idea lists come out of the 5 generations.
+      out.innerHTML = `<div class="tool-empty">You've used your 5 free generations, and idea lists use them too.</div>`;
+      showError("LIMIT_REACHED");
+      return;
+    }
     if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
     _createIdeas = data.ideas || [];
     if (!_createIdeas.length) { out.innerHTML = `<div class="tool-empty">No ideas came back — try again in a moment.</div>`; return; }

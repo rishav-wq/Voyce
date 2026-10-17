@@ -1359,6 +1359,7 @@
         const res = await fetch(`/companies/${id}/ideas`,
           { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json();
+        if (data.detail === "LIMIT_REACHED") { out.innerHTML = _outOfFreeHtml("Idea lists"); return; }
         if (!res.ok) throw new Error(data.detail || "Couldn't generate ideas.");
         const ideas = data.ideas || [];
         window._ideas[id] = ideas;
@@ -1375,6 +1376,15 @@
       } catch (e) {
         out.innerHTML = `<div style="font-size:12.5px;color:#c0392b;">${_escHtml(e.message)}</div>`;
       }
+    }
+
+    // Free accounts: previews and idea lists come out of the 5 generations.
+    function _outOfFreeHtml(what) {
+      return `<div style="font-size:13.5px;color:#16181d;line-height:1.55;padding:4px 0;">You've used your 5 free generations.
+        ${what} use them too, since each one writes from the latest news.</div>
+        <div style="margin-top:14px;display:flex;gap:8px;"><button class="act-btn" style="background:#24365e;color:#fff;border-color:#24365e;"
+          onclick="closePreviewModal();openUpgradeModal();">⚡ Upgrade to Pro</button>
+          <button class="act-btn" onclick="closePreviewModal()">Close</button></div>`;
     }
 
     function previewIdea(id, i) {
@@ -1456,6 +1466,7 @@
         const res = await fetch(`/companies/${id}/preview${qs.toString() ? "?" + qs.toString() : ""}`,
           { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json();
+        if (data.detail === "LIMIT_REACHED") { out.innerHTML = _outOfFreeHtml("Previews"); return; }
         if (!res.ok) throw new Error(data.detail || "Preview failed.");
         if (!postType && !seed) _previewCache[id] = data;   // cache only the generic preview
         _renderPreview(id, data, postType, false);
