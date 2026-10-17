@@ -1657,8 +1657,14 @@ def reset_company_voice(company_id: str, x_token: str = Header(None)):
 def get_companies(x_token: str = Header(None)):
     user = _require_user(x_token)
     companies = list_companies(user["id"])
-    from autonomous import get_post_type_info, get_week_plan, POST_TYPE_DESCRIPTIONS
+    from autonomous import get_post_type_info, get_week_plan, get_week_forecast, carousel_mode, POST_TYPE_DESCRIPTIONS
     for c in companies:
+        c["carousels_per_week"] = carousel_mode(c)
+        try:
+            c["week_forecast"] = get_week_forecast(c)
+        except Exception:
+            logging.exception("[Forecast] failed")
+            c["week_forecast"] = []
         info = get_post_type_info(c)
         c["next_post_type"] = info["next_post_type"]
         c["next_post_type_desc"] = info.get("next_post_type_desc", "")
@@ -1753,6 +1759,7 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
 
 class CarouselPatch(BaseModel):
     theme: str | None = None
+    per_week: int | str | None = None   # 0-3, or "alt" (every other day)
 
 
 @app.patch("/companies/{company_id}/carousel")
@@ -1762,6 +1769,17 @@ def toggle_carousel(company_id: str, request: CarouselPatch | None = None, x_tok
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     import db as _db
+    from autonomous import CAROUSEL_CHOICES
+    if request is not None and request.per_week is not None:
+        n = request.per_week
+        if isinstance(n, str) and n.isdigit():
+            n = int(n)
+        if n not in CAROUSEL_CHOICES:
+            raise HTTPException(status_code=400, detail="Carousels per week: 0, 1, 2, 3 or every other day.")
+        if n:
+            _require_pro(user, "carousel")
+        _db.companies.update_one({"id": company_id}, {"$set": {"carousels_per_week": n, "carousel_enabled": bool(n)}})
+        return {"carousels_per_week": n, "carousel_enabled": bool(n), "carousel_theme": company.get("carousel_theme", "")}
     # With a theme in the body this sets the theme; with no body it toggles on/off.
     if request is not None and request.theme is not None:
         _db.companies.update_one({"id": company_id}, {"$set": {"carousel_theme": request.theme}})
@@ -1769,7 +1787,8 @@ def toggle_carousel(company_id: str, request: CarouselPatch | None = None, x_tok
     new_val = not company.get("carousel_enabled", False)
     if new_val:
         _require_pro(user, "carousel")
-    _db.companies.update_one({"id": company_id}, {"$set": {"carousel_enabled": new_val}})
+    _db.companies.update_one({"id": company_id}, {"$set": {"carousel_enabled": new_val,
+                                                           "carousels_per_week": "alt" if new_val else 0}})
     return {"carousel_enabled": new_val, "carousel_theme": company.get("carousel_theme", "")}
 
 

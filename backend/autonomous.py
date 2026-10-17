@@ -1085,18 +1085,83 @@ def _format_linkedin_post(text: str) -> str:
     return "\n\n".join(result)
 
 
-def _should_post_carousel(company: dict) -> bool:
-    """Carousels on alternate days — what the switch has always promised ("alternating
-    automated days"). It used to make every post a carousel."""
-    if not company.get("carousel_enabled"):
-        return False
+# How many daily posts a week are carousels. 1-3 land on fixed weekdays in the
+# profile's own time zone (spread out, never back to back); "alt" alternates with
+# the profile's last post. Profiles from before the choice existed: switch on = "alt".
+CAROUSEL_CHOICES = (0, 1, 2, 3, "alt")
+CAROUSEL_WEEKDAYS = {1: {2}, 2: {1, 3}, 3: {0, 2, 4}}   # Mon=0: Wed · Tue+Thu · Mon+Wed+Fri
+_DAILY_STATUSES = ("posted", "pending_approval", "expired", "discarded", "superseded", "dry_run_fired")
+
+
+def carousel_mode(company: dict):
+    v = company.get("carousels_per_week")
+    if v in CAROUSEL_CHOICES:
+        return v
+    return "alt" if company.get("carousel_enabled") else 0
+
+
+def _last_daily(company: dict) -> dict | None:
     try:
-        for e in get_post_log([company.get("id", "")]):
-            if e.get("status") in ("posted", "pending_approval", "expired", "discarded", "dry_run_fired"):
-                return e.get("post_format") != "carousel"
+        return next((e for e in get_post_log([company.get("id", "")]) if e.get("status") in _DAILY_STATUSES), None)
     except Exception:
         logger.exception("[Carousel] could not read the last post")
-    return True
+        return None
+
+
+def _should_post_carousel(company: dict, day: date | None = None) -> bool:
+    mode = carousel_mode(company)
+    if not mode:
+        return False
+    if mode == "alt":
+        last = _last_daily(company)
+        return not last or last.get("post_format") != "carousel"
+    return (day or _local_today(company)).weekday() in CAROUSEL_WEEKDAYS[mode]
+
+
+def get_week_forecast(company: dict, days: int = 7) -> list[dict]:
+    """What each daily run will write, today first: the profile-local date, the post
+    type and the format. Same rules as run_for_company, so the app shows the plan
+    instead of guessing it."""
+    from zoneinfo import ZoneInfo
+    from company import valid_tz, DEFAULT_TZ
+    labels = get_week_plan(company, days)
+    key_of = {v: k for k, v in POST_TYPE_LABELS.items()}
+    start = _local_today(company)
+    sched = company.get("scheduled_types") or {}
+    mode = carousel_mode(company)
+    last = _last_daily(company)
+    last_car = bool(last) and last.get("post_format") == "carousel"
+    ran_today = False
+    if last:
+        try:
+            ts = datetime.fromisoformat(last["timestamp"]).astimezone(ZoneInfo(valid_tz(company.get("timezone", "")) or DEFAULT_TZ))
+            ran_today = ts.date() == start
+        except Exception:
+            pass
+    out = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        label = labels[i] if i < len(labels) else ""
+        planned = sched.get(d.isoformat()) or ""
+        if isinstance(planned, dict):
+            planned = planned.get("type", "")
+        if planned == "__video__":
+            fmt = "video"
+        elif planned == "__carousel__":
+            fmt = "carousel"
+        elif planned in POST_TYPE_LABELS:
+            label = POST_TYPE_LABELS[planned]   # an explicit type is never a carousel
+            fmt = "card" if planned in TWEET_CARD_TYPES else "text"
+        else:
+            if mode == "alt":
+                car = (not last_car) if not (i == 0 and ran_today) else last_car
+            else:
+                car = bool(mode) and d.weekday() in CAROUSEL_WEEKDAYS[mode]
+            fmt = "carousel" if car else ("card" if key_of.get(label) in TWEET_CARD_TYPES else "text")
+        if not (i == 0 and ran_today):
+            last_car = fmt == "carousel"
+        out.append({"date": d.isoformat(), "post_type": label, "format": fmt, "planned": planned})
+    return out
 
 
 def _video_gen_prompt(subject: dict, post_text: str) -> str:
@@ -1249,7 +1314,7 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         do_diy_video = True
     else:
         post_type  = _get_post_type(company, runs_today)
-        do_carousel = _should_post_carousel(company)
+        do_carousel = _should_post_carousel(company, local_today)
 
     # The subject for this post is the profile itself (its voice, niche, knowledge).
     subject = company

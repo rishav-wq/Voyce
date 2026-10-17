@@ -147,7 +147,7 @@ function _ensurePostingConnected() {
   const p = _activeProfile();
   if (p && p.li && p.li.own_account) {
     if (p.li.connected) return true;
-    toast("This profile's LinkedIn connection has expired — send a new invite from Profiles.", "warn");
+    toast("This profile's LinkedIn connection has expired — send a new invite from Settings.", "warn");
     return false;
   }
   if (linkedInConnected) return true;

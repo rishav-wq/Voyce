@@ -263,6 +263,53 @@
     .cal-chip.sched { background: #e7ebf4; color: #24365e; }
     .cal-chip.none  { background: #eef0f4; color: #a7aebb; }
     .cal-chip.wait  { background: #fff4dc; color: #8a5a00; }
+    /* Settings tabs */
+    .set-tabs { display: flex; gap: 2px; margin: 14px 0 0; border-bottom: 1px solid #e4e7ec; overflow-x: auto; }
+    .set-tabs button { background: none; border: none; border-bottom: 2px solid transparent; padding: 9px 14px; font-family: inherit; font-size: 14px; font-weight: 600; color: #6b7280; cursor: pointer; margin-bottom: -1px; white-space: nowrap; }
+    .set-tabs button.on { color: #16181d; border-bottom-color: #24365e; }
+    /* Queue: the next 7 days */
+    .up-day { margin: 0 0 16px; }
+    .up-day-h { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #98a0ae; margin: 0 0 6px 2px; }
+    .up-day-h.today { color: #24365e; }
+    .up-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; gap: 8px 14px; align-items: center; background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; }
+    .up-row.past { background: #fafbfc; }
+    .up-time { font-size: 13px; font-weight: 600; color: #16181d; }
+    .up-tz { display: block; font-size: 10.5px; font-weight: 500; color: #98a0ae; line-height: 1.3; }
+    .up-what { font-size: 13.5px; color: #16181d; min-width: 0; overflow-wrap: anywhere; }
+    .up-who { font-size: 12px; color: #98a0ae; margin-top: 2px; }
+    .up-fmt { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 20px; margin-left: 8px; background: #eef1f6; color: #5b6270; vertical-align: 1px; }
+    .up-fmt.carousel { background: #e7ebf4; color: #24365e; }
+    .up-fmt.card { background: #fdf0e6; color: #9a4a12; }
+    .up-fmt.video { background: #f3e8ff; color: #6b21a8; }
+    .up-st { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; text-decoration: none; }
+    .up-st.ok { background: #e6f4ea; color: #057642; }
+    .up-st.wait { background: #fff4dc; color: #8a5a00; }
+    .up-st.muted { background: #eef0f4; color: #7a8190; }
+    .up-st.bad { background: #fdeceb; color: #c0392b; }
+    .up-st.plan { background: #f4f6fb; color: #5b6270; font-weight: 500; }
+    .up-row select { font-size: 12px; padding: 5px 8px; border: 1px solid #d3d8e0; border-radius: 6px; background: #fff; color: #555; font-family: inherit; max-width: 160px; }
+    @media (max-width: 640px) {
+      .up-row { grid-template-columns: 54px minmax(0, 1fr); }
+      .up-row > .up-st, .up-row > select { grid-column: 2; justify-self: start; }
+    }
+    .up-hint { font-size: 12px; color: #98a0ae; }
+    @media (max-width: 640px) { .up-hint { display: none; } }
+    .queue-empty { background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; padding: 22px; margin-bottom: 18px; }
+    .queue-empty h3 { font-size: 17px; margin: 0 0 6px; }
+    .queue-empty p { font-size: 14px; color: #5b6270; margin: 0 0 14px; line-height: 1.55; }
+    .queue-empty .qe-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* Settings → Account */
+    .acct-card { background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; padding: 18px 20px; margin: 18px 0 0; }
+    .acct-card h3 { font-size: 15px; margin: 0 0 6px; }
+    .acct-card p { font-size: 14px; color: #5b6270; margin: 0 0 12px; line-height: 1.55; }
+    /* Profile card: voice first */
+    .voice-cta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: #f4f6fb; border: 1px dashed #b9c4dc; border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; font-size: 12.5px; color: #24365e; line-height: 1.45; }
+    /* History tabs */
+    .lg-tabs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+    .lg-tabs button { background: #fff; border: 1px solid #d3d8e0; border-radius: 20px; padding: 6px 14px; font-family: inherit; font-size: 13px; font-weight: 600; color: #5b6270; cursor: pointer; }
+    .lg-tabs button.on { background: #24365e; border-color: #24365e; color: #fff; }
+    .lg-tabs select { margin-left: auto; font-size: 13px; padding: 6px 10px; border: 1px solid #d3d8e0; border-radius: 8px; font-family: inherit; color: #555; background: #fff; }
+    .log-table tr.lg-group td { background: #f6f7f9; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #98a0ae; padding: 8px 12px; }
     td.cal-st-wait  { box-shadow: inset 3px 0 0 #e0b04a; }
     td.cal-st-ok    { box-shadow: inset 3px 0 0 #18a07a; }
     td.cal-st-fail  { box-shadow: inset 3px 0 0 #e05555; }
@@ -520,23 +567,18 @@
     <nav class="side-nav">
       <button class="side-item active" id="nav-today" onclick="showView('today', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-        <span>Today</span>
+        <span>Queue</span>
         <span class="nav-count" id="nav-pending-count" hidden></span>
       </button>
       <a class="side-item" href="/tool">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg>
-        <span>Create</span>
+        <span>Write</span>
       </a>
       <button class="side-item" id="nav-profiles" onclick="showView('profiles', this)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 7.5a3 3 0 0 1 0 5.5M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>
-        <span>Profiles</span>
-      </button>
-      <button class="side-item" id="nav-analytics" onclick="showView('analytics', this)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-        <span>Analytics</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <span>Settings</span>
       </button>
     </nav>
-    <button class="btn-add" onclick="openModal()" style="width:100%;padding:11px;">+ Add Profile</button>
     <div class="side-spacer"></div>
     <div class="side-upsell" id="side-upsell">
       <h4>Upgrade to Pro</h4>
@@ -618,38 +660,38 @@
          so every section keeps its id and all existing functions keep working. ── -->
     <div class="view" id="view-today">
       <div class="view-head">
-        <h1>Today</h1>
+        <h1>Queue</h1>
         <p id="today-sub">Everything waiting on you, and what goes out next.</p>
       </div>
-      <!-- pending queue + calendar get moved in here -->
-      <div class="sec-head" id="glance-head" style="display:none;"><h2>Where things stand</h2>
-        <a class="nav-link" onclick="showView('analytics', document.getElementById('nav-analytics'))">See analytics</a>
-      </div>
-      <div class="glance-grid" id="glance-grid" style="display:none;"></div>
+      <!-- the posts waiting for you + the next 7 days get moved in here -->
     </div>
 
     <div class="view" id="view-profiles">
-      <div class="view-head">
-        <h1>Profiles</h1>
-        <p>Who Voyce writes as, the voice it learns, and when it posts.</p>
-      </div>
+      <div class="view-head"><h1>Settings</h1><div class="set-tabs" data-on="profiles"></div></div>
     </div>
 
     <div class="view" id="view-analytics">
-      <div class="view-head">
-        <h1>Analytics</h1>
-        <p>What the posts did, and whether Voyce is moving the numbers.</p>
-      </div>
+      <div class="view-head"><h1>Settings</h1><div class="set-tabs" data-on="analytics"></div></div>
     </div>
 
-    <!-- Automation status bar (revealed once a profile is actively auto-posting) -->
-    <div class="stats-row" id="stats-row" style="display:none;">
-      <div class="status-bar" id="status-bar"></div>
+    <div class="view" id="view-account">
+      <div class="view-head"><h1>Settings</h1><div class="set-tabs" data-on="account"></div></div>
+      <div class="acct-card">
+        <h3>LinkedIn</h3>
+        <p id="acct-li-text">Checking your connection…</p>
+        <div id="acct-li-btn"></div>
+      </div>
+      <div class="acct-card">
+        <h3>Plan</h3>
+        <p id="acct-plan-text">Loading…</p>
+        <button class="act-btn primary" id="acct-plan-btn" style="display:none;" onclick="openUpgradeModal()">⚡ Upgrade to Pro</button>
+      </div>
     </div>
 
     <!-- Profile cards -->
     <div class="section-head" id="profiles-head">
-      <h2>Your Profiles</h2>
+      <h2>Your profiles</h2>
+      <button class="btn-add" onclick="openModal()" style="padding:8px 14px;">+ Add profile</button>
     </div>
     <div class="profiles-grid" id="profiles-grid">
       <div class="profile-card skeleton-card" aria-hidden="true">
@@ -666,17 +708,16 @@
       </div>
     </div>
 
-    <!-- Content calendar -->
-    <div class="activity-section" id="calendar-section" style="display:none;">
+    <!-- Queue: nothing set up yet / daily posting off -->
+    <div class="queue-empty" id="queue-empty" style="display:none;"></div>
+
+    <!-- Queue: the next 7 days, one row per profile per day, with what happened lately -->
+    <div class="activity-section" id="upcoming-section" style="display:none;">
       <div class="section-head">
-        <h2>Content Calendar</h2>
-        <span style="font-size:12px;color:#aaa;" id="cal-subtitle"></span>
+        <h2>Coming up</h2>
+        <span class="up-hint">Pick a different post for any day</span>
       </div>
-      <div id="calendar-empty" class="empty-state" style="display:none;">
-        <div class="empty-icon">🗓️</div>
-        <p>Your 7-day posting plan shows up here once a profile's automation is on.<br>Turn on a profile above to preview what Voyce will post each day.</p>
-      </div>
-      <div id="calendar-grid" style="overflow-x:auto;"></div>
+      <div id="upcoming-list"></div>
     </div>
 
     <!-- Analytics -->
@@ -734,7 +775,7 @@
     <!-- Approval queue: posts Voyce wrote and is holding for the user's OK -->
     <div id="pending-section" style="display:none;">
       <div class="section-head">
-        <h2>Waiting for your approval</h2>
+        <h2>Needs your OK</h2>
         <a class="nav-link" onclick="loadPending()">Refresh</a>
       </div>
       <div id="pending-container"></div>
@@ -940,9 +981,10 @@
     // elements, same ids — so every render function keeps working untouched.
     const VIEW_LAYOUT = {
       // stats-row carries "next up: type · time", so it belongs with today's work.
-      today:     ["pending-section", "stats-row", "calendar-section"],
+      today:     ["pending-section", "queue-empty", "upcoming-section"],
       profiles:  ["profiles-head", "profiles-grid"],
       analytics: ["analytics-section", "log-section"],
+      account:   [],
     };
 
     function buildViews() {
@@ -972,7 +1014,14 @@
       const intro = document.querySelector(".page-intro");
       if (intro) intro.remove();          // each view carries its own heading now
       const deep = (location.hash || "").replace("#", "");
-      showView(["profiles", "analytics"].includes(deep) ? deep : "today");
+      document.querySelectorAll(".set-tabs").forEach((el) => {
+        el.innerHTML = [["profiles", "Profiles"], ["analytics", "Results"], ["account", "Account"]]
+          .map(([v, l]) => `<button class="${el.dataset.on === v ? "on" : ""}" onclick="showView('${v}')">${l}</button>`).join("");
+      });
+      // Old links (#profiles, #analytics) keep working.
+      const ROUTES = { today: "today", queue: "today", profiles: "profiles", settings: "profiles",
+                       analytics: "analytics", results: "analytics", account: "account" };
+      showView(ROUTES[deep] || "today");
     }
 
     function showView(name, btn) {
@@ -980,7 +1029,8 @@
       const target = document.getElementById(`view-${name}`);
       if (target) target.classList.add("on");
       document.querySelectorAll(".side-nav .side-item").forEach((b) => b.classList.remove("active"));
-      (btn || document.getElementById(`nav-${name}`))?.classList.add("active");
+      // Profiles, Results and Account are all Settings in the sidebar.
+      document.getElementById(name === "today" ? "nav-today" : "nav-profiles")?.classList.add("active");
       // Sections hidden by their own loaders (empty analytics, no calendar yet) stay
       // hidden — showView only controls which view is on screen.
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -991,6 +1041,7 @@
       window._lastLog = log;
       const head = document.getElementById("glance-head");
       const grid = document.getElementById("glance-grid");
+      if (!head || !grid) return;   // the queue's "Coming up" list replaced these tiles
       if (!head || !grid || !Array.isArray(log)) return;
       const weekAgo = Date.now() - 7 * 864e5;
       const recent = log.filter((e) => {
@@ -1125,6 +1176,13 @@
       if (!pill) return;
       pill.classList.toggle("connected", connected);
       if (txt) txt.textContent = connected ? "LinkedIn Connected" : "Connect LinkedIn";
+      const at = document.getElementById("acct-li-text"), ab = document.getElementById("acct-li-btn");
+      if (at) at.textContent = connected
+        ? "Connected. Voyce posts through LinkedIn's official API and never sees your password."
+        : "Not connected. Connect it to post from Voyce. Writing works without it.";
+      if (ab) ab.innerHTML = connected
+        ? `<button class="act-btn quiet danger" onclick="disconnectLinkedIn()">Disconnect LinkedIn</button>`
+        : `<button class="act-btn primary" onclick="connectLinkedIn()">Connect LinkedIn</button>`;
     }
 
     function handleLiClick() {
@@ -1188,7 +1246,7 @@
       const profilesHead = document.getElementById("profiles-head");
       const liBanner = document.getElementById("li-banner");
       if (!profiles.length) {
-        statsRow.style.display = "none";
+        if (statsRow) statsRow.style.display = "none";
         profilesHead.style.display = "none";
         if (liBanner) liBanner.style.display = "none";  // connecting LinkedIn comes after you have a profile
         grid.innerHTML = `<div class="empty-state empty-hero" style="grid-column:1/-1">
@@ -1197,11 +1255,12 @@
           <p>Add your company or personal brand — Voyce learns your style and writes LinkedIn-ready posts that sound like you.</p>
           <button class="btn-add empty-cta" onclick="openModal()">+ Create your first profile</button>
         </div>`;
+        renderUpcoming(profiles);   // the Queue says the same thing, so it's never blank
         return;
       }
       // Automation telemetry (stats + calendar) only exists once something can actually post.
       const anyActive = profiles.some(p => p.active);
-      statsRow.style.display = anyActive ? "" : "none";
+      if (statsRow) statsRow.style.display = anyActive ? "" : "none";
       profilesHead.style.display = "";
       // Only to fix something: shown once we know LinkedIn is disconnected.
       if (liBanner) liBanner.style.display = (window._liKnown && !liConnected) ? "" : "none";
@@ -1221,7 +1280,11 @@
         const styleText  = String(style || "");
         const voiceLine  = style
           ? `<span title="${_escHtml(styleText)}">✦ Writes in a learned voice: <em>${_escHtml(styleText.length > 70 ? styleText.slice(0, 70) + "…" : styleText)}</em></span> · <a href="#" onclick="resetVoice('${p.id}');return false;" style="color:#98a0ae;" title="Clear the learned voice and fall back to the selected tone">reset</a>`
-          : `Tone: ${p.tone} · <a href="#" onclick="toggleLiPanel('${p.id}');return false;" style="color:#24365e;">add past posts to learn the real voice</a>`;
+          : `Tone: ${p.tone}`;
+        // The promise is "sounds like you": a profile with no voice learned says so first.
+        const voiceCta = style ? "" : `<div class="voice-cta"><span>✦ <b>Teach Voyce your voice.</b> Add 2–3 of your LinkedIn posts and it writes like you, not like AI.</span>
+          <button class="act-btn" onclick="toggleLiPanel('${p.id}')">Add posts</button></div>`;
+        const cpw = String(raw.carousels_per_week ?? (raw.carousel_enabled ? "alt" : 0));
 
         return `<div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
@@ -1239,6 +1302,7 @@
             ${_liRow(raw)}
           </div>
 
+          ${voiceCta}
           <div style="border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
             <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.active}" style="margin-bottom:${p.active ? "10px" : "0"};"
                    aria-label="Daily posting for ${p.name}"
@@ -1269,18 +1333,19 @@
                    daily is the switch above; the rest is setup, so it sits behind
                    one disclosure. The selects stay in the DOM either way, which is
                    all runNow and previewPost need to read them. -->
+              <div class="auto-more-row" style="margin:2px 0 8px;">
+                <span>Carousels:</span>
+                <select onchange="setCarouselsPerWeek('${p.id}', this.value)" aria-label="Carousels per week for ${p.name}"
+                        style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
+                  ${CAROUSEL_MIX.map(([v, l]) => `<option value="${v}" ${cpw === String(v) ? "selected" : ""}>${l}</option>`).join("")}
+                </select>
+              </div>
               <details class="auto-more">
-                <summary>Automation settings</summary>
-              <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.carousel_enabled}" style="margin-bottom:6px;"
-                     aria-label="Carousel posts for ${p.name}"
-                     onclick="toggleCarousel('${p.id}', this)"
-                     onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleCarousel('${p.id}', this);}">
-                <div class="carousel-toggle-switch ${p.carousel_enabled ? 'on' : ''}" id="carousel-sw-${p.id}"><div class="carousel-toggle-knob"></div></div>
-                <span class="carousel-toggle-label" style="font-weight:400;">Alternate days as PDF carousels <span style="color:#a7aebb;">(highest-reach format)</span></span>
-              </label>
-              ${p.carousel_enabled ? `<div style="margin:0 0 6px 46px;">
+                <summary>More options</summary>
+              ${cpw !== "0" ? `<div class="auto-more-row">
+                <span>Carousel look:</span>
                 <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
-                  ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
+                  ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>${l}</option>`).join("")}
                 </select>
               </div>` : ""}
               <div class="auto-more-row">
@@ -1311,12 +1376,12 @@
                modal now: they used to render into a div inside this card, which any
                re-render of the grid destroyed mid-generation. -->
           <div class="profile-actions">
-            ${p.active ? `<button class="act-btn primary" onclick="runNow('${p.id}')">▶ Post now</button>` : ""}
+            ${p.active ? `<button class="act-btn primary" onclick="runNow('${p.id}')">${p.approval_mode ? "✎ Write now" : "▶ Post now"}</button>` : ""}
             <button class="act-btn" onclick="previewPost('${p.id}')">👁 Preview</button>
             <button class="act-btn" onclick="suggestIdeas('${p.id}')">💡 Ideas</button>
             <span class="pa-gap"></span>
             <button class="act-btn quiet" onclick="editProfile('${p.id}')">Edit</button>
-            <button class="act-btn quiet" onclick="toggleLiPanel('${p.id}')">↻ Voice</button>
+            ${style ? `<button class="act-btn quiet" onclick="toggleLiPanel('${p.id}')" title="Retrain the voice with recent posts">↻ Voice</button>` : ""}
             <button class="act-btn quiet danger" onclick="deleteProfile('${p.id}')" title="Delete this profile">Delete</button>
           </div>
 
@@ -1346,7 +1411,7 @@
       const ask = holds
         ? `Generate ${what} as "${rp?.name || "this profile"}" now? It will wait in your approval queue, nothing publishes yet.`
         : `Generate ${what} and publish it to YOUR LinkedIn as "${rp?.name || "this profile"}" right now?`;
-      if (!(await voyceConfirm(ask, { title: "Run now", confirmText: holds ? "Generate" : "Post now" }))) return;
+      if (!(await voyceConfirm(ask, { title: holds ? "Write a post now" : "Post now", confirmText: holds ? "Write it" : "Post now" }))) return;
       toast(holds ? "Generating…" : "Generating and posting...");
       const res  = await fetch(`/companies/${id}/run`, { method:"POST",
         headers: {"Content-Type": "application/json", "x-token": getToken()},
@@ -1640,6 +1705,21 @@
       ["electric", "Electric — Black + Lime"],
     ];
 
+    const CAROUSEL_MIX = [[0, "None"], [1, "1 a week (Wed)"], [2, "2 a week (Tue, Thu)"], [3, "3 a week (Mon, Wed, Fri)"], ["alt", "Every other day"]];
+    async function setCarouselsPerWeek(id, v) {
+      const per_week = v === "alt" ? "alt" : Number(v);
+      const res = await fetch(`/companies/${id}/carousel`, { method: "PATCH", headers: ah(), body: JSON.stringify({ per_week }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (isProRequired(data)) { toast("Carousels on daily posts are a Pro feature.", "warn"); openUpgradeModal(); }
+        else toast(data.detail || "Couldn't change carousels.", "warn");
+        loadProfiles();
+        return;
+      }
+      toast(per_week ? "Carousels updated. The queue shows which days." : "No carousels: text and image posts only.", "success");
+      loadProfiles();
+    }
+
     async function setCarouselTheme(id, theme) {
       const res = await fetch(`/companies/${id}/carousel`, { method: "PATCH", headers: ah(), body: JSON.stringify({ theme }) });
       if (res.ok) toast("Carousel theme updated.", "success");
@@ -1798,7 +1878,7 @@
     function _todayIdleText() {
       if (!window._profilesLoaded) return "Nothing waiting on you.";
       const active = (currentProfiles || []).filter(p => p.active);
-      if (!active.length) return "Nothing waiting. Daily posting is off, so Voyce only writes when you ask: turn it on in Profiles, or write a post in Create.";
+      if (!active.length) return "Nothing waiting. Daily posting is off, so Voyce only writes when you ask: turn it on in Settings, or write one now in Write.";
       const next = [...active].sort((a, b) => (a.post_time || "").localeCompare(b.post_time || ""))[0];
       return `Nothing waiting. Voyce writes the next post at ${_timeLabel(next)} and ${next.approval_mode ? "emails it to you to approve" : "posts it"}.`;
     }
@@ -1958,29 +2038,119 @@
     }
 
     // ── Content Calendar ─────────────────────────────────────────────────────
-    function buildCalendar(profiles) {
+    function buildCalendar(profiles) { renderUpcoming(profiles); }
+
+    // ── Queue: what's coming up and what happened lately ───────────────────
+    const _FMT = { text: "Text", carousel: "Carousel", card: "Image card", tweet_card: "Image card", video: "Your video", diy_video: "Your video" };
+    const _FMT_CLASS = { tweet_card: "card", diy_video: "video" };
+    const _DAY_DONE = {
+      posted: ["Posted ✓", "ok"], dry_run_fired: ["Test run", "muted"], pending_approval: ["Waiting for you", "wait"],
+      expired: ["Not approved", "muted"], discarded: ["Skipped", "muted"], superseded: ["Replaced", "muted"],
+      skipped: ["Skipped", "muted"], error: ["Failed", "bad"], failed: ["Failed", "bad"],
+    };
+    function _tsLocal(ts) {
+      const t = String(ts || "");
+      return new Date(/Z$|[+-]\d\d:\d\d$/.test(t) ? t : t + "Z");
+    }
+    function _dayLabel(d, i) {
+      const base = d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+      return i === 0 ? `Today · ${base}` : i === 1 ? `Tomorrow · ${base}` : i === -1 ? `Yesterday · ${base}` : base;
+    }
+
+    async function renderUpcoming(profiles) {
+      const section = document.getElementById("upcoming-section");
+      const list = document.getElementById("upcoming-list");
+      const empty = document.getElementById("queue-empty");
+      if (!section || !list || !empty) return;
+      profiles = profiles || [];
       const active = profiles.filter(p => p.active);
-      const section = document.getElementById("calendar-section");
-      const empty   = document.getElementById("calendar-empty");
-      const grid    = document.getElementById("calendar-grid");
-      // The calendar is the automation schedule — it only exists when something will post.
       if (!active.length) {
         section.style.display = "none";
+        empty.style.display = "";
+        empty.innerHTML = !profiles.length ? `
+          <h3>Set up your first profile</h3>
+          <p>Tell Voyce what you post about. It finds this week's news in your niche and writes in your voice.</p>
+          <div class="qe-actions"><button class="act-btn primary" onclick="openModal()">+ Create a profile</button>
+            <a class="act-btn" href="/tool">Write a post now</a></div>` : `
+          <h3>Daily posting is off</h3>
+          <p>Turn it on and Voyce writes a post every day at your time, for you to approve${_isFreePlan() ? " (Pro)" : ""}. Until then it only writes when you ask.</p>
+          <div class="qe-actions"><button class="act-btn primary" onclick="showView('profiles')">Turn on daily posts</button>
+            <a class="act-btn" href="/tool">Write a post now</a></div>`;
         return;
       }
-      section.style.display = "";
       empty.style.display = "none";
-      grid.style.display  = "";
-
-      _getLog().then(log => {
-        // Index the newest log entry per company per day (log arrives newest-first)
-        const byDay = {};
-        for (const e of (log || [])) {
-          const key = `${e.company_id}|${String(e.timestamp || "").slice(0, 10)}`;
-          if (!byDay[key]) byDay[key] = e;
+      section.style.display = "";
+      const [log, sched] = await Promise.all([
+        _getLog(),
+        fetch("/schedule/list", { headers: ah() }).then(r => (r.ok ? r.json() : [])).catch(() => []),
+      ]);
+      // The newest log entry per profile per local day (the log arrives newest-first).
+      const byDay = {};
+      for (const e of (log || [])) {
+        const k = `${e.company_id}|${_localISO(_tsLocal(e.timestamp))}`;
+        if (!byDay[k]) byDay[k] = e;
+      }
+      const multi = active.length > 1;
+      let html = "";
+      for (let i = -2; i <= 6; i++) {
+        const d = new Date(Date.now() + i * 864e5);
+        const iso = _localISO(d);
+        const rows = active.map(p => _upRow(p, i, iso, byDay[`${p.id}|${iso}`], multi)).filter(Boolean);
+        for (const sp of (sched || [])) {
+          if (sp.status === "scheduled" && _localISO(new Date(sp.scheduled_at)) === iso) rows.push(_upSchedRow(sp));
         }
-        _renderCalendarGrid(active, byDay, log || []);
-      });
+        if (rows.length) html += `<div class="up-day"><div class="up-day-h${i === 0 ? " today" : ""}">${_dayLabel(d, i)}</div>${rows.join("")}</div>`;
+      }
+      list.innerHTML = html || `<div class="empty-state"><p>Nothing planned yet.</p></div>`;
+    }
+
+    function _upRow(p, i, iso, entry, multi) {
+      let fc = (p.week_forecast || []).find(f => f.date === iso);
+      if (!fc && i >= 0 && (p.week_plan || [])[i]) {
+        // No forecast from the server: still show the day's planned type, without guessing its format.
+        let planned = (p.scheduled_types || {})[iso] || "";
+        if (typeof planned === "object") planned = planned.type || "";
+        fc = { post_type: p.week_plan[i], format: "", planned };
+      }
+      if (i < 0 && !entry) return "";                 // a past day with nothing on it
+      if (i >= 0 && !entry && !fc) return "";
+      const who = multi ? `<div class="up-who">as ${_escHtml(p.name)}</div>` : "";
+      let what, fmt, st, change = "";
+      if (entry) {
+        what = entry.post_type || (fc && fc.post_type) || "Post";
+        fmt = entry.post_format || "text";
+        const [label, kind] = _DAY_DONE[entry.status] || [entry.status, "muted"];
+        const url = entry.status === "posted" ? _liPostUrl(entry.post_urn) : "";
+        st = entry.status === "pending_approval"
+          ? `<a class="up-st wait" href="#" onclick="document.getElementById('pending-section').scrollIntoView({behavior:'smooth'});return false;">${label} ↑</a>`
+          : url ? `<a class="up-st ok" href="${url}" target="_blank" rel="noopener">${label} · view ↗</a>`
+          : `<span class="up-st ${kind}"${entry.error ? ` title="${_escHtml(entry.error)}"` : ""}>${label}</span>`;
+      } else {
+        what = fc.post_type || "Post";
+        fmt = fc.format;
+        st = `<span class="up-st plan">${i === 0 ? "Writes today" : "Planned"}</span>`;
+        change = `<select aria-label="Change the post for ${iso}" onchange="setDayPlan('${p.id}','${iso}',this.value)">${
+          CAL_PLAN_OPTIONS.map(([v, l]) => `<option value="${v}" ${(fc.planned || "") === v ? "selected" : ""}>${v ? l : "Auto"}</option>`).join("")}</select>`;
+      }
+      // A profile on another clock (a client abroad) says whose time this is.
+      const here = _browserTz();
+      const tzNote = here && p.timezone && !_sameZone(here, p.timezone)
+        ? `<span class="up-tz">${_escHtml(_tzCity(p.timezone))} time</span>` : "";
+      return `<div class="up-row${i < 0 ? " past" : ""}">
+        <div class="up-time">${_escHtml(p.post_time || "")}${tzNote}</div>
+        <div class="up-what">${_escHtml(what)}${fmt ? `<span class="up-fmt ${_FMT_CLASS[fmt] || fmt}">${_FMT[fmt] || "Text"}</span>` : ""}${who}</div>
+        ${st}
+        ${change || "<span></span>"}
+      </div>`;
+    }
+
+    function _upSchedRow(sp) {
+      const t = new Date(sp.scheduled_at);
+      return `<div class="up-row">
+        <div class="up-time">${t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</div>
+        <div class="up-what">${_escHtml(sp.preview || "Scheduled post")}<span class="up-fmt">Scheduled</span></div>
+        <span class="up-st plan">From Write</span><span></span>
+      </div>`;
     }
 
     let _logCache = null;
@@ -2022,118 +2192,6 @@
         toast(postType ? "Post plan set for that day." : "Back to auto for that day.", "success");
         loadProfiles();
       } catch (_) { toast("Couldn't update the plan — try again.", "warn"); }
-    }
-
-    function _renderCalendarGrid(active, byDay, log) {
-      // Same rule as the server: carousels alternate with the profile's last post.
-      const DAILY = ["posted", "pending_approval", "expired", "discarded", "dry_run_fired"];
-      function _carouselOn(p, futureIdx) {
-        const last = log.find(e => e.company_id === p.id && DAILY.includes(e.status));
-        const lastCar = !!last && last.post_format === "carousel";
-        const ts = last ? String(last.timestamp || "") : "";
-        const ranToday = !!last && _localISO(new Date(ts.endsWith("Z") ? ts : ts + "Z")) === _localISO(new Date());
-        const start = ranToday ? 1 : 0;
-        if (futureIdx < start) return false;
-        return (futureIdx - start) % 2 === 0 ? !lastCar : lastCar;
-      }
-      // One strip, two jobs: the last 3 days (what actually happened) + today and
-      // the 3 days ahead (what's planned). History builds trust in the automation.
-      const today = new Date();
-      const days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i - 3);
-        return d;
-      });
-      const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-      const headerCells = days.map((d, i) => {
-        const isToday = i === 3;
-        const label = isToday ? "Today" : DAY_SHORT[d.getDay()];
-        const date  = `${d.getMonth()+1}/${d.getDate()}`;
-        return `<th class="${isToday ? 'today-col' : ''}">${label}<br><span style="font-weight:400;font-size:11px;">${date}</span></th>`;
-      }).join("");
-
-      const profileRows = active.map(p => {
-        const isPersonal = p.profile_type === "personal";
-        const cells = days.map((d, i) => {
-          const isToday   = i === 3;
-          const futureIdx = i - 3;                       // week_plan[0] = today
-          const entry     = byDay[`${p.id}|${_localISO(d)}`];
-          const planType  = futureIdx >= 0 ? ((p.week_plan && p.week_plan[futureIdx]) || "") : "";
-
-          let st, chip, type;
-          if (entry && (entry.status === "posted" || entry.status === "dry_run_fired")) {
-            st = "ok"; chip = "✓ Posted"; type = entry.post_type || planType;
-          } else if (entry && entry.status === "pending_approval") {
-            st = "wait"; chip = "⏳ Waiting for you"; type = entry.post_type || planType;
-          } else if (entry && ["expired", "discarded", "superseded", "skipped"].includes(entry.status)) {
-            st = "none"; type = entry.post_type || planType;
-            chip = { expired: "Not approved", discarded: "Skipped", superseded: "Replaced", skipped: "Skipped" }[entry.status];
-          } else if (entry) {
-            st = "fail"; chip = "✗ Failed"; type = entry.post_type || planType;
-          } else if (futureIdx < 0) {
-            st = "none"; chip = "No post"; type = "";
-          } else {
-            st = "sched"; chip = `🕐 ${p.post_time}`; type = planType;
-          }
-
-          const dISO = _localISO(d);
-          let planned = (p.scheduled_types || {})[dISO] || "";   // user-set override for this day
-          if (typeof planned === "object") planned = planned.type || "";  // product-pinned form {product, type}
-          if (st === "sched" && planned) {
-            const opt = CAL_PLAN_OPTIONS.find(o => o[0] === planned);
-            type = planned === "__carousel__" ? "Carousel"
-                 : planned === "__video__" ? "Video (you generate)"
-                 : (opt ? opt[1].split(" · ")[0] : type);
-          }
-          const desc = type && p.post_type_descriptions ? (p.post_type_descriptions[type] || "") : "";
-          const claimTypes = ["hot_take", "prediction", "stat_reaction"];
-          // format follows: explicit claim-type override = tweet card; __carousel__ = carousel;
-          // otherwise the auto alternate-day carousel logic.
-          const isCarousel = planned === "__carousel__" ||
-            (!planned && p.carousel_enabled && futureIdx >= 0 && _carouselOn(p, futureIdx));
-          const isCard = claimTypes.includes(planned) ||
-            (!planned && ["hot take", "prediction", "stat reaction"].includes((type || "").toLowerCase()));
-          let badge = "";
-          if (st === "sched") {
-            if (planned === "__video__") badge = `<div class="cal-cell-badge carousel">🎬 Your video</div>`;
-            // Server order: a carousel day stays a carousel whatever its post type.
-            else if (isCarousel) badge = `<div class="cal-cell-badge carousel">▤ Carousel</div>`;
-            else if (isCard)          badge = `<div class="cal-cell-badge carousel">▣ Tweet card</div>`;
-            else if (p.carousel_enabled) badge = `<div class="cal-cell-badge text">✎ Text</div>`;
-          }
-
-          // Future scheduled cells get a per-day picker; the autopilot honors the choice.
-          const picker = (st === "sched" && futureIdx >= 0) ? `
-            <select class="cal-plan" onchange="setDayPlan('${p.id}','${dISO}',this.value)">
-              ${CAL_PLAN_OPTIONS.map(([v,l]) => `<option value="${v}" ${planned===v?'selected':''}>${l}</option>`).join("")}
-            </select>` : "";
-
-          return `<td class="${isToday ? 'today-col' : ''} cal-st-${st}" ${desc ? `title="${desc}"` : ""}>
-            <span class="cal-chip ${st}">${chip}</span>
-            ${type ? `<div class="cal-cell-type">${type}</div>` : ""}
-            ${badge}
-            ${picker}
-          </td>`;
-        }).join("");
-
-        return `<tr>
-          <td colspan="7" style="padding:0;border:none;background:#fafafa;">
-            <div class="cal-profile-name">${_escHtml(p.name)} <span style="font-weight:400;color:#bbb;">(${isPersonal ? 'personal' : 'company'})</span></div>
-          </td>
-        </tr>
-        <tr>${cells}</tr>`;
-      }).join("");
-
-      document.getElementById("calendar-grid").innerHTML = `
-        <table class="cal-table">
-          <thead><tr><th colspan="7" style="text-align:left;background:#fff;color:#888;font-size:12px;font-weight:400;border-bottom:1px solid #e7ebf4;padding:8px 12px;">Last 3 days + the week ahead — Voyce rotates post styles so your feed never looks templated</th></tr>
-          <tr>${headerCells}</tr></thead>
-          <tbody>${profileRows}</tbody>
-        </table>`;
-
-      const types = [...new Set(active.map(p => p.next_post_type))].filter(Boolean);
-      document.getElementById("cal-subtitle").textContent = types.length ? `Next: ${types.join(" · ")}` : "";
     }
 
     // ── Analytics chart ───────────────────────────────────────────────────────
@@ -2357,46 +2415,71 @@
 
     function toggleLogAll() { _logShowAll = !_logShowAll; renderLog(); }
 
+    let _logTab = "published", _logWho = "";
+    function setLogTab(t) { _logTab = t; _logShowAll = false; renderLog(); }
+    function setLogWho(v) { _logWho = v; _logShowAll = false; renderLog(); }
+    function _weekLabel(d) {
+      const monday = x => { const y = new Date(x); y.setHours(0, 0, 0, 0); y.setDate(y.getDate() - ((y.getDay() + 6) % 7)); return y; };
+      const w = monday(d);
+      const diff = Math.round((monday(new Date()) - w) / (7 * 864e5));
+      return diff === 0 ? "This week" : diff === 1 ? "Last week" : `Week of ${w.toLocaleDateString([], { day: "numeric", month: "short" })}`;
+    }
+
     function renderLog() {
       const container = document.getElementById("log-container");
       if (!container) return;
-      const log = _logRows;
-      if (!log.length) {
+      const all = _logRows;
+      if (!all.length) {
         container.innerHTML = `<div class="empty-state" style="padding:22px 0;"><p>No posts yet. Anything Voyce publishes or queues shows up here.</p></div>`;
         return;
       }
+      const isPub = e => e.status === "posted" || e.status === "dry_run_fired";
+      const names = [...new Set(all.map(e => e.company_name).filter(Boolean))];
+      const nPub = all.filter(isPub).length;
+      const tabs = `<div class="lg-tabs">
+        <button class="${_logTab === "published" ? "on" : ""}" onclick="setLogTab('published')">Published (${nPub})</button>
+        <button class="${_logTab === "not" ? "on" : ""}" onclick="setLogTab('not')">Not posted (${all.length - nPub})</button>
+        ${names.length > 1 ? `<select onchange="setLogWho(this.value)" aria-label="Profile"><option value="">All profiles</option>${
+          names.map(n => `<option ${n === _logWho ? "selected" : ""}>${_escHtml(n)}</option>`).join("")}</select>` : ""}
+      </div>`;
+      const log = all.filter(e => (_logTab === "published" ? isPub(e) : !isPub(e)) && (!_logWho || e.company_name === _logWho));
+      if (!log.length) {
+        container.innerHTML = tabs + `<div class="empty-state" style="padding:22px 0;"><p>${_logTab === "published"
+          ? "Nothing published yet. Approved posts show up here with a link to LinkedIn."
+          : "Nothing here: everything Voyce wrote went out."}</p></div>`;
+        return;
+      }
       const shown = _logShowAll ? log : log.slice(0, LOG_PAGE);
+      let lastWeek = "";
       const rows = shown.map(e => {
-        const when = new Date(e.timestamp.endsWith("Z") ? e.timestamp : e.timestamp + "Z");
+        const when = _tsLocal(e.timestamp);
+        const wk = _weekLabel(when);
+        const group = wk !== lastWeek ? `<tr class="lg-group"><td colspan="7">${wk}</td></tr>` : "";
+        lastWeek = wk;
         const [label, kind] = _STATUS_LABEL[e.status] || [e.status, "muted"];
         const eng = e.engagement
           ? (e.engagement.likes || 0) + (e.engagement.comments || 0) + (e.engagement.reposts || 0)
           : null;
         const url = _liPostUrl(e.post_urn);
         const text = (e.post_text || e.error || "").replace(/\s+/g, " ").trim();
-        // Only add the ellipsis when something was actually cut. The old row
-        // appended one unconditionally, so short posts looked truncated.
         const snip = text.length > 90 ? _escHtml(text.slice(0, 90)) + "…" : _escHtml(text);
-        return `<tr>
-          <td class="lg-when"><span>${when.toLocaleDateString()}</span><span class="lg-time">${when.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span></td>
+        const src = (e.sources || []).find(x => /^https?:\/\//i.test(x.url || ""));
+        return group + `<tr>
+          <td class="lg-when"><span>${when.toLocaleDateString([], { day: "numeric", month: "short" })}</span><span class="lg-time">${when.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span></td>
           <td class="lg-who">${_escHtml(e.company_name || "")}</td>
           <td class="lg-what">${_escHtml(e.post_type || "—")}${e.post_format === "carousel" ? ` <span class="lg-fmt">carousel</span>` : ""}</td>
           <td><span class="lg-pill ${kind}">${label}</span></td>
           <td class="lg-eng">${eng === null ? '<span class="lg-dash">—</span>' : eng}</td>
           <td class="lg-text" title="${_escHtml(text).slice(0, 400)}">${snip}</td>
-          <td class="lg-link">${url ? `<a href="${url}" target="_blank" rel="noopener" title="Open on LinkedIn">↗</a>` : ""}${(() => {
-            // The news the post was built from, so its claims can be checked.
-            const s = (e.sources || []).find(x => /^https?:\/\//i.test(x.url || ""));
-            return s ? ` <a href="${_escHtml(s.url)}" target="_blank" rel="noopener" title="Source: ${_escHtml(s.title || s.url)}" style="font-size:11px;color:#7a8190;">source</a>` : "";
-          })()}</td>
+          <td class="lg-link">${url ? `<a href="${url}" target="_blank" rel="noopener" title="Open on LinkedIn">↗</a>` : ""}${
+            src ? ` <a href="${_escHtml(src.url)}" target="_blank" rel="noopener" title="Source: ${_escHtml(src.title || src.url)}" style="font-size:11px;color:#7a8190;">source</a>` : ""}</td>
         </tr>`;
       }).join("");
-      // No silent truncation: say what is hidden and offer it.
       const more = log.length > LOG_PAGE
         ? `<div class="lg-foot">Showing ${shown.length} of ${log.length}
              <a href="#" onclick="toggleLogAll();return false;">${_logShowAll ? "show fewer" : `show all ${log.length}`}</a></div>`
         : "";
-      container.innerHTML = `<div class="lg-scroll"><table class="log-table">
+      container.innerHTML = tabs + `<div class="lg-scroll"><table class="log-table">
         <thead><tr><th>When</th><th>Profile</th><th>What</th><th>Result</th><th title="Likes + comments + reposts">Eng.</th><th>Post</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>${more}`;
     }
@@ -2842,6 +2925,12 @@
             banner.style.background = "#fffafa";
           }
         }
+        const ap = document.getElementById("acct-plan-text"), apb = document.getElementById("acct-plan-btn");
+        if (ap) ap.innerHTML = `<span class="${badge.className}">${_escHtml(badge.textContent)}</span> ${text.innerHTML}`;
+        const quietPro = (info.plan === "pro" || info.plan === "admin") && btn.style.display === "none";
+        if (apb) { apb.style.display = quietPro ? "none" : ""; apb.textContent = btn.textContent.trim() || "⚡ Upgrade to Pro"; }
+        // On every page only while it asks something of you (free allowance, a pass ending).
+        if (quietPro) banner.style.display = "none";
         updateLiBanner(liConnected);
         updateLiStat(liConnected);
         if (currentProfiles.length) {
