@@ -76,7 +76,7 @@ def save_token(user_id: str, token_data: dict):
     # many seconds are left. That was being discarded, so is_connected() could
     # only ever answer "a token string exists" — the sidebar kept reading
     # "LinkedIn Connected" long after the token died, and the first sign of
-    # trouble was a post failing. instagram.py already stored this; LinkedIn did not.
+    # trouble was a post failing.
     expires_in = int(token_data.get("expires_in") or 0)
     if expires_in > 0:
         entry["expires_at"] = (datetime.now(timezone.utc)
