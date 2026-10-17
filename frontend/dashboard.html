@@ -580,7 +580,7 @@
       </button>
     </nav>
     <div class="side-spacer"></div>
-    <div class="side-upsell" id="side-upsell">
+    <div class="side-upsell" id="side-upsell" style="display:none;">
       <h4>Upgrade to Pro</h4>
       <p>Unlimited posts and daily auto-posting.</p>
       <button onclick="openUpgradeModal()">⚡ Upgrade</button>
@@ -607,7 +607,7 @@
     </div>
 
     <!-- Plan usage banner -->
-    <div class="plan-banner" id="plan-banner">
+    <div class="plan-banner" id="plan-banner" style="display:none;">
       <div class="plan-left">
         <span class="plan-badge" id="plan-badge">Plan</span>
         <div>
@@ -2913,6 +2913,7 @@
             }
           }
         } else {
+          if (sideUpsell) sideUpsell.style.display = "";   // free: now that we know, offer Pro
           const left = Math.max(0, info.limit - info.used);
           const pct  = Math.min(100, (info.used / info.limit) * 100);
           badge.textContent = "Free Plan";

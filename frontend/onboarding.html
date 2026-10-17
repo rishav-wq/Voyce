@@ -36,7 +36,7 @@
     .form-group input:focus { border-color: #24365e; }
     .form-hint { font-size: 11px; color: #aaa; margin-top: 5px; }
     .submit-btn { width: 100%; padding: 14px; background: #24365e; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; margin-top: 4px; }
-    .submit-btn:hover { background: #5835e0; }
+    .submit-btn:hover { background: #1c2b4d; }
     .submit-btn:disabled { background: #9aa7c0; cursor: not-allowed; }
     .error-msg { color: #c0392b; font-size: 13px; margin-top: 12px; display: none; background: #fdecea; padding: 10px 13px; border-radius: 8px; }
 
@@ -64,7 +64,7 @@
     #ob-loading h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
     #ob-loading p { font-size: 14px; color: #777; margin-bottom: 28px; }
     .progress-wrap { background: #e7ebf4; border-radius: 100px; height: 8px; overflow: hidden; margin-bottom: 16px; }
-    .progress-bar { height: 100%; background: linear-gradient(90deg, #24365e, #a07cff); border-radius: 100px; transition: width 0.4s ease; width: 0%; }
+    .progress-bar { height: 100%; background: #24365e; border-radius: 100px; transition: width 0.4s ease; width: 0%; }
     .loading-msg { font-size: 13px; color: #24365e; font-weight: 600; min-height: 20px; }
 
         /* ── Wordmark: cursive V flowing straight into "oyce", no gap ──────────────
@@ -83,6 +83,16 @@
       padding: 0; margin: 0 -0.02em 0 0;
       color: inherit;
     }
+    .form-group textarea { width: 100%; padding: 11px 14px; border: 1.5px solid #d3d8e0; border-radius: 9px; font-size: 14px; outline: none; font-family: inherit; resize: vertical; min-height: 96px; line-height: 1.5; }
+    .form-group textarea:focus { border-color: #24365e; }
+    .ob-card.wide { max-width: 600px; }
+    .ob-post { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #1d2027; border: 1px solid #e4e7ec; border-radius: 12px; padding: 16px 18px; background: #fbfcfe; margin: 0 0 18px; outline: none; max-height: 52vh; overflow-y: auto; }
+    .ob-post:focus { border-color: #24365e; background: #fff; }
+    .ob-row { display: flex; gap: 8px; margin-top: 10px; }
+    .ob-row button, .ob-row a { flex: 1; text-align: center; padding: 11px; border-radius: 10px; border: 1.5px solid #d3d8e0; background: #fff; color: #24365e; font-weight: 600; font-size: 14px; cursor: pointer; font-family: inherit; text-decoration: none; }
+    .ob-row button:hover, .ob-row a:hover { border-color: #24365e; }
+    .ob-note { font-size: 12px; color: #98a0ae; text-align: center; margin-top: 14px; line-height: 1.5; }
+    .ob-done-icon { font-size: 40px; margin-bottom: 10px; }
 @media (max-width: 540px) {
       .ob-card { padding: 30px 22px; }
       .ob-nav { padding: 0 20px; }
@@ -101,9 +111,9 @@
 
       <!-- Main: one question -->
       <div id="ob-main">
-        <div class="ob-kicker">Quick setup · 20 seconds</div>
+        <div class="ob-kicker">Quick setup · about a minute</div>
         <h1>Welcome to Voyce 👋</h1>
-        <p class="ob-sub">Answer one question, then you'll write your first post. We use your answer to make every post sound like you.</p>
+        <p class="ob-sub">Answer one question and Voyce writes your first post, from this week's news in your niche. Nothing posts until you say so.</p>
 
         <form onsubmit="submitOnboarding(event)">
           <div class="form-group">
@@ -116,6 +126,11 @@
             <label>Your role <span class="optional-tag">(optional)</span></label>
             <input id="ob-role" placeholder="e.g. Fractional CMO, Leadership Coach, Consultant" autocomplete="off" />
             <p class="form-hint">Helps us suggest topics and pitch posts at the right level.</p>
+          </div>
+          <div class="form-group">
+            <label>Paste 1–3 of your LinkedIn posts <span class="optional-tag">(optional, makes it sound like you)</span></label>
+            <textarea id="ob-posts" placeholder="Paste a few recent posts, with a blank line between them."></textarea>
+            <p class="form-hint">Skip it and Voyce writes in a clear, conversational voice. You can add posts later in Settings.</p>
           </div>
           <div id="ob-error" class="error-msg"></div>
           <button type="submit" class="submit-btn" id="ob-btn">Write my first post →</button>
@@ -130,10 +145,39 @@
       <!-- Loading -->
       <div id="ob-loading">
         <div class="loading-icon">⚡</div>
-        <h2>Setting up your workspace…</h2>
-        <p id="ob-loading-sub">Taking you straight to your first post. This only happens once.</p>
+        <h2 id="ob-loading-title">Writing your first post…</h2>
+        <p id="ob-loading-sub">Voyce is reading this week's news in your niche. About 30 seconds.</p>
         <div class="progress-wrap"><div class="progress-bar" id="ob-bar"></div></div>
         <div class="loading-msg" id="ob-loading-msg">Saving your profile…</div>
+      </div>
+
+      <!-- Your first post -->
+      <div id="ob-first" style="display:none;">
+        <div class="ob-kicker">Your first post</div>
+        <h1>Here's your first post</h1>
+        <p class="ob-sub" id="ob-first-sub"></p>
+        <div class="ob-post" id="ob-post-text" contenteditable="true" spellcheck="true"></div>
+        <div id="ob-first-error" class="error-msg"></div>
+        <button class="submit-btn" id="ob-post-btn" onclick="postFirst()">Post it to LinkedIn →</button>
+        <div class="ob-row">
+          <button onclick="editInWrite()">Edit in Write</button>
+          <button id="ob-again-btn" onclick="anotherAngle()">Try another angle</button>
+        </div>
+        <p class="ob-note" id="ob-first-note">Click the text to edit it. Nothing posts until you tap Post; LinkedIn asks you to connect the first time.</p>
+        <div class="ob-foot"><a class="ob-skip" href="/setup" style="text-decoration:none;">Not now, take me to Voyce →</a></div>
+      </div>
+
+      <!-- Posted -->
+      <div id="ob-done" style="display:none;text-align:center;">
+        <div class="ob-done-icon">✓</div>
+        <h1>It's live on LinkedIn</h1>
+        <p class="ob-sub">That's the whole loop: Voyce writes from the news in your niche, you OK it, it posts.</p>
+        <a class="submit-btn" id="ob-view-link" href="#" target="_blank" rel="noopener" style="display:block;text-decoration:none;">View it on LinkedIn ↗</a>
+        <div class="ob-row">
+          <a href="/setup#profiles">Get one every day</a>
+          <a href="/setup">Go to Voyce</a>
+        </div>
+        <p class="ob-note" id="ob-done-note">Daily posting writes one post a day at your time and emails it to you to approve (Pro).</p>
       </div>
 
     </div>
@@ -141,6 +185,7 @@
 
   <script>
     let _clerkToken = "";
+    let _profileId = "", _topic = "", _hasVoice = false, _liConnected = false, _afterConnect = null;
 
     async function _refreshToken() {
       if (window.Clerk?.session) _clerkToken = await window.Clerk.session.getToken();
@@ -176,7 +221,24 @@
       if (u) document.getElementById("nav-user").textContent = u.name || u.email || "";
       document.getElementById("ob-role").addEventListener("blur", loadTopicSuggestions);
       document.getElementById("ob-topic").focus();
+      try {
+        const r = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
+        _liConnected = !!(r.ok && (await r.json()).connected);
+      } catch (_) {}
     }
+
+    // LinkedIn reports back to this window when the connect popup finishes.
+    window.addEventListener("message", (e) => {
+      if (e.origin !== location.origin) return;
+      if (e.data === "linkedin_connected") {
+        _liConnected = true;
+        const next = _afterConnect; _afterConnect = null;
+        if (next) next();
+      } else if (e.data === "linkedin_error") {
+        _firstError("LinkedIn didn't connect. Try again, or use Edit in Write and post from there.");
+        _postBtn(false);
+      }
+    });
 
     // ── Topic suggestions (based on role) ───────────────────────────────────────
     const _topicSuggestCache = {};
@@ -227,18 +289,20 @@
     // ── Loading animation ───────────────────────────────────────────────────────
     let _obTimer = null;
     function startObProgress() {
-      document.getElementById("ob-main").style.display = "none";
+      ["ob-main", "ob-first"].forEach(id => { document.getElementById(id).style.display = "none"; });
       document.getElementById("ob-loading").style.display = "block";
-      const msgs = [[0,40,"Saving your profile…"],[40,80,"Preparing your workspace…"],[80,99,"Almost there…"]];
+      const msgs = [[0, 15, "Saving your profile…"], [15, 45, "Reading this week's news in your niche…"],
+                    [45, 75, "Writing your take…"], [75, 99, "Checking the facts…"]];
       let pct = 0;
       const bar = document.getElementById("ob-bar");
       const msgEl = document.getElementById("ob-loading-msg");
+      clearInterval(_obTimer);
       _obTimer = setInterval(() => {
-        pct = Math.min(pct + 2, 99);
+        pct = Math.min(pct + (pct < 75 ? 1 : 0.25), 99);
         bar.style.width = pct + "%";
         const m = msgs.slice().reverse().find(x => pct >= x[0]);
         if (m) msgEl.textContent = m[2];
-      }, 120);
+      }, 300);
     }
     function stopObProgress() { clearInterval(_obTimer); document.getElementById("ob-bar").style.width = "100%"; }
 
@@ -256,7 +320,9 @@
         return;
       }
 
+      const posts = document.getElementById("ob-posts").value.trim();
       const payload = {
+        voice_posts:      posts,
         name:             deriveName(),
         designation:      role,
         industry:         topic,
@@ -280,10 +346,20 @@
           const e2 = await res.json().catch(() => ({}));
           throw new Error(e2.detail || "Could not save your profile. Please try again.");
         }
-        // Seed the generator on /tool with their first topic → instant aha moment
-        localStorage.setItem("cm_seed_topic", topic);
+        const profile = await res.json();
+        _profileId = profile.id; _topic = topic;
+        _hasVoice = !!(profile.linkedin_top_posts || []).length;
+        localStorage.setItem("cm_profile_id", _profileId);
+        const post = await _writeFirst();
+        if (!post) {
+          // Couldn't write it here: the composer still opens with the topic filled in.
+          localStorage.setItem("cm_seed_topic", topic);
+          stopObProgress();
+          setTimeout(() => { window.location.href = "/tool"; }, 400);
+          return;
+        }
         stopObProgress();
-        setTimeout(() => { window.location.href = "/tool"; }, 400);
+        _showFirst(post);
       } catch (ex) {
         stopObProgress();
         document.getElementById("ob-loading").style.display = "none";
@@ -294,6 +370,98 @@
     }
 
     function skipOnboarding() { window.location.href = "/tool"; }
+
+    // The real daily pipeline (this week's news + the voice), without posting.
+    async function _writeFirst() {
+      try {
+        const r = await fetch(`/companies/${encodeURIComponent(_profileId)}/preview`,
+                              { method: "POST", headers: { "x-token": getToken() } });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return "";   // the caller falls back to the composer
+        return (d.post || "").trim();
+      } catch (_) { return ""; }
+    }
+
+    function _showFirst(post) {
+      document.getElementById("ob-loading").style.display = "none";
+      document.querySelector(".ob-card").classList.add("wide");
+      document.getElementById("ob-first").style.display = "block";
+      document.getElementById("ob-post-text").textContent = post;
+      const sub = document.getElementById("ob-first-sub");
+      sub.textContent = `Written from this week's news on ${_topic}` + (_hasVoice ? ", in the voice from your posts." : ".") +
+        " This used 1 of your 5 free generations.";
+      _firstError("");
+      _postBtn(false);
+    }
+
+    function _firstError(msg) {
+      const el = document.getElementById("ob-first-error");
+      el.textContent = msg; el.style.display = msg ? "block" : "none";
+    }
+    function _postBtn(busy, label) {
+      const b = document.getElementById("ob-post-btn");
+      b.disabled = busy;
+      b.textContent = label || (busy ? "Posting…" : "Post it to LinkedIn →");
+    }
+
+    // LinkedIn is asked for here, when there's something to post, not before.
+    function postFirst() {
+      const text = document.getElementById("ob-post-text").innerText.trim();
+      if (!text) { _firstError("The post is empty."); return; }
+      _firstError("");
+      if (_liConnected) { _doPost(); return; }
+      // Open the window inside the tap, or the browser blocks it.
+      const popup = window.open("", "linkedin-auth", "width=600,height=700,scrollbars=yes");
+      if (!popup) { _firstError("Your browser blocked the LinkedIn window. Allow popups for voyce.co.in, then tap Post again."); return; }
+      _postBtn(true, "Connect LinkedIn in the new window…");
+      _afterConnect = _doPost;
+      fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken() } })
+        .then(r => (r.ok ? r.json() : Promise.reject()))
+        .then(({ auth_url }) => { popup.location.href = auth_url; })
+        .catch(() => { popup.close(); _afterConnect = null; _postBtn(false); _firstError("Couldn't start the LinkedIn connection. Try again."); });
+    }
+
+    async function _doPost() {
+      const text = document.getElementById("ob-post-text").innerText.trim();
+      _postBtn(true);
+      try {
+        const r = await fetch("/post/linkedin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-token": getToken() },
+          body: JSON.stringify({ text, profile_id: _profileId }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "LinkedIn didn't take the post. Try again.");
+        const urn = d.id || d.post_urn || "";
+        document.getElementById("ob-first").style.display = "none";
+        document.getElementById("ob-done").style.display = "block";
+        const link = document.getElementById("ob-view-link");
+        if (/^urn:li:(share|ugcPost|activity):/.test(urn)) link.href = `https://www.linkedin.com/feed/update/${encodeURIComponent(urn)}/`;
+        else link.style.display = "none";
+      } catch (ex) {
+        _postBtn(false);
+        _firstError(ex.message);
+      }
+    }
+
+    function editInWrite() {
+      localStorage.setItem("cm_seed_post", document.getElementById("ob-post-text").innerText.trim());
+      window.location.href = "/tool";
+    }
+
+    async function anotherAngle() {
+      const btn = document.getElementById("ob-again-btn");
+      btn.disabled = true; btn.textContent = "Writing another…";
+      document.getElementById("ob-loading-title").textContent = "Writing another angle…";
+      startObProgress();
+      const post = await _writeFirst();
+      stopObProgress();
+      btn.disabled = false; btn.textContent = "Try another angle";
+      if (post) { _showFirst(post); return; }
+      document.getElementById("ob-loading").style.display = "none";
+      document.getElementById("ob-first").style.display = "block";
+      _firstError("Couldn't write another one right now. You may have used your free generations; this one is still yours to post or edit.");
+    }
   </script>
   <script
     async

@@ -143,7 +143,9 @@ let linkedInConnected = false;
 // A profile can post to its own LinkedIn account (a client's). Posting from the
 // Create page goes through the selected profile's connection, not just the user's.
 function _activeProfile() { return (_profiles || []).find(p => p.id === getActiveProfileId()); }
-function _ensurePostingConnected() {
+// What to do once LinkedIn finishes connecting: the post you were trying to make.
+let _afterLiConnect = null;
+function _ensurePostingConnected(then) {
   const p = _activeProfile();
   if (p && p.li && p.li.own_account) {
     if (p.li.connected) return true;
@@ -151,7 +153,8 @@ function _ensurePostingConnected() {
     return false;
   }
   if (linkedInConnected) return true;
-  toast("Connect LinkedIn first — opening the connect window…", "warn");
+  toast(then ? "Connect LinkedIn in the new window, and Voyce carries on with your post." : "Connect LinkedIn first — opening the connect window…", "warn");
+  _afterLiConnect = then || null;
   connectLinkedIn();
   return false;
 }
@@ -200,11 +203,11 @@ async function startApp() {
   loadQueue();
   updateProgress();
   loadWaiting();
+  // The upsell starts hidden and shows only for a known free plan: people who
+  // already pay (or admins) never see it flash while the plan loads.
   const plan = ((user || {}).gen_info || {}).plan;
-  if (plan === "pro" || plan === "admin") {        // no upsell for people who already pay
-    const up = document.getElementById("side-upsell");
-    if (up) up.style.display = "none";
-  }
+  const up = document.getElementById("side-upsell");
+  if (up) up.style.display = plan && plan !== "pro" && plan !== "admin" ? "" : "none";
   applySeedTopic();
   // The composer starts empty on every visit — no stale post is auto-restored.
   // Previously generated posts live in the "Past" tab, loaded on demand.
@@ -229,6 +232,16 @@ async function loadWaiting() {
 
 // First-run handoff from onboarding: pre-fill the generator with the user's topic
 function applySeedTopic() {
+  // "Edit in Write" from onboarding: the first post itself, ready to edit and post.
+  const seedPost = localStorage.getItem("cm_seed_post");
+  if (seedPost) {
+    localStorage.removeItem("cm_seed_post");
+    renderOutputs({ linkedin_post: seedPost });
+    document.getElementById("output-section").classList.add("visible");
+    markGenerated();
+    setTimeout(() => toast("Your first post. Edit anything, then post it.", "success"), 400);
+    return;
+  }
   const seed = localStorage.getItem("cm_seed_topic");
   if (!seed) return;
   localStorage.removeItem("cm_seed_topic");
@@ -252,7 +265,10 @@ window.addEventListener("message", (e) => {
   if (e.data === "linkedin_connected") {
     linkedInConnected = true;
     updateLiPill(true);
-    toast("LinkedIn connected!", "success");
+    updateProgress();
+    const next = _afterLiConnect; _afterLiConnect = null;
+    if (next) { toast("LinkedIn connected. Carrying on…", "success"); next(); }
+    else toast("LinkedIn connected!", "success");
   } else if (e.data === "linkedin_error") {
     toast("LinkedIn connection failed. Try again.", "error");
   }
@@ -852,7 +868,7 @@ function loadFromHistory(i) {
 
 // ── Post Now ──────────────────────────────────────────────────────────────────
 async function postToLinkedIn() {
-  if (!_ensurePostingConnected()) return;
+  if (!_ensurePostingConnected(postToLinkedIn)) return;
   const text = _postText();
   if (!text) { toast("Generate content first.", "warn"); return; }
   await _refreshToken();
@@ -891,7 +907,7 @@ async function postToLinkedIn() {
 
 // ── Schedule ──────────────────────────────────────────────────────────────────
 function openSchedule() {
-  if (!_ensurePostingConnected()) return;
+  if (!_ensurePostingConnected(openSchedule)) return;
   if (!document.getElementById("linkedin-content").textContent) { toast("Generate content first.", "warn"); return; }
   const d = new Date(Date.now() + 5 * 60 * 1000);
   document.getElementById("schedule-time").value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -1055,7 +1071,7 @@ function viewCarouselSlides() {
 }
 
 async function postCarousel() {
-  if (!_ensurePostingConnected()) return;
+  if (!_ensurePostingConnected(postCarousel)) return;
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
 
   const text = document.getElementById("carousel-post-text").textContent;
