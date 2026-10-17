@@ -582,10 +582,10 @@
         <div class="price-tier">Pro</div><div class="price-amt" id="pro-amt"><sup>$</sup>49 <small>/mo</small></div><div class="price-per" id="pro-per">founding price · a 30-day pass, billed as ₹4,699 · no auto-charge</div>
         <a class="btn btn-primary" href="/signup">Upgrade to Pro →</a>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>Unlimited</b> generations</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-gens"><b>Unlimited</b> generations</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><b>Daily posting on your schedule</b></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every post logged with its source</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-profiles">Up to 15 profiles</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-profiles">Up to 3 profiles</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Post history + voice training</li>
         </ul>
@@ -667,6 +667,7 @@
     set("pro-amt", "<sup>₹</sup>" + rupees + " <small>/mo</small>");
     set("pro-per", "founding India price · a 30-day pass · no auto-charge");
     set("pro-profiles", "1 profile on daily posting");
+    set("pro-gens", "<b>" + (c.pass_generations || 60) + "</b> generations per pass");
     set("cmp-voyce-price", "₹" + rupees);
   }).catch(function () {});
 </script>

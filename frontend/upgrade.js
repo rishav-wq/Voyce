@@ -12,9 +12,9 @@
         <div id="upgrade-sub" style="font-size:13px;color:#6b7280;margin-top:4px;">That's $49 · a 30-day pass · no auto-charge</div>
       </div>
       <ul style="list-style:none;margin:0 0 28px;padding:0;">
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Unlimited</strong> generations</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-gens"><strong>Unlimited</strong> generations</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>15 profiles</strong></span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong></span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Post history with sources</span></li>
         <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Learns your style from LinkedIn</span></li>
@@ -87,8 +87,12 @@
           : "That's $49 · a 30-day pass · no auto-charge";
         const prof = document.getElementById("upgrade-profiles");
         if (prof) prof.innerHTML = inIndia
-          ? "<strong>1 profile</strong> on daily posting · every profile for manual writing"
-          : "Up to <strong>15 profiles</strong>";
+          ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
+          : "Up to <strong>3 profiles</strong>";
+        const gens = document.getElementById("upgrade-gens");
+        if (gens) gens.innerHTML = inIndia
+          ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"
+          : "<strong>Unlimited</strong> generations";
       }
     } catch (_) {}
     return _payConfig;
@@ -168,7 +172,7 @@
         _toast("🎉 Purchase restored — welcome to Pro!", "success");
         window.closeUpgradeModal();
         _refreshPlan();
-      } else if (data.gen_info && data.gen_info.limit === -1) {
+      } else if (data.gen_info && (data.gen_info.plan === "pro" || data.gen_info.plan === "admin")) {
         _toast("Your account is already on Pro.", "success");
         window.closeUpgradeModal();
         _refreshPlan();

@@ -26,6 +26,10 @@ PRO_DURATION_DAYS  = int(os.getenv("PRO_DURATION_DAYS", "31"))
 PRO_PRICE_AMOUNT_IN      = int(os.getenv("PRO_PRICE_AMOUNT_IN", "199900"))   # ₹1,999
 REGION_IN, REGION_INTL   = "IN", "INTL"
 INDIA_AUTOPILOT_PROFILES = 1
+# Each India pass also includes a fixed number of generations (daily posting
+# uses ~30 of them); the international pass is unlimited.
+INDIA_PASS_GENERATIONS   = int(os.getenv("INDIA_PASS_GENERATIONS", "60"))
+MAX_PROFILES             = 3   # per account, on every plan
 
 _API_BASE = "https://api.razorpay.com/v1"
 
@@ -52,6 +56,8 @@ def get_config(region: str = REGION_INTL) -> dict:
         "currency": PRO_PRICE_CURRENCY,
         "region": region,
         "autopilot_profiles": INDIA_AUTOPILOT_PROFILES if region == REGION_IN else None,
+        "pass_generations": INDIA_PASS_GENERATIONS if region == REGION_IN else None,
+        "max_profiles": MAX_PROFILES,
     }
 
 
@@ -141,9 +147,13 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
     # Renewing early stacks on the time already paid for, instead of throwing
     # the remaining days away (the dashboard invites renewal 5 days out).
     start = datetime.now()
-    user = db.users.find_one({"id": user_id}, {"plan": 1, "plan_expires_at": 1}) or {}
+    user = db.users.find_one({"id": user_id}, {"plan": 1, "plan_expires_at": 1, "plan_region": 1,
+                                               "gens_used": 1, "pass_gens_start": 1,
+                                               "pass_gens_allowance": 1}) or {}
+    still_active = False
     if user.get("plan") == "pro" and user.get("plan_expires_at"):
         try:
+            still_active = datetime.fromisoformat(user["plan_expires_at"]) > start
             start = max(start, datetime.fromisoformat(user["plan_expires_at"]))
         except (TypeError, ValueError):
             pass
@@ -160,7 +170,14 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
     # The plan follows the latest purchase: an India pass includes one profile on
     # daily posting. Orders from before regional pricing count as international.
     region = (record or {}).get("region", REGION_INTL)
-    db.users.update_one(
-        {"id": user_id},
-        {"$set": {"plan": "pro", "plan_expires_at": expires_at, "plan_region": region}},
-    )
+    fields = {"plan": "pro", "plan_expires_at": expires_at, "plan_region": region}
+    if region == REGION_IN:
+        # Count this pass's generations from here. Renewing early carries over
+        # whatever the current India pass hadn't used, like the days do.
+        used_total = int(user.get("gens_used", 0) or 0)
+        carry = 0
+        if still_active and user.get("plan_region") == REGION_IN:
+            used_this_pass = used_total - int(user.get("pass_gens_start", used_total) or 0)
+            carry = max(0, int(user.get("pass_gens_allowance", INDIA_PASS_GENERATIONS) or 0) - used_this_pass)
+        fields.update({"pass_gens_start": used_total, "pass_gens_allowance": INDIA_PASS_GENERATIONS + carry})
+    db.users.update_one({"id": user_id}, {"$set": fields})

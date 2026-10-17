@@ -174,12 +174,17 @@ def autopilot_paused(company: dict, reason: str = "") -> bool:
         u = {}
     marker = (u.get("plan_expires_at") or "free")[:10]
     subject = "Voyce autopilot is paused"
-    intro = ("Your Pro pass has ended, so Voyce has stopped writing your daily posts. "
-             "Your profiles, voice and schedule are all still saved.")
-    nxt = "Renew any time and posting picks up again at the next scheduled time."
+    if reason == "pass_limit":
+        intro = ("You've used all the generations included in this Pro pass, so Voyce has paused "
+                 "your daily posts. Your profiles, voice and schedule are all still saved.")
+        nxt = "Renew any time to get more — renewing early adds to the days you have left."
+    else:
+        intro = ("Your Pro pass has ended, so Voyce has stopped writing your daily posts. "
+                 "Your profiles, voice and schedule are all still saved.")
+        nxt = "Renew any time and posting picks up again at the next scheduled time."
     text = f"{intro}\n\n{nxt}\n\nRenew: {_QUEUE_URL}"
     body = _layout("Autopilot is paused", [intro, nxt], button=("Renew Pro", _QUEUE_URL))
-    return send(uid, f"paused:{uid}:{marker}", "autopilot_paused", subject, text, body)
+    return send(uid, f"paused:{reason or 'expired'}:{uid}:{marker}", "autopilot_paused", subject, text, body)
 
 
 def sweep_expiries():

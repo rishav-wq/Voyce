@@ -124,10 +124,12 @@ def _require_user(x_token: str = Header(None)):
 def _check_gen_limit(user: dict):
     info = auth_module.get_gen_info(user["id"])
     if info["limit"] != -1 and info["used"] >= info["limit"]:
-        raise HTTPException(
-            status_code=402,
-            detail=f"LIMIT_REACHED"
-        )
+        if info.get("plan") == "pro":
+            # An India pass with its generations used up — not a free account.
+            raise HTTPException(status_code=402, detail=(
+                f"PASS_LIMIT_REACHED:You've used this pass's {info['limit']} generations. "
+                "Renew to get more — renewing early adds to the days you have left."))
+        raise HTTPException(status_code=402, detail="LIMIT_REACHED")
 
 
 def _rate_limit(key: str, limit: int, window: float = 60.0):
@@ -165,7 +167,9 @@ def _client_ip(request: Request) -> str:
 
 
 def _is_pro(user: dict) -> bool:
-    return auth_module.get_gen_info(user["id"])["limit"] == -1
+    # By plan, not by "unlimited generations": an India pass is Pro with a
+    # generation allowance, and must still unlock daily posting.
+    return auth_module.get_gen_info(user["id"])["plan"] in ("pro", "admin")
 
 
 def _require_pro(user: dict, feature: str):
@@ -1358,12 +1362,12 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
     pro = _is_pro(user)
     existing = list_companies(user["id"])
-    # Fractional CMOs run many client brands at once, so a profile = one client.
-    max_profiles = 15 if pro else 3
+    # Three profiles on every plan; on Pro each can post to its own LinkedIn
+    # account. Accounts that already have more keep them — this only blocks new ones.
+    max_profiles = payments.MAX_PROFILES
     if len(existing) >= max_profiles:
-        if pro:
-            raise HTTPException(status_code=400, detail=f"Profile limit reached ({max_profiles} profiles on Pro)")
-        raise HTTPException(status_code=403, detail="PRO_REQUIRED:profiles")
+        raise HTTPException(status_code=400, detail=(
+            f"You've reached the limit of {max_profiles} profiles. Delete one to add another."))
     try:
         data = request.model_dump()
         data["user_id"] = user["id"]

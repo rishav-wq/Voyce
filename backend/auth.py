@@ -137,11 +137,20 @@ def get_gen_info(user_id: str) -> dict:
         db.users.update_one({"id": user_id}, {"$set": {"plan": "free"}})
     used  = user.get("gens_used", 0)
     limit = 5 if plan == "free" else -1
+    region = user.get("plan_region", "INTL")
+    if plan == "pro" and region == "IN":
+        # An India pass includes a fixed number of generations, counted from the
+        # moment it was bought (see payments.activate_pro).
+        from payments import INDIA_PASS_GENERATIONS
+        start = int(user.get("pass_gens_start", used) or 0)
+        used  = max(0, used - start)
+        allowance = user.get("pass_gens_allowance")   # 0 is a real value, not "unset"
+        limit = int(allowance) if allowance is not None else INDIA_PASS_GENERATIONS
     info = {"used": used, "limit": limit, "plan": plan}
     if plan == "pro" and expires_at:
         info["expires_at"] = expires_at
     if plan == "pro":
-        info["plan_region"] = user.get("plan_region", "INTL")   # "IN": 1 daily-posting profile
+        info["plan_region"] = region   # "IN": 1 daily-posting profile, capped generations
     return info
 
 

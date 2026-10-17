@@ -149,7 +149,15 @@ function showError(msg) {
   const el = document.getElementById("error-banner");
   if (!el) { toast(msg, "error"); return; }
   if (msg === "LIMIT_REACHED") {
-    el.innerHTML = `You've used all 5 free generations. <a href="#" onclick="openUpgradeModal();return false;" style="color:#24365e;font-weight:700;">Upgrade to Pro</a> for unlimited generations.`;
+    el.innerHTML = `You've used all 5 free generations. <a href="#" onclick="openUpgradeModal();return false;" style="color:#24365e;font-weight:700;">Upgrade to Pro</a> to keep going.`;
+  } else if (typeof msg === "string" && msg.startsWith("PASS_LIMIT_REACHED:")) {
+    // An India pass with its generations used up: renewing adds more.
+    el.textContent = msg.slice("PASS_LIMIT_REACHED:".length) + " ";
+    const a = document.createElement("a");
+    a.href = "#"; a.textContent = "Renew Pro";
+    a.style.cssText = "color:#24365e;font-weight:700;";
+    a.onclick = (e) => { e.preventDefault(); openUpgradeModal(); };
+    el.appendChild(a);
   } else {
     el.textContent = msg;
   }
@@ -1089,8 +1097,9 @@ async function attachGenerateImage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      if (data.detail === "LIMIT_REACHED") {
-        toast("You've used all 5 free generations — upgrade for unlimited.", "warn");
+      if (data.detail === "LIMIT_REACHED" || String(data.detail || "").startsWith("PASS_LIMIT_REACHED:")) {
+        toast(data.detail === "LIMIT_REACHED" ? "You've used all 5 free generations — upgrade to keep going."
+          : String(data.detail).slice("PASS_LIMIT_REACHED:".length), "warn");
         if (typeof openUpgradeModal === "function") openUpgradeModal();
         _attachState(_attachB64 ? "has" : "empty");
         return;

@@ -1192,11 +1192,13 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         user_id = company.get("user_id", "")
         gen_info = auth_module.get_gen_info(user_id)
         if gen_info["limit"] != -1 and gen_info["used"] >= gen_info["limit"]:
+            pass_used_up = gen_info.get("plan") == "pro"   # an India pass, not a lapsed one
             log_entry["status"] = "skipped"
-            log_entry["error"] = "Free generation limit reached"
+            log_entry["error"] = ("This pass's generations are used up" if pass_used_up
+                                  else "Free generation limit reached")
             _append_log(log_entry)
             if notify_user:
-                notify.autopilot_paused(company)
+                notify.autopilot_paused(company, reason="pass_limit" if pass_used_up else "")
             return log_entry
 
         if not li.is_connected(user_id):
