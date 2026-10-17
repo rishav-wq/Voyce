@@ -5,6 +5,8 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Terms of Service — Voyce</title>
+  <meta name="description" content="The terms for using Voyce." />
+  <link rel="canonical" href="https://voyce.co.in/terms" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,88 +15,106 @@
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #16181d; background: #fff; line-height: 1.7; }
     h1, h2, .logo { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
     a { color: #24365e; text-decoration: none; }
+    a:hover { text-decoration: underline; }
     .nav { background: #fff; border-bottom: 1px solid #e4e7ec; padding: 0 48px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+    .nav-links a { font-size: 14px; color: #5b6270; margin-left: 22px; }
     .logo { font-size: 20px; font-weight: 700; color: #16181d; }
-    .logo span { color: #24365e; }
     .content { max-width: 720px; margin: 0 auto; padding: 60px 24px 80px; }
     h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 8px; }
-    .date { font-size: 13px; color: #aaa; margin-bottom: 40px; }
+    .date { font-size: 13px; color: #6b7280; margin-bottom: 36px; }
     h2 { font-size: 18px; font-weight: 700; margin: 32px 0 10px; }
     p { font-size: 15px; color: #444; margin-bottom: 14px; }
     ul { margin: 0 0 14px 20px; }
     ul li { font-size: 15px; color: #444; margin-bottom: 6px; }
-    .footer { background: #16181d; padding: 28px 48px; text-align: center; font-size: 13px; color: #555; }
-    .footer a { color: #888; margin: 0 12px; }
-      /* ── Wordmark: cursive V flowing straight into "oyce", no gap ──────────────
-       Fraunces italic is the same face as the italic "you" on the landing page,
-       so the logo and that accent are one gesture. Georgia italic is the
-       fallback wherever Fraunces is unavailable. */
+    table { width: 100%; border-collapse: collapse; margin: 6px 0 16px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid #e4e7ec; color: #444; }
+    th { font-weight: 600; color: #16181d; background: #f6f7f9; }
+    .card { border: 1px solid #e4e7ec; border-radius: 12px; padding: 18px 20px; margin: 0 0 16px; background: #f9fafb; }
+    .card p { margin-bottom: 6px; }
+    .footer { background: #16181d; padding: 28px 24px; text-align: center; font-size: 13px; color: #9aa0aa; }
+    .footer a { color: #c9ced6; margin: 0 10px; display: inline-block; line-height: 2; }
+    @media (max-width: 600px) { .nav { padding: 0 16px; } .nav-links a { margin-left: 14px; } .content { padding: 40px 16px 60px; } h1 { font-size: 30px; } }
+    /* Wordmark: cursive V flowing straight into "oyce" */
     .logo { display: inline-flex; align-items: baseline; gap: 0; line-height: 1.35; }
-    .logo .logo-mark {
-      font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
-      font-style: italic; font-weight: 500;
-      font-size: 1.85em; line-height: 0.85;
-      letter-spacing: -0.07em;   /* tucks the o in so the pair reads as one word */
-      background: none !important; border-radius: 0;
-      width: auto !important; height: auto !important;
-      display: inline !important; place-items: unset;
-      padding: 0; margin: 0 -0.02em 0 0;
-      color: inherit;
-    }
-</style>
+    .logo .logo-mark { font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500;
+      font-size: 1.85em; line-height: 0.85; letter-spacing: -0.07em; display: inline; padding: 0; margin: 0 -0.02em 0 0; color: inherit; }
+  </style>
 </head>
 <body>
   <nav class="nav">
-    <a href="/" class="logo"><span class="logo-mark">V</span><span>oyce</span></a>
+    <a href="/" class="logo" aria-label="Voyce home"><span class="logo-mark">V</span><span>oyce</span></a>
+    <div class="nav-links"><a href="/#pricing">Pricing</a><a href="/contact">Contact</a></div>
   </nav>
-
-  <div class="content">
+  <main class="content">
     <h1>Terms of Service</h1>
-    <p class="date">Last updated: April 27, 2026</p>
+    <p class="date">Last updated: October 17, 2026</p>
+    <p>These terms are an agreement between you and <strong>Rishav Raj</strong>, an individual based in Bengaluru, Karnataka, India, who operates Voyce ("Voyce", "we", "us"). By creating an account or using Voyce, you agree to them.</p>
 
-    <p>By using Voyce ("the Service"), you agree to these Terms of Service. Please read them carefully.</p>
+    <h2>1. The service</h2>
+    <p>Voyce writes LinkedIn posts in your voice, using news in your niche and the material you give it, and can publish them to your LinkedIn account through LinkedIn's official API. By default each post waits for your approval; you can instead choose to let posts publish automatically.</p>
 
-    <h2>1. Use of the Service</h2>
-    <p>Voyce provides AI-generated content and LinkedIn automation tools. You are responsible for all content posted to LinkedIn through our service. You agree to use the Service only for lawful purposes and in accordance with LinkedIn's own Terms of Service.</p>
-
-    <h2>2. Account Responsibility</h2>
-    <p>You are responsible for maintaining the security of your account credentials. You must not share your account with others or use the Service to post on behalf of others without their explicit permission.</p>
-
-    <h2>3. LinkedIn Integration</h2>
-    <p>Voyce connects to LinkedIn via official OAuth. By connecting your LinkedIn account, you authorise Voyce to post content on your behalf. You can revoke this access at any time from within the app or from your LinkedIn settings. Voyce is not affiliated with LinkedIn Corporation.</p>
-
-    <h2>4. Content and AI</h2>
-    <p>Content generated by Voyce is AI-generated and may not always be accurate. You should review generated content before posting. Voyce is not liable for any inaccuracies, errors, or consequences arising from AI-generated content.</p>
-
-    <h2>5. Free Plan Limits</h2>
-    <p>Free accounts are limited to 5 total content generations, including manual generations and scheduled automated posts. Continued use requires upgrading to a paid plan. Voyce reserves the right to change plan limits with notice.</p>
-
-    <h2>6. Prohibited Use</h2>
+    <h2>2. Your account</h2>
     <ul>
-      <li>Posting spam, misleading, or harmful content</li>
-      <li>Attempting to circumvent generation limits</li>
-      <li>Reverse engineering or scraping the Service</li>
-      <li>Using the Service to violate any applicable law</li>
+      <li>You must be at least 18 and give accurate account information.</li>
+      <li>Keep your sign-in secure; you're responsible for activity on your account.</li>
+      <li>Only publish as yourself, or as someone who has given you explicit permission.</li>
     </ul>
 
-    <h2>7. Termination</h2>
-    <p>We reserve the right to suspend or terminate accounts that violate these Terms. You may delete your account at any time.</p>
+    <h2>3. Your content and what's published</h2>
+    <p>You keep ownership of the material you provide and the posts Voyce writes for you. You give us permission to store and process that material only to provide the service to you.</p>
+    <p>You are responsible for everything published to your LinkedIn through Voyce — posts you approve and posts you've chosen to publish automatically. AI-written content can contain mistakes. Voyce checks posts against their sources and holds back posts that fail, but it cannot guarantee accuracy, so review what goes out under your name.</p>
 
-    <h2>8. Limitation of Liability</h2>
-    <p>Voyce is provided "as is" without warranty of any kind. We are not liable for any indirect, incidental, or consequential damages arising from your use of the Service.</p>
+    <h2>4. LinkedIn</h2>
+    <p>Voyce is not affiliated with or endorsed by LinkedIn. You must follow LinkedIn's User Agreement and Professional Community Policies. LinkedIn can change or limit its API at any time, so we can't guarantee that publishing will always be available, or how LinkedIn treats any account. You can disconnect LinkedIn at any time.</p>
 
-    <h2>9. Changes to Terms</h2>
-    <p>We may update these Terms from time to time. Continued use of the Service after changes constitutes acceptance of the updated Terms.</p>
+    <h2>5. Acceptable use</h2>
+    <ul>
+      <li>No spam, or content that is misleading, defamatory, hateful, infringing or illegal.</li>
+      <li>No impersonating others.</li>
+      <li>No attempts to get around plan limits, overload the service, or reverse engineer or scrape it.</li>
+    </ul>
 
-    <h2>10. Contact</h2>
-    <p>Questions about these Terms? Email us at <a href="mailto:hello@voyce.co.in">hello@voyce.co.in</a></p>
-  </div>
+    <h2>6. Plans and payment</h2>
+    <ul>
+      <li>The free plan has the limits shown on our pricing.</li>
+      <li>Pro is a one-time payment for a 30-day pass, charged in Indian rupees through Razorpay. It does not renew automatically.</li>
+      <li>Prices may change for future purchases; a pass you've paid for is not affected.</li>
+      <li>Your bank may add foreign-transaction or conversion fees for international cards.</li>
+    </ul>
 
+    <h2>7. Refunds</h2>
+    <p>Every Pro purchase can be refunded in full within 7 days, once per account. See the <a href="/refund">Refund &amp; Cancellation Policy</a>.</p>
+
+    <h2>8. Availability</h2>
+    <p>We work to keep Voyce running, but it is provided as it is. Scheduled posts can fail — for example during a LinkedIn outage, or when a connection expires — and we'll email you when that happens. We may change or improve features over time.</p>
+
+    <h2>9. Suspension and ending your use</h2>
+    <p>We may suspend or close accounts that break these terms. You can stop using Voyce at any time and ask us to delete your data, as described in the <a href="/privacy">Privacy Policy</a>.</p>
+
+    <h2>10. Liability</h2>
+    <p>To the extent the law allows, Voyce is provided without warranties, and we are not liable for indirect or consequential losses, including lost business, reputation or profits. Our total liability for any claim is limited to the amount you paid us in the 30 days before it arose. Nothing in these terms limits rights you have under Indian consumer protection law that cannot be limited.</p>
+
+    <h2>11. Indemnity</h2>
+    <p>You agree to cover claims brought against us that arise from content you publish through Voyce or from your breach of these terms.</p>
+
+    <h2>12. Governing law</h2>
+    <p>These terms are governed by the laws of India. Courts in Bengaluru, Karnataka have jurisdiction over any dispute, without affecting any consumer rights you have to bring a claim where you live.</p>
+
+    <h2>13. Changes</h2>
+    <p>If we change these terms, we'll update the date above and email you about significant changes before they apply.</p>
+
+    <h2>14. Contact</h2>
+    <div class="card">
+      <p><strong>Rishav Raj</strong> — operator of Voyce</p>
+      <p>Bengaluru, Karnataka, India</p>
+      <p>Email: <a href="mailto:hello@voyce.co.in">hello@voyce.co.in</a></p>
+      <p>Phone: <a href="tel:+919631443272">+91 96314 43272</a></p>
+    </div>
+
+  </main>
   <footer class="footer">
-    <a href="/">Home</a>
-    <a href="/privacy">Privacy Policy</a>
-    <a href="mailto:hello@voyce.co.in">Contact</a>
-    <div style="margin-top:10px;">© 2026 Voyce. All rights reserved.</div>
+    <a href="/">Home</a><a href="/about">About</a><a href="/#pricing">Pricing</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a><a href="/shipping">Shipping &amp; Delivery</a><a href="/contact">Contact</a>
+    <div style="margin-top:10px;">© 2026 Voyce · operated by Rishav Raj, Bengaluru, Karnataka, India</div>
   </footer>
 </body>
 </html>

@@ -77,6 +77,7 @@
   <div class="auth-logo logo"><span class="logo-mark">V</span><span>oyce</span></div>
   <p class="auth-tagline">LinkedIn posts that sound like <em class="you">you</em>.</p>
   <div id="clerk-sign-in"></div>
+  <p id="auth-legal" style="display:none;font-size:12.5px;color:#5b6270;margin-top:16px;text-align:center;max-width:420px;line-height:1.5;">By creating an account you agree to the <a href="/terms" style="color:#24365e;">Terms</a> and <a href="/privacy" style="color:#24365e;">Privacy Policy</a>.</p>
 
   <script>
     async function startApp() {
@@ -124,6 +125,7 @@
       const mount = document.getElementById("clerk-sign-in");
       if (isSignUp) {
         document.title = "Voyce — Create your free account";
+        document.getElementById("auth-legal").style.display = "block";
         clerk.mountSignUp(mount, opts);
       } else {
         clerk.mountSignIn(mount, opts);

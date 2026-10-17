@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -569,6 +569,36 @@ def serve_terms():
 @app.get("/privacy")
 def serve_privacy():
     return _page("privacy.html")
+
+
+# Business pages Razorpay's website review expects (About, Contact, Refund,
+# Shipping/Delivery, Pricing), with the aliases a reviewer might type.
+@app.get("/about")
+def serve_about():
+    return _page("about.html")
+
+
+@app.get("/contact")
+def serve_contact():
+    return _page("contact.html")
+
+
+@app.get("/refund")
+@app.get("/refunds")
+@app.get("/cancellation")
+def serve_refund():
+    return _page("refund.html")
+
+
+@app.get("/shipping")
+@app.get("/delivery")
+def serve_shipping():
+    return _page("shipping.html")
+
+
+@app.get("/pricing")
+def serve_pricing():
+    return RedirectResponse("/#pricing", status_code=302)
 
 
 # ── Waitlist ──────────────────────────────────────────────────────────────────
