@@ -732,6 +732,11 @@ def _build_company_brief(company: dict) -> str:
             parts.append("\n--- REAL POSTS BY THIS AUTHOR (match this voice exactly — rhythm, vocabulary, quirks) ---")
         for i, post in enumerate(top_posts[:5], 1):
             parts.append(f"Example {i}:\n{post[:600]}")
+        # Without this the daily posts lifted an example's hook and its story as
+        # if new ("my last 7 posts bombed", every day, as a carousel).
+        parts.append("HOW TO USE THESE EXAMPLES: copy the rhythm, vocabulary and tone only. NEVER reuse "
+                     "their hooks, opening lines or phrases, and never retell their stories, numbers or "
+                     "experiences as if they just happened.")
 
     if (company.get("knowledge") or "").strip():
         parts.append(
@@ -739,6 +744,60 @@ def _build_company_brief(company: dict) -> str:
             "contradict them or invent around them) ---\n" + company["knowledge"].strip()[:2000])
 
     return "\n".join(p for p in [product_line, *parts] if p)
+
+
+_STOP = {"the", "a", "an", "is", "are", "to", "of", "and", "in", "on", "for", "it", "this", "that", "be", "with"}
+
+
+def _opening_words(text: str) -> set[str]:
+    """The first line's words, numbers folded together ("my last 7" = "my last 12")."""
+    first = next((ln for ln in (text or "").splitlines() if ln.strip()), "")
+    first = re.split(r"(?<=[.!?])\s", first.strip())[0]   # the hook, not "Here's why." after it
+    words = re.findall(r"[a-z0-9']+", first.lower())[:10]
+    return {"#" if w.isdigit() else w for w in words if w not in _STOP}
+
+
+def _repeats_opening(text: str, openings: list[str]) -> str:
+    """The earlier opening this one copies, or "". Two openings match when most of
+    their words are shared — "My last 7 cold pitches completely bombed" against
+    "My first 7 LinkedIn posts completely bombed"."""
+    mine = _opening_words(text)
+    if len(mine) < 3:
+        return ""
+    for o in openings:
+        theirs = _opening_words(o)
+        if len(theirs) >= 3 and len(mine & theirs) / len(mine | theirs) >= 0.5:
+            return o
+    return ""
+
+
+def _openings_to_avoid(company: dict, n: int = 10) -> list[str]:
+    """First lines of the author's example posts and of this profile's recent posts."""
+    out = []
+    for post in (company.get("linkedin_top_posts") or [])[:5]:
+        line = next((ln.strip() for ln in str(post).splitlines() if ln.strip()), "")
+        if line:
+            out.append(line[:160])
+    try:
+        for e in get_post_log([company.get("id", "")])[:n]:
+            line = next((ln.strip() for ln in (e.get("post_text") or "").splitlines() if ln.strip()), "")
+            if line:
+                out.append(line[:160])
+    except Exception:
+        logger.exception("[Openings] could not read recent posts")
+    seen, uniq = set(), []
+    for line in out:
+        if line.lower() not in seen:
+            seen.add(line.lower()); uniq.append(line)
+    return uniq
+
+
+def _avoid_block(openings: list[str]) -> str:
+    if not openings:
+        return ""
+    return ("\nOPENINGS ALREADY USED — this post must open differently from every one of these, "
+            "in wording AND in shape (no new number in the same template):\n"
+            + "\n".join(f"- {o}" for o in openings))
 
 
 def _runs_today(company_id: str) -> int:
@@ -921,10 +980,20 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
     if not is_personal:
         prompt += "\n" + _COMPANY_QUALITY_RULES
     prompt += _hook_guidance(company.get("allowed_hooks"))
+    openings = _openings_to_avoid(company)
+    prompt += _avoid_block(openings)
 
     draft = _format_linkedin_post(
         llm_generate(prompt, max_tokens=1024, temperature=0.85)
     )
+    copied = _repeats_opening(draft, openings)
+    if copied:
+        # The prompt alone didn't stop it: say exactly which opening it reused.
+        logger.info(f"[Openings] draft reused an opening ({copied[:60]!r}); rewriting once")
+        draft = _format_linkedin_post(llm_generate(
+            prompt + f"\n\nYOUR LAST DRAFT OPENED LIKE THIS EARLIER POST: \"{copied}\". "
+                     "Write the post again with a completely different first line and angle.",
+            max_tokens=1024, temperature=0.9))
     post = _revise_post(draft, industry)
 
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
@@ -1018,7 +1087,17 @@ def _format_linkedin_post(text: str) -> str:
 
 
 def _should_post_carousel(company: dict) -> bool:
-    return bool(company.get("carousel_enabled"))
+    """Carousels on alternate days — what the switch has always promised ("alternating
+    automated days"). It used to make every post a carousel."""
+    if not company.get("carousel_enabled"):
+        return False
+    try:
+        for e in get_post_log([company.get("id", "")]):
+            if e.get("status") in ("posted", "pending_approval", "expired", "discarded", "dry_run_fired"):
+                return e.get("post_format") != "carousel"
+    except Exception:
+        logger.exception("[Carousel] could not read the last post")
+    return True
 
 
 def _video_gen_prompt(subject: dict, post_text: str) -> str:
@@ -1388,9 +1467,12 @@ def list_pending_posts(user_id: str) -> list:
     """Pending items for the dashboard queue (assets excluded — they're big).
     Lazily expires stale items first."""
     cutoff = (datetime.now() - timedelta(hours=PENDING_TTL_HOURS)).isoformat()
-    db.pending_posts.update_many(
-        {"user_id": user_id, "status": "pending", "created_at": {"$lt": cutoff}},
-        {"$set": {"status": "expired"}})
+    stale = [p["id"] for p in db.pending_posts.find(
+        {"user_id": user_id, "status": "pending", "created_at": {"$lt": cutoff}}, {"id": 1})]
+    if stale:
+        db.pending_posts.update_many({"id": {"$in": stale}}, {"$set": {"status": "expired"}})
+        db.post_log.update_many({"pending_id": {"$in": stale}, "status": "pending_approval"},
+                                {"$set": {"status": "expired"}})
     return list(db.pending_posts.find(
         {"user_id": user_id, "status": "pending"},
         {"_id": 0, "asset_b64": 0}).sort("created_at", -1))
@@ -1441,13 +1523,9 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         {"$set": {"status": "approved", "approved_at": datetime.now().isoformat()},
          "$unset": {"asset_b64": ""}})
     fell_back = result.get("fallback_from", "")
-    _append_log({
-        "company_id":   pend.get("company_id", ""),
-        "company_name": pend.get("company_name", ""),
-        "product_name": pend.get("product_name", ""),
-        "post_type":    pend.get("post_type", ""),
+    published = {
         "post_format":  "carousel" if pend.get("format") == "carousel" and not fell_back else "text",
-        "timestamp":    datetime.now().isoformat(),
+        "timestamp":    datetime.now().isoformat(),   # when it went out
         "status":       "posted",
         "post_text":    result.get("fallback_text") or pend.get("post_text", ""),
         "post_urn":     result.get("id", ""),
@@ -1455,7 +1533,18 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         "fallback_from": fell_back,
         "error":        (f"Posted as text: the {fell_back} failed ({result.get('media_error', '')})"
                          if fell_back else ""),
-    })
+    }
+    # One row per post: the "Waiting for approval" row becomes the posted one.
+    # Appending a second row left the first saying "waiting" forever.
+    if not db.post_log.update_one({"pending_id": pending_id},
+                                  {"$set": {**published, "approved_at": published["timestamp"]}}).matched_count:
+        _append_log({
+            "company_id":   pend.get("company_id", ""),
+            "company_name": pend.get("company_name", ""),
+            "product_name": pend.get("product_name", ""),
+            "post_type":    pend.get("post_type", ""),
+            **published,
+        })
     logger.info(f"[Approval] Pending post {pending_id} approved and published"
                 + (f" as text ({fell_back} failed)" if fell_back else ""))
     return {"status": "posted", "post_urn": result.get("id", ""),
@@ -1466,6 +1555,9 @@ def discard_pending_post(pending_id: str, user_id: str) -> dict:
     r = db.pending_posts.update_one(
         {"id": pending_id, "user_id": user_id, "status": "pending"},
         {"$set": {"status": "discarded"}, "$unset": {"asset_b64": ""}})
+    if r.modified_count:
+        db.post_log.update_many({"pending_id": pending_id, "status": "pending_approval"},
+                                {"$set": {"status": "discarded"}})
     return {"ok": r.modified_count > 0}
 
 

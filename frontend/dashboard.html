@@ -2107,6 +2107,8 @@
       // works off timestamps, which Voyce always has.
       document.getElementById("analytics-grid").style.display = hasAny ? "" : "none";
 
+      const allPosts = posts;        // the tiles and the cadence chart count every post
+      posts = posts.slice(0, 14);    // one bar each for the latest 14
       const likes    = posts.map(p => p.engagement?.likes    ?? 0);
       const comments = posts.map(p => p.engagement?.comments ?? 0);
       const reposts  = posts.map(p => p.engagement?.reposts  ?? 0);
@@ -2157,7 +2159,7 @@
 
       const DAYS = 30;
       const perDay = new Map();
-      posts.forEach(p => {
+      allPosts.forEach(p => {
         const d = new Date(p.timestamp.endsWith("Z") ? p.timestamp : p.timestamp + "Z");
         const key = d.toISOString().slice(0, 10);
         perDay.set(key, (perDay.get(key) || 0) + 1);
@@ -2245,6 +2247,8 @@
     const _STATUS_LABEL = {
       posted:           ["Posted", "ok"],
       pending_approval: ["Waiting for approval", "warn"],
+      expired:          ["Expired — not approved", "muted"],
+      discarded:        ["Skipped by you", "muted"],
       dry_run_fired:    ["Test run", "muted"],
       skipped:          ["Skipped", "muted"],
       error:            ["Failed", "bad"],

@@ -1906,6 +1906,8 @@ def generate_carousel_content(company: dict, news_context: str, post_type: str) 
     voice_note = ("First person (I, my, I've) — write as if the author is speaking directly."
                   if is_personal else "Third person — company voice, authoritative.")
     company_brief = _build_company_brief(company)[:1400]
+    from autonomous import _openings_to_avoid, _avoid_block
+    avoid = _avoid_block(_openings_to_avoid(company))
 
     prompt = f"""Generate a LinkedIn carousel for {company['name']} ({company['industry']}).
 
@@ -1918,6 +1920,8 @@ Content-slide bodies must cite real companies, reports, or numbers — nothing t
 
 {voice_note}
 {_hook_guidance(company.get("allowed_hooks"))}
+{avoid}
+The cover slide's title and the caption's first line count as openings.
 
 Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""

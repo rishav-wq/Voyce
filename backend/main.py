@@ -2008,7 +2008,34 @@ def set_schedule(company_id: str, request: SchedulePlanRequest, x_token: str = H
 def post_log(x_token: str = Header(None)):
     user = _require_user(x_token)
     user_company_ids = [c["id"] for c in list_companies(user["id"])]
-    return get_post_log(user_company_ids)
+    return _with_outcomes(get_post_log(user_company_ids))
+
+
+def _with_outcomes(log: list) -> list:
+    """A row written as "Waiting for approval" shows what became of the post. Rows
+    from before approvals updated their own row: an approved one already has its
+    "Posted" twin, so it's dropped; an unapproved one past 48 hours expired."""
+    from autonomous import PENDING_TTL_HOURS
+    ids = [e["pending_id"] for e in log if e.get("status") == "pending_approval" and e.get("pending_id")]
+    states = {}
+    if ids:
+        try:
+            states = {p["id"]: p.get("status") for p in db.pending_posts.find({"id": {"$in": ids}}, {"id": 1, "status": 1})}
+        except Exception:
+            logging.exception("[Log] could not read pending posts")
+    cutoff = (datetime.now() - timedelta(hours=PENDING_TTL_HOURS)).isoformat()
+    out = []
+    for e in log:
+        if e.get("status") == "pending_approval":
+            st = states.get(e.get("pending_id"))
+            if st == "approved":
+                continue
+            if st in ("expired", "discarded"):
+                e = {**e, "status": st}
+            elif (e.get("timestamp") or "") < cutoff:
+                e = {**e, "status": "expired"}
+        out.append(e)
+    return out
 
 
 @app.get("/analytics")
@@ -2016,8 +2043,9 @@ def get_analytics(x_token: str = Header(None)):
     user = _require_user(x_token)
     user_company_ids = [c["id"] for c in list_companies(user["id"])]
     log = get_post_log(user_company_ids)
-    posts = [e for e in log if e.get("status") == "posted"]
-    return posts[:14]   # the log is newest-first, so these are the 14 latest
+    # Every published post, so "Published" is a real count (it was capped at 14);
+    # the per-post chart takes the latest 14 itself.
+    return [e for e in log if e.get("status") == "posted"][:500]
 
 
 @app.post("/analytics/refresh")
