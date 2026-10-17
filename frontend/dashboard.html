@@ -787,7 +787,7 @@
             <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn, automation — all optional</span></summary>
             <div class="adv-inner">
               <div class="form-group"><label>Post Tone</label><select id="c-tone"><option value="professional">Professional</option><option value="thought leadership">Thought Leadership</option><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="bold and direct">Bold &amp; Direct</option></select></div>
-              <div class="form-group"><label>Daily Post Time</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Only used when daily automation (Pro) is on.</p></div>
+              <div class="form-group"><label>Daily Post Time</label><input type="time" id="c-time" value="09:00" required /><p class="form-hint">Your local time. Only used when daily posting (Pro) is on.</p></div>
             </div>
           </details>
 
@@ -861,7 +861,7 @@
                 </div>
               </div>
               <div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6d7482;margin:18px 0 8px;">Daily automation (Pro)</div>
-              <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Only used when daily automation is on.</p></div>
+              <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Your local time. Only used when daily posting is on.</p></div>
             </div>
           </details>
 
@@ -1011,7 +1011,7 @@
         ["Posted today", postedToday, postedToday ? "already live on LinkedIn" : (active.length ? "nothing yet today" : "no profile is auto-posting")],
         ["Needs you", waiting || "—", waiting ? "waiting for your approval" : "nothing waiting"],
         ["Next post", next ? next.post_time : "—",
-         next ? `as ${next.name}${next.next_post_type ? ` · ${next.next_post_type}` : ""}` : "automation is off"],
+         next ? `${_tzCity(next.timezone)} time · as ${next.name}${next.next_post_type ? ` · ${next.next_post_type}` : ""}` : "automation is off"],
         ["This week", postedWeek, `across ${profileCount} profile${profileCount === 1 ? "" : "s"}`],
       ];
       grid.innerHTML = tiles.map(([k, v, d]) => `
@@ -1147,7 +1147,7 @@
         `<span><span style="color:#18a07a;">●</span> Auto-posting <strong>${active.length} profile${active.length > 1 ? "s" : ""}</strong></span>`,
       ];
       if (next && next.next_post_type) {
-        parts.push(`<span>Next: <strong>${next.next_post_type}</strong> · ${next.post_time} · as ${next.name}</span>`);
+        parts.push(`<span>Next: <strong>${next.next_post_type}</strong> · ${_timeLabel(next)} · as ${next.name}</span>`);
         if (next.next_post_type_desc) parts.push(`<span class="sb-dim">${next.next_post_type_desc}</span>`);
       }
       parts.push(`<span id="sb-li" class="sb-dim">LinkedIn: checking…</span>`);
@@ -1203,7 +1203,7 @@
               ${p.name}
               <span class="badge-type ${typeClass}">${typeLabel}</span>
             </div>
-            ${p.active ? `<span class="badge-active">Auto-posting on</span>` : ""}
+            ${p.active ? `<span class="badge-active">${p.approval_mode ? "On · asks first" : "On · posts automatically"}</span>` : ""}
           </div>
 
           <div style="font-size:12.5px;color:#5b6270;line-height:1.5;margin:2px 0 14px;">
@@ -1213,15 +1213,29 @@
 
           <div style="border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
             <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.active}" style="margin-bottom:${p.active ? "10px" : "0"};"
-                   aria-label="Daily auto-posting for ${p.name}"
+                   aria-label="Daily posting for ${p.name}"
                    onclick="toggleProfile('${p.id}', ${!p.active})"
                    onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleProfile('${p.id}', ${!p.active});}">
               <div class="carousel-toggle-switch ${p.active ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
-              <span class="carousel-toggle-label">Daily auto-posting${p.active ? ` · every day at ${p.post_time}` : ""}</span>
+              <span class="carousel-toggle-label">Daily posting${p.active ? ` · every day at ${_timeLabel(p)}` : ""}</span>
             </label>
             ${p.active ? `
               <div style="font-size:11.5px;color:#98a0ae;margin:0 0 10px 46px;line-height:1.45;">
                 Next up: <strong style="color:#5b6270;">${p.next_post_type || "—"}</strong>${p.next_post_type_desc ? ` — ${p.next_post_type_desc}` : ""}
+              </div>
+              <!-- Review mode sits right under the main switch, not behind the
+                   settings disclosure: it decides whether anything goes out unseen. -->
+              <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${!!p.approval_mode}" style="margin-bottom:4px;"
+                     aria-label="Ask before each post for ${p.name}"
+                     onclick="toggleApproval('${p.id}')"
+                     onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleApproval('${p.id}');}">
+                <div class="carousel-toggle-switch ${p.approval_mode ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
+                <span class="carousel-toggle-label" style="font-weight:400;">Ask me before each post</span>
+              </label>
+              <div style="font-size:11.5px;color:#98a0ae;margin:0 0 10px 46px;line-height:1.45;">
+                ${p.approval_mode
+                  ? "We email you each post to approve. Nothing goes out unseen."
+                  : "Posts go out automatically, without your review."}
               </div>
               <!-- The card carried eleven controls at equal weight. What you touch
                    daily is the switch above; the rest is setup, so it sits behind
@@ -1241,13 +1255,6 @@
                   ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>Theme: ${l}</option>`).join("")}
                 </select>
               </div>` : ""}
-              <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${!!p.approval_mode}" style="margin-bottom:6px;"
-                     aria-label="Approval queue for ${p.name}"
-                     onclick="toggleApproval('${p.id}')"
-                     onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleApproval('${p.id}');}">
-                <div class="carousel-toggle-switch ${p.approval_mode ? 'on' : ''}"><div class="carousel-toggle-knob"></div></div>
-                <span class="carousel-toggle-label" style="font-weight:400;">Ask me before it posts <span style="color:#a7aebb;">(writes on schedule, waits for your OK)</span></span>
-              </label>
               <div class="auto-more-row">
                 <span>Post now / preview uses:</span>
                 <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
@@ -1267,8 +1274,9 @@
               </div>
               </details>
             ` : `
-              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes + posts as ${p.name} every day. <span style="color:#a7aebb;">(Pro)</span></div>
+              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes a post as ${p.name} every day, for you to approve or to post automatically. <span style="color:#a7aebb;">(Pro)</span></div>
             `}
+            ${_tzNudge(p)}
           </div>
 
           <!-- One row, in order of how often it gets used. Ideas and Preview open a
@@ -1458,29 +1466,71 @@
       } catch (_) { toast("Couldn't copy — select the text manually.", "warn"); }
     }
 
+    // Turning on daily posting is also where the user picks the review mode.
+    // Asking first is the default; publishing unreviewed needs a ticked consent,
+    // which the server insists on too.
+    const _AUTO_CHECK = who => `I understand Voyce will publish to LinkedIn as "${who}" without my review.`;
+
     async function toggleProfile(id, active) {
+      let choice = null;
       if (active) {
-        // Arming unattended publishing deserves one explicit, unmissable confirmation.
         const p = (currentProfiles || []).find(x => x.id === id);
         const who = p ? p.name : "this profile";
-        const ok = await voyceConfirm(
-          `Voyce will write AND publish to your connected LinkedIn account as "${who}" every day at ${p?.post_time || "the scheduled time"}, with no review step. If this is a demo or prospect profile, keep it off.`,
-          { title: "Turn on daily auto-posting?", confirmText: "Turn on auto-posting" }
-        );
-        if (!ok) return;
+        choice = await voyceChoose({
+          title: `Turn on daily posting for ${who}?`,
+          message: `Voyce will write a post every day at ${p ? _timeLabel(p) : "the scheduled time"}, from today's news in your niche. If this is a demo or prospect profile, keep it off.`,
+          confirmText: "Turn on",
+          options: [
+            { value: "ask", title: "Ask me before each post (recommended)",
+              desc: "We email you each post to approve. Nothing goes out until you tap Approve, and unapproved posts expire after 48 hours." },
+            { value: "auto", title: "Post automatically",
+              desc: `Publishes as "${who}" without asking you first. You can switch to approvals any time.`,
+              check: _AUTO_CHECK(who) },
+          ],
+        });
+        if (!choice) return;
       }
-      const res = await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify({active}) });
+      const body = active
+        ? { active, approval_mode: choice !== "auto", auto_consent: choice === "auto" }
+        : { active };
+      const res = await fetch(`/companies/${id}/toggle`, { method:"POST", headers: ah(), body: JSON.stringify(body) });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (isProRequired(data)) {
-          toast("Daily automation is a Pro feature.", "warn");
+          toast("Daily posting is a Pro feature.", "warn");
           openUpgradeModal();
         } else {
-          toast("Could not update automation.", "error");
+          toast("Could not update daily posting.", "error");
         }
         return;
       }
-      toast(active ? "Daily auto-posting is on." : "Daily auto-posting is off.", "success");
+      toast(!active ? "Daily posting is off."
+        : choice === "auto" ? "Daily posting is on. Posts go out automatically."
+        : "Daily posting is on. We'll email you each post to approve.", "success");
+      loadProfiles();
+    }
+
+    // Post times are wall-clock times in each profile's own time zone.
+    function _browserTz() {
+      try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) { return ""; }
+    }
+    function _tzCity(tz) { return (tz || "Asia/Kolkata").split("/").pop().replace(/_/g, " "); }
+    function _timeLabel(p) { return `${p.post_time} ${_tzCity(p.timezone)} time`; }
+    // Profiles made before time zones existed run on India time. If the person
+    // looking at the card is somewhere else, offer the one-click fix.
+    function _tzNudge(p) {
+      const here = _browserTz();
+      const tz = p.timezone || "Asia/Kolkata";
+      if (!here || here === tz || !/^[A-Za-z_]+(\/[A-Za-z0-9_+\-]+)*$/.test(here)) return "";
+      return `<div style="font-size:11.5px;color:#8a5a00;background:#fff8e6;border:1px solid #f3dfa6;border-radius:8px;padding:7px 10px;margin-top:10px;line-height:1.45;">
+        Post times for this profile are in ${_escHtml(_tzCity(tz))} time.
+        <a href="#" onclick="fixTimezone('${p.id}', '${here}');return false;" style="color:#24365e;font-weight:600;">Use ${_escHtml(_tzCity(here))} time</a>
+      </div>`;
+    }
+    async function fixTimezone(id, tz) {
+      const res = await fetch(`/companies/${id}/timezone`, { method: "PATCH", headers: ah(), body: JSON.stringify({ timezone: tz }) });
+      if (!res.ok) { toast("Couldn't change the time zone.", "error"); return; }
+      toast(`Post times now follow ${_tzCity(tz)} time.`, "success");
       loadProfiles();
     }
 
@@ -1535,7 +1585,24 @@
     }
 
     async function toggleApproval(id) {
-      await fetch(`/companies/${id}/approval`, { method: "PATCH", headers: { "x-token": getToken() } });
+      const p = (currentProfiles || []).find(x => x.id === id);
+      const turningOff = !!(p && p.approval_mode);
+      const body = { approval_mode: !turningOff };
+      if (turningOff) {
+        const who = p ? p.name : "this profile";
+        const v = await voyceChoose({
+          title: "Post without asking you?",
+          message: `Voyce will publish to LinkedIn as "${who}" every day without showing you the post first.`,
+          confirmText: "Post automatically",
+          options: [{ value: "auto", title: "Post automatically",
+                      desc: "You can switch approvals back on at any time.", check: _AUTO_CHECK(who) }],
+        });
+        if (!v) return;
+        body.auto_consent = true;
+      }
+      const res = await fetch(`/companies/${id}/approval`, { method: "PATCH", headers: ah(), body: JSON.stringify(body) });
+      if (!res.ok) { toast("Couldn't change the approval setting.", "error"); return; }
+      toast(turningOff ? "Posts will now go out automatically." : "Voyce will ask before each post.", "success");
       loadProfiles();
     }
 
@@ -1568,6 +1635,15 @@
           : p.format === "carousel" ? "PDF carousel"
           : p.format === "tweet_card" ? "text + tweet card" : "text post";
         const prodTag = p.product_name ? ` · ${_escHtml(p.product_name)}` : "";
+        const held = p.held_reason ? `
+          <div style="font-size:12.5px;color:#8a5a00;background:#fff4dc;border:1px solid #f0d58a;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.45;">
+            ⚠ Held back instead of posted: ${_escHtml(p.held_reason)}. Check the facts against the sources before approving.
+          </div>` : "";
+        const srcs = (p.sources || []).filter(s => /^https?:\/\//i.test(s.url || "")).slice(0, 3);
+        const srcLine = srcs.length ? `
+          <div style="font-size:11.5px;color:#7a8190;margin:-6px 0 12px;line-height:1.5;">Based on:
+            ${srcs.map(s => `<a href="${_escHtml(s.url)}" target="_blank" rel="noopener" style="color:#24365e;">${_escHtml(s.title || s.url)}</a>`).join(" · ")}
+          </div>` : "";
         const diyBlock = isDiy ? `
           <div style="border:1px dashed #d9cfa8;border-radius:8px;padding:10px 12px;margin-bottom:12px;background:#fffef9;">
             <div style="font-size:11.5px;font-weight:600;color:#5b6270;margin-bottom:6px;">🎬 Your video-generation prompt <span style="font-weight:400;color:#98a0ae;">— paste into your AI video tool (Sora, Veo, Runway…), or Claude for a storyboard</span></div>
@@ -1587,10 +1663,12 @@
             · ${_escHtml(p.post_type)} · ${fmt}
             · written ${new Date(p.created_at).toLocaleString()}
           </div>
+          ${held}
           <div id="diy-caption-${p.id}" contenteditable="true" spellcheck="true"
                oninput="markPendingEdited('${p.id}')"
                style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:6px;padding:10px 12px;border:1px solid #efe4c4;border-radius:8px;background:#fff;outline:none;">${_escHtml(p.post_text)}</div>
           <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#98a0ae;margin-bottom:12px;">Click the text to edit it before approving.</div>
+          ${srcLine}
           ${diyBlock}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}</div>
         </div>`;
@@ -2128,7 +2206,11 @@
           <td><span class="lg-pill ${kind}">${label}</span></td>
           <td class="lg-eng">${eng === null ? '<span class="lg-dash">—</span>' : eng}</td>
           <td class="lg-text" title="${_escHtml(text).slice(0, 400)}">${snip}</td>
-          <td class="lg-link">${url ? `<a href="${url}" target="_blank" rel="noopener" title="Open on LinkedIn">↗</a>` : ""}</td>
+          <td class="lg-link">${url ? `<a href="${url}" target="_blank" rel="noopener" title="Open on LinkedIn">↗</a>` : ""}${(() => {
+            // The news the post was built from, so its claims can be checked.
+            const s = (e.sources || []).find(x => /^https?:\/\//i.test(x.url || ""));
+            return s ? ` <a href="${_escHtml(s.url)}" target="_blank" rel="noopener" title="Source: ${_escHtml(s.title || s.url)}" style="font-size:11px;color:#7a8190;">source</a>` : "";
+          })()}</td>
         </tr>`;
       }).join("");
       // No silent truncation: say what is hidden and offer it.
@@ -2456,6 +2538,10 @@
         profile_type: "company",
         product_name: (document.getElementById("c-product-name")?.value || ""),
       };
+      // The post time is the person's local time. An edit keeps the profile's
+      // stored zone; the card offers a one-click switch if they've moved.
+      const editing = isEdit ? (currentProfiles || []).find(x => x.id === _editingId) : null;
+      payload.timezone = (editing && editing.timezone) || _browserTz();
 
       try {
         let res, created;

@@ -30,6 +30,17 @@
     .vc-ok:hover { background: #5835e0; }
     .vc-ok.danger { background: #c0392b; border-color: #c0392b; }
     .vc-ok.danger:hover { background: #a93226; }
+    .vc-ok:disabled { opacity: 0.45; cursor: not-allowed; }
+    .vc-box.wide { width: 440px; }
+    .vc-opt { display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid #e4e7ec;
+      border-radius: 10px; padding: 11px 12px; margin: 0 0 8px; cursor: pointer; }
+    .vc-opt.sel { border-color: #24365e; background: #f6f8fc; }
+    .vc-opt input { margin-top: 3px; accent-color: #24365e; }
+    .vc-opt-title { font-size: 14px; font-weight: 600; color: #16181d; }
+    .vc-opt-desc { font-size: 12.5px; color: #5b6270; line-height: 1.45; margin-top: 2px; }
+    .vc-check { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: #444;
+      line-height: 1.45; margin: 4px 0 4px 2px; }
+    .vc-check input { margin-top: 2px; accent-color: #24365e; }
   `;
 
   let styleInjected = false;
@@ -83,6 +94,115 @@
       document.addEventListener("keydown", onKey, true);
       document.body.appendChild(overlay);
       okBtn.focus();
+    });
+  };
+
+  // A choice between options, one of which may need a ticked acknowledgement
+  // before it can be confirmed (e.g. "post without asking me").
+  // Usage: const v = await voyceChoose({ title, message, confirmText,
+  //   options: [{ value, title, desc, check }] });   // check = acknowledgement text
+  // Resolves to the chosen value, or null if cancelled.
+  window.voyceChoose = function (opts) {
+    opts = opts || {};
+    if (!styleInjected) {
+      const s = document.createElement("style");
+      s.textContent = CSS;
+      document.head.appendChild(s);
+      styleInjected = true;
+    }
+    const options = opts.options || [];
+    return new Promise(function (resolve) {
+      const overlay = document.createElement("div");
+      overlay.className = "vc-overlay";
+      const box = document.createElement("div");
+      box.className = "vc-box wide";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-modal", "true");
+      box.setAttribute("aria-labelledby", "vc-title");
+      const h = document.createElement("h3");
+      h.className = "vc-title"; h.id = "vc-title"; h.textContent = opts.title || "Choose";
+      const msg = document.createElement("p");
+      msg.className = "vc-msg"; msg.style.marginBottom = "14px"; msg.textContent = opts.message || "";
+      box.appendChild(h); box.appendChild(msg);
+
+      const name = "vc-choice-" + Math.random().toString(36).slice(2, 8);
+      let selected = options.length ? options[0].value : null;
+      const rows = options.map(function (o, i) {
+        const row = document.createElement("label");
+        row.className = "vc-opt" + (i === 0 ? " sel" : "");
+        const radio = document.createElement("input");
+        radio.type = "radio"; radio.name = name; radio.value = String(i); radio.checked = i === 0;
+        const txt = document.createElement("div");
+        const t = document.createElement("div"); t.className = "vc-opt-title"; t.textContent = o.title;
+        const d = document.createElement("div"); d.className = "vc-opt-desc"; d.textContent = o.desc || "";
+        txt.appendChild(t); txt.appendChild(d);
+        row.appendChild(radio); row.appendChild(txt);
+        box.appendChild(row);
+        let check = null;
+        if (o.check) {
+          check = document.createElement("label");
+          check.className = "vc-check"; check.style.display = "none";
+          const cb = document.createElement("input"); cb.type = "checkbox";
+          const ct = document.createElement("span"); ct.textContent = o.check;
+          check.appendChild(cb); check.appendChild(ct);
+          box.appendChild(check);
+          cb.addEventListener("change", sync);
+        }
+        radio.addEventListener("change", function () { selected = o.value; sync(); });
+        return { row: row, radio: radio, check: check, opt: o };
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "vc-actions"; actions.style.marginTop = "14px";
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "vc-btn vc-cancel"; cancelBtn.type = "button";
+      cancelBtn.textContent = opts.cancelText || "Cancel";
+      const okBtn = document.createElement("button");
+      okBtn.className = "vc-btn vc-ok"; okBtn.type = "button";
+      okBtn.textContent = opts.confirmText || "Confirm";
+      actions.appendChild(cancelBtn); actions.appendChild(okBtn);
+      box.appendChild(actions);
+      overlay.appendChild(box);
+
+      function sync() {
+        let ready = true;
+        rows.forEach(function (r) {
+          const on = r.radio.checked;
+          r.row.classList.toggle("sel", on);
+          if (r.check) {
+            r.check.style.display = on ? "flex" : "none";
+            if (on && !r.check.querySelector("input").checked) ready = false;
+          }
+        });
+        okBtn.disabled = !ready;
+      }
+
+      const prevFocus = document.activeElement;
+      function close(result) {
+        document.removeEventListener("keydown", onKey, true);
+        overlay.remove();
+        if (prevFocus && prevFocus.focus) prevFocus.focus();
+        resolve(result);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") { e.stopPropagation(); close(null); return; }
+        if (e.key === "Tab") {
+          // keep focus inside the dialog
+          const f = Array.prototype.filter.call(box.querySelectorAll("input,button"),
+            function (el) { return !el.disabled && el.offsetParent !== null; });
+          if (!f.length) return;
+          const idx = f.indexOf(document.activeElement);
+          const next = e.shiftKey ? (idx <= 0 ? f.length - 1 : idx - 1) : (idx === f.length - 1 ? 0 : idx + 1);
+          e.preventDefault(); f[next].focus();
+        }
+      }
+      cancelBtn.onclick = function () { close(null); };
+      okBtn.onclick = function () { if (!okBtn.disabled) close(selected); };
+      overlay.onclick = function (e) { if (e.target === overlay) close(null); };
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(overlay);
+      sync();
+      (rows[0] ? rows[0].radio : okBtn).focus();
     });
   };
 })();

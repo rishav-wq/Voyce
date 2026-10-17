@@ -10,6 +10,7 @@ from search import search_industry_news, format_news_context
 import linkedin as li
 import auth as auth_module
 import db
+import notify
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -899,7 +900,11 @@ def _tweet_card_for(post_text: str, company: dict):
         return None
 
 
-def generate_autonomous_post(company: dict, news_context: str, post_type: str) -> str:
+def generate_autonomous_post(company: dict, news_context: str, post_type: str,
+                             gate_context: str | None = None, report: dict | None = None) -> str:
+    """Write one post. gate_context is what the fact check may treat as true
+    (defaults to news_context); pass a dict as `report` to learn whether the
+    returned post actually passed — unattended runs must not publish one that didn't."""
     is_personal = company.get("profile_type") == "personal"
     industry    = company["industry"]
 
@@ -924,7 +929,9 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
 
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
-    verdict = _value_gate(post, industry, news_context)
+    facts = news_context if gate_context is None else gate_context
+    verdict = _value_gate(post, industry, facts)
+    chosen, chosen_v = post, verdict
     if not verdict.get("passes", True):
         retry = prompt + (
             f"\n\nYOUR PREVIOUS DRAFT FAILED REVIEW.\nWeakness: {verdict.get('reason', '')}\n"
@@ -932,10 +939,13 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str) -
         )
         post2 = _revise_post(_format_linkedin_post(
             llm_generate(retry, max_tokens=1024, temperature=0.9)), industry)
-        v2 = _value_gate(post2, industry, news_context)
+        v2 = _value_gate(post2, industry, facts)
         if v2.get("score", 0) >= verdict.get("score", 0):
-            return post2
-    return post
+            chosen, chosen_v = post2, v2
+    if report is not None:
+        report.update({"passed": bool(chosen_v.get("passes", True)),
+                       "score": chosen_v.get("score"), "reason": chosen_v.get("reason", "")})
+    return chosen
 
 
 def _value_gate(post: str, industry: str, news_context: str = "") -> dict:
@@ -1055,17 +1065,49 @@ def _video_gen_prompt(subject: dict, post_text: str) -> str:
         return fallback
 
 
+def _local_today(company: dict) -> date:
+    """Today in the profile's own time zone — the calendar plan is keyed by the
+    user's local date, which differs from the server's for much of the day."""
+    from zoneinfo import ZoneInfo
+    from company import valid_tz, DEFAULT_TZ
+    try:
+        return datetime.now(ZoneInfo(valid_tz(company.get("timezone", "")) or DEFAULT_TZ)).date()
+    except Exception:
+        return date.today()
+
+
+def _strings_in(obj) -> list[str]:
+    """Every piece of text in a generated carousel, whatever its schema."""
+    if isinstance(obj, str):
+        return [obj]
+    if isinstance(obj, dict):
+        return [s for v in obj.values() for s in _strings_in(v)]
+    if isinstance(obj, (list, tuple)):
+        return [s for v in obj for s in _strings_in(v)]
+    return []
+
+
+def _held_reason(verdict: dict) -> str:
+    why = (verdict.get("reason") or "").strip()
+    if len(why) > 160:
+        why = why[:160].rstrip() + "…"
+    return "it didn't pass Voyce's fact and quality check" + (f" ({why})" if why else "")
+
+
 def run_for_company(company: dict, allow_free_manual: bool = False,
-                    post_type_override: str = "", respect_approval: bool = True) -> dict:
+                    post_type_override: str = "", respect_approval: bool = True,
+                    notify_user: bool = True) -> dict:
+    """notify_user=False for a manual "Post now": the result is already on screen."""
     company_id = company["id"]
     is_personal = company.get("profile_type") == "personal"
     valid_types = set((PERSONAL_ROTATION if is_personal else COMPANY_ROTATION).values())
     runs_today = _runs_today(company_id)
+    local_today = _local_today(company)
 
     # A per-day plan set from the calendar takes precedence over the rotation (unless a
     # manual "Post now" passed an explicit override, which wins over everything).
     if not post_type_override:
-        plan = (company.get("scheduled_types") or {}).get(date.today().isoformat())
+        plan = (company.get("scheduled_types") or {}).get(local_today.isoformat())
         if isinstance(plan, dict):   # tolerate legacy product-pinned rows
             plan = plan.get("type", "")
         if plan in ("__carousel__", "__video__"):
@@ -1114,6 +1156,8 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
             log_entry["status"] = "skipped"
             log_entry["error"] = "Free generation limit reached"
             _append_log(log_entry)
+            if notify_user:
+                notify.autopilot_paused(company)
             return log_entry
 
         if not li.is_connected(user_id):
@@ -1128,23 +1172,38 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
             extra_angles=subject.get("search_angles") or [],
         )
         news_context = format_news_context(news_results)
+        # What the post was built from, kept with it so the user can check it. The
+        # fact check only accepts real articles as evidence — Tavily's own
+        # AI-written summary (the entry with no URL) is useful context for writing,
+        # but treating it as proof let its mistakes pass as "verified".
+        articles = [r for r in news_results if r.get("url")]
+        sources = [{"title": r.get("title", ""), "url": r["url"]} for r in articles][:3]
+        gate_context = format_news_context(articles)
+        log_entry["sources"] = sources
+        report: dict = {}
 
         import base64 as _b64
         if do_diy_video:
-            post_text = generate_autonomous_post(subject, news_context, post_type)
+            post_text = generate_autonomous_post(subject, news_context, post_type,
+                                                 gate_context=gate_context, report=report)
             payload = {"format": "diy_video", "post_text": post_text, "publish_text": post_text,
                        "asset_b64": "", "alt_text": "", "title": company["name"],
                        "gen_prompt": _video_gen_prompt(subject, post_text)}
         elif do_carousel:
             from carousel import generate_carousel_content, render_carousel_pdf
             content   = generate_carousel_content(subject, news_context, post_type)
+            # Carousels used to skip the fact check entirely, though their prompt
+            # demands named companies and numbers. Check every slide's text.
+            v = _value_gate("\n".join(_strings_in(content)), subject["industry"], gate_context)
+            report.update({"passed": bool(v.get("passes", True)), "reason": v.get("reason", "")})
             pdf_bytes = render_carousel_pdf(content, subject)
             post_text = content.get("post_text", "")
             payload = {"format": "carousel", "post_text": post_text, "publish_text": post_text,
                        "asset_b64": _b64.b64encode(pdf_bytes).decode(), "alt_text": "",
                        "title": company["name"]}
         else:
-            post_text = generate_autonomous_post(subject, news_context, post_type)
+            post_text = generate_autonomous_post(subject, news_context, post_type,
+                                                 gate_context=gate_context, report=report)
             card_png = _tweet_card_for(post_text, subject) if post_type in TWEET_CARD_TYPES else None
             if card_png:
                 # The card already displays the hook line — don't repeat it as the text opener.
@@ -1162,18 +1221,28 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
 
         # Carry the subject label so pending items + approval-time log entries stay attributable.
         payload["product_name"] = subject.get("product_name", "")
+        payload["sources"] = sources
+        # A post that failed the fact check never goes out unseen, even with
+        # approval mode off and even on a manual run: it waits for a human.
+        held_reason = "" if report.get("passed", True) else _held_reason(report)
+        payload["held_reason"] = held_reason
 
         log_entry["post_text"] = payload["post_text"]
         # DIY video items can never auto-publish (the asset doesn't exist until
         # the user generates it) — they always wait in the queue, approval mode
         # or not, manual run or not.
-        if do_diy_video or (respect_approval and company.get("approval_mode")):
+        if do_diy_video or held_reason or (respect_approval and company.get("approval_mode")):
             pending_id = _save_pending(company, post_type, payload)
             log_entry["status"] = "pending_approval"
             log_entry["pending_id"] = pending_id
+            if held_reason:
+                log_entry["held_reason"] = held_reason
             auth_module.increment_gens(user_id)
             logger.info(f"[Autonomous] {POST_TYPE_LABELS.get(post_type, post_type)} held for approval "
-                        f"({company['name']})")
+                        f"({company['name']}){' — failed gate' if held_reason else ''}")
+            if notify_user:
+                notify.post_ready(company, pending_id, POST_TYPE_LABELS.get(post_type, post_type),
+                                  payload["post_text"], sources, held_reason)
         else:
             result = _publish_payload(user_id, payload)
             log_entry["post_urn"] = result.get("id", "")
@@ -1184,6 +1253,8 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
     except Exception as e:
         log_entry["error"] = str(e)
         logger.error(f"[Autonomous] Failed for {company['name']}: {e}")
+        if notify_user:
+            notify.post_failed(company, str(e), local_today.isoformat())
 
     _append_log(log_entry)
     return log_entry
@@ -1298,6 +1369,7 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         "status":       "posted",
         "post_text":    pend.get("post_text", ""),
         "post_urn":     result.get("id", ""),
+        "sources":      pend.get("sources", []),
         "error":        "",
     })
     logger.info(f"[Approval] Pending post {pending_id} approved and published")

@@ -1,11 +1,29 @@
 import re
 import uuid
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from scraper import scrape_company
 
 import db
 
 _P = {"_id": 0}
+
+# Post times are wall-clock times in the profile's own time zone. Profiles made
+# before time zones existed were scheduled in India time, so that stays the
+# fallback rather than silently moving anyone's posts.
+DEFAULT_TZ = "Asia/Kolkata"
+
+
+def valid_tz(tz: str) -> str:
+    """The IANA name if it's real (e.g. "America/New_York"), else ""."""
+    tz = (tz or "").strip()
+    if not tz:
+        return ""
+    try:
+        ZoneInfo(tz)
+        return tz
+    except Exception:
+        return ""
 
 
 def save_company(profile: dict) -> dict:
@@ -43,7 +61,12 @@ def save_company(profile: dict) -> dict:
         "industry":         profile["industry"],
         "tone":             profile.get("tone", "professional"),
         "post_time":        profile["post_time"],
-        "website_content":  "\n\n".join(scrape_result.get("raw_pages", {}).values())[:4000],
+        "timezone":         valid_tz(profile.get("timezone", "")) or DEFAULT_TZ,
+        # LinkedIn's API terms bar automated posting, and the buyer is putting
+        # their own name on every post: new profiles ask before publishing.
+        # Posting without review is an explicit, recorded opt-in.
+        "approval_mode":    profile.get("approval_mode", True),
+        "website_content":"\n\n".join(scrape_result.get("raw_pages", {}).values())[:4000],
         "analysis":         scrape_result.get("analysis", {}),
         "brand_color":      scrape_result.get("brand_color", ""),
         "pages_scraped":    scrape_result.get("pages_scraped", 0),
@@ -90,8 +113,12 @@ def update_company(company_id: str, data: dict) -> dict | None:
                   "product_name"):
         if field in data:
             c[field] = data[field]
+    # An edit form without a time zone (or with a bad one) keeps the stored one.
+    tz = valid_tz(data.get("timezone", ""))
+    if tz:
+        c["timezone"] = tz
 
-    new_url = data.get("website_url", "").strip()
+    new_url =data.get("website_url", "").strip()
     old_url = c.get("website_url", "")
     if not new_url and old_url:
         c["website_url"]     = ""

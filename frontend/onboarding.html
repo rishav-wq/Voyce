@@ -262,6 +262,8 @@
         industry:         topic,
         tone:             "conversational",
         post_time:        "09:00",
+        // 9am where the person actually is, not 9am in India.
+        timezone:         (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) { return ""; } })(),
         profile_type:     "personal",
         carousel_enabled: false,
       };

@@ -22,7 +22,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 from processor import process_input
 from generator import generate_content
-from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data, set_scheduled_type
+from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data, set_scheduled_type, valid_tz, DEFAULT_TZ
 from autonomous import run_for_company, get_post_log, update_post_engagement
 from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_screenshots
 import linkedin as li
@@ -233,9 +233,10 @@ def _setup_company_cron(company: dict):
     except Exception:
         pass
     hour, minute = company["post_time"].split(":")
+    tz = valid_tz(company.get("timezone", "")) or DEFAULT_TZ
     scheduler.add_job(
         _run_company_by_id,
-        trigger=CronTrigger(hour=int(hour), minute=int(minute), timezone="Asia/Kolkata"),
+        trigger=CronTrigger(hour=int(hour), minute=int(minute), timezone=tz),
         args=[company["id"]],
         id=job_id,
         replace_existing=True,
@@ -268,6 +269,15 @@ def startup():
         trigger="date",
         run_date=datetime.now() + timedelta(seconds=15),
         id="catchup_startup",
+        replace_existing=True,
+    )
+    # Expiry warnings (LinkedIn connection, Pro pass) once a day — 13:00 UTC is
+    # evening in India and morning on the US east coast.
+    import notify
+    scheduler.add_job(
+        notify.sweep_expiries,
+        trigger=CronTrigger(hour=13, minute=0, timezone="UTC"),
+        id="notify_expiries",
         replace_existing=True,
     )
 
@@ -341,12 +351,8 @@ def _catch_up_missed_posts():
     CATCHUP_RECENT_POST_HOURS (avoids double-posting). run_for_company itself
     still enforces gen limits and LinkedIn-connected, so this can't post for a
     user who isn't set up."""
-    # post_time is interpreted in Asia/Kolkata, matching the cron trigger.
-    try:
-        from zoneinfo import ZoneInfo
-        now_sched = datetime.now(ZoneInfo("Asia/Kolkata"))
-    except Exception:
-        now_sched = datetime.now()  # fallback: treat the server clock as the schedule clock
+    # post_time is a wall-clock time in each profile's own zone, matching its cron.
+    from zoneinfo import ZoneInfo
     now_naive = datetime.now()
     log = get_post_log()
     for company in list_companies():
@@ -356,6 +362,10 @@ def _catch_up_missed_posts():
             hh, mm = (int(x) for x in company.get("post_time", "").split(":"))
         except Exception:
             continue
+        try:
+            now_sched = datetime.now(ZoneInfo(valid_tz(company.get("timezone", "")) or DEFAULT_TZ))
+        except Exception:
+            now_sched = datetime.now()  # fallback: treat the server clock as the schedule clock
         scheduled = now_sched.replace(hour=hh, minute=mm, second=0, microsecond=0)
         if now_sched < scheduled:
             continue  # today's slot hasn't arrived — the normal cron will fire it
@@ -429,10 +439,27 @@ class CompanyRequest(BaseModel):
     voice_posts: str = ""   # pasted recent posts -> voice examples (fastest way to match a voice)
     tone_shift: bool = False  # opt-in: keep the voice from examples but shift register toward `tone`
     knowledge: str = ""     # curated facts/rules/angles the AI must ground every post in
+    timezone: str = ""      # IANA zone from the browser, e.g. "America/New_York"; post_time is local to it
 
 
 class ToggleRequest(BaseModel):
     active: bool
+    # When turning autopilot on: ask before each post (default), or publish
+    # without review — which only happens with auto_consent from the user.
+    approval_mode: bool | None = None
+    auto_consent: bool = False
+
+
+class ApprovalRequest(BaseModel):
+    approval_mode: bool | None = None   # None = flip the current setting
+    auto_consent: bool = False
+
+
+class TimezoneRequest(BaseModel):
+    timezone: str
+
+
+_CONSENT_DETAIL = "CONSENT_REQUIRED:Posting without review needs your explicit OK."
 
 
 class AccountTypeRequest(BaseModel):
@@ -1324,6 +1351,15 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
         raise HTTPException(status_code=404, detail="Not found")
     if request.active:
         _require_pro(user, "automation")
+        # Arming chooses the review mode in the same step. Without an explicit
+        # choice it asks before every post; publishing unreviewed needs consent.
+        approval = True if request.approval_mode is None else request.approval_mode
+        if not approval and not request.auto_consent:
+            raise HTTPException(status_code=400, detail=_CONSENT_DETAIL)
+        fields = {"approval_mode": approval}
+        if not approval:
+            fields["auto_post_consent_at"] = datetime.now().isoformat()
+        db.companies.update_one({"id": company_id}, {"$set": fields})
     toggle_company(company_id, request.active)
     company = get_company(company_id)
     if company:
@@ -1360,16 +1396,41 @@ def toggle_carousel(company_id: str, request: CarouselPatch | None = None, x_tok
 
 
 @app.patch("/companies/{company_id}/approval")
-def toggle_approval(company_id: str, x_token: str = Header(None)):
-    """Toggle 'ask me before it posts': scheduled runs hold posts for approval
-    instead of publishing. Managed by the card, like carousel settings."""
+def toggle_approval(company_id: str, request: ApprovalRequest | None = None,
+                    x_token: str = Header(None)):
+    """Set 'ask me before it posts': scheduled runs hold posts for approval
+    instead of publishing. Switching it OFF means publishing without review,
+    so that direction needs the user's explicit consent."""
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
-    new_val = not company.get("approval_mode", False)
-    db.companies.update_one({"id": company_id}, {"$set": {"approval_mode": new_val}})
+    req = request or ApprovalRequest()
+    new_val = (not company.get("approval_mode", False)) if req.approval_mode is None else req.approval_mode
+    fields = {"approval_mode": new_val}
+    if not new_val:
+        if not req.auto_consent:
+            raise HTTPException(status_code=400, detail=_CONSENT_DETAIL)
+        fields["auto_post_consent_at"] = datetime.now().isoformat()
+    db.companies.update_one({"id": company_id}, {"$set": fields})
     return {"approval_mode": new_val}
+
+
+@app.patch("/companies/{company_id}/timezone")
+def set_timezone(company_id: str, request: TimezoneRequest, x_token: str = Header(None)):
+    """Move a profile's post time to another zone (same wall-clock time)."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    tz = valid_tz(request.timezone)
+    if not tz:
+        raise HTTPException(status_code=400, detail="Unknown time zone")
+    db.companies.update_one({"id": company_id}, {"$set": {"timezone": tz}})
+    company["timezone"] = tz
+    if company.get("active"):
+        _setup_company_cron(company)
+    return {"timezone": tz}
 
 
 @app.get("/pending")
@@ -1536,7 +1597,8 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     # "Ask me before it posts" is a promise about everything Voyce writes, so it holds
     # here too: Post now generates immediately, but a profile in approval mode still
     # gets the post queued for review rather than published unseen.
-    result = run_for_company(company, allow_free_manual=True, post_type_override=override)
+    result = run_for_company(company, allow_free_manual=True, post_type_override=override,
+                             notify_user=False)   # the result is already on their screen
     return result
 
 
