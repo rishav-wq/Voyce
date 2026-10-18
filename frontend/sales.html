@@ -391,7 +391,7 @@ async function reload() {
     const [ls, sc] = await Promise.all([api("GET", "/sales/leads"), api("GET", "/sales/scripts")]);
     leads = (ls || []).filter(l => l.name);
     if (editingScript === null) scripts = (sc && sc.items) || [];
-    ready = true; denied = false; renderAll();
+    ready = true; denied = false; renderAll(); schedulePhoneCheck();
   } catch (e) {
     if (e && e.code === 403) { denied = true; ready = false; renderAll(); }
     else if (e && e.code !== 401 && !ready) $("#main").innerHTML = `<div class="empty"><p>Couldn't load the leads. Check your connection, then reload the page.</p></div>`;
@@ -402,6 +402,43 @@ async function doLookup(id, btn) {
   const doc = await safe(() => api("POST", `/sales/leads/${encodeURIComponent(id)}/lookup`));
   if (doc && doc.id) { putLead(doc); renderAll(); toast(doc.lookup_note || "Looked up"); }
   else if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Find email & firm phone"; }
+}
+async function doEnrich(btn) {
+  const v = id => ($("#" + id)?.value || "").trim();
+  if (!v("l-linkedin") && !(v("l-name") && v("l-company"))) { toast("Paste their LinkedIn link first."); $("#l-linkedin")?.focus(); return; }
+  btn.disabled = true; btn.textContent = "Looking them up…";
+  const found = await safe(() => api("POST", "/sales/enrich", { linkedin: v("l-linkedin"), name: v("l-name"), company: v("l-company") }));
+  if (btn.isConnected) { btn.disabled = false; btn.textContent = "Fill from LinkedIn"; }
+  if (!found || found === true) return;
+  const map = { name: "l-name", role: "l-role", company: "l-company", city: "l-city", linkedin: "l-linkedin", email: "l-email", firm_phone: "l-firm-phone" };
+  let n = 0;
+  for (const [k, id] of Object.entries(map)) { const el = $("#" + id); if (el && found[k] && !el.value.trim()) { el.value = found[k]; n++; } }
+  toast(n ? `Filled ${n} field${n === 1 ? "" : "s"} from Apollo` : "Apollo had nothing new for this person");
+}
+// A person's own number: Apollo sends it a few minutes after the request. While any
+// lead is waiting, check every 20 seconds (checks are free) until it arrives.
+async function doReveal(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "Asking Apollo…"; }
+  const doc = await safe(() => api("POST", `/sales/leads/${encodeURIComponent(id)}/phone`));
+  if (doc && doc.id) {
+    putLead(doc); renderAll();
+    toast(doc.phone_reveal === "pending" ? "Asked Apollo. Their number usually arrives in a few minutes." : (doc.phone_note || "Done"));
+    schedulePhoneCheck();
+  } else if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Get their number from Apollo"; }
+}
+let _phoneTimer = null;
+function schedulePhoneCheck() {
+  clearTimeout(_phoneTimer);
+  if (leads.some(l => l.phone_reveal === "pending")) _phoneTimer = setTimeout(checkPhones, 20000);
+}
+async function checkPhones() {
+  for (const l of leads.filter(x => x.phone_reveal === "pending").slice(0, 5)) {
+    try {
+      const doc = await api("POST", `/sales/leads/${encodeURIComponent(l.id)}/phone-check`);
+      if (doc && doc.id) { putLead(doc); if (!l.phone && doc.phone) toast(`Apollo found ${firstName(doc.name)}'s number`); }
+    } catch (_) {}
+  }
+  renderAll(); schedulePhoneCheck();
 }
 
 /* ── render: summary, tabs, views ── */
@@ -525,8 +562,9 @@ function detailsForm(l, isNew) {
   return `<div class="grid2">${field("l-name", "Name *", l.name, "text", 'required autocomplete="off"')}${field("l-role", "Role", l.role, "text", 'placeholder="e.g. CFO, Founder"')}
     ${field("l-company", "Company", l.company)}${field("l-city", "City", l.city, "text", 'placeholder="e.g. Bengaluru"')}</div>
     ${field("l-linkedin", "LinkedIn profile", l.linkedin, "url", 'placeholder="https://www.linkedin.com/in/…"')}
+    ${isNew ? `<div class="row-btns" style="align-items:center"><button type="button" class="btn" data-act="enrich">Fill from LinkedIn</button><span class="hint">Apollo fills in their name, role, company, city, work email and firm line. 1 credit.</span></div>` : ""}
     <div class="grid2">${field("l-phone", "Their phone", l.phone, "tel", 'placeholder="+91 98xxxxxxxx"')}${field("l-firm-phone", "Firm's phone line", l.firm_phone, "tel", 'placeholder="Office or published number"')}</div>
-    <div class="hint">Their phone: only a number they shared with you. Firm's line: the number the business publishes.</div>
+    <div class="hint">Their phone: a number they gave you, or use "Get their number from Apollo" once the lead is saved. Firm's line: the number the business publishes.</div>
     <div class="grid2">${field("l-email", "Work email", l.email, "email")}${selectField("l-source", "Source", SOURCES, l.source || SOURCES[0])}</div>
     ${isNew ? selectField("l-stage", "Where are you with them?", [["new", "LinkedIn DM: not contacted yet"], ["tocall", "Cold call: not called yet"], ["dm", "I've already sent the first DM"], ["replied", "They've replied"]], "new") : ""}`;
 }
@@ -560,15 +598,19 @@ function renderDrawer() {
     delete: `<div class="inline-form"><span>Delete ${esc(l.name)} and their history? This can't be undone.</span><button class="btn danger solid" data-act="delete" data-id="${esc(l.id)}">Delete</button><button class="btn quiet" data-act="set-panel" data-panel="">Keep</button></div>`,
   };
   const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
-  const phone = l.phone ? `<span class="num">${esc(l.phone)}</span><div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.phone)}">Copy</button>
-      <a class="btn" href="https://wa.me/${esc(waNumber(l.phone))}" target="_blank" rel="noopener">WhatsApp</a><a class="btn quiet" href="tel:${esc(digits(l.phone))}">Call</a></div>` : `<span class="hint">Not shared yet</span>`;
+  const canAsk = l.linkedin || (l.name && l.company);
+  const phone = l.phone ? `<span class="num">${esc(l.phone)}</span>${l.phone_source === "Apollo" ? ` <span class="hint">${esc(l.phone_note || "From Apollo")}</span>` : ""}<div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.phone)}">Copy</button>
+      <a class="btn" href="https://wa.me/${esc(waNumber(l.phone))}" target="_blank" rel="noopener">WhatsApp</a><a class="btn quiet" href="tel:${esc(digits(l.phone))}">Call</a></div>`
+    : l.phone_reveal === "pending" ? `<span class="hint">Apollo is finding their number. It usually takes a few minutes and shows up here by itself.</span>`
+    : `<span class="hint">${esc(l.phone_reveal === "none" ? (l.phone_note || "Apollo had no number for them") : "Not shared yet")}</span>${canWrite && canAsk ? `<div class="row-btns"><button class="btn" data-act="reveal" data-id="${esc(l.id)}">${l.phone_reveal === "none" ? "Try Apollo again" : "Get their number from Apollo"}</button></div><div class="hint">About 9 Apollo credits. It's their own number: say who you are, and stop if they ask you to.</div>` : ""}`;
+  const toCall = canWrite && l.phone && ["new", "dm", "fu1", "fu2", "fu3"].includes(l.stage) ? `<button class="btn" data-act="to-call" data-id="${esc(l.id)}">Move to the call list</button>` : "";
   const hist = (l.history || []).slice().reverse();
   d.innerHTML = `<div class="d-head"><div><h2>${esc(l.name)}</h2><div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · "))}</div>
       <div class="d-badges">${pill(l.stage)}${due.text ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ""}${dayChip(l)}</div></div>
       <button class="btn quiet" data-act="close" aria-label="Close">Close</button></div>
     <div class="d-sec" style="border-top:0">
       <div class="nextbox"><div class="what">Next: ${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : what)}</div>
-        <div class="row-btns">${acts}${lostBtn}</div>
+        <div class="row-btns">${acts}${toCall}${lostBtn}</div>
         ${panel && panels[panel] && panel !== "delete" ? panels[panel] : ""}
         ${s && isActive(l) ? `<div class="hint">Message: ${esc(s.title)}</div><pre id="msg">${esc(fillScript(s.body, l))}</pre><div class="row-btns"><button class="btn" data-act="copy-msg">Copy message for ${esc(firstName(l.name))}</button></div>` : ""}
       </div>
@@ -631,6 +673,9 @@ document.addEventListener("click", async e => {
   else if (act === "copy-text") { copy(el.dataset.text || "", "Copied"); }
   else if (act === "track") { pipeTrack = el.dataset.t === "dm" ? "dm" : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
   else if (act === "lookup") { await doLookup(id, el); }
+  else if (act === "enrich") { await doEnrich(el); }
+  else if (act === "reveal") { await doReveal(id, el); }
+  else if (act === "to-call") { await save(id, { stage: "tocall", next_due: today() }, "Moved to the call list", "Moved to the call list"); }
   else if (act === "copy-script") { const s = scripts[+el.dataset.i]; if (s) copy(s.body, "Script copied"); }
   else if (act === "add-anyway") { dupMatch = { forced: true }; $("#new-form")?.requestSubmit(); }
   else if (act === "script-edit") { editingScript = +el.dataset.i; renderMain(); }

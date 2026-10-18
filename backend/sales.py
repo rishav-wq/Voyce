@@ -6,9 +6,9 @@ Every team member sees and edits every lead; the server stamps each change into 
 lead's history with who made it. The stage logic (which step comes next, when the next
 follow-up is due) lives in the page; the server only checks that what it stores is sane.
 
-Firm details come from Apollo (people/match, lookup only: nothing is added to Apollo
-lists or sequences) with APOLLO_API_KEY. Only the firm's published phone line and a work
-email are taken, never personal mobiles.
+Details come from Apollo (people/match, lookup only: nothing is added to Apollo lists or
+sequences) with APOLLO_API_KEY: the work email and the firm's published line on "Find
+email & firm phone", and the person's own number only on an explicit "Get their number".
 """
 import os
 import re
@@ -144,12 +144,14 @@ def create_lead(body: LeadIn, x_token: str = Header(None)):
 def update_lead(lead_id: str, body: LeadIn, x_token: str = Header(None)):
     user = _team_user(x_token)
     ratelimit.allow(f"sales:{user['id']}", 120, 60) or _too_fast()
-    cur = db.sales_leads.find_one({"id": lead_id}, {"_id": 0, "stage": 1})
+    cur = db.sales_leads.find_one({"id": lead_id}, {"_id": 0, "stage": 1, "phone": 1})
     if not cur:
         raise HTTPException(status_code=404, detail="That lead was deleted")
     f = _clean(body.fields, user)
     if "name" in f and not f["name"]:
         raise HTTPException(status_code=400, detail="A lead needs a name")
+    if "phone" in f and f["phone"] != (cur.get("phone") or ""):
+        f.update(phone_source="", phone_type="", phone_note="")   # a number someone typed in, not Apollo's
     f["updated_at"] = _now()
     op = {"$set": f}
     if body.note.strip():
@@ -198,61 +200,195 @@ def put_scripts(body: ScriptsIn, x_token: str = Header(None)):
 
 
 # ── Apollo lookup ─────────────────────────────────────────────────────────────
-APOLLO_MATCH = "https://api.apollo.io/api/v1/people/match"
+# Lookup only: nothing is added to Apollo lists or sequences, and calls show in Apollo
+# under the API key's own name. A person's own number comes only from an explicit "Get
+# their number" (about 9 credits when a mobile is found); everything else is 1 at most.
+APOLLO = "https://api.apollo.io/api/v1"
+LABELS = {"email": "work email", "firm_phone": "firm line", "role": "role", "company": "company", "city": "city"}
+PHONE_WAIT_MINUTES = 30
+PHONE_PREFERENCE = {"mobile": 0, "work_direct": 1, "other": 2}
 
 
-def _apollo_match(lead: dict) -> tuple[dict | None, str]:
+def _apollo_key() -> str:
     key = os.getenv("APOLLO_API_KEY", "").strip()
     if not key:
         raise HTTPException(status_code=503, detail="Apollo isn't connected yet. Add APOLLO_API_KEY to the server's settings.")
+    return key
+
+
+def _apollo_match(lead: dict, reveal_phone: bool = False) -> tuple[dict | None, str, str]:
+    """(found fields, or None on an Apollo error; the error text; the request_id of a phone reveal)."""
+    key = _apollo_key()
     body = {}
     if lead.get("linkedin"):
-        u = lead["linkedin"]
+        u = lead["linkedin"].strip()
         body["linkedin_url"] = u if u.startswith("http") else "https://" + u
     parts = (lead.get("name") or "").split(" ", 1)
     if len(parts) == 2:
         body["first_name"], body["last_name"] = parts
     if lead.get("company"):
         body["organization_name"] = lead["company"]
+    if reveal_phone:
+        # poll_only: Apollo returns a request_id to collect the numbers with later
+        # (free), so no public webhook is needed.
+        body.update(reveal_phone_number=True, poll_only=True)
     try:
-        r = requests.post(APOLLO_MATCH, json=body, timeout=25,
+        r = requests.post(f"{APOLLO}/people/match", json=body, timeout=25,
                           headers={"X-Api-Key": key, "Content-Type": "application/json", "Cache-Control": "no-cache"})
     except requests.RequestException:
-        return None, "Apollo didn't answer. Try again in a minute."
+        return None, "Apollo didn't answer. Try again in a minute.", ""
     if r.status_code == 429:
-        return None, "Apollo is rate-limiting us. Try again in a minute."
+        return None, "Apollo is rate-limiting us. Try again in a minute.", ""
     if not r.ok:
-        return None, f"Apollo refused the lookup ({r.status_code})."
-    p = (r.json() or {}).get("person") or {}
+        return None, f"Apollo refused the lookup ({r.status_code}).", ""
+    data = r.json() or {}
+    p = data.get("person") or {}
+    request_id = str(data.get("request_id") or p.get("request_id") or "")
     if not p:
-        return {}, "Apollo found no match"
+        return {}, "Apollo found no match", request_id
     org = p.get("organization") or {}
     ph = org.get("primary_phone") or {}
     email = p.get("email") or ""
     if "not_unlocked" in email or "@domain.com" in email:
         email = ""
-    return {"email": email, "firm_phone": ph.get("sanitized_number") or ph.get("number") or org.get("sanitized_phone") or org.get("phone") or "",
-            "role": p.get("title") or "", "company": org.get("name") or "", "city": p.get("city") or ""}, ""
+    name = (p.get("name") or f"{p.get('first_name') or ''} {p.get('last_name') or ''}").strip()
+    return {"name": name, "linkedin": p.get("linkedin_url") or "", "email": email,
+            "firm_phone": ph.get("sanitized_number") or ph.get("number") or org.get("sanitized_phone") or org.get("phone") or "",
+            "role": p.get("title") or "", "company": org.get("name") or "", "city": p.get("city") or ""}, "", request_id
+
+
+def _fill_blanks(lead: dict, found: dict) -> dict:
+    """Apollo only fills what the team left empty, never overwrites."""
+    return {k: str(v)[:TEXT_FIELDS[k]] for k, v in found.items() if k in LABELS and v and not str(lead.get(k) or "").strip()}
+
+
+def _lead_or_404(lead_id: str) -> dict:
+    lead = db.sales_leads.find_one({"id": lead_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="That lead was deleted")
+    return lead
+
+
+def _write(lead_id: str, fields: dict, user: dict | None, note: str, stage: str) -> dict:
+    op = {"$set": {**fields, "updated_at": _now()}}
+    if note:
+        e = _entry(user, note, stage) if user else {"at": _now(), "by": None, "by_name": "Apollo", "text": note[:300], "stage": stage}
+        op["$push"] = {"history": {"$each": [e], "$slice": -HISTORY_KEEP}}
+    db.sales_leads.update_one({"id": lead_id}, op)
+    return _public(db.sales_leads.find_one({"id": lead_id}, {"_id": 0}))
 
 
 @router.post("/sales/leads/{lead_id}/lookup")
 def lookup_lead(lead_id: str, x_token: str = Header(None)):
+    """Work email and the firm's published line (1 credit at most)."""
     user = _team_user(x_token)
     ratelimit.allow(f"sales-lookup:{user['id']}", 20, 60) or _too_fast()
-    lead = db.sales_leads.find_one({"id": lead_id}, {"_id": 0})
-    if not lead:
-        raise HTTPException(status_code=404, detail="That lead was deleted")
+    lead = _lead_or_404(lead_id)
     if not (lead.get("linkedin") or (lead.get("name") and lead.get("company"))):
         raise HTTPException(status_code=400, detail="Add their LinkedIn link or company first.")
-    found, err = _apollo_match(lead)
+    found, err, _ = _apollo_match(lead)
     if found is None:
         raise HTTPException(status_code=502, detail=err)
-    labels = {"email": "work email", "firm_phone": "firm line", "role": "role", "company": "company", "city": "city"}
-    fill = {k: v for k, v in found.items() if v and not str(lead.get(k) or "").strip()}
-    note = ("Apollo: found " + ", ".join(labels[k] for k in fill)) if fill else (err or "Apollo: nothing new")
-    fields = {**{k: str(v)[:TEXT_FIELDS[k]] for k, v in fill.items()},
-              "lookup": "done" if found else "none", "lookup_note": note, "lookup_at": _now(), "updated_at": _now()}
-    db.sales_leads.update_one({"id": lead_id}, {"$set": fields,
-                                       "$push": {"history": {"$each": [_entry(user, note, lead.get("stage", ""))],
-                                                             "$slice": -HISTORY_KEEP}}})
-    return _public(db.sales_leads.find_one({"id": lead_id}, {"_id": 0}))
+    fill = _fill_blanks(lead, found)
+    note = ("Apollo: found " + ", ".join(LABELS[k] for k in fill)) if fill else (err or "Apollo: nothing new")
+    return _write(lead_id, {**fill, "lookup": "done" if found else "none", "lookup_note": note, "lookup_at": _now()},
+                  user, note, lead.get("stage", ""))
+
+
+class EnrichIn(BaseModel):
+    linkedin: str = ""
+    name: str = ""
+    company: str = ""
+
+
+@router.post("/sales/enrich")
+def enrich(body: EnrichIn, x_token: str = Header(None)):
+    """Fill the new-lead form from a LinkedIn link. Saves nothing (1 credit at most)."""
+    user = _team_user(x_token)
+    ratelimit.allow(f"sales-lookup:{user['id']}", 20, 60) or _too_fast()
+    if not (body.linkedin.strip() or (body.name.strip() and body.company.strip())):
+        raise HTTPException(status_code=400, detail="Paste their LinkedIn link first.")
+    found, err, _ = _apollo_match({"linkedin": body.linkedin.strip()[:300], "name": body.name.strip()[:120],
+                                   "company": body.company.strip()[:160]})
+    if found is None:
+        raise HTTPException(status_code=502, detail=err)
+    if not found:
+        raise HTTPException(status_code=404, detail="Apollo has no one at that link. Check it, or fill the form in yourself.")
+    return {k: str(found.get(k) or "")[:TEXT_FIELDS[k]] for k in ("name", "role", "company", "city", "linkedin", "email", "firm_phone")}
+
+
+@router.post("/sales/leads/{lead_id}/phone")
+def request_phone(lead_id: str, x_token: str = Header(None)):
+    """Ask Apollo for the person's own number (about 9 credits when a mobile is found).
+    It arrives within minutes; /phone-check collects it."""
+    user = _team_user(x_token)
+    ratelimit.allow(f"sales-lookup:{user['id']}", 20, 60) or _too_fast()
+    lead = _lead_or_404(lead_id)
+    if (lead.get("phone") or "").strip():
+        raise HTTPException(status_code=400, detail="They already have a number on file.")
+    if lead.get("phone_reveal") == "pending":
+        return lead
+    if not (lead.get("linkedin") or (lead.get("name") and lead.get("company"))):
+        raise HTTPException(status_code=400, detail="Add their LinkedIn link or company first.")
+    found, err, request_id = _apollo_match(lead, reveal_phone=True)
+    if found is None:
+        raise HTTPException(status_code=502, detail=err)
+    if not found or not request_id:
+        note = "Apollo: no number for them" if found else (err or "Apollo found no match")
+        return _write(lead_id, {"phone_reveal": "none", "phone_note": note}, user, note, lead.get("stage", ""))
+    fill = _fill_blanks(lead, found)
+    also = f" (and found their {', '.join(LABELS[k] for k in fill)})" if fill else ""
+    return _write(lead_id, {**fill, "phone_reveal": "pending", "phone_request_id": request_id, "phone_requested_at": _now(),
+                            "phone_note": "Apollo is finding their number"},
+                  user, "Asked Apollo for their number" + also, lead.get("stage", ""))
+
+
+def _best_number(result: dict) -> tuple[str, str]:
+    nums = [n for person in (result.get("people") or []) for n in (person.get("phone_numbers") or [])]
+    nums = [n for n in nums if (n.get("sanitized_number") or n.get("raw_number")) and n.get("status_cd") != "invalid_number"]
+    if not nums:
+        return "", ""
+    nums.sort(key=lambda n: PHONE_PREFERENCE.get(n.get("type_cd") or "", 3))
+    return (nums[0].get("raw_number") or nums[0].get("sanitized_number")), (nums[0].get("type_cd") or "")
+
+
+@router.post("/sales/leads/{lead_id}/phone-check")
+def check_phone(lead_id: str, x_token: str = Header(None)):
+    """Collect a requested number (free). The page calls this while a request is pending."""
+    _team_user(x_token)
+    lead = _lead_or_404(lead_id)
+    if lead.get("phone_reveal") != "pending" or not lead.get("phone_request_id"):
+        return lead
+    try:
+        requested = datetime.fromisoformat(lead.get("phone_requested_at") or _now())
+    except ValueError:
+        requested = datetime.now(timezone.utc)
+    timed_out = (datetime.now(timezone.utc) - requested).total_seconds() > PHONE_WAIT_MINUTES * 60
+    stage = lead.get("stage", "")
+    try:
+        r = requests.get(f"{APOLLO}/webhook_result/{lead['phone_request_id']}", timeout=20,
+                         headers={"X-Api-Key": _apollo_key(), "Cache-Control": "no-cache"})
+    except requests.RequestException:
+        return lead
+    try:
+        data = r.json() or {}
+    except ValueError:
+        data = {}
+    pending = (r.status_code == 404 and data.get("error_code") == "result_pending") or (r.ok and data.get("webhook_status") == "in_progress")
+    if pending:
+        if timed_out:
+            return _write(lead_id, {"phone_reveal": "none", "phone_note": "Apollo didn't return a number"}, None,
+                          "Apollo: no number came back", stage)
+        return lead
+    if not r.ok or data.get("webhook_status") == "failed":
+        return _write(lead_id, {"phone_reveal": "none", "phone_note": "Apollo couldn't find their number"}, None,
+                      "Apollo couldn't find their number", stage)
+    number, kind = _best_number(data.get("webhook_result") or {})
+    if not number:
+        return _write(lead_id, {"phone_reveal": "none", "phone_note": "Apollo has no number for them"}, None,
+                      "Apollo: no number for them", stage)
+    label = {"mobile": "mobile", "work_direct": "direct line"}.get(kind, "number")
+    fields = {"phone_reveal": "done", "phone_source": "Apollo", "phone_type": kind, "phone_note": f"From Apollo ({label})"}
+    if not (lead.get("phone") or "").strip():
+        fields["phone"] = number[:TEXT_FIELDS["phone"]]
+    return _write(lead_id, fields, None, f"Apollo: found their {label}", stage)
