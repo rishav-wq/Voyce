@@ -38,6 +38,8 @@
     .submit-btn { width: 100%; padding: 14px; background: #24365e; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; margin-top: 4px; }
     .submit-btn:hover { background: #1c2b4d; }
     .submit-btn:disabled { background: #9aa7c0; cursor: not-allowed; }
+    .btn-spin { display: inline-block; width: 14px; height: 14px; margin-right: 9px; vertical-align: -2px; border: 2px solid rgba(255,255,255,0.45); border-top-color: #fff; border-radius: 50%; animation: btnspin 0.7s linear infinite; }
+    @keyframes btnspin { to { transform: rotate(360deg); } }
     .error-msg { color: #c0392b; font-size: 13px; margin-top: 12px; display: none; background: #fdecea; padding: 10px 13px; border-radius: 8px; }
 
     /* Topic suggestion chips */
@@ -119,13 +121,15 @@
           <div class="form-group">
             <label>What do you post about? *</label>
             <input id="ob-topic" placeholder="e.g. leadership, B2B marketing, fundraising" autocomplete="off" required />
-            <div class="topic-suggest" id="ob-topic-suggest"></div>
             <p class="form-hint">A few topics, comma-separated, is perfect.</p>
           </div>
           <div class="form-group">
             <label>Your role <span class="optional-tag">(optional)</span></label>
             <input id="ob-role" placeholder="e.g. Fractional CMO, Leadership Coach, Consultant" autocomplete="off" />
             <p class="form-hint">Helps us suggest topics and pitch posts at the right level.</p>
+            <!-- Under Role, filled while typing: on blur it appeared above the button
+                 mid-click, pushed it down, and the click was lost. -->
+            <div class="topic-suggest" id="ob-topic-suggest"></div>
           </div>
           <div class="form-group">
             <label>Paste 1–3 of your LinkedIn posts <span class="optional-tag">(optional, makes it sound like you)</span></label>
@@ -219,7 +223,20 @@
       if (!(await initClerk())) return;
       const u = getUser();
       if (u) document.getElementById("nav-user").textContent = u.name || u.email || "";
-      document.getElementById("ob-role").addEventListener("blur", loadTopicSuggestions);
+      document.getElementById("ob-role").addEventListener("input", () => {
+        clearTimeout(_suggestTimer);
+        _suggestTimer = setTimeout(loadTopicSuggestions, 700);
+      });
+      // While the button is pressed nothing may re-flow under the click. If the press
+      // didn't send the form (an empty required field), suggestions resume.
+      const btn = document.getElementById("ob-btn");
+      btn.addEventListener("pointerdown", () => { _obPressed = true; clearTimeout(_suggestTimer); });
+      const release = () => setTimeout(() => {
+        _obPressed = false;
+        if (!_obSent) loadTopicSuggestions();
+      }, 300);
+      btn.addEventListener("pointerup", release);
+      btn.addEventListener("pointercancel", release);
       document.getElementById("ob-topic").focus();
       try {
         const r = await fetch("/auth/linkedin/status", { headers: { "x-token": getToken() } });
@@ -242,15 +259,19 @@
 
     // ── Topic suggestions (based on role) ───────────────────────────────────────
     const _topicSuggestCache = {};
+    let _suggestTimer = null, _obPressed = false, _obSent = false;
+    const _formHeld = () => _obPressed || _obSent;
 
     async function loadTopicSuggestions() {
-      const role = document.getElementById("ob-role").value.trim();
+      const roleEl = document.getElementById("ob-role");
+      const role = roleEl.value.trim();
       const box = document.getElementById("ob-topic-suggest");
+      if (_formHeld()) return;
       if (role.length < 3) { box.classList.remove("visible"); return; }
-      box.classList.add("visible");
-      box.innerHTML = '<span class="topic-chip muted">Finding trending topics for this role…</span>';
       let topics = _topicSuggestCache[role.toLowerCase()];
       if (!topics) {
+        box.classList.add("visible");
+        box.innerHTML = '<span class="topic-chip muted">Finding topics for this role…</span>';
         try {
           const res = await fetch("/topics/suggest", {
             method: "POST",
@@ -260,13 +281,16 @@
           if (!res.ok) throw new Error();
           topics = (await res.json()).topics || [];
           _topicSuggestCache[role.toLowerCase()] = topics;
-        } catch (_) { box.classList.remove("visible"); return; }
+        } catch (_) { if (!_formHeld()) box.classList.remove("visible"); return; }
       }
+      // Late answers are dropped: the form was sent, or the role changed meanwhile.
+      if (_formHeld() || roleEl.value.trim() !== role) return;
       if (!topics.length) { box.classList.remove("visible"); return; }
+      box.classList.add("visible");
       box.innerHTML = "";
       const lbl = document.createElement("span");
       lbl.className = "ts-label";
-      lbl.textContent = "Suggested:";
+      lbl.textContent = "Add to your topics:";
       box.appendChild(lbl);
       topics.forEach(t => {
         const chip = document.createElement("button");
@@ -320,6 +344,8 @@
         return;
       }
 
+      _obSent = true; clearTimeout(_suggestTimer);
+      _obBtn(true);
       const posts = document.getElementById("ob-posts").value.trim();
       const payload = {
         voice_posts:      posts,
@@ -364,9 +390,17 @@
         stopObProgress();
         document.getElementById("ob-loading").style.display = "none";
         document.getElementById("ob-main").style.display = "block";
+        _obSent = false; _obBtn(false);
         err.textContent = ex.message;
         err.style.display = "block";
       }
+    }
+
+    // Pressed means busy: greyed, a spinner, no second submit.
+    function _obBtn(busy) {
+      const b = document.getElementById("ob-btn");
+      b.disabled = busy;
+      b.innerHTML = busy ? '<span class="btn-spin"></span>Writing your first post…' : "Write my first post →";
     }
 
     function skipOnboarding() { window.location.href = "/tool"; }

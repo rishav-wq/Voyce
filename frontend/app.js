@@ -67,14 +67,16 @@ async function suggestIdeasCreate() {
   const pid = getActiveProfileId() || (_profiles[0] && _profiles[0].id);
   if (!pid) { toast("Create a profile first, then I can suggest ideas.", "warn"); return; }
   showTool("ideas");
-  const seeded = !!((document.getElementById("content-input") || {}).value || "").trim();
+  // Only Paste Text is a brief. A link in the URL or YouTube tab used to steer the
+  // ideas too, as if "https://youtube.com/…" were the topic.
+  const seed = activeType === "text" ? ((document.getElementById("content-input") || {}).value || "") : "";
+  const seeded = !!seed.trim();
   out.innerHTML = `<div class="tool-empty">${seeded
     ? "Drafting ideas from what you typed, plus the latest news…"
     : "Reading the latest news and drafting ideas…"} about 10 seconds, and nothing gets posted.</div>`;
   try {
-    // Whatever is in the composer steers the ideas. Without it they could only
+    // What's typed in Paste Text steers the ideas. Without it they could only
     // ever be "your niche + today's news", which is why they came back generic.
-    const seed = (document.getElementById("content-input") || {}).value || "";
     const res = await fetch(`/companies/${pid}/ideas`, {
       method: "POST", headers: authHeaders(),
       body: JSON.stringify({ context: seed.trim().slice(0, 1200) }),
@@ -109,12 +111,7 @@ function useIdea(i) {
   const ta = document.getElementById("content-input");
   if (!ta) return;
   // Switch to Paste Text mode so the seed generates correctly (mirrors applySeedTopic)
-  const textTab = document.querySelector('.input-tab[data-type="text"]');
-  if (textTab) {
-    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
-    textTab.classList.add("active");
-    activeType = "text";
-  }
+  _switchInputTab("text");   // keeps whatever was in the other tab there
   const parts = [`Write a ${it.post_type_label || "LinkedIn"} post about: ${it.hook}.`];
   if (it.why) parts.push(it.why);
   if (it.source) parts.push(`It should react to this from the news: "${it.source}".`);
@@ -142,6 +139,24 @@ function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") ||
 function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
 
 let activeType = "text";
+// One textarea serves all three tabs, so each tab's text is kept here while another
+// tab is showing. It used to carry over: a YouTube link showed up under Paste Text.
+const _tabText = { text: "", url: "", youtube: "" };
+const _TAB_PLACEHOLDERS = {
+  text: "Paste your blog post, article, notes, or any content here…",
+  url: "https://example.com/blog/your-article",
+  youtube: "https://www.youtube.com/watch?v=…"
+};
+function _switchInputTab(type) {
+  const ta = document.getElementById("content-input");
+  if (!ta || !(type in _tabText)) return;
+  document.querySelectorAll(".input-tab").forEach(t => t.classList.toggle("active", t.dataset.type === type));
+  if (type === activeType) return;
+  _tabText[activeType] = ta.value;
+  activeType = type;
+  ta.value = _tabText[type];
+  ta.placeholder = _TAB_PLACEHOLDERS[type];
+}
 let linkedInConnected = false;
 // A profile can post to its own LinkedIn account (a client's). Posting from the
 // Create page goes through the selected profile's connection, not just the user's.
@@ -251,12 +266,7 @@ function applySeedTopic() {
   const ta = document.getElementById("content-input");
   if (!ta) return;
   // Switch to text mode so the pre-filled brief generates correctly
-  const textTab = document.querySelector('.input-tab[data-type="text"]');
-  if (textTab) {
-    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
-    textTab.classList.add("active");
-    activeType = "text";
-  }
+  _switchInputTab("text");   // keeps whatever was in the other tab there
   ta.value = `Write a specific, useful LinkedIn post about ${seed}.`;
   ta.focus();
   ta.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -367,17 +377,7 @@ async function connectLinkedIn() {
 
 // ── Input tabs ────────────────────────────────────────────────────────────────
 document.querySelectorAll(".input-tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".input-tab").forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
-    activeType = tab.dataset.type;
-    const placeholders = {
-      text: "Paste your blog post, article, notes, or any content here…",
-      url: "https://example.com/blog/your-article",
-      youtube: "https://www.youtube.com/watch?v=…"
-    };
-    document.getElementById("content-input").placeholder = placeholders[activeType];
-  });
+  tab.addEventListener("click", () => _switchInputTab(tab.dataset.type));
 });
 
 // ── Generation progress ───────────────────────────────────────────────────────

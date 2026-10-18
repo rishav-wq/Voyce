@@ -1144,8 +1144,13 @@
       if (window.location.hash === "#upgrade") openUpgradeModal();
       document.getElementById("p-tone").addEventListener("change", () => { personalToneTouched = true; });
       document.getElementById("p-industry").addEventListener("input", suggestPersonalTone);
-      document.getElementById("p-designation").addEventListener("blur", () =>
-        loadTopicSuggestions("p-designation", "p-topic-suggest", "p-industry"));
+      // While typing, not on blur: suggestions that load as you click away shift
+      // the form under the pointer and the click is lost.
+      let _pSuggestTimer = null;
+      document.getElementById("p-designation").addEventListener("input", () => {
+        clearTimeout(_pSuggestTimer);
+        _pSuggestTimer = setTimeout(() => loadTopicSuggestions("p-designation", "p-topic-suggest", "p-industry"), 700);
+      });
       loadLog();
       loadAnalytics();
     }
@@ -2587,13 +2592,14 @@
     const _topicSuggestCache = {};
 
     async function loadTopicSuggestions(desigInputId, boxId, topicsInputId) {
-      const desig = document.getElementById(desigInputId).value.trim();
+      const desigEl = document.getElementById(desigInputId);
+      const desig = desigEl.value.trim();
       const box = document.getElementById(boxId);
       if (desig.length < 3) { box.classList.remove("visible"); return; }
-      box.classList.add("visible");
-      box.innerHTML = '<span class="topic-chip muted">Finding trending topics for this role…</span>';
       let topics = _topicSuggestCache[desig.toLowerCase()];
       if (!topics) {
+        box.classList.add("visible");
+        box.innerHTML = '<span class="topic-chip muted">Finding topics for this role…</span>';
         try {
           const res = await fetch("/topics/suggest", {
             method: "POST", headers: ah(), body: JSON.stringify({ designation: desig }),
@@ -2603,7 +2609,9 @@
           _topicSuggestCache[desig.toLowerCase()] = topics;
         } catch (_) { box.classList.remove("visible"); return; }
       }
+      if (desigEl.value.trim() !== desig) return;   // the role changed while this loaded
       if (!topics.length) { box.classList.remove("visible"); return; }
+      box.classList.add("visible");
       box.innerHTML = "";
       const lbl = document.createElement("span");
       lbl.className = "ts-label";
