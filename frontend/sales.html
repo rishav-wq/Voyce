@@ -152,13 +152,25 @@ tr:last-child td { border-bottom: 0; }
 .row-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 .hint { font-size: 12px; color: var(--faint); }
 
-/* drawer */
+/* lead panel: a floating card from the sidebar's edge to the screen's edge */
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(540px, 100%); background: var(--surface); z-index: 21; box-shadow: var(--shadow); overflow-y: auto;
-  padding: calc(20px + env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) 22px; }
-@media (max-width: 560px) { .drawer { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
-.d-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.drawer { --dp-x: 28px; --dp-top: 22px; position: fixed; top: 14px; right: 14px; bottom: 14px; left: calc(248px + 14px);
+  background: var(--surface); z-index: 21; border-radius: 16px; box-shadow: var(--shadow); overflow-y: auto;
+  padding: 0 var(--dp-x) 28px; }
+@media (min-width: 861px) { .scrim { left: 248px; } }   /* the sidebar stays bright */
+@media (max-width: 860px) { .drawer { --dp-x: 16px; top: 8px; right: 8px; bottom: 8px; left: 8px; border-radius: 14px; } }
+.d-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;
+  position: sticky; top: 0; z-index: 2; background: var(--surface); margin: 0 calc(-1 * var(--dp-x)); padding: var(--dp-top) var(--dp-x) 14px;
+  border-bottom: 1px solid var(--line); }
 .d-head h2 { font-size: 22px; }
+.icon-btn { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; }
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn svg { width: 20px; height: 20px; }
+.d-body { display: grid; gap: 0 36px; padding-top: 6px; }
+.d-col { min-width: 0; }
+.d-col > .d-sec:first-child { border-top: 0; }
+@media (min-width: 1100px) { .d-body { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); align-items: start; } }
+.d-form { max-width: 780px; }
 .d-head .meta { color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
 .d-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
 .d-sec { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
@@ -168,7 +180,7 @@ tr:last-child td { border-bottom: 0; }
 .kv dd .row-btns { margin-top: 4px; }
 .nextbox { background: var(--accent-soft); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
 .nextbox .what { font-weight: 600; }
-.nextbox pre { white-space: pre-wrap; font-family: var(--f-body); margin: 0; font-size: 13px; line-height: 1.55; background: var(--surface); padding: 10px 12px; border-radius: 9px; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+.nextbox pre { white-space: pre-wrap; font-family: var(--f-body); margin: 0; font-size: 13.5px; line-height: 1.6; background: var(--surface); padding: 12px 14px; border-radius: 9px; overflow-wrap: anywhere; max-height: 360px; overflow-y: auto; }
 .inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: var(--surface); padding: 10px; border-radius: 10px; }
 .inline-form input, .inline-form select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); flex: 1 1 180px; min-width: 0; }
 .field { display: grid; gap: 4px; }
@@ -573,20 +585,21 @@ function readDetails() {
   return { name: v("l-name"), role: v("l-role"), company: v("l-company"), city: v("l-city"), linkedin: v("l-linkedin"), phone: v("l-phone"),
            firm_phone: v("l-firm-phone"), email: v("l-email"), source: v("l-source") || SOURCES[0] };
 }
+const CLOSE_BTN = `<button class="icon-btn" data-act="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
 function renderDrawer() {
   const d = $("#drawer");
   if (openId === null) { d.hidden = true; $("#scrim").hidden = true; return; }
   d.hidden = false; $("#scrim").hidden = false;
   if (openId === "new") {
-    d.innerHTML = `<div class="d-head"><div><h2>New lead</h2><div class="meta">Someone you're reaching out to.</div></div><button class="btn quiet" data-act="close" aria-label="Close">Close</button></div>
-      <form class="d-sec" id="new-form" style="border-top:0;padding-top:0">${detailsForm({}, true)}
+    d.innerHTML = `<div class="d-head"><div><h2>New lead</h2><div class="meta">Someone you're reaching out to.</div></div>${CLOSE_BTN}</div>
+      <form class="d-sec d-form" id="new-form" style="border-top:0">${detailsForm({}, true)}
       ${dupMatch ? `<div class="warnbox">${esc(dupMatch.name)} is already in the tracker (${esc(STAGE[dupMatch.stage]?.label || "")}). <button type="button" class="btn" data-act="open" data-id="${esc(dupMatch.id)}">Open them</button> <button type="button" class="btn quiet" data-act="add-anyway">Add anyway</button></div>` : ""}
       <div class="row-btns"><button class="btn primary" type="submit">Add lead</button><button class="btn" type="button" data-act="close">Cancel</button></div></form>`;
     setTimeout(() => $("#l-name")?.focus(), 30);
     return;
   }
   const l = leads.find(x => x.id === openId);
-  if (!l) { d.innerHTML = `<div class="d-head"><div><h2>Lead removed</h2><div class="meta">Someone deleted this lead.</div></div><button class="btn quiet" data-act="close">Close</button></div>`; return; }
+  if (!l) { d.innerHTML = `<div class="d-head"><div><h2>Lead removed</h2><div class="meta">Someone deleted this lead.</div></div>${CLOSE_BTN}</div>`; return; }
   const due = dueInfo(l), s = scriptFor(l);
   const acts = canWrite ? actionsFor(l).map(a => `<button class="btn ${a.primary ? "primary" : ""}" data-act="${a.needs ? "set-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
   const lostBtn = canWrite && isActive(l) && l.stage !== "meeting" ? `<button class="btn quiet" data-act="set-panel" data-panel="lost">Mark lost</button>` : "";
@@ -607,14 +620,20 @@ function renderDrawer() {
   const hist = (l.history || []).slice().reverse();
   d.innerHTML = `<div class="d-head"><div><h2>${esc(l.name)}</h2><div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · "))}</div>
       <div class="d-badges">${pill(l.stage)}${due.text ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ""}${dayChip(l)}</div></div>
-      <button class="btn quiet" data-act="close" aria-label="Close">Close</button></div>
-    <div class="d-sec" style="border-top:0">
+      ${CLOSE_BTN}</div>
+    <div class="d-body"><div class="d-col">
+    <div class="d-sec">
       <div class="nextbox"><div class="what">Next: ${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : what)}</div>
         <div class="row-btns">${acts}${toCall}${lostBtn}</div>
         ${panel && panels[panel] && panel !== "delete" ? panels[panel] : ""}
         ${s && isActive(l) ? `<div class="hint">Message: ${esc(s.title)}</div><pre id="msg">${esc(fillScript(s.body, l))}</pre><div class="row-btns"><button class="btn" data-act="copy-msg">Copy message for ${esc(firstName(l.name))}</button></div>` : ""}
       </div>
     </div>
+    ${canWrite ? `<form class="d-sec" id="touch-form"><h3>Log a touch or note</h3><div class="inline-form" style="padding:0">
+      <select id="t-ch" aria-label="Channel" style="flex:0 1 130px">${CHANNELS.map(c => `<option>${c}</option>`).join("")}</select>
+      <input id="t-text" placeholder="e.g. Sent the sample post on WhatsApp" aria-label="What happened"><button class="btn" type="submit">Add</button></div></form>` : ""}
+    <div class="d-sec"><h3>History</h3>${hist.length ? `<ul class="hist">${hist.map(h => `<li><time>${esc(fmtStamp(h.at))}</time><div class="t">${esc(h.text || "")}${h.by_name ? ` · <span class="hint">${esc(h.by_name)}</span>` : ""}</div></li>`).join("")}</ul>` : `<div class="hint">Nothing logged yet.</div>`}</div>
+    </div><div class="d-col">
     <div class="d-sec"><h3>Contact</h3><dl class="kv">
       <dt>LinkedIn</dt><dd>${l.linkedin ? `<a href="${esc(/^https?:\/\//i.test(l.linkedin) ? l.linkedin : "https://" + l.linkedin)}" target="_blank" rel="noopener">${esc(l.linkedin.replace(/^https?:\/\/(www\.)?/i, ""))}</a>` : `<span class="hint">No link yet</span>`}</dd>
       <dt>Their phone</dt><dd>${phone}</dd>
@@ -627,13 +646,10 @@ function renderDrawer() {
       ${isActive(l) ? `<dt>Next date</dt><dd><input id="d-due" type="date" value="${esc(l.next_due || "")}" ${canWrite ? "" : "disabled"} style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)"></dd>` : ""}
     </dl></div>
     ${l.notes ? `<div class="d-sec"><h3>Why they fit</h3><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;overflow-wrap:anywhere">${esc(l.notes)}</div>${l.research_url ? `<a class="hint" href="${esc(l.research_url)}" target="_blank" rel="noopener">Where this came from</a>` : ""}</div>` : ""}
-    ${canWrite ? `<form class="d-sec" id="touch-form"><h3>Log a touch or note</h3><div class="inline-form" style="padding:0">
-      <select id="t-ch" aria-label="Channel" style="flex:0 1 130px">${CHANNELS.map(c => `<option>${c}</option>`).join("")}</select>
-      <input id="t-text" placeholder="e.g. Sent the sample post on WhatsApp" aria-label="What happened"><button class="btn" type="submit">Add</button></div></form>` : ""}
-    <div class="d-sec"><h3>History</h3>${hist.length ? `<ul class="hist">${hist.map(h => `<li><time>${esc(fmtStamp(h.at))}</time><div class="t">${esc(h.text || "")}${h.by_name ? ` · <span class="hint">${esc(h.by_name)}</span>` : ""}</div></li>`).join("")}</ul>` : `<div class="hint">Nothing logged yet.</div>`}</div>
     ${canWrite ? `<details class="d-sec"><summary style="cursor:pointer;font-weight:600">Edit details</summary><form id="edit-form" style="display:grid;gap:10px;margin-top:10px">${detailsForm(l, false)}
       <div class="row-btns"><button class="btn primary" type="submit">Save details</button></div></form></details>
-      <div class="d-sec">${panel === "delete" ? panels.delete : `<div><button class="btn quiet danger" data-act="set-panel" data-panel="delete">Delete lead</button></div>`}</div>` : ""}`;
+      <div class="d-sec">${panel === "delete" ? panels.delete : `<div><button class="btn quiet danger" data-act="set-panel" data-panel="delete">Delete lead</button></div>`}</div>` : ""}
+    </div></div>`;
   if (panel === "number") setTimeout(() => $("#p-phone")?.focus(), 30);
   if (panel === "meeting") setTimeout(() => $("#p-when")?.focus(), 30);
 }
