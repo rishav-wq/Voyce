@@ -123,8 +123,8 @@ COMPANY CONTEXT (use lightly — you are commentating on the trend, not selling)
 Write a Trend Commentary post:
 - Open with the specific trend or news item above — name it
 - Your take: what does this actually mean for the industry? (2-3 short paragraphs, one clear opinion)
-- End with a takeaway or a question only people in this industry would care about — no generic engagement bait
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- End on the takeaway, stated plainly. A question only if it's one only people in this industry would care about — no generic engagement bait
+- No hashtags
 - Blank line between every paragraph; vary sentence length — not everything short and punchy
 - Tone: {tone} — sounds like a smart human, NOT a press release
 
@@ -142,7 +142,7 @@ Write an Expert Insight post:
 - Open with a bold or counterintuitive statement about the industry
 - Body: 2-3 paragraphs of genuine insight — things only someone deep in {industry} would know
 - End on the strongest point or a specific question — never "What's your experience with this?"
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between every section; vary sentence rhythm
 - Tone: {tone}
 
@@ -159,7 +159,7 @@ Write a Product Spotlight post using this story structure:
 - The Better Way: how {name} solves it (be specific, use real product details)
 - The Result: a concrete outcome (use numbers if possible, or qualitative impact)
 - End with a soft CTA (not "buy now" — "curious how this works for your team?")
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between every section
 - Tone: {tone} — educational not salesy
 
@@ -178,7 +178,7 @@ Write an Industry Stat post:
 - Explain: why this number matters (1-2 sentences)
 - Connect: how this relates to what {name} does or sees in the market
 - Insight: what smart companies should do about it
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between every paragraph; vary sentence rhythm
 - Tone: {tone}
 
@@ -196,7 +196,7 @@ Write a Case Study / Story post:
 - The measurable or qualitative result
 - One-line takeaway lesson
 - End with: "If your team faces [similar challenge], here's what worked."
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between every section
 - Tone: {tone} — storytelling, human, specific
 
@@ -215,7 +215,7 @@ Write a Playbook / How-To post:
 - Give 3-5 concrete steps. Each step: what to do + one practical detail that shows real expertise
 - Every step must be something a reader could start this week — no "align stakeholders" fluff
 - Close with the result a team can expect if they actually follow it
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between every step; vary sentence rhythm
 - Tone: {tone} — practitioner sharing a working method, not a consultant selling one
 
@@ -234,7 +234,7 @@ Write a Myth vs Reality post:
 - Show why it's wrong with real evidence: a number, a named example, or a pattern from the company's experience
 - Give the reality, and what to do differently because of it
 - Don't strawman — the myth must be something reasonable people actually believe
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between every paragraph; vary sentence rhythm
 - Tone: {tone}
 
@@ -256,7 +256,7 @@ Write a Teardown post — a sharp breakdown of one specific, real thing a NAMED 
 - Each observation must be concrete enough that the reader can go look at it themselves
 - Close with the transferable lesson for {industry} teams
 - Only analyze publicly observable things — never claim insider knowledge
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between observations; vary sentence rhythm
 - Tone: {tone} — analyst dissecting, not fan praising
 
@@ -277,7 +277,7 @@ Write a Prediction post:
   point to it, each named and specific
 - Address the obvious counterargument in one sentence — then hold the position
 - Close with what smart companies should do NOW if this is right
-- Hashtags: 0-3 lowercase on the final line, only if genuinely relevant
+- No hashtags
 - Blank line between paragraphs; vary sentence rhythm
 - Tone: {tone} — confident, not breathless
 
@@ -287,8 +287,9 @@ Return ONLY the post text.""",
 # ── Shared quality rules ──────────────────────────────────────────────────────
 _PERSONAL_QUALITY_RULES = """
 QUALITY RULES (non-negotiable):
-- Line 1 is the ONLY thing visible before "...see more". HARD RULE: max 60 characters,
-  self-contained, an open loop the reader needs closed. Short + tension stops the scroll.
+- Line 1 is the ONLY thing visible before "...see more". HARD RULE: at most ~90 characters,
+  self-contained: a plain statement, a result or a story moment (a specific number helps),
+  an open loop the reader needs closed. Never a question: question openers do worst.
   Write it the way THIS author would say it, not like a marketer.
 - If voice examples are provided in AUTHOR CONTEXT, match their rhythm, vocabulary, and
   quirks exactly — voice outranks every other rule.
@@ -318,9 +319,11 @@ QUALITY RULES (non-negotiable):
   mimics, "information density", furthermore, "Ultimately,", "it is worth noting".
 - SIMPLICITY IS A HARD RULE: every word one a 15-year-old uses daily ("use" not "utilize").
   Most sentences under 12 words. If a sentence needs a second read, rewrite it.
-- LENGTH — HARD DEFAULT: 60-120 words total. Past 150 only when every extra line carries a
-  fact. When in doubt, the shorter version ships. Never end on a self-summary or a restated
-  hook — end on the strongest sentence.
+- LENGTH: aim for 130-260 words (about 800-1,600 characters), the range where posts do
+  best, and let the material set it. A real process, story or set of numbers fills it; one
+  sharp point can stop near 100 words. Never pad: a line that adds no fact, step, example or
+  turn gets cut. Past 300 words only for a step-by-step process. Never summarize yourself at
+  the end or restate the hook as a closer.
 - HOLD ATTENTION (dwell time is a confirmed reach signal): one idea per line, whitespace,
   and a shape that pulls the eye down — a narrative arc, a numbered list, or a before→after.
 - SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a numbered
@@ -335,11 +338,14 @@ QUALITY RULES (non-negotiable):
   what they're building — UNLESS the context explicitly marks THIS post as a product
   reveal/launch post. Repeated product mentions train both readers and the feed algorithm to
   ignore the account; the author's product may inform their perspective, never the post's ask.
-- End however fits the post: a takeaway, a sharp specific question, or just the last point
-  landing. NEVER directive engagement-bait ("Comment YES", "Tag someone", "Agree?",
-  "Repost if…") — LinkedIn auto-suppresses it. One genuine open question is fine.
+- END ON A STATEMENT by default: the takeaway, the sharpest claim, or the last point
+  landing. Top posts almost never close on a question. Ask one only when it's specific and
+  the post has earned it (it asks for something readers actually know and want to share),
+  never as a reflex. NEVER directive engagement-bait ("Comment YES", "Tag someone",
+  "Agree?", "Repost if…") — LinkedIn auto-suppresses it.
 - No promotional URLs in the body — off-platform links drag reach.
-- Hashtags: 0-3 lowercase on the last line, only if genuinely relevant. None is fine.
+- No hashtags: top posts don't use them and they add no reach. (Only if the author's own
+  example posts use them, follow the author.)
 
 FORMATTING:
 - Blank line between paragraphs. No paragraph over 3 sentences.
@@ -352,6 +358,7 @@ NEVER USE (instant AI tells — automatic fail):
 - "Here's the thing:" / "Let that sink in" / "Read that again" / "The result?"
 - Three-item lists in every paragraph (the rule-of-three tic)
 - Starting consecutive paragraphs with the same word
+- Opening with "Most [people / teams / CFOs / founders]...": the most overused hook shape.
 - Relentless staccato: every sentence a one-line punch. Mix short punches with natural,
   longer sentences the way people actually talk.
 - possibilities are endless, I couldn't help but think, it's amazing to see, the future is
@@ -404,7 +411,7 @@ Body (2-3 short paragraphs):
 - What most people are getting wrong about it
 - One non-obvious implication you see coming
 
-Closing: One sharp question that invites real responses. Not "What do you think?" — something specific: "Are you already seeing this in your team?"
+Closing: end on your sharpest line: the implication, or what you'd do about it. A question only if it's this specific: "Are you already seeing this in your team?"
 
 Return ONLY the post text.""",
 
@@ -429,7 +436,7 @@ Body:
 
 Counter: One sentence: "I know this is controversial because [reason]." Then stand your ground.
 
-Closing: end on the strongest version of your claim, or a question that splits the room in a specific way — never a bare "Agree or disagree?"
+Closing: end on the strongest version of your claim. Never a bare "Agree or disagree?"
 
 Return ONLY the post text.""",
 
@@ -453,9 +460,7 @@ The lesson (1 sentence, bold idea): State it cleanly. Should be repeatable advic
 
 Why it matters for anyone in {industry}: 1-2 sentences max.
 
-Closing: "What took you too long to learn?" or a more specific question.
-
-Hashtags on final line.
+Closing: end on the lesson, said so someone could repeat it.
 
 IMPORTANT: If website context is marked EXTERNAL REFERENCE MATERIAL, draw the story from general {industry} experience instead.
 Never invent personal events ("I spent...", "I built...", "I invested...") unless present in AUTHOR CONTEXT.
@@ -480,7 +485,7 @@ Insight 1 (2-3 sentences): The pattern you've observed. Specific.
 Insight 2 (2-3 sentences): Why the common approach fails. Name the mistake.
 Insight 3 (2-3 sentences): What actually works. Your take, not generic advice.
 
-Closing: "Am I the only one seeing this?" or a sharper version targeting your specific audience.
+Closing: end on what this means for someone in {industry}: the sharpest line in the post.
 
 Return ONLY the post text.""",
 
@@ -504,7 +509,7 @@ Your read (2 paragraphs):
 
 What to do instead: 2-3 sentences of concrete advice.
 
-Closing: A specific question. Not "what do you think?" — e.g. "Have you seen this play out in your org?"
+Closing: end on what the number changes, said plainly. A question only if it's this specific: "Have you seen this play out in your org?"
 
 Return ONLY the post text.""",
 
@@ -527,9 +532,7 @@ Outcome (1-2 sentences): What happened. Numbers if possible, honest qualitative 
 
 Takeaway (1 sentence): The clean lesson. Should apply to anyone in {industry}.
 
-Closing: A relatable question that connects the story to the reader's experience.
-
-Hashtags on final line.
+Closing: end on the takeaway.
 
 IMPORTANT: If website context is marked EXTERNAL REFERENCE MATERIAL, do NOT invent personal stories.
 Write an analysis-led post using attributed third-party examples ("Klarna showed...", "Report X found..."),
@@ -978,6 +981,17 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
     )
     if not is_personal:
         prompt += "\n" + _COMPANY_QUALITY_RULES
+    elif not _knows_their_past(company):
+        # Lesson Learned and Personal Story ask for a memory. With nothing about the
+        # author's past, the writer made one up, and the fact check then failed it.
+        prompt += (
+            "\n\nNOTHING IS KNOWN ABOUT THIS AUTHOR'S PAST (no past posts, site or facts). "
+            "Do not write a memory: no \"I spent...\", \"for years I...\", \"we missed...\", no "
+            "client, team or career story, no result from their own work, no claim about what "
+            "they see at work (\"as a CFO I see this every day\"). Write it as a "
+            f"present-tense take instead: the lesson people in {industry} keep learning the hard "
+            "way, anchored in a real case from the news. \"I think\", \"here's what I'd do\" and "
+            "advice to the reader are fine.")
     prompt += _hook_guidance(company.get("allowed_hooks"))
     openings = _openings_to_avoid(company)
     prompt += _avoid_block(openings)
@@ -998,16 +1012,19 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
     facts = news_context if gate_context is None else gate_context
-    verdict = _value_gate(post, industry, facts)
+    author = _author_record(company)
+    verdict = _value_gate(post, industry, facts, author_context=author)
     chosen, chosen_v = post, verdict
     if not verdict.get("passes", True):
         retry = prompt + (
             f"\n\nYOUR PREVIOUS DRAFT FAILED REVIEW.\nWeakness: {verdict.get('reason', '')}\n"
-            "Rewrite the post fixing exactly that weakness. Keep every quality rule."
+            "Rewrite the post fixing exactly that weakness. Keep every quality rule. If the "
+            "weakness is an invented experience, drop the memory and keep the point: make it "
+            "an observation, an opinion or advice instead."
         )
         post2 = _revise_post(_format_linkedin_post(
             llm_generate(retry, max_tokens=1024, temperature=0.9)), industry)
-        v2 = _value_gate(post2, industry, facts)
+        v2 = _value_gate(post2, industry, facts, author_context=author)
         if v2.get("score", 0) >= verdict.get("score", 0):
             chosen, chosen_v = post2, v2
     if report is not None:
@@ -1016,10 +1033,59 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
     return chosen
 
 
-def _value_gate(post: str, industry: str, news_context: str = "") -> dict:
+def _knows_their_past(company: dict) -> bool:
+    """True when the profile holds anything about the author's real past."""
+    return bool(company.get("linkedin_top_posts")
+                or (company.get("knowledge") or "").strip()
+                or (company.get("website_content") and company.get("website_type") != "external")
+                or (company.get("analysis") or {}).get("description"))
+
+
+def _author_record(company: dict) -> str:
+    """What is actually known about the author's past, for the invented-history check:
+    their own posts, own site, background and facts. No writing instructions: given the
+    full writer brief, the judge enforced those too and failed real memories as
+    "retelling an example's story"."""
+    role = (company.get("designation") or "").strip()
+    parts = [f"Author: {company.get('name', '')}" + (f", {role}" if role else "")]
+    analysis = company.get("analysis") or {}
+    if analysis.get("description"):
+        parts.append(f"Background: {analysis['description']}")
+    if analysis.get("products_services"):
+        parts.append(f"Products/services: {', '.join(analysis['products_services'])}")
+    if company.get("website_content") and company.get("website_type") != "external":
+        parts.append("Their own website:\n" + company["website_content"][:1200])
+    for i, post in enumerate((company.get("linkedin_top_posts") or [])[:5], 1):
+        parts.append(f"Their past post {i}:\n{str(post)[:600]}")
+    if (company.get("knowledge") or "").strip():
+        parts.append("Facts they gave:\n" + company["knowledge"].strip()[:2000])
+    return "\n".join(parts)
+
+
+def _value_gate(post: str, industry: str, news_context: str = "",
+                author_context: str | None = None) -> dict:
     """Score a finished post as a busy reader would AND catch unverifiable stats before they
-    reach the author's real profile. Fail-open: gate errors never block posting."""
+    reach the author's real profile. With author_context (what the writer was told about the
+    author), it also fails made-up personal history: a first post for a CFO with no past
+    posts opened "I treated finance like a brake pedal for years", a memory she never had.
+    Fail-open: gate errors never block posting."""
     from llm import generate_json
+    history_axis, history_rule = "", ""
+    if author_context is not None:
+        history_axis = f"""
+AUTHOR MATERIAL (the ONLY record of the author's real past: their own posts, site, facts):
+{author_context.strip() or "(none: nothing is known about this author's past)"}
+"""
+        history_rule = """
+3. INVENTED HISTORY — does the post claim something happened to the author in the past
+   ("I/we did, built, hired, lost, learned...", "for years I...", "last quarter we...", a
+   client or team story, a result or number from their own work) that the AUTHOR MATERIAL
+   does not support? If yes, that is an automatic FAIL — it is a made-up memory published
+   under their name. So is a claim about what they see or do at work ("As a CFO, I see
+   this every day", "my clients keep asking") that the material doesn't support.
+   Present-tense opinions, beliefs, advice and hypotheticals ("I think",
+   "here's what I'd do", "if you run finance...") are fine, and so is retelling
+   anything that IS in the author material."""
     prompt = f"""You are a brutal, busy LinkedIn reader in the {industry} space, scrolling fast,
 who also fact-checks reflexively.
 
@@ -1028,17 +1094,19 @@ POST:
 
 SOURCE NEWS the post was allowed to draw from (the ONLY place checkable facts may come from):
 {news_context or "(none provided)"}
-
-Judge on TWO axes:
+{history_axis}
+Judge on {"THREE" if history_rule else "TWO"} axes:
 1. VALUE — does it teach, reveal, or argue something specific a busy pro is glad they read?
    Generic filler, vague motivation, or obvious advice = fail.
 2. FACTUAL SAFETY — does it state any specific checkable fact (a named company's financials,
    a precise percentage like "92%", a funding number, a product version, a study) that is NOT
    present in the source news above? If yes, that is an automatic FAIL — those are fabrications
-   on the author's real profile.
+   on the author's real profile. A fact from the news stated MORE strongly than the news
+   states it (dropping "up to", "expected" or "will", turning a plan into a done deal) is a
+   fabrication too.{history_rule}
 
 Return ONLY JSON: {{"score": 1-10, "passes": true or false (passes = score >= 7 AND no
-unverifiable stat), "reason": "one line naming the biggest problem (name the fabricated stat if any)"}}"""
+unverifiable stat{" AND no invented history" if history_rule else ""}), "reason": "one line naming the biggest problem (quote the fabricated stat or memory if any)"}}"""
     try:
         v = generate_json(prompt, max_tokens=300, temperature=0.2)
         return {"score": int(v.get("score", 7)), "passes": bool(v.get("passes", True)),
@@ -1070,11 +1138,20 @@ def _format_linkedin_post(text: str) -> str:
         para = para.strip()
         if not para:
             continue
-        # Skip hashtag and list lines — leave as-is
-        if para.startswith("#") or re.match(r"^\s*(\d+[\.\)]|[-•→])", para):
+        # Skip hashtag and list lines, and anything already laid out in lines (an
+        # intro with a list under it): splitting those cut "2." off its item.
+        if para.startswith("#") or re.match(r"^\s*(\d+[\.\)]|[-•→])", para) or "\n" in para:
             result.append(para)
             continue
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', para) if s.strip()]
+        sentences = []
+        for s in re.split(r'(?<=[.!?])\s+', para):
+            s = s.strip()
+            if not s:
+                continue
+            if sentences and re.fullmatch(r"\d+[.)]", sentences[-1]):
+                sentences[-1] += " " + s    # "2." is a list number, not a sentence
+            else:
+                sentences.append(s)
         if len(sentences) <= 3:
             result.append(para)
         else:
@@ -1380,7 +1457,8 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
             content   = generate_carousel_content(subject, news_context, post_type)
             # Carousels used to skip the fact check entirely, though their prompt
             # demands named companies and numbers. Check every slide's text.
-            v = _value_gate("\n".join(_strings_in(content)), subject["industry"], gate_context)
+            v = _value_gate("\n".join(_strings_in(content)), subject["industry"], gate_context,
+                            author_context=_author_record(subject))
             report.update({"passed": bool(v.get("passes", True)), "reason": v.get("reason", "")})
             previews: list = []
             pdf_bytes = render_carousel_pdf(content, subject, previews=previews)

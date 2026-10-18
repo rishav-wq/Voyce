@@ -1234,7 +1234,7 @@ card_subtext: one supporting line that adds tension or a specific fact. Max 14 w
   Optional — use "" if the headline stands strongest alone.
 post_text: the LinkedIn caption. Hook first (max 60 characters, self-contained, open loop),
   no warm-up. 60-120 words total. Plain words a 15-year-old uses daily, most sentences under
-  12 words. 2-3 short paragraphs, varied rhythm. 0-3 lowercase hashtags on the last line.
+  12 words. 2-3 short paragraphs, varied rhythm. No hashtags.
 
 VOICE: if a voice/author profile is provided, write the way that author talks.
 FACTUAL SAFETY: never invent exact stats, product version numbers, dates, or named studies —
@@ -1359,7 +1359,7 @@ with or repeat the card_headline/key_line — it expands the claim with a story,
 specifics, and may end with one genuine question. Card and caption together, never twice the same line.
 post_text: the LinkedIn caption. First line max 60 characters, self-contained, open loop, no
   warm-up. 60-120 words total, plain words a 15-year-old uses daily, most sentences under 12
-  words, varied rhythm. 0-3 lowercase hashtags on the final line. Plain text only, no markdown.
+  words, varied rhythm. No hashtags. Plain text only, no markdown.
 
 VOICE: if a voice/author profile is provided, write the caption the way that author talks.
 FACTUAL SAFETY: never invent exact stats, product versions, dates, or named studies.
@@ -1784,7 +1784,7 @@ OUTPUT HYGIENE (strict):
 
 post_text: the LinkedIn caption. Hook first (max 60 characters, self-contained, open loop),
 no warm-up. 60-120 words total, plain words a 15-year-old uses daily, most sentences under
-12 words, varied rhythm. 0-3 lowercase hashtags on the last line, only if relevant.
+12 words, varied rhythm. No hashtags.
 
 Return ONLY valid JSON."""
 
