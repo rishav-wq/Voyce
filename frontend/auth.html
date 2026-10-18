@@ -72,6 +72,7 @@
       color: inherit;
     }
 </style>
+  <script src="/analytics.js" async></script>
 </head>
 <body>
   <div class="auth-logo logo"><span class="logo-mark">V</span><span>oyce</span></div>
@@ -93,15 +94,18 @@
 
       if (clerk.user) {
         // Already signed in — sync with backend then redirect
+        let dest = _next || "/tool";
         try {
           const token = await clerk.session.getToken();
           const res   = await fetch("/auth/me", { headers: { "x-token": token } });
           if (res.ok) {
             const user = await res.json();
             localStorage.setItem("cm_user", JSON.stringify(user));
+            if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null"));
+            if (user.needs_onboarding) dest = "/onboarding";
           }
         } catch (_) {}
-        window.location.href = _next || "/tool";
+        window.location.href = dest;
         return;
       }
 
@@ -133,9 +137,9 @@
       if (isSignUp) {
         document.title = "Voyce — Create your free account";
         document.getElementById("auth-legal").style.display = "block";
-        clerk.mountSignUp(mount, opts);
+        clerk.mountSignUp(mount, { ...opts, forceRedirectUrl: "/onboarding", signInFallbackRedirectUrl: _next || "/tool" });
       } else {
-        clerk.mountSignIn(mount, opts);
+        clerk.mountSignIn(mount, { ...opts, fallbackRedirectUrl: _next || "/tool", signUpForceRedirectUrl: "/onboarding" });
       }
     }
   </script>

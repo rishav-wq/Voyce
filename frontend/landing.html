@@ -58,8 +58,8 @@
         "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule to approve with one tap or post automatically, through the official LinkedIn API.",
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations (posts, previews or idea lists), manual posting to LinkedIn, no credit card." },
-          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited generations, 20 previews or idea lists a day, daily posting on your schedule, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
-          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 generations per pass, 5 previews or idea lists a day, and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited generations, previews and idea lists, daily posting on your schedule, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
+          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 generations per pass (posts, previews and idea lists), and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
         ]
       },
       {
@@ -382,6 +382,7 @@
 
   :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
 </style>
+  <script src="/analytics.js" async></script>
 </head>
 <body>
 
@@ -712,7 +713,7 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every daily post logged with its source</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-profiles">Up to 3 profiles, each on its own LinkedIn</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-drafts">20 previews or idea lists a day</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-drafts"><b>Unlimited</b> previews and idea lists</span></li>
         </ul>
       </div>
     </div>
@@ -779,7 +780,7 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
     set("pro-per", "founding India price · a 30-day pass · no auto-charge");
     set("pro-profiles", "3 profiles, each on its own LinkedIn · 1 on daily posting");
     set("pro-gens", "<b>" + (c.pass_generations || 60) + "</b> generations per pass");
-    set("pro-drafts", "5 previews or idea lists a day");
+    set("pro-drafts", "Previews and idea lists come out of the " + (c.pass_generations || 60));
     set("cmp-voyce-price", "₹" + rupees);
     // One currency on the page: the AI tools bill in dollars (converted at
     // ~₹95), and a ghostwriter in India charges less than one in the US.

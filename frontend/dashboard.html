@@ -601,6 +601,7 @@
   </style>
   <!-- Gold redesign override — loaded last so it wins the cascade; remove this one line to revert. -->
   <link rel="stylesheet" href="/static/gold-dash.css" />
+  <script src="/analytics.js" async></script>
 </head>
 <body>
 
@@ -687,7 +688,7 @@
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>20</strong> previews or idea lists a day</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>Unlimited</strong> previews and idea lists</span></li>
           <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Every daily post logged with its source</span></li>
         </ul>
         <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
@@ -996,7 +997,7 @@
       // The clerk.user check above is the real auth guard.
       try {
         const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
-        if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); }
+        if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null")); }
       } catch (_) {}
       return true;
     }
@@ -1142,6 +1143,8 @@
     async function startApp() {
       const ok = await initClerk();
       if (!ok) return;
+      // A new account goes through onboarding first, however sign-up got it here.
+      if ((getUser() || {}).needs_onboarding) { location.replace("/onboarding"); return; }
       buildViews();
       const user = getUser();
       if (user) {
@@ -1169,7 +1172,7 @@
 
     window.addEventListener("message", e => {
       if (e.origin !== location.origin) return;   // only our own callback page may report this
-      if (e.data === "linkedin_connected") { liConnected=true; updateLiBanner(true); toast("LinkedIn connected!", "success"); checkLinkedIn(); }
+      if (e.data === "linkedin_connected") { if (window.vTrack) vTrack("linkedin_connected", { page: "settings" }); liConnected=true; updateLiBanner(true); toast("LinkedIn connected!", "success"); checkLinkedIn(); }
       else if (e.data === "linkedin_error") toast("LinkedIn connection failed.", "error");
     });
 
@@ -1517,6 +1520,7 @@
           { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json();
         if (data.detail === "LIMIT_REACHED") { out.innerHTML = _outOfFreeHtml("Idea lists"); return; }
+        if (String(data.detail || "").startsWith("PASS_LIMIT_REACHED:")) { out.innerHTML = _outOfPassHtml(data.detail); return; }
         if (!res.ok) throw new Error(data.detail || "Couldn't generate ideas.");
         const ideas = data.ideas || [];
         window._ideas[id] = ideas;
@@ -1536,6 +1540,14 @@
     }
 
     // Free accounts: previews and idea lists come out of the 5 generations.
+    // An India pass with its 60 generations used: previews and idea lists come out of them too.
+    function _outOfPassHtml(detail) {
+      const msg = String(detail || "").slice("PASS_LIMIT_REACHED:".length) || "You've used this pass's generations.";
+      return `<div style="font-size:13.5px;color:#16181d;line-height:1.55;padding:4px 0;">${msg.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</div>
+        <div style="margin-top:14px;display:flex;gap:8px;"><button class="act-btn" style="background:#24365e;color:#fff;border-color:#24365e;"
+          onclick="closePreviewModal();openUpgradeModal();">Renew Pro</button>
+          <button class="act-btn" onclick="closePreviewModal()">Close</button></div>`;
+    }
     function _outOfFreeHtml(what) {
       return `<div style="font-size:13.5px;color:#16181d;line-height:1.55;padding:4px 0;">You've used your 5 free generations.
         ${what} use them too, since each one writes from the latest news.</div>
@@ -1624,6 +1636,7 @@
           { method: "POST", headers: { "x-token": getToken() } });
         const data = await res.json();
         if (data.detail === "LIMIT_REACHED") { out.innerHTML = _outOfFreeHtml("Previews"); return; }
+        if (String(data.detail || "").startsWith("PASS_LIMIT_REACHED:")) { out.innerHTML = _outOfPassHtml(data.detail); return; }
         if (!res.ok) throw new Error(data.detail || "Preview failed.");
         if (!postType && !seed) _previewCache[id] = data;   // cache only the generic preview
         _renderPreview(id, data, postType, false);
@@ -2653,6 +2666,7 @@
     let _editingId = null;   // null = add mode, string = edit mode
 
     function openUpgradeModal() {
+      if (window.vTrack) vTrack("upgrade_opened", { page: "settings" });
       const m = document.getElementById("upgrade-modal");
       m.style.display = "flex";
       loadPaymentConfig();
@@ -2691,7 +2705,7 @@
           ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
           : "Up to <strong>3 profiles</strong>, each can post to its own LinkedIn";
         const drafts = document.getElementById("upgrade-drafts");
-        if (drafts) drafts.innerHTML = "<strong>" + (inIndia ? 5 : 20) + "</strong> previews or idea lists a day";
+        if (drafts) drafts.innerHTML = inIndia ? "Previews and idea lists come out of the " + (_payConfig.pass_generations || 60) : "<strong>Unlimited</strong> previews and idea lists";
         const gens = document.getElementById("upgrade-gens");
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"
@@ -3069,6 +3083,7 @@
 
     // ── Sign out ──────────────────────────────────────────────────────────────
     async function doAppLogout() {
+      if (window.vReset) vReset();
       if (window.Clerk) await window.Clerk.signOut();
       localStorage.clear();
       window.location.href = "/login";

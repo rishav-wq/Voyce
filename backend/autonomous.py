@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from llm import generate as llm_generate
 from generator import HUMANIZE_PROMPT, _strip_markdown
+import analytics
 from search import search_industry_news, format_news_context
 import linkedin as li
 import auth as auth_module
@@ -1508,10 +1509,14 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
             if notify_user:
                 notify.post_ready(company, pending_id, POST_TYPE_LABELS.get(post_type, post_type),
                                   payload["post_text"], sources, held_reason)
+            analytics.capture(user_id, "post_queued_for_approval", {"post_type": post_type, "format": payload.get("format", "text"),
+                                                                  "emailed": bool(notify_user), "held": bool(held_reason)})
         else:
             result = _publish_payload(conn, payload)
             log_entry["post_urn"] = result.get("id", "")
             log_entry["status"] = "posted"
+            analytics.capture(user_id, "post_published", {"via": "autopilot", "post_type": post_type,
+                                                       "format": payload.get("format", "text")})
             if result.get("fallback_from"):
                 log_entry.update({"post_format": "text", "fallback_from": result["fallback_from"],
                                   "post_text": result["fallback_text"],

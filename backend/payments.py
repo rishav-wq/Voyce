@@ -181,3 +181,5 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
             carry = max(0, int(user.get("pass_gens_allowance", INDIA_PASS_GENERATIONS) or 0) - used_this_pass)
         fields.update({"pass_gens_start": used_total, "pass_gens_allowance": INDIA_PASS_GENERATIONS + carry})
     db.users.update_one({"id": user_id}, {"$set": fields})
+    import analytics
+    analytics.capture(user_id, "payment_succeeded", {"region": region, "source": source, "renewal": still_active})

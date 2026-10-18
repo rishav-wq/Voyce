@@ -100,6 +100,7 @@
       .ob-nav { padding: 0 20px; }
     }
   </style>
+  <script src="/analytics.js" async></script>
 </head>
 <body>
 
@@ -203,7 +204,7 @@
       setInterval(_refreshToken, 50000);
       try {
         const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
-        if (res.ok) localStorage.setItem("cm_user", JSON.stringify(await res.json()));
+        if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null")); }
       } catch (_) {}
       return true;
     }
@@ -248,6 +249,7 @@
     window.addEventListener("message", (e) => {
       if (e.origin !== location.origin) return;
       if (e.data === "linkedin_connected") {
+        if (window.vTrack) vTrack("linkedin_connected", { page: "onboarding" });
         _liConnected = true;
         const next = _afterConnect; _afterConnect = null;
         if (next) next();
@@ -403,7 +405,13 @@
       b.innerHTML = busy ? '<span class="btn-spin"></span>Writing your first post…' : "Write my first post →";
     }
 
-    function skipOnboarding() { window.location.href = "/tool"; }
+    // Skip sticks: Write and Queue would otherwise send a profile-less account back here.
+    async function skipOnboarding() {
+      if (window.vTrack) vTrack("onboarding_skipped");
+      try { await fetch("/auth/onboarding-done", { method: "POST", headers: { "x-token": getToken() } }); } catch (_) {}
+      try { const u = getUser(); if (u) { u.needs_onboarding = false; localStorage.setItem("cm_user", JSON.stringify(u)); } } catch (_) {}
+      window.location.href = "/tool";
+    }
 
     // The real daily pipeline (this week's news + the voice), without posting.
     async function _writeFirst() {

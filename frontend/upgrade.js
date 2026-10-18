@@ -16,7 +16,7 @@
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>20</strong> previews or idea lists a day</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>Unlimited</strong> previews and idea lists</span></li>
         <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Every daily post logged with its source</span></li>
       </ul>
       <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
@@ -52,6 +52,7 @@
   function _toast(msg, type) { if (typeof toast === "function") toast(msg, type); }
 
   window.openUpgradeModal = function () {
+    if (window.vTrack) vTrack("upgrade_opened", { page: location.pathname });
     _ensureModal();
     const m = document.getElementById("upgrade-modal");
     m.style.display = "flex";
@@ -90,7 +91,7 @@
           ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
           : "Up to <strong>3 profiles</strong>, each can post to its own LinkedIn";
         const drafts = document.getElementById("upgrade-drafts");
-        if (drafts) drafts.innerHTML = "<strong>" + (inIndia ? 5 : 20) + "</strong> previews or idea lists a day";
+        if (drafts) drafts.innerHTML = inIndia ? "Previews and idea lists come out of the " + (_payConfig.pass_generations || 60) : "<strong>Unlimited</strong> previews and idea lists";
         const gens = document.getElementById("upgrade-gens");
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"

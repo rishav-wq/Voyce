@@ -32,6 +32,7 @@ import payments
 import ratelimit
 import db
 import sales
+import analytics
 from pymongo.errors import DuplicateKeyError
 
 logging.basicConfig(level=logging.INFO)
@@ -151,10 +152,14 @@ def _rate_limit(key: str, limit: int, window: float = 60.0):
 # each runs a paid news search and a writing call. Free accounts have no pool
 # — their previews and idea lists come out of the 5 free generations instead.
 #                 (free, India pass, Pro)
+# (free, India pass, International Pro). International Pro is sold as unlimited: its 200
+# is a fair-use backstop that stops a script or a stuck page from running up AI and
+# news-search costs, far above what a person uses in a day.
+FAIR_USE_DAILY = 200
 DAILY_LIMITS = {
-    "drafts":    (None, 5,  20),
-    "rewrites":  (10,   30, 30),
-    "hashtags":  (10,   30, 30),
+    "drafts":    (None, None, FAIR_USE_DAILY),   # Free and India spend generations instead
+    "rewrites":  (10,   30, FAIR_USE_DAILY),
+    "hashtags":  (10,   30, FAIR_USE_DAILY),
 }
 _DAILY_LABELS = {"drafts": "previews and idea lists", "rewrites": "rewrites", "hashtags": "hashtag suggestions"}
 
@@ -230,14 +235,17 @@ def _daily_cap(user: dict, pool: str) -> str | None:
     if not ok:
         raise HTTPException(
             status_code=429,
-            detail=(f"You've used today's {n} {_DAILY_LABELS[pool]}. More in {_refills_in(wait)}."
+            detail=(f"You've reached today's fair-use limit of {n} {_DAILY_LABELS[pool]}. More in {_refills_in(wait)}."
+                    if tier == "pro" else
+                    f"You've used today's {n} {_DAILY_LABELS[pool]}. More in {_refills_in(wait)}."
                     + (" Pro raises the limit." if tier == "free" else "")))
     return key   # so a use that fails can be given back
 
 
 def _spend_free_generation(user: dict, tier: str):
-    """A free account's previews and idea lists come out of its 5 generations."""
-    if tier != "free":
+    """Previews and idea lists come out of the plan's generations on Free (5) and on the
+    India pass (60). International Pro is unlimited, so nothing is counted there."""
+    if tier not in ("free", "india"):
         return
     try:
         auth_module.increment_gens(user["id"])
@@ -667,6 +675,13 @@ def serve_onboarding():
     return _page("onboarding.html")
 
 
+@app.get("/analytics.js")
+def analytics_js():
+    # PostHog loader + Voyce helpers (vTrack / vIdentify / vReset); a no-op without a token.
+    return Response(analytics.loader_js(), media_type="application/javascript",
+                    headers={"Cache-Control": "public, max-age=300"})
+
+
 @app.get("/sales")
 def serve_sales():
     # The page itself is public HTML; every /sales/* call checks the team list.
@@ -878,7 +893,28 @@ def me(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user)}
+    return {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user),
+            "needs_onboarding": _needs_onboarding(user)}
+
+
+def _needs_onboarding(user: dict) -> bool:
+    """A new account goes through onboarding wherever sign-up lands it. Sign-up used to rely
+    on Clerk's afterSignUpUrl alone, and a sign-in page that reloaded already signed in sent
+    everyone to /tool, so new accounts could skip it entirely."""
+    if user.get("onboarding_done"):
+        return False
+    try:
+        return db.companies.count_documents({"user_id": user["id"]}, limit=1) == 0
+    except Exception:
+        return False   # never trap someone in onboarding because the database hiccupped
+
+
+@app.post("/auth/onboarding-done")
+def onboarding_done(x_token: str = Header(None)):
+    """\"Skip\" on onboarding: don't send this account back there."""
+    user = _require_user(x_token)
+    db.users.update_one({"id": user["id"]}, {"$set": {"onboarding_done": True}})
+    return {"ok": True}
 
 
 @app.patch("/auth/me")
@@ -947,6 +983,7 @@ def payments_create_order(request: Request, x_token: str = Header(None)):
         raise HTTPException(status_code=503, detail="Payments are not configured")
     try:
         order = payments.create_order(user["id"], user.get("email", ""), _pricing_region(request))
+        analytics.capture(user["id"], "checkout_started", {"region": order.get("region") or _pricing_region(request)})
     except Exception:
         logging.exception("Razorpay order creation failed")
         raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
@@ -1158,7 +1195,7 @@ def _invite_page(title: str, body_html: str, button: tuple[str, str] | None = No
            if button else "")
     return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect LinkedIn · Voyce</title>
-<meta name="robots" content="noindex"></head>
+<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;background:#f6f7f9;color:#16181d;margin:0;padding:56px 20px;">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:30px 28px;">
 <p style="font-size:20px;font-weight:700;margin:0 0 14px;">{html_escape(title)}</p>
@@ -1242,6 +1279,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
         result = generate_content(context_text, company=profile)
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+    analytics.capture(user["id"], "post_generated", {"input_type": request.input_type, "format": "text"})
     try:
         auth_module.increment_gens(user["id"])
         logging.info(f"[Gen] incremented for user {user['id']}")
@@ -1529,7 +1567,9 @@ def post_linkedin(request: PostRequest, x_token: str = Header(None)):
         print(f"\n[DRY RUN] Would post to LinkedIn:\n{text}\n")
         return {"status": "dry_run", "preview": text}
     try:
-        return li.post_to_linkedin(conn, text)
+        result = li.post_to_linkedin(conn, text)
+        analytics.capture(user["id"], "post_published", {"via": "write", "chars": len(text)})
+        return result
     except ValueError as e:
         # linkedin.py already turned the API status into something actionable;
         # the blanket handler below would replace it with "reconnect LinkedIn",
@@ -1641,6 +1681,9 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
             company["linkedin_analysis"] = vp["analysis"]
         if company.get("active", True):
             _setup_company_cron(company)
+        db.users.update_one({"id": user["id"]}, {"$set": {"onboarding_done": True}})
+        analytics.capture(user["id"], "profile_created", {"profile_type": company.get("profile_type", ""),
+                                                          "has_voice_posts": bool(vp), "profiles": len(existing) + 1})
         return company
     except Exception:
         logging.exception("company save failed")
@@ -1753,6 +1796,8 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
             fields["auto_post_consent_at"] = datetime.now().isoformat()
         db.companies.update_one({"id": company_id}, {"$set": fields})
     toggle_company(company_id, request.active)
+    analytics.capture(user["id"], "daily_posting_enabled" if request.active else "daily_posting_disabled",
+                      {"approval_mode": bool(request.approval_mode is not False)})
     company = get_company(company_id)
     if company:
         if request.active:
@@ -1865,6 +1910,7 @@ def approve_pending(pending_id: str, request: ApproveRequest | None = None,
         raise HTTPException(status_code=410, detail="This post expired before it was approved, so it won't go out.")
     if result.get("error"):
         raise HTTPException(status_code=404, detail="That post is no longer pending.")
+    analytics.capture(user["id"], "post_approved", {"via": "app", "edited": bool(request and request.text)})
     return result
 
 
@@ -1980,6 +2026,7 @@ def approve_from_link(token: str, request: Request):
                               f'{_btn("Open Voyce", "/setup")}</p>')
     if result.get("error"):
         return approve_page(token, request)
+    analytics.capture(pend["user_id"], "post_approved", {"via": "email", "post_type": pend.get("post_type", "")})
     live = _btn("View it on LinkedIn", _li_post_url(result.get("post_urn", "")), primary=True) if result.get("post_urn") else ""
     note = (f'<p style="color:#b45309;line-height:1.6;">It went out as text: the {html_escape(result.get("posted_as", ""))} '
             'version failed.</p>' if result.get("posted_as") else "")
@@ -1994,6 +2041,7 @@ def skip_from_link(token: str, request: Request):
     pend = _pending_by_token(token)
     if pend and pend.get("status") == "pending":
         discard_pending_post(pend["id"], pend["user_id"])
+        analytics.capture(pend["user_id"], "post_skipped", {"via": "email"})
     return approve_page(token, request)
 
 
@@ -2031,7 +2079,7 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     tier = _plan_tier(user)
-    if tier == "free":
+    if tier in ("free", "india"):   # their previews and idea lists use generations
         _check_gen_limit(user)
     cap = _daily_cap(user, "drafts")
     try:
@@ -2051,6 +2099,7 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
             news_context = f"PRIORITY ANGLE — write the post around this idea: {seed.strip()[:200]}\n\n" + news_context
         post_text = generate_autonomous_post(subject, news_context, pt)
         _spend_free_generation(user, tier)
+        analytics.capture(user["id"], "preview_generated", {"post_type": pt, "plan": tier})
         return {"post": post_text, "post_type": POST_TYPE_LABELS.get(pt, pt),
                 "product_name": subject.get("product_name", "")}
     except Exception:
@@ -2079,7 +2128,7 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
         raise HTTPException(status_code=404, detail="Not found")
     _rate_limit(f"ideas:{user['id']}", 12)
     tier = _plan_tier(user)
-    if tier == "free":
+    if tier in ("free", "india"):   # their previews and idea lists use generations
         _check_gen_limit(user)
     cap = _daily_cap(user, "drafts")
     try:

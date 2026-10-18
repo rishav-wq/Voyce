@@ -17,7 +17,7 @@ async function initClerk() {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) _refreshToken(); });
   try {
     const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
-    if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); }
+    if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null")); }
   } catch (_) {}
   return true;
 }
@@ -86,6 +86,12 @@ async function suggestIdeasCreate() {
       // Free accounts: idea lists come out of the 5 generations.
       out.innerHTML = `<div class="tool-empty">You've used your 5 free generations, and idea lists use them too.</div>`;
       showError("LIMIT_REACHED");
+      return;
+    }
+    if (String(data.detail || "").startsWith("PASS_LIMIT_REACHED:")) {
+      // India pass: idea lists come out of its 60 generations.
+      out.innerHTML = `<div class="tool-empty">${_escHtmlCreate(String(data.detail).slice("PASS_LIMIT_REACHED:".length))}</div>`;
+      showError(data.detail);
       return;
     }
     if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
@@ -211,6 +217,8 @@ function showError(msg) {
 // ── Init (called by Clerk script onload) ─────────────────────────────────────
 async function startApp() {
   if (!(await initClerk())) return;
+  // A new account goes through onboarding first, however sign-up got it here.
+  if ((getUser() || {}).needs_onboarding) { location.replace("/onboarding"); return; }
   loadProfilePicker();
   const user = getUser();
   if (user) {
@@ -276,6 +284,7 @@ function applySeedTopic() {
 window.addEventListener("message", (e) => {
   if (e.origin !== location.origin) return;   // only our own callback page may report this
   if (e.data === "linkedin_connected") {
+    if (window.vTrack) vTrack("linkedin_connected", { page: "write" });
     linkedInConnected = true;
     updateLiPill(true);
     updateProgress();
@@ -1241,6 +1250,7 @@ function copyContent(id, btn) {
 
 // ── Sign out ──────────────────────────────────────────────────────────────────
 async function doAppLogout() {
+  if (window.vReset) vReset();
   try { await fetch("/auth/logout", { method: "POST", headers: { "x-token": getToken() } }); } catch (_) {}
   localStorage.removeItem("cm_user");
   if (window.Clerk) { try { await window.Clerk.signOut(); } catch (_) {} }
