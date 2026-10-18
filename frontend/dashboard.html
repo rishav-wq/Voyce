@@ -471,10 +471,10 @@
     .form-panel.active { display: block; }
 
     details.adv {
-      border: 1.5px solid #eee;
-      border-radius: 10px;
-      margin-bottom: 18px;
-      background: #fcfbff;
+      border: 1px solid #e4e7ec;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      background: #fbfcfe;
     }
     details.adv summary {
       cursor: pointer;
@@ -491,7 +491,18 @@
     details.adv summary::-webkit-details-marker { display: none; }
     details.adv summary::after { content: "▸"; color: #aaa; transition: transform 0.15s; }
     details.adv[open] summary::after { transform: rotate(90deg); }
-    details.adv .adv-inner { padding: 6px 14px 14px; border-top: 1px solid #f3f0ff; }
+    details.adv .adv-inner { padding: 6px 14px 14px; border-top: 1px solid #eef1f6; }
+    details.adv summary .optional-tag { display: block; margin-top: 2px; font-weight: 400; }
+    .li-upload-box.pf-voice { border-style: solid; border-color: #c9d3e6; background: #f6f8fc; }
+    .pf-rec { font-size: 11px; font-weight: 700; color: #057642; background: #e6f4ea; padding: 2px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 1px; }
+    .pf-tabs { display: flex; gap: 6px; margin: 12px 0 10px; flex-wrap: wrap; }
+    .pf-tabs button { padding: 6px 13px; border: 1px solid #d3d8e0; border-radius: 999px; background: #fff; color: #5b6270; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .pf-tabs button.on { background: #24365e; border-color: #24365e; color: #fff; }
+    .pf textarea { width: 100%; padding: 10px 13px; border: 1.5px solid #d3d8e0; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; resize: vertical; line-height: 1.5; }
+    .pf textarea:focus { border-color: #24365e; }
+    /* Create stays in reach however long the form gets */
+    .pf-foot { position: sticky; bottom: -32px; background: #fff; margin: 6px -32px -32px; padding: 14px 32px 24px; border-top: 1px solid #eef1f6; z-index: 2; }
+    .pf-foot .submit-btn { margin: 0; }
     details.adv .adv-inner .form-group:first-child { margin-top: 12px; }
 
     .topic-suggest { display: none; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
@@ -515,7 +526,7 @@
     .form-group input:focus, .form-group select:focus { border-color: #24365e; }
     .form-hint { font-size: 12px; color: #aaa; margin-top: 4px; }
 
-    .li-upload-box { background: #f5f7fb; border: 1.5px dashed #c5b8f5; border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+    .li-upload-box { background: #f5f7fb; border: 1.5px dashed #b9c4dc; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
     .li-upload-box .li-upload-title { font-size: 13px; font-weight: 600; color: #24365e; margin-bottom: 4px; }
     .li-upload-box .li-upload-desc { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 8px; }
     .li-upload-status { font-size: 12px; margin-top: 6px; }
@@ -577,6 +588,7 @@
       .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
 
       .modal-drawer { width: 100%; padding: 24px 18px; }
+      .pf-foot { bottom: -24px; margin: 6px -18px -24px; padding: 12px 18px 20px; }
 
       .analytics-grid { grid-template-columns: 1fr; }
       #log-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -827,21 +839,14 @@
   <div class="modal-overlay" id="modal-overlay" onclick="closeModalIfBg(event)">
     <div class="modal-drawer">
       <button class="modal-close" onclick="closeModal()">✕</button>
-      <h2>Add a Profile</h2>
-      <p class="modal-sub">Create a profile for manual generation or daily automation. Free includes 5 total generations/posts.</p>
+      <h2>New profile</h2>
+      <p class="modal-sub">Who should Voyce write as? You can change any of this later.</p>
 
       <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
 
-      <div class="mode-tabs">
-        <button class="mode-tab active" onclick="switchMode('personal')">
-          For Yourself
-          <span>Your personal writing style</span>
-        </button>
-        <button class="mode-tab" onclick="switchMode('company')">
-          For a Company
-          <span>Brand voice · posts from your LinkedIn</span>
-        </button>
-      </div>
+      <!-- New profiles are people. Company profiles posted a brand's "we" voice from a
+           person's own feed (company pages need LinkedIn approval Voyce doesn't have);
+           existing ones still open in the company form below for editing. -->
 
       <!-- Company form -->
       <div class="form-panel" id="panel-company">
@@ -867,87 +872,91 @@
         </form>
       </div>
 
-      <!-- Personal form -->
+      <!-- Personal form: who, what, the voice; the rest is optional and folded -->
       <div class="form-panel active" id="panel-personal">
-        <form onsubmit="submitProfile(event,'personal')">
-          <div class="form-group"><label>Your Name *</label><input type="text" id="p-name" placeholder="Your full name" required /></div>
-          <div class="form-group"><label>What do you post about? *</label><input type="text" id="p-industry" placeholder="e.g. leadership, B2B marketing, consulting" autocomplete="off" required />
+        <form onsubmit="submitProfile(event,'personal')" class="pf">
+          <div class="form-group"><label>Name *</label><input type="text" id="p-name" placeholder="Full name, as on LinkedIn" required /></div>
+          <div class="form-group">
+            <label>Role <span class="optional-tag">(optional)</span></label>
+            <input type="text" id="p-designation" placeholder="e.g. Fractional CMO, Leadership Coach, Consultant" />
+            <p class="form-hint">Helps suggest topics and pitch posts at the right level.</p>
+          </div>
+          <div class="form-group"><label>What are the posts about? *</label><input type="text" id="p-industry" placeholder="e.g. leadership, B2B marketing, consulting" autocomplete="off" required />
             <div class="topic-suggest" id="p-topic-suggest"></div>
-            <p class="form-hint">Used to find relevant news and topics for posts.</p>
+            <p class="form-hint">Voyce finds this week's news on these topics.</p>
           </div>
-          <div class="form-group">
-            <label>Your Designation <span class="optional-tag">(optional)</span></label>
-            <input type="text" id="p-designation" placeholder="e.g. Fractional CMO, Leadership Coach, Independent Consultant" />
-          </div>
-          <div class="form-group">
-            <label>Key facts &amp; rules <span class="optional-tag">(optional — grounds every post)</span></label>
-            <textarea id="p-knowledge" rows="4" placeholder="Facts the AI should always use, and rules it must follow. e.g. real product capabilities, cited statistics, angles that work, and 'never say X'. Paste your research here."></textarea>
-            <p class="form-hint">Fed into every idea and post — the AI grounds content in this and won't contradict or invent around it.</p>
-          </div>
-          <div class="form-group">
-            <label>Product / focus name <span class="optional-tag">(optional)</span></label>
-            <input type="text" id="p-product-name" placeholder="e.g. your product or service" />
-            <p class="form-hint">Shown in the carousel lockup. Leave blank to show just your name.</p>
+
+          <div class="li-upload-box pf-voice">
+            <div class="li-upload-title">Teach Voyce the voice <span class="pf-rec">Recommended</span></div>
+            <div class="li-upload-desc">Add 2–3 of their LinkedIn posts so new ones sound like them. Without them, Voyce writes in a clear, conversational voice.</div>
+            <div class="pf-tabs" id="p-voice-tabs">
+              <button type="button" data-pane="paste" onclick="voicePane('paste')">Paste posts</button>
+              <button type="button" data-pane="shots" onclick="voicePane('shots')">Screenshots</button>
+              <button type="button" data-pane="archive" onclick="voicePane('archive')">LinkedIn export</button>
+            </div>
+            <div id="p-voice-pane-paste">
+              <textarea id="p-voice-posts" rows="5" placeholder="Paste 2–3 posts, with a line of --- (three dashes) between them."></textarea>
+            </div>
+            <div id="p-voice-pane-shots" style="display:none;">
+              <input type="file" id="p-voice-shots" accept="image/*" multiple />
+              <p class="form-hint" style="margin-top:6px;">Screenshot 2–3 posts and drop them here. Voyce reads the text from the images.</p>
+            </div>
+            <div id="p-voice-pane-archive" style="display:none;">
+              <input type="file" id="p-li-file" accept=".pdf,.zip" />
+              <p class="form-hint" style="margin-top:6px;">ZIP: LinkedIn → Settings → Data Privacy → Get a copy (~24h). PDF: your profile → More → Save to PDF.</p>
+            </div>
+            <div class="li-upload-status" id="p-li-status"></div>
           </div>
 
           <details class="adv">
-            <summary>Advanced options <span class="optional-tag" style="margin-left:8px;">tone, LinkedIn voice, automation — all optional</span></summary>
+            <summary><span>About the business <span class="optional-tag">website, product, key facts · optional</span></span></summary>
             <div class="adv-inner">
-              <div class="form-group"><label>Post Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select>
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-weight:400;font-size:13px;">
-                  <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#24365e;" />
-                  <span>Shift my tone toward this <span class="optional-tag">(only if you add past posts)</span></span>
-                </label>
-                <p class="form-hint">Keeps your words and quirks, just moves the delivery toward this tone.</p>
-              </div>
-              <div class="li-upload-box">
-                <div class="li-upload-title">Teach Voyce your voice <span class="optional-tag">recommended</span></div>
-                <div class="li-upload-desc">Add 2-3 past posts so new ones sound like you (or whoever you write for).</div>
-                <div style="display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap;" id="p-voice-tabs">
-                  <button type="button" data-pane="shots" onclick="voicePane('shots')" style="padding:7px 14px;border:1.5px solid #24365e;border-radius:999px;background:#24365e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📸 Screenshots</button>
-                  <button type="button" data-pane="paste" onclick="voicePane('paste')" style="padding:7px 14px;border:1.5px solid #d3d8e0;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">✍️ Paste text</button>
-                  <button type="button" data-pane="archive" onclick="voicePane('archive')" style="padding:7px 14px;border:1.5px solid #d3d8e0;border-radius:999px;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📁 Archive</button>
-                </div>
-                <div id="p-voice-pane-shots">
-                  <input type="file" id="p-voice-shots" accept="image/*" multiple />
-                  <p class="form-hint" style="margin-top:6px;">Screenshot 2-3 posts and drop them here — Voyce reads the text from the images.</p>
-                </div>
-                <div id="p-voice-pane-paste" style="display:none;">
-                  <textarea id="p-voice-posts" rows="4" placeholder="Paste 2-3 posts, separated by a line of --- (three dashes)."></textarea>
-                </div>
-                <div id="p-voice-pane-archive" style="display:none;">
-                  <input type="file" id="p-li-file" accept=".pdf,.zip" />
-                  <p class="form-hint" style="margin-top:6px;">ZIP: LinkedIn → Settings → Data Privacy → Get a copy (~24h). PDF: your profile → More → Save to PDF.</p>
-                </div>
-                <div class="li-upload-status" id="p-li-status"></div>
-              </div>
               <div class="form-group">
-                <label>Website URL</label>
+                <label>Website</label>
                 <input type="url" id="p-website" placeholder="https://your-site-or-any-url.com" oninput="document.getElementById('p-website-type-row').style.display=this.value.trim()?'block':'none'" />
                 <div id="p-website-type-row" style="display:none;">
-                  <div style="display:flex;gap:16px;margin-top:8px;">
-                    <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> My site / blog</label>
-                    <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> External reference</label>
+                  <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;">
+                    <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="own" checked style="width:auto;margin-right:4px;" /> Their own site</label>
+                    <label style="font-weight:400;font-size:12px;cursor:pointer;"><input type="radio" name="p-website-type" value="external" style="width:auto;margin-right:4px;" /> Something to react to</label>
                   </div>
-                  <p class="form-hint">My site → treated as your experience. External → treated as material to react to.</p>
+                  <p class="form-hint">Their own site is treated as their experience; anything else, as material to comment on.</p>
                 </div>
               </div>
-              <div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6d7482;margin:18px 0 8px;">Daily automation (Pro)</div>
-              <div class="form-group"><label>Daily Post Time</label><input type="time" id="p-time" value="09:00" required /><p class="form-hint">Your local time. Only used when daily posting is on.</p></div>
+              <div class="form-group">
+                <label>Product or service name</label>
+                <input type="text" id="p-product-name" placeholder="e.g. your product or service" />
+                <p class="form-hint">Shown on carousels. Leave blank to show just the name.</p>
+              </div>
+              <div class="form-group">
+                <label>Key facts &amp; rules</label>
+                <textarea id="p-knowledge" rows="4" placeholder="Facts every post can use and rules it must follow: real capabilities, cited numbers, angles that work, 'never say X'."></textarea>
+                <p class="form-hint">Every post is grounded in these and won't contradict them.</p>
+              </div>
             </div>
           </details>
 
+          <details class="adv">
+            <summary><span>Schedule &amp; tone <span class="optional-tag">post time, tone · optional</span></span></summary>
+            <div class="adv-inner">
+              <div class="form-group"><label>Daily post time</label><input type="time" id="p-time" value="09:00" required />
+                <p class="form-hint">Their local time. Daily posting is switched on from the profile card (Pro).</p></div>
+              <div class="form-group"><label>Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-weight:400;font-size:13px;">
+                  <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#24365e;" />
+                  <span>Shift the voice toward this tone <span class="optional-tag">(only with past posts)</span></span>
+                </label>
+              </div>
+            </div>
+          </details>
 
-          <button type="submit" class="submit-btn" id="p-submit-btn">Create profile →</button>
+          <div class="pf-foot"><button type="submit" class="submit-btn" id="p-submit-btn">Create profile →</button></div>
         </form>
         <script>
           function voicePane(m) {
             ["shots", "paste", "archive"].forEach(k => {
               document.getElementById("p-voice-pane-" + k).style.display = (k === m) ? "block" : "none";
               const b = document.querySelector(`#p-voice-tabs [data-pane="${k}"]`);
-              b.style.background  = (k === m) ? "#24365e" : "#fff";
-              b.style.color       = (k === m) ? "#fff"    : "#555";
-              b.style.borderColor = (k === m) ? "#24365e" : "#d3d8e0";
+              if (b) b.classList.toggle("on", k === m);
             });
           }
         </script>
@@ -2788,9 +2797,16 @@
     function openModal() {
       _editingId = null;
       personalToneTouched = false;
-      document.querySelector(".modal-drawer h2").textContent = "Add a Profile";
-      document.querySelector(".modal-drawer .modal-sub").textContent = "Create a profile for manual generation or daily automation. Free includes 5 total generations/posts.";
-      document.querySelectorAll(".mode-tab").forEach(t => t.style.display = "");
+      document.querySelector(".modal-drawer h2").textContent = "New profile";
+      document.querySelector(".modal-drawer .modal-sub").textContent = "Who should Voyce write as? You can change any of this later.";
+      switchMode("personal");   // after editing a company profile, a new one is still a person
+      // A new profile starts empty — not with the last one's details still in the fields.
+      document.querySelectorAll("#modal-overlay form").forEach(f => f.reset());
+      document.getElementById("p-website-type-row").style.display = "none";
+      const vs = document.getElementById("p-li-status"); if (vs) vs.textContent = "";
+      document.getElementById("p-topic-suggest")?.classList.remove("visible");
+      document.getElementById("p-submit-btn").textContent = "Create profile →";
+      voicePane("paste");
       document.getElementById("modal-success").style.display = "none";
       document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = false);
       document.getElementById("modal-overlay").classList.add("open");
@@ -2832,7 +2848,7 @@
           const isPersonal = p.profile_type === "personal";
 
           // Switch modal to edit mode
-          document.querySelector(".modal-drawer h2").textContent = "Edit Profile";
+          document.querySelector(".modal-drawer h2").textContent = "Edit profile";
           document.querySelector(".modal-drawer .modal-sub").textContent = "Changes take effect from the next scheduled post.";
           document.getElementById("modal-success").style.display = "none";
           // Hide mode tabs (can't change type after creation)
@@ -2936,21 +2952,16 @@
 
           await _uploadVoiceInputs(created.id, isPersonal);
 
-          document.getElementById(isPersonal ? "p-time" : "c-time").value = "09:00";
-          const successEl = document.getElementById("modal-success");
-          successEl.textContent = created.active
-            ? `${payload.name} is set up! Posts start at ${payload.post_time}.`
-            : `${payload.name} is ready! Use Quick Generate now; upgrade to Pro to turn on daily posting.`;
-          successEl.style.display = "block";
-          setTimeout(() => { successEl.style.display="none"; closeModal(); }, 3000);
-          toast(`${payload.name} added!`, "success");
+          // Close now: a delayed close used to shut whatever the panel was opened for next.
+          closeModal();
+          toast(`${payload.name} is set up. Turn on daily posting from its card, or write a post now.`, "success");
           loadProfiles();
         }
       } catch (err) {
         toast("Error: " + err.message, "error");
       } finally {
         btn.disabled = false;
-        btn.textContent = isEdit ? "Save Changes" : (isPersonal ? "Set Up Personal Brand" : "Set Up Company");
+        btn.textContent = isEdit ? "Save Changes" : "Create profile →";
       }
     }
 
