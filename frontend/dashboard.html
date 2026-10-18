@@ -361,6 +361,11 @@
     .q-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
     .q-hint { font-size: 12.5px; color: #98a0ae; }
     .q-done { font-size: 14px; color: #05603a; background: #e6f4ea; border-radius: 10px; padding: 12px 14px; }
+    #pending-section + #question-section .q-card { margin-top: 18px; }
+    .q-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 2px; }
+    .q-tabs button { border: 1px solid #e4e7ec; background: #fff; border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; font-weight: 600; color: #5b6270; cursor: pointer; }
+    .q-tabs button:hover { border-color: #24365e; color: #24365e; }
+    .q-tabs button[aria-selected="true"] { background: #24365e; border-color: #24365e; color: #fff; }
     .nt-head h3 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 21px; }
     .nt-head p { margin: 6px 0 0; color: #5b6270; font-size: 13.5px; line-height: 1.55; }
     .nt-add { display: grid; gap: 8px; margin: 18px 0 0; padding: 14px; background: #f6f8fc; border-radius: 12px; }
@@ -849,9 +854,6 @@
     </div>
 
     <!-- Approval queue: posts Voyce wrote and is holding for the user's OK -->
-    <!-- This week's question: shown only when a profile has an open one (loadQuestions) -->
-    <div id="question-section" style="display:none;"></div>
-
     <div id="pending-section" style="display:none;">
       <div class="section-head">
         <h2>Needs your OK</h2>
@@ -859,6 +861,9 @@
       </div>
       <div id="pending-container"></div>
     </div>
+
+    <!-- This week's question: one card, a tab per profile with an open one (loadQuestions) -->
+    <div id="question-section" style="display:none;"></div>
 
     <!-- Activity log (lives under Analytics — it's the record, not a to-do) -->
     <div class="activity-section" id="log-section">
@@ -1057,7 +1062,7 @@
     // elements, same ids — so every render function keeps working untouched.
     const VIEW_LAYOUT = {
       // stats-row carries "next up: type · time", so it belongs with today's work.
-      today:     ["question-section", "pending-section", "queue-empty", "upcoming-section"],
+      today:     ["pending-section", "question-section", "queue-empty", "upcoming-section"],
       profiles:  ["profiles-head", "profiles-grid"],
       analytics: ["analytics-section", "log-section"],
       account:   [],
@@ -1911,28 +1916,53 @@
     // ── This week's question (optional): what only the author could say ──
     // One recency-framed question per profile per week, from ghostwriters' interview practice.
     // An answer becomes a note; each daily post is built around one note, in their words.
-    let _questions = {};
+    // The posts waiting for approval come first; the questions share one card below them,
+    // a tab per profile, so three profiles don't push the posts off the screen.
+    let _questions = {}, _qOpen = [], _qActive = "", _qDraft = {};
     async function loadQuestions() {
       const sec = document.getElementById("question-section");
       if (!sec) return;
       let qs = [];
       try { const r = await fetch("/notes/questions", { headers: ah() }); if (r.ok) qs = await r.json(); } catch (_) {}
       if (!Array.isArray(qs)) qs = [];   // anything unexpected (a deploy in progress): show nothing, break nothing
-      const open = qs.filter(q => q && q.company_id && !q.status);
       _questions = Object.fromEntries(qs.map(q => [q.company_id, q]));
-      if (!open.length) { sec.style.display = "none"; sec.innerHTML = ""; return; }
-      sec.innerHTML = open.map(q => `
-        <div class="q-card" id="q-${_escHtml(q.company_id)}">
-          <div class="q-kicker">This week's question${open.length > 1 || (currentProfiles || []).length > 1 ? " · " + _escHtml(q.name) : ""}<span>optional</span></div>
+      _qOpen = qs.filter(q => q && q.company_id && !q.status);
+      if (!_qOpen.some(q => q.company_id === _qActive)) _qActive = _qOpen.length ? _qOpen[0].company_id : "";
+      _renderQuestions();
+    }
+    function _renderQuestions(doneMsg) {
+      const sec = document.getElementById("question-section");
+      if (!sec) return;
+      if (!_qOpen.length) {
+        if (doneMsg) { sec.innerHTML = `<div class="q-card">${doneMsg}</div>`; sec.style.display = ""; }
+        else { sec.style.display = "none"; sec.innerHTML = ""; }
+        return;
+      }
+      const q = _qOpen.find(x => x.company_id === _qActive) || _qOpen[0];
+      const id = _escHtml(q.company_id), multi = _qOpen.length > 1;
+      const named = !multi && (currentProfiles || []).length > 1 ? " · " + _escHtml(q.name) : "";
+      const tabs = multi ? `<div class="q-tabs" role="tablist" aria-label="Profiles">${_qOpen.map(x => {
+        const xid = _escHtml(x.company_id);
+        return `<button role="tab" aria-selected="${x.company_id === q.company_id}" onclick="pickQuestion('${xid}')">${_escHtml(x.name)}</button>`;
+      }).join("")}</div>` : "";
+      sec.innerHTML = `
+        <div class="q-card" id="q-${id}">
+          <div class="q-kicker">${multi ? `This week's questions · ${_qOpen.length} profiles` : "This week's question" + named}<span>optional</span></div>
+          ${tabs}
           <div class="q-text">${_escHtml(q.text)}</div>
-          <textarea id="q-ans-${_escHtml(q.company_id)}" rows="3" placeholder="A sentence or two is plenty. Say it the way you would to a colleague."></textarea>
+          <textarea id="q-ans-${id}" rows="3" oninput="_qDraft['${id}'] = this.value" placeholder="A sentence or two is plenty. Say it the way you would to a colleague.">${_escHtml(_qDraft[q.company_id] || "")}</textarea>
           <div class="q-row">
-            <button class="act-btn primary" onclick="answerQuestion('${_escHtml(q.company_id)}', this)">Save answer</button>
-            <button class="act-btn quiet" onclick="skipQuestion('${_escHtml(q.company_id)}')">Skip this week</button>
-            <span class="q-hint">Voyce builds an upcoming post around it, in your words.</span>
+            <button class="act-btn primary" onclick="answerQuestion('${id}', this)">Save answer</button>
+            <button class="act-btn quiet" onclick="skipQuestion('${id}')">Skip this week</button>
+            <span class="q-hint">${doneMsg ? doneMsg.replace(/<[^>]+>/g, "") : "Voyce builds an upcoming post around it, in your words."}</span>
           </div>
-        </div>`).join("");
+        </div>`;
       sec.style.display = "";
+    }
+    function pickQuestion(id) { _qActive = id; _renderQuestions(); const ta = document.getElementById("q-ans-" + id); ta && ta.focus(); }
+    function _qNext(id) {
+      _qOpen = _qOpen.filter(x => x.company_id !== id); delete _qDraft[id];
+      _qActive = _qOpen.length ? _qOpen[0].company_id : "";
     }
     async function answerQuestion(id, btn) {
       const q = _questions[id] || {}; const ta = document.getElementById("q-ans-" + id);
@@ -1944,17 +1974,18 @@
           body: JSON.stringify({ text, kind: q.kind || "other", source: "weekly", question: q.text || "" }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.detail || "That didn't save. Try again.");
-        const card = document.getElementById("q-" + id);
-        if (card) card.innerHTML = `<div class="q-done">Saved. Voyce will build an upcoming post around it. <a class="nav-link" style="margin-left:6px;" onclick="openNotes('${id}')">See what Voyce knows</a></div>`;
         (currentProfiles || []).forEach(p => { if (p.id === id) p.author_notes = (p.author_notes || []).concat([d]); });
         _notesBtnCount(id);
+        _qNext(id);
+        _renderQuestions(_qOpen.length
+          ? `Saved for ${_escHtml(q.name || "this profile")}. Voyce will build an upcoming post around it.`
+          : `<div class="q-done">Saved. Voyce will build an upcoming post around it. <a class="nav-link" style="margin-left:6px;" onclick="openNotes('${id}')">See what Voyce knows</a></div>`);
       } catch (e) { toast(e.message, "warn"); btn.disabled = false; }
     }
     async function skipQuestion(id) {
       try { await fetch(`/companies/${id}/notes/skip-week`, { method: "POST", headers: ah() }); } catch (_) {}
-      const card = document.getElementById("q-" + id); if (card) card.remove();
-      const sec = document.getElementById("question-section");
-      if (sec && !sec.querySelector(".q-card")) sec.style.display = "none";
+      _qNext(id);
+      _renderQuestions();
     }
 
     // ── What Voyce knows about a profile: their notes ──
