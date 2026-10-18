@@ -100,6 +100,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .row.late { border-left: 3px solid var(--bad); }
 .who { min-width: 0; cursor: pointer; }
 .who .name { font-weight: 600; }
+.prio { display: inline-block; min-width: 30px; margin-right: 7px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--muted); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; vertical-align: 1px; }
 .who .meta { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
 .who .next { margin-top: 5px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12.5px; }
 .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
@@ -307,6 +308,8 @@ function dayChip(l) { if (!l.dm_at || !["dm", "fu1", "fu2", "fu3"].includes(l.st
 const firstName = n => (String(n || "").trim().split(/\s+/)[0] || "there");
 const pill = k => { const s = STAGE[k] || STAGE.new; return `<span class="pill g-${s.group} s-${s.key}">${esc(s.label)}</span>`; };
 const isActive = l => !CLOSED.has(l.stage);
+const prio = l => Number.isInteger(l.priority) && l.priority > 0 ? `<span class="prio" title="Call-list priority: ${l.priority}">#${l.priority}</span>` : "";
+const byPrio = (a, b) => (a.priority || 1e9) - (b.priority || 1e9);
 const isDue = l => isActive(l) && l.next_due && l.next_due <= today();
 const normLi = u => String(u || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
 const digits = p => String(p || "").replace(/\D/g, "");
@@ -486,7 +489,7 @@ function leadRow(l, opts = {}) {
   const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
   return `<div class="row ${d.cls === "late" ? "late" : ""}">
     <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
-      <div class="name">${esc(l.name)}</div>
+      <div class="name">${prio(l)}${esc(l.name)}</div>
       <div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · ")) || "&nbsp;"}</div>
       <div class="next">${pill(l.stage)}<span>${esc(what)}</span>${d.text ? `<span class="due ${d.cls}">${esc(d.text)}</span>` : ""}${dayChip(l)}</div>
     </div>
@@ -499,8 +502,8 @@ function emptyState(msg) {
 function viewToday() {
   if (!leads.length) return emptyState("No leads yet. Add the first person you're DMing on LinkedIn: a name and their profile link is enough. Voyce Sales then tells you when each follow-up is due.");
   const t = today();
-  const due = leads.filter(isDue).sort((a, b) => (a.next_due || "").localeCompare(b.next_due || "") || STAGE[b.stage].i - STAGE[a.stage].i);
-  const soon = leads.filter(l => isActive(l) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting").sort((a, b) => a.next_due.localeCompare(b.next_due));
+  const due = leads.filter(isDue).sort((a, b) => (a.next_due || "").localeCompare(b.next_due || "") || STAGE[b.stage].i - STAGE[a.stage].i || byPrio(a, b));
+  const soon = leads.filter(l => isActive(l) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting").sort((a, b) => a.next_due.localeCompare(b.next_due) || byPrio(a, b));
   const meetings = leads.filter(l => l.stage === "meeting" && (l.meeting_at || "").slice(0, 10) >= t).sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
   const sec = (title, list, none) => `<section class="section"><h3>${title}<span class="num">${list.length}</span></h3>${list.length ? `<div class="list">${list.map(l => leadRow(l)).join("")}</div>` : `<div class="hint">${none}</div>`}</section>`;
   return sec("Due now", due, "Nothing due. Every follow-up is on schedule.") +
@@ -512,10 +515,10 @@ function viewPipeline() {
   const switcher = `<div class="row-btns" style="margin-bottom:12px" role="group" aria-label="Track">${[["call", "Cold calls"], ["dm", "LinkedIn DMs"]].map(([k, t]) =>
     `<button class="btn ${pipeTrack === k ? "primary" : ""}" data-act="track" data-t="${k}" aria-pressed="${pipeTrack === k}">${t}</button>`).join("")}</div>`;
   const cols = STAGES.filter(s => s.track === pipeTrack || s.track === "both").map(s => {
-    const items = leads.filter(l => l.stage === s.key).sort((a, b) => (a.next_due || "9").localeCompare(b.next_due || "9"));
+    const items = leads.filter(l => l.stage === s.key).sort((a, b) => (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
     return `<div class="col"><h4><span>${esc(s.label)}</span><span class="num">${items.length}</span></h4>${items.map(l => {
       const d = dueInfo(l);
-      return `<div class="card" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button"><div class="name">${esc(l.name)}</div>
+      return `<div class="card" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button"><div class="name">${prio(l)}${esc(l.name)}</div>
         <div class="meta">${esc(l.company || l.role || "")}</div>${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}</div>`;
     }).join("")}</div>`;
   }).join("");
@@ -528,7 +531,7 @@ function viewAll() {
   else if (filters.stage !== "all") list = list.filter(l => l.stage === filters.stage);
   if (filters.owner === "mine") list = list.filter(l => l.owner && l.owner === me.id);
   if (q) list = list.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email].some(v => String(v || "").toLowerCase().includes(q)));
-  list.sort((a, b) => (isActive(b) - isActive(a)) || (a.next_due || "9").localeCompare(b.next_due || "9"));
+  list.sort((a, b) => (isActive(b) - isActive(a)) || (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
   const opts = [["active", "In progress"], ["all", "All stages"], ...STAGES.map(s => [s.key, s.label])]
     .map(([v, t]) => `<option value="${v}" ${filters.stage === v ? "selected" : ""}>${esc(t)}</option>`).join("");
   const head = `<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city or number" value="${esc(filters.q)}">
@@ -538,7 +541,7 @@ function viewAll() {
   if (!list.length) return head + `<div class="empty"><p>No leads match these filters.</p></div>`;
   return head + `<div class="table-scroll"><table><thead><tr><th>Name</th><th>Company</th><th>City</th><th>Stage</th><th>Next step</th><th>Phone</th><th>Owner</th></tr></thead><tbody>${list.map(l => {
     const d = dueInfo(l);
-    return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td><b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
+    return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td>${prio(l)}<b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
       <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage])}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}</td>
       <td class="num">${esc(l.phone || "")}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
   }).join("")}</tbody></table></div>`;
