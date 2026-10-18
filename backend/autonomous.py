@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from llm import generate as llm_generate
 from generator import HUMANIZE_PROMPT, _strip_markdown
 import analytics
+import notes as notes_mod
 from search import search_industry_news, format_news_context
 import linkedin as li
 import auth as auth_module
@@ -746,6 +747,9 @@ def _build_company_brief(company: dict) -> str:
         parts.append(
             "\n--- KNOWLEDGE BASE (ground every claim in these facts/rules; never "
             "contradict them or invent around them) ---\n" + company["knowledge"].strip()[:2000])
+    told = notes_mod.record_block(company)
+    if told:
+        parts.append("\n--- " + told)
 
     return "\n".join(p for p in [product_line, *parts] if p)
 
@@ -963,7 +967,8 @@ def _tweet_card_for(post_text: str, company: dict):
 
 
 def generate_autonomous_post(company: dict, news_context: str, post_type: str,
-                             gate_context: str | None = None, report: dict | None = None) -> str:
+                             gate_context: str | None = None, report: dict | None = None,
+                             use_note: bool = True) -> str:
     """Write one post. gate_context is what the fact check may treat as true
     (defaults to news_context); pass a dict as `report` to learn whether the
     returned post actually passed — unattended runs must not publish one that didn't."""
@@ -993,6 +998,9 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             f"present-tense take instead: the lesson people in {industry} keep learning the hard "
             "way, anchored in a real case from the news. \"I think\", \"here's what I'd do\" and "
             "advice to the reader are fine.")
+    note = notes_mod.pick(company) if use_note else None
+    if note:
+        prompt += notes_mod.prompt_block(note)
     prompt += _hook_guidance(company.get("allowed_hooks"))
     openings = _openings_to_avoid(company)
     prompt += _avoid_block(openings)
@@ -1030,13 +1038,16 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             chosen, chosen_v = post2, v2
     if report is not None:
         report.update({"passed": bool(chosen_v.get("passes", True)),
-                       "score": chosen_v.get("score"), "reason": chosen_v.get("reason", "")})
+                       "score": chosen_v.get("score"), "reason": chosen_v.get("reason", ""),
+                       "note_id": note["id"] if note else ""})
+    if note and company.get("id"):
+        notes_mod.mark_used(company["id"], note["id"])
     return chosen
 
 
 def _knows_their_past(company: dict) -> bool:
     """True when the profile holds anything about the author's real past."""
-    return bool(company.get("linkedin_top_posts")
+    return bool(company.get("linkedin_top_posts") or company.get("author_notes")
                 or (company.get("knowledge") or "").strip()
                 or (company.get("website_content") and company.get("website_type") != "external")
                 or (company.get("analysis") or {}).get("description"))
@@ -1060,6 +1071,9 @@ def _author_record(company: dict) -> str:
         parts.append(f"Their past post {i}:\n{str(post)[:600]}")
     if (company.get("knowledge") or "").strip():
         parts.append("Facts they gave:\n" + company["knowledge"].strip()[:2000])
+    told = notes_mod.record_block(company)
+    if told:
+        parts.append(told)
     return "\n".join(parts)
 
 

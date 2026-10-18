@@ -33,6 +33,7 @@ import ratelimit
 import db
 import sales
 import analytics
+import notes
 from pymongo.errors import DuplicateKeyError
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,7 @@ logging.basicConfig(level=logging.INFO)
 # anyone a complete map of every route.
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(sales.router)   # the team's outreach tracker, /sales/*
+app.include_router(notes.router)   # what Voyce knows about each author: weekly question, notes, talks
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
@@ -2003,8 +2005,57 @@ def approve_page(token: str, request: Request):
              f'{_btn("Edit first", "/setup#today")}</div>'
              f'<div style="margin:14px 0 0;">{_btn("Skip this post", form_action=f"/approve/{token}/skip")}</div>'
              '<p style="font-size:12.5px;color:#6b7280;margin:18px 0 0;line-height:1.5;">Approving publishes it now to the '
-             'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>')
+             'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>'
+             + _question_box(pend, token))
     return _approve_shell("Ready for your OK", inner)
+
+
+def _question_box(pend: dict, token: str) -> str:
+    """This week's question, answerable right here with no login. Optional."""
+    try:
+        company = get_company(pend.get("company_id", ""))
+        q = notes.question_for(company) if company else None
+    except Exception:
+        q = None
+    if not q or q["status"] == "skipped":
+        return ""
+    if q["status"] == "answered":
+        return ('<div style="margin:22px 0 0;padding:14px 16px;border-radius:12px;background:#e6f4ea;color:#05603a;'
+                'font-size:14px;line-height:1.5;">Thanks, your answer is saved. Voyce will build an upcoming post around it.</div>')
+    return (f'<form method="post" action="/approve/{html_escape(token)}/note" style="margin:22px 0 0;padding:16px;'
+            'border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfe;">'
+            '<p style="font-weight:600;margin:0 0 4px;color:#16181d;">This week\'s question '
+            '<span style="font-weight:400;color:#6b7280;">(optional)</span></p>'
+            f'<p style="margin:0 0 10px;color:#333;line-height:1.5;">{html_escape(q["text"])}</p>'
+            '<textarea name="text" rows="3" required minlength="12" maxlength="1500" placeholder="A sentence or two is plenty." '
+            'style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d3d8e0;border-radius:9px;'
+            'font:inherit;font-size:14px;line-height:1.5;"></textarea>'
+            '<button type="submit" style="margin-top:10px;background:#24365e;color:#fff;border:0;border-radius:10px;'
+            'padding:11px 18px;font:inherit;font-weight:600;font-size:14px;cursor:pointer;">Save my answer</button>'
+            '<p style="font-size:12.5px;color:#6b7280;margin:10px 0 0;line-height:1.5;">Voyce builds an upcoming post '
+            'around your answer, in your words. Only you see this.</p></form>')
+
+
+@app.post("/approve/{token}/note")
+def answer_from_link(token: str, request: Request, text: str = Form("")):
+    """The weekly question answered from the approve page (no login: the token is the key)."""
+    _rate_limit(f"approvenote:{_client_ip(request)}", 10)
+    pend = _pending_by_token(token)
+    fresh = False
+    try:
+        fresh = pend and datetime.fromisoformat(pend.get("created_at", "")) > datetime.now() - timedelta(days=7)
+    except ValueError:
+        pass
+    if fresh:
+        company = get_company(pend.get("company_id", ""))
+        if company and company.get("user_id") == pend.get("user_id"):
+            q = notes.question_for(company)
+            try:
+                notes.add(company, text, q["kind"], "email", q["text"])
+                analytics.capture(pend["user_id"], "note_added", {"source": "email", "kind": q["kind"]})
+            except HTTPException:
+                pass   # too short: the page shows the box again
+    return approve_page(token, request)
 
 
 @app.post("/approve/{token}")
@@ -2031,7 +2082,8 @@ def approve_from_link(token: str, request: Request):
     note = (f'<p style="color:#b45309;line-height:1.6;">It went out as text: the {html_escape(result.get("posted_as", ""))} '
             'version failed.</p>' if result.get("posted_as") else "")
     return _approve_shell("Posted ✓", f'<p style="color:#444;line-height:1.6;">It\'s live on LinkedIn.</p>{note}'
-                          f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{live}{_btn("Open Voyce", "/setup")}</p>')
+                          f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{live}{_btn("Open Voyce", "/setup")}</p>'
+                          + _question_box(pend, token))
 
 
 @app.post("/approve/{token}/skip")

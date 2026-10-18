@@ -139,8 +139,18 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
                  "It won't go out until you approve it.")
     paras = [intro] + ([src_html] if src_html else [])
     url = _approve_url(pending_id)
+    ask = ""
+    try:
+        import notes
+        q = notes.question_for(company)
+        if not q["status"] and not held_reason:
+            paras.append(f"<b>One question this week</b> (optional): {html.escape(q['text'])} Answer in a line or two "
+                         "on the approve page, and Voyce builds an upcoming post around it.")
+            ask = f"One question this week (optional): {q['text']} Answer on the approve page.\n\n"
+    except Exception:
+        pass
     text = (f"{html.unescape(intro)}\n\n{preview}\n\n"
-            + (f"{src_text}\n\n" if src_text else "")
+            + (f"{src_text}\n\n" if src_text else "") + ask
             + f"Review and approve (no login needed): {url}\n\nPosts you don't approve expire after 48 hours.")
     body = _layout("Ready for your OK" if not held_reason else "Held for your review",
                    paras, button=("Review and approve", url), quote=preview,

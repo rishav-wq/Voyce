@@ -351,6 +351,28 @@
     td.cal-st-sched { box-shadow: inset 3px 0 0 #a8b8d4; }
 
     .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* ── This week's question + What Voyce knows ── */
+    .q-card { background: #fff; border: 1px solid #e4e7ec; border-left: 4px solid #24365e; border-radius: 14px; padding: 18px 20px; margin: 0 0 14px; }
+    .q-kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #24365e; }
+    .q-kicker span { color: #98a0ae; font-weight: 600; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+    .q-text { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; color: #16181d; margin: 6px 0 12px; line-height: 1.35; text-wrap: balance; }
+    .q-card textarea, .nt-add textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid #d3d8e0; border-radius: 10px; font: inherit; font-size: 14px; line-height: 1.5; resize: vertical; }
+    .q-card textarea:focus, .nt-add textarea:focus, .nt-add input:focus, .nt-add select:focus { outline: none; border-color: #24365e; }
+    .q-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .q-hint { font-size: 12.5px; color: #98a0ae; }
+    .q-done { font-size: 14px; color: #05603a; background: #e6f4ea; border-radius: 10px; padding: 12px 14px; }
+    .nt-head h3 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 21px; }
+    .nt-head p { margin: 6px 0 0; color: #5b6270; font-size: 13.5px; line-height: 1.55; }
+    .nt-add { display: grid; gap: 8px; margin: 18px 0 0; padding: 14px; background: #f6f8fc; border-radius: 12px; }
+    .nt-add .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .nt-add input, .nt-add select { padding: 9px 11px; border: 1.5px solid #d3d8e0; border-radius: 9px; font: inherit; font-size: 13.5px; background: #fff; }
+    .nt-add input { flex: 1 1 240px; min-width: 0; }
+    .nt-list { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }
+    .nt-list li { border: 1px solid #e4e7ec; border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
+    .nt-list .t { font-size: 14px; line-height: 1.55; color: #16181d; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .nt-list .m { font-size: 12px; color: #98a0ae; grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .nt-kind { font-size: 11.5px; font-weight: 700; color: #24365e; background: #e7ebf4; border-radius: 999px; padding: 2px 9px; }
+    .nt-empty { margin: 18px 0 0; color: #5b6270; font-size: 13.5px; line-height: 1.55; padding: 14px; border: 1px dashed #d3d8e0; border-radius: 12px; }
     .act-btn {
       background: none;
       border: 1.5px solid #d3d8e0;
@@ -827,6 +849,9 @@
     </div>
 
     <!-- Approval queue: posts Voyce wrote and is holding for the user's OK -->
+    <!-- This week's question: shown only when a profile has an open one (loadQuestions) -->
+    <div id="question-section" style="display:none;"></div>
+
     <div id="pending-section" style="display:none;">
       <div class="section-head">
         <h2>Needs your OK</h2>
@@ -1032,7 +1057,7 @@
     // elements, same ids — so every render function keeps working untouched.
     const VIEW_LAYOUT = {
       // stats-row carries "next up: type · time", so it belongs with today's work.
-      today:     ["pending-section", "queue-empty", "upcoming-section"],
+      today:     ["question-section", "pending-section", "queue-empty", "upcoming-section"],
       profiles:  ["profiles-head", "profiles-grid"],
       analytics: ["analytics-section", "log-section"],
       account:   [],
@@ -1155,6 +1180,7 @@
         checkLinkedIn();
         loadProfiles();
         loadPending();
+        loadQuestions();
       });
       if (window.location.hash === "#upgrade") openUpgradeModal();
       document.getElementById("p-tone").addEventListener("change", () => { personalToneTouched = true; });
@@ -1445,6 +1471,7 @@
             ${p.active ? `<button class="act-btn primary" onclick="runNow('${p.id}')">${p.approval_mode ? "✎ Write now" : "▶ Post now"}</button>` : ""}
             <button class="act-btn" onclick="previewPost('${p.id}')">👁 Preview</button>
             <button class="act-btn" onclick="suggestIdeas('${p.id}')">💡 Ideas</button>
+            <button class="act-btn" id="notes-btn-${p.id}" onclick="openNotes('${p.id}')" title="What Voyce knows about ${p.name}: the notes posts are built around">📝 Notes${(p.author_notes || []).length ? ` (${(p.author_notes || []).length})` : ""}</button>
             <span class="pa-gap"></span>
             <button class="act-btn quiet" onclick="editProfile('${p.id}')">Edit</button>
             ${style ? `<button class="act-btn quiet" onclick="toggleLiPanel('${p.id}')" title="Retrain the voice with recent posts">↻ Voice</button>` : ""}
@@ -1881,6 +1908,127 @@
       loadProfiles();
     }
 
+    // ── This week's question (optional): what only the author could say ──
+    // One recency-framed question per profile per week, from ghostwriters' interview practice.
+    // An answer becomes a note; each daily post is built around one note, in their words.
+    let _questions = {};
+    async function loadQuestions() {
+      const sec = document.getElementById("question-section");
+      if (!sec) return;
+      let qs = [];
+      try { const r = await fetch("/notes/questions", { headers: ah() }); if (r.ok) qs = await r.json(); } catch (_) {}
+      if (!Array.isArray(qs)) qs = [];   // anything unexpected (a deploy in progress): show nothing, break nothing
+      const open = qs.filter(q => q && q.company_id && !q.status);
+      _questions = Object.fromEntries(qs.map(q => [q.company_id, q]));
+      if (!open.length) { sec.style.display = "none"; sec.innerHTML = ""; return; }
+      sec.innerHTML = open.map(q => `
+        <div class="q-card" id="q-${_escHtml(q.company_id)}">
+          <div class="q-kicker">This week's question${open.length > 1 || (currentProfiles || []).length > 1 ? " · " + _escHtml(q.name) : ""}<span>optional</span></div>
+          <div class="q-text">${_escHtml(q.text)}</div>
+          <textarea id="q-ans-${_escHtml(q.company_id)}" rows="3" placeholder="A sentence or two is plenty. Say it the way you would to a colleague."></textarea>
+          <div class="q-row">
+            <button class="act-btn primary" onclick="answerQuestion('${_escHtml(q.company_id)}', this)">Save answer</button>
+            <button class="act-btn quiet" onclick="skipQuestion('${_escHtml(q.company_id)}')">Skip this week</button>
+            <span class="q-hint">Voyce builds an upcoming post around it, in your words.</span>
+          </div>
+        </div>`).join("");
+      sec.style.display = "";
+    }
+    async function answerQuestion(id, btn) {
+      const q = _questions[id] || {}; const ta = document.getElementById("q-ans-" + id);
+      const text = (ta && ta.value || "").trim();
+      if (text.length < 12) { toast("Write a sentence or two, so there's something to build a post on.", "warn"); ta && ta.focus(); return; }
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/companies/${id}/notes`, { method: "POST", headers: ah(),
+          body: JSON.stringify({ text, kind: q.kind || "other", source: "weekly", question: q.text || "" }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "That didn't save. Try again.");
+        const card = document.getElementById("q-" + id);
+        if (card) card.innerHTML = `<div class="q-done">Saved. Voyce will build an upcoming post around it. <a class="nav-link" style="margin-left:6px;" onclick="openNotes('${id}')">See what Voyce knows</a></div>`;
+        (currentProfiles || []).forEach(p => { if (p.id === id) p.author_notes = (p.author_notes || []).concat([d]); });
+        _notesBtnCount(id);
+      } catch (e) { toast(e.message, "warn"); btn.disabled = false; }
+    }
+    async function skipQuestion(id) {
+      try { await fetch(`/companies/${id}/notes/skip-week`, { method: "POST", headers: ah() }); } catch (_) {}
+      const card = document.getElementById("q-" + id); if (card) card.remove();
+      const sec = document.getElementById("question-section");
+      if (sec && !sec.querySelector(".q-card")) sec.style.display = "none";
+    }
+
+    // ── What Voyce knows about a profile: their notes ──
+    function _notesBtnCount(id) {
+      const b = document.getElementById("notes-btn-" + id); const p = (currentProfiles || []).find(x => x.id === id);
+      if (b && p) { const n = (p.author_notes || []).length; b.textContent = "📝 Notes" + (n ? ` (${n})` : ""); }
+    }
+    const NOTE_KINDS = { experience: "Experience", process: "How they do it", data: "A number", opinion: "Opinion", other: "Note" };
+    const NOTE_SOURCES = { weekly: "weekly question", email: "answered from email", added: "added by you", talk: "from a talk" };
+    function _fmtNoteDate(iso) { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+    async function openNotes(id) {
+      const m = _previewModal(); const body = document.getElementById("preview-modal-body");
+      m.style.display = "flex";
+      const p = (currentProfiles || []).find(x => x.id === id) || {};
+      const first = String(p.name || "").split(" ")[0] || "you";
+      body.innerHTML = `<div class="nt-head"><h3>What Voyce knows about ${_escHtml(p.name || "this profile")}</h3>
+          <p>Things only ${_escHtml(first)} could say: a real experience, how they do something, a number from their work, an opinion they'd argue.
+          Each daily post is built around one of these, in their words, with the week's news as the hook. All optional.</p></div>
+        <div class="nt-add">
+          <textarea id="nt-text" rows="3" placeholder="e.g. Most of my clients come to me after their first funding round, when the books stop matching the pitch deck."></textarea>
+          <div class="row"><select id="nt-kind" aria-label="What kind of note">${Object.entries(NOTE_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+            <button class="act-btn primary" onclick="addNote('${id}', this)">Add note</button></div>
+          <div class="row" style="margin-top:6px;"><input id="nt-talk" type="url" placeholder="Or paste a YouTube link to a talk or podcast of yours">
+            <button class="act-btn" onclick="notesFromTalk('${id}', this)">Pull notes from it</button></div>
+          <div class="q-hint">Voyce reads the transcript and saves only what you said about your own work. Delete any it got wrong.</div>
+        </div>
+        <div id="nt-list-wrap"><div class="nt-empty">Loading…</div></div>`;
+      await renderNotes(id);
+    }
+    async function renderNotes(id) {
+      const wrap = document.getElementById("nt-list-wrap"); if (!wrap) return;
+      let data = { notes: [] };
+      try { const r = await fetch(`/companies/${id}/notes`, { headers: ah() }); if (r.ok) data = await r.json(); } catch (_) {}
+      const notes = data.notes || [];
+      (currentProfiles || []).forEach(p => { if (p.id === id) p.author_notes = notes; });
+      _notesBtnCount(id);
+      if (!notes.length) { wrap.innerHTML = `<div class="nt-empty">Nothing yet. Answer this week's question in Queue, add a note above, or paste a talk.
+        Until then, posts are built from the week's news in your voice.</div>`; return; }
+      wrap.innerHTML = `<ul class="nt-list">${notes.map(n => `<li>
+          <div class="t">${_escHtml(n.text)}</div>
+          <button class="act-btn quiet danger" onclick="deleteNote('${id}', '${_escHtml(n.id)}')" aria-label="Delete this note">Delete</button>
+          <div class="m"><span class="nt-kind">${NOTE_KINDS[n.kind] || "Note"}</span><span>${NOTE_SOURCES[n.source] || ""} · ${_fmtNoteDate(n.created_at)}</span>
+            ${n.uses ? `<span>used in ${n.uses} post${n.uses === 1 ? "" : "s"}</span>` : "<span>not used yet</span>"}</div></li>`).join("")}</ul>`;
+    }
+    async function addNote(id, btn) {
+      const ta = document.getElementById("nt-text"); const text = (ta.value || "").trim();
+      if (text.length < 12) { toast("Write a sentence or two, so there's something to build a post on.", "warn"); ta.focus(); return; }
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/companies/${id}/notes`, { method: "POST", headers: ah(),
+          body: JSON.stringify({ text, kind: document.getElementById("nt-kind").value, source: "added" }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "That didn't save. Try again.");
+        ta.value = ""; toast("Note saved", "success"); await renderNotes(id);
+      } catch (e) { toast(e.message, "warn"); }
+      btn.disabled = false;
+    }
+    async function deleteNote(id, noteId) {
+      try { await fetch(`/companies/${id}/notes/${noteId}`, { method: "DELETE", headers: ah() }); } catch (_) {}
+      await renderNotes(id);
+    }
+    async function notesFromTalk(id, btn) {
+      const inp = document.getElementById("nt-talk"); const url = (inp.value || "").trim();
+      if (!url) { toast("Paste a YouTube link first.", "warn"); inp.focus(); return; }
+      const label = btn.textContent; btn.disabled = true; btn.textContent = "Reading the talk…";
+      try {
+        const r = await fetch(`/companies/${id}/notes/from-talk`, { method: "POST", headers: ah(), body: JSON.stringify({ url }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "Couldn't read that talk. Try another link.");
+        inp.value = ""; toast(`Saved ${d.added.length} note${d.added.length === 1 ? "" : "s"} from the talk. Check them below.`, "success");
+        await renderNotes(id);
+      } catch (e) { toast(e.message, "warn"); }
+      btn.disabled = false; btn.textContent = label;
+    }
     function _escHtml(s) {
       return String(s || "").replace(/[&<>"']/g,
         c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
