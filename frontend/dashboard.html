@@ -263,6 +263,41 @@
     .cal-chip.sched { background: #e7ebf4; color: #24365e; }
     .cal-chip.none  { background: #eef0f4; color: #a7aebb; }
     .cal-chip.wait  { background: #fff4dc; color: #8a5a00; }
+    /* Waiting-post card */
+    .pend-card { border: 1px solid #ecdca6; background: #fffdf6; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
+    .pend-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .pend-av { width: 32px; height: 32px; border-radius: 50%; background: #24365e; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+    .pend-who { font-size: 14px; font-weight: 600; color: #16181d; line-height: 1.2; }
+    .pend-meta { font-size: 12px; color: #7a8190; margin-top: 2px; }
+    .pend-exp { margin-left: auto; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: #fff4dc; color: #8a5a00; white-space: nowrap; }
+    .pend-exp.soon { background: #fdeceb; color: #b42318; }
+    .pend-text { white-space: pre-wrap; font-size: 14px; color: #222; line-height: 1.6; padding: 12px 14px; border: 1px solid #f0e6c8; border-radius: 10px; background: #fff; outline: none; margin-bottom: 6px; transition: border-color .15s; }
+    .pend-text:hover { border-color: #d9c78f; }
+    .pend-text:focus { border-color: #24365e; box-shadow: 0 0 0 3px rgba(36,54,94,.10); }
+    .pend-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    /* "Coming up": one Change button per planned day, opening a grouped menu */
+    .up-change { font-family: inherit; font-size: 12.5px; font-weight: 600; color: #24365e; background: #fff; border: 1px solid #d3d8e0; border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+    .up-change:hover { border-color: #24365e; }
+    .up-pick { display: inline-block; font-size: 11px; font-weight: 600; color: #6b21a8; background: #f3e8ff; padding: 1px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 1px; }
+    .day-menu { position: absolute; z-index: 900; width: 320px; max-height: 420px; overflow-y: auto; background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; box-shadow: 0 18px 48px rgba(22,24,29,.18); padding: 6px; }
+    .day-menu[hidden] { display: none; }
+    .dm-head { font-size: 12px; color: #7a8190; padding: 8px 10px 4px; }
+    .dm-group { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #98a0ae; padding: 10px 10px 4px; }
+    .dm-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; background: none; border: none; border-radius: 9px; padding: 8px 10px; cursor: pointer; font-family: inherit; }
+    .dm-item:hover, .dm-item:focus { background: #f4f6fb; outline: none; }
+    .dm-item .dm-l { font-size: 13.5px; font-weight: 600; color: #16181d; }
+    .dm-item .dm-d { font-size: 12px; color: #7a8190; line-height: 1.4; margin-top: 1px; }
+    .dm-item .dm-tick { width: 16px; flex: none; color: #24365e; font-weight: 800; }
+    @media (max-width: 640px) {
+      .day-menu { position: fixed; left: 0 !important; right: 0; bottom: 0; top: auto !important; width: auto; max-height: 70vh; border-radius: 18px 18px 0 0; padding: 8px 8px 18px; }
+    }
+    /* Carousels a week: five choices as one row of buttons */
+    .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: #f4f6fb; border-radius: 10px; padding: 3px; }
+    .seg button { font-family: inherit; font-size: 12px; font-weight: 600; color: #5b6270; background: none; border: none; border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+    .seg button.on { background: #fff; color: #24365e; box-shadow: 0 1px 3px rgba(22,24,29,.12); }
+    .seg-hint { font-size: 11.5px; color: #98a0ae; margin: 4px 0 8px 0; }
+    /* One look for the dropdowns that remain */
+    .dash-body select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6270' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px !important; }
     /* Settings tabs */
     .set-tabs { display: flex; gap: 2px; margin: 14px 0 0; border-bottom: 1px solid #e4e7ec; overflow-x: auto; }
     .set-tabs button { background: none; border: none; border-bottom: 2px solid transparent; padding: 9px 14px; font-family: inherit; font-size: 14px; font-weight: 600; color: #6b7280; cursor: pointer; margin-bottom: -1px; white-space: nowrap; }
@@ -1335,12 +1370,13 @@
                    one disclosure. The selects stay in the DOM either way, which is
                    all runNow and previewPost need to read them. -->
               <div class="auto-more-row" style="margin:2px 0 8px;">
-                <span>Carousels:</span>
-                <select onchange="setCarouselsPerWeek('${p.id}', this.value)" aria-label="Carousels per week for ${p.name}"
-                        style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
-                  ${CAROUSEL_MIX.map(([v, l]) => `<option value="${v}" ${cpw === String(v) ? "selected" : ""}>${l}</option>`).join("")}
-                </select>
+                <span>Carousels a week:</span>
+                <div class="seg" role="radiogroup" aria-label="Carousels per week for ${p.name}">
+                  ${CAROUSEL_MIX.map(([v, l, short]) => `<button type="button" role="radio" aria-checked="${cpw === String(v)}" class="${cpw === String(v) ? "on" : ""}"
+                      title="${l}" onclick="setCarouselsPerWeek('${p.id}', '${v}')">${short}</button>`).join("")}
+                </div>
               </div>
+              <div class="seg-hint">${(CAROUSEL_MIX.find(m => String(m[0]) === cpw) || CAROUSEL_MIX[0])[3]}</div>
               <details class="auto-more">
                 <summary>More options</summary>
               ${cpw !== "0" ? `<div class="auto-more-row">
@@ -1350,7 +1386,7 @@
                 </select>
               </div>` : ""}
               <div class="auto-more-row">
-                <span>Post now / preview uses:</span>
+                <span>Write now and Preview use:</span>
                 <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
                   <option value="hot_take">Hot Take · with tweet card</option>
@@ -1706,7 +1742,11 @@
       ["electric", "Electric — Black + Lime"],
     ];
 
-    const CAROUSEL_MIX = [[0, "None"], [1, "1 a week (Wed)"], [2, "2 a week (Tue, Thu)"], [3, "3 a week (Mon, Wed, Fri)"], ["alt", "Every other day"]];
+    const CAROUSEL_MIX = [[0, "None", "None", "No carousels: text and image posts only"],
+                          [1, "1 a week (Wed)", "1", "One carousel a week, on Wednesday"],
+                          [2, "2 a week (Tue, Thu)", "2", "Two a week, on Tuesday and Thursday"],
+                          [3, "3 a week (Mon, Wed, Fri)", "3", "Three a week, Monday, Wednesday and Friday"],
+                          ["alt", "Every other day", "Alt days", "Every other day, alternating with text posts"]];
     async function setCarouselsPerWeek(id, v) {
       const per_week = v === "alt" ? "alt" : Number(v);
       const res = await fetch(`/companies/${id}/carousel`, { method: "PATCH", headers: ah(), body: JSON.stringify({ per_week }) });
@@ -1851,26 +1891,28 @@
         const actions = isDiy ? `
             <button class="act-btn" onclick="copyPendingText('${p.id}', 'caption', this)">📋 Copy caption</button>
             <button class="act-btn" onclick="copyPendingText('${p.id}', 'prompt', this)">📋 Copy video prompt</button>
-            <button class="act-btn" style="background:#16181d;color:#fff;" onclick="approvePending('${p.id}', this, true)">✓ I posted it</button>
-            <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>` : `
-            <button class="act-btn" style="background:#16181d;color:#fff;" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
-            <button class="act-btn" onclick="discardPending('${p.id}')">Discard</button>`;
+            <button class="act-btn primary" onclick="approvePending('${p.id}', this, true)">✓ I posted it</button>
+            <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>` : `
+            <button class="act-btn primary" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
+            <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>`;
         return `
-        <div id="pending-${p.id}" style="border:1px solid #e8d9a0;background:#fffdf4;border-radius:12px;padding:16px 18px;margin-bottom:12px;">
-          <div style="font-size:12px;color:#98a0ae;margin-bottom:8px;">
-            <strong style="color:#5b6270;">${_escHtml(p.company_name)}</strong>${prodTag}
-            · ${_escHtml(p.post_type)} · ${fmt}
-            · written ${_fmtWhen(p.created_at)}${_expiresChip(p)}
+        <div id="pending-${p.id}" class="pend-card">
+          <div class="pend-head">
+            <span class="pend-av">${_escHtml((p.company_name || "?").trim()[0] || "?").toUpperCase()}</span>
+            <div>
+              <div class="pend-who">${_escHtml(p.company_name)}${prodTag}</div>
+              <div class="pend-meta">${_escHtml(p.post_type)} · ${fmt} · written ${_fmtWhen(p.created_at)}</div>
+            </div>
+            ${_expiresChip(p)}
           </div>
           ${held}
           ${_slidesStrip(p)}
-          <div id="diy-caption-${p.id}" contenteditable="true" spellcheck="true"
-               oninput="markPendingEdited('${p.id}')"
-               style="white-space:pre-wrap;font-size:13.5px;color:#333;line-height:1.55;max-height:220px;overflow-y:auto;margin-bottom:6px;padding:10px 12px;border:1px solid #efe4c4;border-radius:8px;background:#fff;outline:none;">${_escHtml(p.post_text)}</div>
-          <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#98a0ae;margin-bottom:12px;">Click the text to edit it before approving.</div>
+          <div id="diy-caption-${p.id}" class="pend-text" contenteditable="true" spellcheck="true"
+               oninput="markPendingEdited('${p.id}')">${_escHtml(p.post_text)}</div>
+          <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#98a0ae;margin-bottom:10px;">Click the text to edit it. Your version is what gets posted.</div>
           ${srcLine}
           ${diyBlock}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}</div>
+          <div class="pend-actions">${actions}</div>
         </div>`;
       }).join("");
     }
@@ -1890,13 +1932,12 @@
     function _expiresChip(p) {
       if (!p.expires_at || p.format === "diy_video") return "";
       const h = Math.floor((new Date(p.expires_at) - Date.now()) / 36e5);
-      return ` · <span style="color:${h < 6 ? "#b42318" : "#a1780a"};font-weight:600;">${h < 1 ? "expires within the hour" : `expires in ${h} h`}</span>`;
+      return `<span class="pend-exp${h < 6 ? " soon" : ""}" title="Posts you don't approve expire, so stale news never goes out">${h < 1 ? "Expires within the hour" : `Expires in ${h} h`}</span>`;
     }
     // A carousel is never approved blind: its slides, or the card image.
     function _slidesStrip(p) {
       const imgs = p.slide_previews || [];
-      if (!imgs.length) return p.format === "carousel"
-        ? `<div style="font-size:12px;color:#98a0ae;margin-bottom:10px;">Slide previews show on posts written from today on.</div>` : "";
+      if (!imgs.length) return "";
       return `<div style="display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;margin-bottom:4px;">${imgs.map((b, i) =>
         `<img src="data:image/jpeg;base64,${b}" alt="Slide ${i + 1}" loading="lazy" style="height:200px;width:auto;border-radius:8px;border:1px solid #e4e7ec;flex:none;">`).join("")}</div>`;
     }
@@ -1956,9 +1997,10 @@
     }
 
     async function discardPending(id) {
-      if (!(await voyceConfirm("Discard this post? Voyce will write a fresh one at the next scheduled run.", { title: "Discard post", confirmText: "Discard" }))) return;
+      if (!(await voyceConfirm("Skip this post? It won't go out, and Voyce writes a fresh one at the next scheduled time.", { title: "Skip this post", confirmText: "Skip it" }))) return;
       await fetch(`/pending/${id}/discard`, { method: "POST", headers: { "x-token": getToken() } });
-      toast("Discarded.", "");
+      toast("Skipped. It won't go out.", "");
+      loadLog();
       loadPending();
     }
 
@@ -2129,9 +2171,9 @@
       } else {
         what = fc.post_type || "Post";
         fmt = fc.format;
-        st = `<span class="up-st plan">${i === 0 ? "Writes today" : "Planned"}</span>`;
-        change = `<select aria-label="Change the post for ${iso}" onchange="setDayPlan('${p.id}','${iso}',this.value)">${
-          CAL_PLAN_OPTIONS.map(([v, l]) => `<option value="${v}" ${(fc.planned || "") === v ? "selected" : ""}>${v ? l : "Auto"}</option>`).join("")}</select>`;
+        st = fc.planned ? `<span class="up-pick">Your pick</span>` : "<span></span>";
+        change = `<button type="button" class="up-change" aria-haspopup="menu" aria-label="Change the post for ${iso}"
+          onclick="openDayMenu(this, '${p.id}', '${iso}', '${_escHtml(fc.planned || "")}')">Change</button>`;
       }
       // A profile on another clock (a client abroad) says whose time this is.
       const here = _browserTz();
@@ -2183,6 +2225,53 @@
       ["__video__", "Video day (you generate)"],
     ];
 
+    // What a day can be. One list, grouped by what the reader sees, each with a line on what it is.
+    const DAY_PICKS = [
+      ["", [["", "Let Voyce choose", "Follows your weekly plan and carousel setting"]]],
+      ["Carousel", [["__carousel__", "Carousel", "A designed PDF built from this week's news"]]],
+      ["Image card", [["hot_take", "Hot Take", "A bold opinion that makes readers nod or argue"],
+                      ["prediction", "Prediction", "A bold, checkable call about where things are heading"],
+                      ["stat_reaction", "Stat Reaction", "A surprising number and your read on it"]]],
+      ["Text post", [["lesson_learned", "Lesson Learned", "A mistake or realisation and what it taught you"],
+                     ["how_to", "How-To", "Your method for solving one specific problem"],
+                     ["listicle", "Listicle", "A tight, save-worthy list of specific insights"],
+                     ["teardown", "Teardown", "A sharp breakdown of a real company's move"],
+                     ["personal_story", "Personal Story", "A real moment told as a short narrative"],
+                     ["open_question", "Open Question", "A genuine dilemma posed to start a discussion"]]],
+      ["You make it", [["__video__", "Video", "Voyce writes the caption and a prompt for your video tool"]]],
+    ];
+
+    function openDayMenu(btn, pid, iso, current) {
+      let menu = document.getElementById("day-menu");
+      if (!menu) {
+        menu = document.createElement("div");
+        menu.id = "day-menu"; menu.className = "day-menu"; menu.setAttribute("role", "menu");
+        document.body.appendChild(menu);
+        document.addEventListener("click", (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest(".up-change")) menu.hidden = true; });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") menu.hidden = true; });
+        window.addEventListener("resize", () => { menu.hidden = true; });
+      }
+      const when = new Date(iso + "T12:00:00").toLocaleDateString([], { weekday: "long", day: "numeric", month: "short" });
+      menu.innerHTML = `<div class="dm-head">What should ${when} be?</div>` + DAY_PICKS.map(([group, items]) =>
+        (group ? `<div class="dm-group">${group}</div>` : "") + items.map(([v, l, d]) => `
+          <button type="button" class="dm-item" role="menuitemradio" aria-checked="${current === v}"
+                  onclick="pickDay('${pid}', '${iso}', '${v}')">
+            <span class="dm-tick">${current === v ? "✓" : ""}</span>
+            <span><span class="dm-l">${l}</span><span class="dm-d" style="display:block;">${d}</span></span>
+          </button>`).join("")).join("");
+      const r = btn.getBoundingClientRect();
+      menu.style.top = `${window.scrollY + r.bottom + 6}px`;
+      menu.style.left = `${Math.max(8, Math.min(window.scrollX + r.right - 320, window.innerWidth - 328))}px`;
+      menu.hidden = false;
+      (menu.querySelector('[aria-checked="true"]') || menu.querySelector(".dm-item"))?.focus();
+    }
+
+    function pickDay(pid, iso, value) {
+      const menu = document.getElementById("day-menu");
+      if (menu) menu.hidden = true;
+      setDayPlan(pid, iso, value);
+    }
+
     async function setDayPlan(profileId, dateISO, postType) {
       try {
         const r = await fetch(`/companies/${profileId}/schedule`, {
@@ -2190,7 +2279,7 @@
           body: JSON.stringify({ date: dateISO, post_type: postType }),
         });
         if (!r.ok) throw new Error();
-        toast(postType ? "Post plan set for that day." : "Back to auto for that day.", "success");
+        toast(postType ? "Changed. That day follows your pick." : "Back to Voyce's choice for that day.", "success");
         loadProfiles();
       } catch (_) { toast("Couldn't update the plan — try again.", "warn"); }
     }
