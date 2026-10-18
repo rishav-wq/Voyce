@@ -17,7 +17,7 @@ async function initClerk() {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) _refreshToken(); });
   try {
     const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
-    if (res.ok) localStorage.setItem("cm_user", JSON.stringify(await res.json()));
+    if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); }
   } catch (_) {}
   return true;
 }

@@ -31,12 +31,14 @@ import auth as auth_module
 import payments
 import ratelimit
 import db
+import sales
 from pymongo.errors import DuplicateKeyError
 
 logging.basicConfig(level=logging.INFO)
 # No public /docs or /openapi.json: the frontend never uses them, and they hand
 # anyone a complete map of every route.
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+app.include_router(sales.router)   # the team's outreach tracker, /sales/*
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
@@ -665,6 +667,12 @@ def serve_onboarding():
     return _page("onboarding.html")
 
 
+@app.get("/sales")
+def serve_sales():
+    # The page itself is public HTML; every /sales/* call checks the team list.
+    return _page("sales.html")
+
+
 @app.get("/login")
 def serve_auth():
     return _page("auth.html")
@@ -870,7 +878,7 @@ def me(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return {**user, "gen_info": auth_module.get_gen_info(user["id"])}
+    return {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user)}
 
 
 @app.patch("/auth/me")

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Voyce — Sales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+/* Voyce app shell (same as the dashboard; gold-dash.css paints the sidebar) */
+[hidden] { display: none !important; }   /* the page toggles with hidden; Voyce's .btn/.tabs set display */
+.app-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; align-items: start; }
+.sidebar { position: sticky; top: 0; height: 100vh; background: #ffffff; border-right: 1px solid #e4e7ec; padding: 22px 16px; display: flex; flex-direction: column; gap: 20px; }
+.sidebar .logo { font-size: 20px; font-weight: 700; color: #16181d; display: flex; align-items: center; gap: 0; padding: 4px 8px; }
+.sidebar .logo span { color: #24365e; }
+.side-nav { display: flex; flex-direction: column; gap: 4px; }
+.side-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px; font-size: 14px; font-weight: 600; color: #5b6270; cursor: pointer; border: none;
+  background: none; width: 100%; text-align: left; text-decoration: none; transition: background .14s, color .14s; font-family: inherit; }
+.side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+.side-spacer { flex: 1; }
+.side-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e4e7ec; padding-top: 8px; }
+.side-user { font-size: 12px; color: #98a0ae; padding: 0 12px 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.logo { display: inline-flex; align-items: baseline; gap: 0; line-height: 1.35; }
+.logo .logo-mark { font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500; font-size: 1.85em; line-height: 0.85;
+  letter-spacing: -0.07em; background: none !important; border-radius: 0; width: auto !important; height: auto !important; display: inline !important; padding: 0; margin: 0 -0.02em 0 0; color: inherit; }
+.dash-body { max-width: 1180px; margin: 0 auto; padding: 30px 32px; width: 100%; min-width: 0; }
+@media (max-width: 860px) {
+  .app-shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-right: none; border-bottom: 1px solid #e4e7ec; padding: 12px 16px; }
+  .sidebar .side-spacer { display: none; }
+  .side-nav { flex-direction: row; flex-wrap: wrap; }
+  .side-foot { flex-direction: row; align-items: center; border-top: none; padding-top: 0; margin-left: auto; }
+  .side-user { display: none; }
+  .dash-body { padding: 20px 16px; }
+}
+
+/* Layout: a work queue. Today's follow-ups first, then the pipeline board, every lead, and the
+   message scripts; a lead opens in a side panel with its next step and the message to send. */
+:root {
+  --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eef1f6; --fg: #16181d; --muted: #5b6270;
+  --faint: #8a92a1; --line: #e1e5ec; --accent: #24365e; --accent-fg: #ffffff; --accent-soft: #e7ebf4;
+  --ok: #057642; --ok-soft: #e3f3e8; --warn: #9a5b00; --warn-soft: #fbefd9; --bad: #b42318; --bad-soft: #fbe9e7;
+  --scrim: rgba(22, 24, 29, .32); --shadow: 0 1px 2px rgba(22,24,29,.05), 0 16px 40px rgba(22,24,29,.14);
+  --f-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --f-mark: 'Fraunces', Georgia, 'Times New Roman', serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+.sales-wrap { color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+.page-title { font-family: var(--f-display); font-size: 30px; font-weight: 700; color: var(--fg); margin: 0 0 4px; letter-spacing: -0.02em; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mark { font-family: var(--f-display); font-weight: 700; font-size: 22px; display: inline-flex; align-items: baseline; }
+.mark i { font-family: var(--f-mark); font-style: italic; font-weight: 500; font-size: 1.7em; line-height: .8; letter-spacing: -0.06em; margin-right: -0.02em; }
+.mark span.sales { color: var(--accent); margin-left: 8px; }
+.sub { color: var(--muted); font-size: 13px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg); border-radius: 9px; padding: 8px 13px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--muted); padding-inline: 8px; }
+.btn.quiet:hover { color: var(--fg); border-color: var(--line); }
+.btn.danger { color: var(--bad); }
+.btn.danger.solid { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* summary */
+.summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.chip { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.chip b { font-family: var(--f-display); font-size: 16px; color: var(--fg); font-variant-numeric: tabular-nums; }
+.chip.alert { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: var(--bad-soft); }
+.chip.alert b { color: var(--bad); }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; margin-top: 18px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { border: 0; background: none; padding: 10px 12px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab .n { font-variant-numeric: tabular-nums; color: var(--faint); font-weight: 500; margin-left: 4px; }
+#main { margin-top: 18px; }
+.banner { margin-top: 16px; padding: 10px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+
+/* sections + rows */
+.section { margin-top: 22px; }
+.section:first-child { margin-top: 0; }
+.section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; }
+.section h3 .num { color: var(--faint); }
+.list { display: grid; gap: 8px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.row.late { border-left: 3px solid var(--bad); }
+.who { min-width: 0; cursor: pointer; }
+.who .name { font-weight: 600; }
+.who .meta { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.who .next { margin-top: 5px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12.5px; }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.g-Conversation { background: var(--warn-soft); color: var(--warn); }
+.pill.g-Calls { background: var(--surface-2); color: var(--fg); }
+.pill.g-Meeting, .pill.s-won { background: var(--ok-soft); color: var(--ok); }
+.pill.s-lost { background: var(--surface-2); color: var(--faint); }
+.due { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.due.late { color: var(--bad); font-weight: 600; }
+.due.today { color: var(--fg); font-weight: 600; }
+.day { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.empty { padding: 28px 20px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; }
+.empty p { margin: 0 0 12px; max-width: 46ch; margin-inline: auto; }
+@media (max-width: 620px) { .row { grid-template-columns: minmax(0, 1fr); } .acts { justify-content: flex-start; } }
+
+/* board */
+.board-scroll { overflow-x: auto; padding-bottom: 8px; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: 210px; gap: 10px; }
+.col { background: var(--surface-2); border-radius: 12px; padding: 10px; min-height: 120px; }
+.col h4 { margin: 0 0 8px; font-size: 12.5px; display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; }
+.col h4 .num { color: var(--fg); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; margin-bottom: 7px; cursor: pointer; }
+.card:hover { border-color: var(--accent); }
+.card .name { font-weight: 600; font-size: 13px; }
+.card .meta { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.group-label { grid-column: span 1; }
+@media (max-width: 700px) { .board { grid-auto-flow: row; grid-auto-columns: auto; } }
+
+/* table */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.filters input, .filters select { padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.filters input { flex: 1 1 220px; min-width: 0; }
+.table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--accent-soft); }
+tr:last-child td { border-bottom: 0; }
+
+/* scripts */
+.scripts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.script { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.script h4 { margin: 0; font-family: var(--f-display); font-size: 15px; }
+.script .when { font-size: 12px; color: var(--muted); }
+.script pre { white-space: pre-wrap; font-family: var(--f-body); margin: 0; font-size: 13px; line-height: 1.55; background: var(--surface-2); padding: 10px 12px; border-radius: 9px; overflow-wrap: anywhere; }
+.script textarea { width: 100%; min-height: 150px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); resize: vertical; line-height: 1.55; }
+.script input { width: 100%; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.row-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.hint { font-size: 12px; color: var(--faint); }
+
+/* drawer */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(540px, 100%); background: var(--surface); z-index: 21; box-shadow: var(--shadow); overflow-y: auto;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) 22px; }
+@media (max-width: 560px) { .drawer { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+.d-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.d-head h2 { font-size: 22px; }
+.d-head .meta { color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.d-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.d-sec { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.d-sec > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.kv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 12px; align-items: baseline; font-size: 13px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
+.kv dd .row-btns { margin-top: 4px; }
+.nextbox { background: var(--accent-soft); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+.nextbox .what { font-weight: 600; }
+.nextbox pre { white-space: pre-wrap; font-family: var(--f-body); margin: 0; font-size: 13px; line-height: 1.55; background: var(--surface); padding: 10px 12px; border-radius: 9px; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: var(--surface); padding: 10px; border-radius: 10px; }
+.inline-form input, .inline-form select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); flex: 1 1 180px; min-width: 0; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.field input, .field select, .field textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.field textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+.warnbox { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hist li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 12.5px; }
+.hist time { color: var(--faint); font-variant-numeric: tabular-nums; }
+.hist .t { overflow-wrap: anywhere; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 40; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
+@media (prefers-reduced-motion: no-preference) { .drawer { animation: slide .18s ease-out; } @keyframes slide { from { transform: translateX(24px); opacity: .6; } } }
+</style>
+  <link rel="stylesheet" href="/static/gold-dash.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="logo"><span class="logo-mark">V</span><span>oyce</span></div>
+    <nav class="side-nav">
+      <a class="side-item" href="/setup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg><span>Queue</span></a>
+      <a class="side-item" href="/tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12z"/></svg><span>Write</span></a>
+      <a class="side-item" href="/setup#profiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>Settings</span></a>
+      <a class="side-item active" href="/sales" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg><span>Sales</span></a>
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-foot">
+      <span class="side-user" id="nav-user"></span>
+      <a class="side-item" onclick="doAppLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span>Sign out</span></a>
+    </div>
+  </aside>
+  <main class="dash-body">
+    <div class="sales-wrap">
+      <div class="top">
+        <div>
+          <h1 class="page-title">Sales</h1>
+          <div class="sub">Cold calls to firm owners, and LinkedIn DMs with up to 3 follow-ups. Every lead ends in a booked meeting or a reason. Only the Voyce team can see this page.</div>
+        </div>
+        <button class="btn primary" id="add-lead" data-act="new" hidden>+ Add lead</button>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="banner" id="banner" hidden></div>
+      <nav class="tabs" role="tablist" id="tabs">
+        <button class="tab" role="tab" data-view="today" aria-selected="true">Today<span class="n" id="n-today"></span></button>
+        <button class="tab" role="tab" data-view="pipeline" aria-selected="false">Pipeline</button>
+        <button class="tab" role="tab" data-view="all" aria-selected="false">All leads<span class="n" id="n-all"></span></button>
+        <button class="tab" role="tab" data-view="scripts" aria-selected="false">Scripts</button>
+      </nav>
+      <div id="main"><div class="empty"><p>Loading your leads…</p></div></div>
+    </div>
+  </main>
+</div>
+<div class="scrim" id="scrim" hidden data-act="close"></div>
+<aside class="drawer" id="drawer" hidden aria-label="Lead"></aside>
+<div class="toast" id="s-toast" hidden role="status"></div>
+
+<script>
+const STAGES = [
+  { key: "tocall", label: "To call", group: "Calls", track: "call" },
+  { key: "try1", label: "No answer ×1", group: "Calls", track: "call" },
+  { key: "try2", label: "No answer ×2", group: "Calls", track: "call" },
+  { key: "try3", label: "No answer ×3", group: "Calls", track: "call" },
+  { key: "spoke", label: "Spoke: interested", group: "Conversation", track: "call" },
+  { key: "sample", label: "Sample sent", group: "Conversation", track: "call" },
+  { key: "new", label: "To DM", group: "Outreach", track: "dm" },
+  { key: "dm", label: "DM sent", group: "Outreach", track: "dm" },
+  { key: "fu1", label: "Follow-up 1", group: "Outreach", track: "dm" },
+  { key: "fu2", label: "Follow-up 2", group: "Outreach", track: "dm" },
+  { key: "fu3", label: "Follow-up 3", group: "Outreach", track: "dm" },
+  { key: "replied", label: "Replied", group: "Conversation", track: "dm" },
+  { key: "number", label: "Number shared", group: "Conversation", track: "dm" },
+  { key: "called", label: "Called", group: "Conversation", track: "dm" },
+  { key: "meeting", label: "Meeting booked", group: "Meeting", track: "both" },
+  { key: "won", label: "Won", group: "Closed", track: "both" },
+  { key: "lost", label: "Lost", group: "Closed", track: "both" },
+];
+const STAGE = Object.fromEntries(STAGES.map((s, i) => [s.key, { ...s, i }]));
+const CLOSED = new Set(["won", "lost"]);
+const NEXT_STEP = { tocall: "Call the firm's line", try1: "Call again", try2: "Call again (last try)", try3: "Close, or switch to a LinkedIn DM",
+  spoke: "Send the sample on WhatsApp", sample: "Call back about the sample", new: "Send the first DM", dm: "Send follow-up 1", fu1: "Send follow-up 2", fu2: "Send follow-up 3",
+  fu3: "Close if there's still no reply", replied: "Ask for their number", number: "Call them", called: "Book the meeting",
+  meeting: "Meeting", won: "Paying customer", lost: "Closed" };
+const SCRIPT_FOR = { tocall: "smb_call", try1: "smb_call", try2: "smb_call", try3: "dm", spoke: "wa_sample", sample: "sample_callback", new: "dm", dm: "fu1", fu1: "fu2", fu2: "fu3", replied: "ask_number", number: "call", called: "call" };
+const LOST_REASONS = ["No reply after 3 follow-ups", "Not interested", "Wants company page posting", "Unreachable by phone", "Not a fit", "Price", "Using another tool", "Other"];
+const SOURCES = ["LinkedIn DM", "Cold call list", "Voyce signup", "Referral", "Event", "WhatsApp group", "Other"];
+let pipeTrack = "call";
+const CHANNELS = ["LinkedIn", "WhatsApp", "Call", "Email", "Note"];
+
+let me = { id: null, name: "" }, canWrite = true, ready = false, denied = false;
+let leads = [], scripts = [], view = "today";
+let openId = null, panel = null, dupMatch = null, editingScript = null, filters = { q: "", stage: "active", owner: "all" };
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const today = () => ymd(new Date());
+function addDays(s, n) { const [y, m, d] = s.split("-").map(Number); return ymd(new Date(y, m - 1, d + n)); }
+function daysBetween(a, b) { const [y1, m1, d1] = a.split("-").map(Number), [y2, m2, d2] = b.split("-").map(Number);
+  return Math.round((new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1)) / 864e5); }
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDay(s) { if (!s) return ""; const [y, m, d] = s.split("-").map(Number); const dt = new Date(y, m - 1, d); return `${DOW[dt.getDay()]} ${d} ${MON[m - 1]}`; }
+function fmtMeeting(s) { if (!s) return ""; const [date, time] = s.split("T"); if (!time) return fmtDay(date);
+  let [h, mi] = time.split(":").map(Number); const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return `${fmtDay(date)}, ${h}:${pad(mi)} ${ap}`; }
+function fmtStamp(iso) { const d = new Date(iso); if (isNaN(d)) return ""; let h = d.getHours(); const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12;
+  return `${d.getDate()} ${MON[d.getMonth()]}, ${h}:${pad(d.getMinutes())} ${ap}`; }
+function dueInfo(l) {
+  if (CLOSED.has(l.stage) || !l.next_due) return { text: "", cls: "" };
+  const diff = daysBetween(today(), l.next_due);
+  if (diff < 0) return { text: `${-diff} day${diff === -1 ? "" : "s"} late`, cls: "late" };
+  if (diff === 0) return { text: "due today", cls: "today" };
+  if (diff === 1) return { text: "due tomorrow", cls: "" };
+  return { text: `due ${fmtDay(l.next_due)}`, cls: "" };
+}
+function dayChip(l) { if (!l.dm_at || !["dm", "fu1", "fu2", "fu3"].includes(l.stage)) return "";
+  return `<span class="day">day ${daysBetween(l.dm_at, today())} since first DM</span>`; }
+const firstName = n => (String(n || "").trim().split(/\s+/)[0] || "there");
+const pill = k => { const s = STAGE[k] || STAGE.new; return `<span class="pill g-${s.group} s-${s.key}">${esc(s.label)}</span>`; };
+const isActive = l => !CLOSED.has(l.stage);
+const isDue = l => isActive(l) && l.next_due && l.next_due <= today();
+const normLi = u => String(u || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+const digits = p => String(p || "").replace(/\D/g, "");
+const waNumber = p => { const d = digits(p); return d.length === 10 ? "91" + d : d; };
+function fillScript(body, l) { return String(body || "").replaceAll("{first_name}", firstName(l?.name)).replaceAll("{company}", l?.company || "your company"); }
+const scriptFor = l => scripts.find(s => s.key === SCRIPT_FOR[l.stage]);
+function lookupCell(l) {
+  const note = (l.lookup === "done" || l.lookup === "none") ? `<div class="hint">${esc(l.lookup_note || "")}${l.lookup_at ? " · " + esc(fmtStamp(l.lookup_at)) : ""}</div>` : "";
+  if (!(l.linkedin || (l.name && l.company))) return note + `<span class="hint">Add their LinkedIn link or company to look them up.</span>`;
+  return note + `<button class="btn" data-act="lookup" data-id="${esc(l.id)}">${l.lookup ? "Look up again" : "Find email & firm phone"}</button>`;
+}
+const ownerName = l => !l.owner ? "Nobody" : (l.owner === me.id ? "You" : (l.owner_name || "Teammate"));
+
+/* ── actions: what each step does to a lead ── */
+function actionsFor(l) {
+  const callOutcomes = next => [{ id: "spoke", label: "Spoke: interested", primary: true }, { id: next, label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
+  switch (l.stage) {
+    case "tocall": return callOutcomes("try1");
+    case "try1": return callOutcomes("try2");
+    case "try2": return callOutcomes("try3");
+    case "try3": return [{ id: "to_dm", label: "Switch to LinkedIn DM", primary: true }, { id: "unreachable", label: "Close: unreachable" }];
+    case "spoke": return [{ id: "sample", label: "Mark sample sent", primary: true }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
+    case "sample": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "sample_again", label: "Called again" }];
+    case "new": return [{ id: "dm", label: "Mark DM sent", primary: true }];
+    case "dm": return [{ id: "fu1", label: "Mark follow-up 1 sent", primary: true }, { id: "replied", label: "They replied" }];
+    case "fu1": return [{ id: "fu2", label: "Mark follow-up 2 sent", primary: true }, { id: "replied", label: "They replied" }];
+    case "fu2": return [{ id: "fu3", label: "Mark follow-up 3 sent", primary: true }, { id: "replied", label: "They replied" }];
+    case "fu3": return [{ id: "noreply", label: "Close: no reply", primary: true }, { id: "replied", label: "They replied" }];
+    case "replied": return [{ id: "number", label: "Got their number", primary: true, needs: "number" }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
+    case "number": return [{ id: "called", label: "Mark called", primary: true }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
+    case "called": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "called_again", label: "Called again" }];
+    case "meeting": return [{ id: "won", label: "Mark won", primary: true }, { id: "lost", label: "Mark lost", needs: "lost" }];
+    default: return [{ id: "reopen", label: "Reopen", primary: true }];
+  }
+}
+const ACTION = {
+  try1: () => ({ stage: "try1", next_due: addDays(today(), 1), _t: "Called: no answer" }),
+  try2: () => ({ stage: "try2", next_due: addDays(today(), 2), _t: "Called again: no answer" }),
+  try3: () => ({ stage: "try3", next_due: addDays(today(), 1), _t: "Third call: no answer" }),
+  spoke: () => ({ stage: "spoke", next_due: today(), _t: "Spoke to them: interested" }),
+  callback: (l, v) => ({ next_due: v.date, _t: `Asked to be called back on ${fmtDay(v.date)}` }),
+  to_dm: () => ({ stage: "new", next_due: today(), _t: "Switched to a LinkedIn DM after 3 unanswered calls" }),
+  unreachable: () => ({ stage: "lost", next_due: "", lost_reason: "Unreachable by phone", _t: "Closed: unreachable by phone" }),
+  sample: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Sent the sample on WhatsApp" }),
+  sample_again: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Called about the sample" }),
+  dm: () => ({ stage: "dm", next_due: addDays(today(), 3), dm_at: today(), _t: "Sent the first DM" }),
+  fu1: () => ({ stage: "fu1", next_due: addDays(today(), 4), _t: "Sent follow-up 1" }),
+  fu2: () => ({ stage: "fu2", next_due: addDays(today(), 7), _t: "Sent follow-up 2" }),
+  fu3: () => ({ stage: "fu3", next_due: addDays(today(), 7), _t: "Sent follow-up 3" }),
+  noreply: () => ({ stage: "lost", next_due: "", lost_reason: LOST_REASONS[0], _t: "Closed: no reply after 3 follow-ups" }),
+  replied: () => ({ stage: "replied", next_due: today(), _t: "They replied" }),
+  number: (l, v) => ({ stage: "number", phone: v.phone, next_due: addDays(today(), 1), _t: "Got their number" }),
+  called: () => ({ stage: "called", next_due: addDays(today(), 2), _t: "Called them" }),
+  called_again: () => ({ stage: "called", next_due: addDays(today(), 2), _t: "Called again" }),
+  meeting: (l, v) => ({ stage: "meeting", meeting_at: v.meeting_at, next_due: v.meeting_at.slice(0, 10), _t: `Meeting booked for ${fmtMeeting(v.meeting_at)}` }),
+  won: () => ({ stage: "won", next_due: "", _t: "Won: became a customer" }),
+  lost: (l, v) => ({ stage: "lost", next_due: "", lost_reason: v.reason, _t: `Lost: ${v.reason}` }),
+  reopen: () => ({ stage: "replied", next_due: today(), lost_reason: "", _t: "Reopened" }),
+};
+
+/* ── store: Voyce's /sales API (team only; the server stamps who did what) ── */
+let _clerkToken = null;
+async function _refreshToken() { try { if (window.Clerk && window.Clerk.session) _clerkToken = await window.Clerk.session.getToken(); } catch (_) {} }
+function _toLogin() { window.location.href = "/login?next=" + encodeURIComponent(location.pathname); }
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: { "Content-Type": "application/json", "x-token": _clerkToken || "" }, body: body ? JSON.stringify(body) : undefined });
+  let data = null; try { data = await r.json(); } catch (_) {}
+  if (r.status === 401) { _toLogin(); throw { code: 401, detail: "" }; }
+  if (!r.ok) throw { code: r.status, detail: (data && data.detail) || "" };
+  return data;
+}
+function putLead(doc) { const i = leads.findIndex(x => x.id === doc.id); if (i >= 0) leads[i] = doc; else leads.push(doc); }
+async function safe(fn, okMsg) {
+  try { const out = await fn(); if (okMsg) toast(okMsg); return out || true; }
+  catch (e) {
+    const code = e && e.code, detail = e && e.detail;
+    if (code === 401) return false;
+    if (code === 403) { denied = true; ready = false; renderAll(); }
+    else if (code === 404) { toast(detail || "That lead was deleted."); await reload(); }
+    else if (detail && [400, 429, 502, 503].includes(code)) toast(detail);
+    else toast("That didn't save. Check your connection and try again.");
+    return false;
+  }
+}
+async function save(id, fields, note, okMsg) {
+  return safe(async () => { const doc = await api("PATCH", `/sales/leads/${encodeURIComponent(id)}`, { fields, note: note || "" }); putLead(doc); renderAll(); return doc; }, okMsg);
+}
+async function runAction(id, actId, vals = {}) {
+  const l = leads.find(x => x.id === id); if (!l || !canWrite) return;
+  const patch = ACTION[actId](l, vals); const text = patch._t; delete patch._t;
+  panel = null;
+  await save(id, patch, text, text);
+}
+async function patchLead(id, fields, text) { return save(id, fields, text); }
+async function reload() {
+  try {
+    const [ls, sc] = await Promise.all([api("GET", "/sales/leads"), api("GET", "/sales/scripts")]);
+    leads = (ls || []).filter(l => l.name);
+    if (editingScript === null) scripts = (sc && sc.items) || [];
+    ready = true; denied = false; renderAll();
+  } catch (e) {
+    if (e && e.code === 403) { denied = true; ready = false; renderAll(); }
+    else if (e && e.code !== 401 && !ready) $("#main").innerHTML = `<div class="empty"><p>Couldn't load the leads. Check your connection, then reload the page.</p></div>`;
+  }
+}
+async function doLookup(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "Looking up…"; }
+  const doc = await safe(() => api("POST", `/sales/leads/${encodeURIComponent(id)}/lookup`));
+  if (doc && doc.id) { putLead(doc); renderAll(); toast(doc.lookup_note || "Looked up"); }
+  else if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Find email & firm phone"; }
+}
+
+/* ── render: summary, tabs, views ── */
+function renderSummary() {
+  const t = today(), active = leads.filter(isActive);
+  const late = active.filter(l => l.next_due && l.next_due < t).length;
+  const dueToday = active.filter(l => l.next_due === t).length;
+  const calls = leads.filter(l => l.stage === "number").length;
+  const week = addDays(t, 7);
+  const meetings = leads.filter(l => l.stage === "meeting" && l.meeting_at && l.meeting_at.slice(0, 10) >= t && l.meeting_at.slice(0, 10) <= week).length;
+  const won = leads.filter(l => l.stage === "won").length;
+  $("#summary").innerHTML = !ready ? "" : [
+    late ? `<span class="chip alert"><b>${late}</b> overdue</span>` : "",
+    `<span class="chip"><b>${dueToday}</b> due today</span>`,
+    `<span class="chip"><b>${calls}</b> calls to make</span>`,
+    `<span class="chip"><b>${meetings}</b> meetings this week</span>`,
+    `<span class="chip"><b>${active.length}</b> in progress</span>`,
+    `<span class="chip"><b>${won}</b> won</span>`].join("");
+  $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
+  $("#n-all").textContent = ready ? String(leads.length) : "";
+  $("#banner").hidden = true;
+  $("#add-lead").hidden = !ready || denied;
+  $("#tabs").hidden = denied;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.view === view)));
+}
+function leadRow(l, opts = {}) {
+  const d = dueInfo(l);
+  const acts = canWrite ? actionsFor(l).slice(0, 3).map(a =>
+    `<button class="btn ${a.primary ? "primary" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
+  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
+  return `<div class="row ${d.cls === "late" ? "late" : ""}">
+    <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
+      <div class="name">${esc(l.name)}</div>
+      <div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · ")) || "&nbsp;"}</div>
+      <div class="next">${pill(l.stage)}<span>${esc(what)}</span>${d.text ? `<span class="due ${d.cls}">${esc(d.text)}</span>` : ""}${dayChip(l)}</div>
+    </div>
+    <div class="acts">${acts}<button class="btn quiet" data-act="open" data-id="${esc(l.id)}">Open</button></div>
+  </div>`;
+}
+function emptyState(msg) {
+  return `<div class="empty"><p>${msg}</p>${canWrite && !denied ? `<button class="btn primary" data-act="new">+ Add lead</button>` : ""}</div>`;
+}
+function viewToday() {
+  if (!leads.length) return emptyState("No leads yet. Add the first person you're DMing on LinkedIn: a name and their profile link is enough. Voyce Sales then tells you when each follow-up is due.");
+  const t = today();
+  const due = leads.filter(isDue).sort((a, b) => (a.next_due || "").localeCompare(b.next_due || "") || STAGE[b.stage].i - STAGE[a.stage].i);
+  const soon = leads.filter(l => isActive(l) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting").sort((a, b) => a.next_due.localeCompare(b.next_due));
+  const meetings = leads.filter(l => l.stage === "meeting" && (l.meeting_at || "").slice(0, 10) >= t).sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
+  const sec = (title, list, none) => `<section class="section"><h3>${title}<span class="num">${list.length}</span></h3>${list.length ? `<div class="list">${list.map(l => leadRow(l)).join("")}</div>` : `<div class="hint">${none}</div>`}</section>`;
+  return sec("Due now", due, "Nothing due. Every follow-up is on schedule.") +
+         sec("Coming up in the next 3 days", soon, "Nothing in the next 3 days.") +
+         sec("Meetings", meetings, "No meetings booked yet.");
+}
+function viewPipeline() {
+  if (!leads.length) return emptyState("The pipeline fills in as you add leads and mark each step.");
+  const switcher = `<div class="row-btns" style="margin-bottom:12px" role="group" aria-label="Track">${[["call", "Cold calls"], ["dm", "LinkedIn DMs"]].map(([k, t]) =>
+    `<button class="btn ${pipeTrack === k ? "primary" : ""}" data-act="track" data-t="${k}" aria-pressed="${pipeTrack === k}">${t}</button>`).join("")}</div>`;
+  const cols = STAGES.filter(s => s.track === pipeTrack || s.track === "both").map(s => {
+    const items = leads.filter(l => l.stage === s.key).sort((a, b) => (a.next_due || "9").localeCompare(b.next_due || "9"));
+    return `<div class="col"><h4><span>${esc(s.label)}</span><span class="num">${items.length}</span></h4>${items.map(l => {
+      const d = dueInfo(l);
+      return `<div class="card" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button"><div class="name">${esc(l.name)}</div>
+        <div class="meta">${esc(l.company || l.role || "")}</div>${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}</div>`;
+    }).join("")}</div>`;
+  }).join("");
+  return switcher + `<div class="board-scroll"><div class="board">${cols}</div></div>`;
+}
+function viewAll() {
+  const q = filters.q.trim().toLowerCase();
+  let list = leads.slice();
+  if (filters.stage === "active") list = list.filter(isActive);
+  else if (filters.stage !== "all") list = list.filter(l => l.stage === filters.stage);
+  if (filters.owner === "mine") list = list.filter(l => l.owner && l.owner === me.id);
+  if (q) list = list.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email].some(v => String(v || "").toLowerCase().includes(q)));
+  list.sort((a, b) => (isActive(b) - isActive(a)) || (a.next_due || "9").localeCompare(b.next_due || "9"));
+  const opts = [["active", "In progress"], ["all", "All stages"], ...STAGES.map(s => [s.key, s.label])]
+    .map(([v, t]) => `<option value="${v}" ${filters.stage === v ? "selected" : ""}>${esc(t)}</option>`).join("");
+  const head = `<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city or number" value="${esc(filters.q)}">
+    <select id="f-stage" aria-label="Stage">${opts}</select>
+    <select id="f-owner" aria-label="Owner"><option value="all" ${filters.owner === "all" ? "selected" : ""}>Everyone's leads</option><option value="mine" ${filters.owner === "mine" ? "selected" : ""}>My leads</option></select></div>`;
+  if (!leads.length) return head + emptyState("No leads yet.");
+  if (!list.length) return head + `<div class="empty"><p>No leads match these filters.</p></div>`;
+  return head + `<div class="table-scroll"><table><thead><tr><th>Name</th><th>Company</th><th>City</th><th>Stage</th><th>Next step</th><th>Phone</th><th>Owner</th></tr></thead><tbody>${list.map(l => {
+    const d = dueInfo(l);
+    return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td><b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
+      <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage])}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}</td>
+      <td class="num">${esc(l.phone || "")}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
+  }).join("")}</tbody></table></div>`;
+}
+function viewScripts() {
+  const cards = scripts.map((s, i) => {
+    if (editingScript === i) return `<div class="script"><input id="s-title" value="${esc(s.title)}" aria-label="Title">
+      <input id="s-when" value="${esc(s.when || "")}" aria-label="When to send it" placeholder="When to send it">
+      <textarea id="s-body" aria-label="Message">${esc(s.body)}</textarea>
+      <div class="hint">{first_name} and {company} are filled in for each lead.</div>
+      <div class="row-btns"><button class="btn primary" data-act="script-save" data-i="${i}">Save</button><button class="btn" data-act="script-cancel">Cancel</button><button class="btn quiet danger" data-act="script-del" data-i="${i}">Delete</button></div></div>`;
+    return `<div class="script"><h4>${esc(s.title)}</h4>${s.when ? `<div class="when">${esc(s.when)}</div>` : ""}<pre>${esc(s.body)}</pre>
+      <div class="row-btns"><button class="btn" data-act="copy-script" data-i="${i}">Copy</button>${canWrite ? `<button class="btn quiet" data-act="script-edit" data-i="${i}">Edit</button>` : ""}</div></div>`;
+  }).join("");
+  const intro = `<p class="hint" style="margin:0 0 12px">The message for each step. Open a lead to copy it with their name already filled in.</p>`;
+  if (!scripts.length) return intro + `<div class="empty"><p>No scripts yet. Add the DM and follow-ups you send, so everyone uses the same words.</p>${canWrite ? `<button class="btn primary" data-act="script-add">+ Add script</button>` : ""}</div>`;
+  return intro + `<div class="scripts">${cards}</div>${canWrite && editingScript === null ? `<div style="margin-top:12px"><button class="btn" data-act="script-add">+ Add script</button></div>` : ""}`;
+}
+function renderMain() {
+  const m = $("#main");
+  if (denied) { m.innerHTML = `<div class="empty"><p>Sales is only for the Voyce team. If you should have access, ask Rishav to add your account.</p><a class="btn" href="/setup">Back to Voyce</a></div>`; return; }
+  if (!ready) { m.innerHTML = `<div class="empty"><p>Loading your leads…</p></div>`; return; }
+  if (view === "scripts" && editingScript !== null && m.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   // don't wipe an edit in progress
+  m.innerHTML = view === "today" ? viewToday() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : viewScripts();
+}
+
+/* ── drawer ── */
+function field(id, label, value = "", type = "text", extra = "") {
+  return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" value="${esc(value)}" ${extra}></div>`;
+}
+function selectField(id, label, options, value) {
+  return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${options.map(o => { const [v, t] = Array.isArray(o) ? o : [o, o];
+    return `<option value="${esc(v)}" ${v === value ? "selected" : ""}>${esc(t)}</option>`; }).join("")}</select></div>`;
+}
+function detailsForm(l, isNew) {
+  return `<div class="grid2">${field("l-name", "Name *", l.name, "text", 'required autocomplete="off"')}${field("l-role", "Role", l.role, "text", 'placeholder="e.g. CFO, Founder"')}
+    ${field("l-company", "Company", l.company)}${field("l-city", "City", l.city, "text", 'placeholder="e.g. Bengaluru"')}</div>
+    ${field("l-linkedin", "LinkedIn profile", l.linkedin, "url", 'placeholder="https://www.linkedin.com/in/…"')}
+    <div class="grid2">${field("l-phone", "Their phone", l.phone, "tel", 'placeholder="+91 98xxxxxxxx"')}${field("l-firm-phone", "Firm's phone line", l.firm_phone, "tel", 'placeholder="Office or published number"')}</div>
+    <div class="hint">Their phone: only a number they shared with you. Firm's line: the number the business publishes.</div>
+    <div class="grid2">${field("l-email", "Work email", l.email, "email")}${selectField("l-source", "Source", SOURCES, l.source || SOURCES[0])}</div>
+    ${isNew ? selectField("l-stage", "Where are you with them?", [["new", "LinkedIn DM: not contacted yet"], ["tocall", "Cold call: not called yet"], ["dm", "I've already sent the first DM"], ["replied", "They've replied"]], "new") : ""}`;
+}
+function readDetails() {
+  const v = id => ($("#" + id)?.value || "").trim();
+  return { name: v("l-name"), role: v("l-role"), company: v("l-company"), city: v("l-city"), linkedin: v("l-linkedin"), phone: v("l-phone"),
+           firm_phone: v("l-firm-phone"), email: v("l-email"), source: v("l-source") || SOURCES[0] };
+}
+function renderDrawer() {
+  const d = $("#drawer");
+  if (openId === null) { d.hidden = true; $("#scrim").hidden = true; return; }
+  d.hidden = false; $("#scrim").hidden = false;
+  if (openId === "new") {
+    d.innerHTML = `<div class="d-head"><div><h2>New lead</h2><div class="meta">Someone you're reaching out to.</div></div><button class="btn quiet" data-act="close" aria-label="Close">Close</button></div>
+      <form class="d-sec" id="new-form" style="border-top:0;padding-top:0">${detailsForm({}, true)}
+      ${dupMatch ? `<div class="warnbox">${esc(dupMatch.name)} is already in the tracker (${esc(STAGE[dupMatch.stage]?.label || "")}). <button type="button" class="btn" data-act="open" data-id="${esc(dupMatch.id)}">Open them</button> <button type="button" class="btn quiet" data-act="add-anyway">Add anyway</button></div>` : ""}
+      <div class="row-btns"><button class="btn primary" type="submit">Add lead</button><button class="btn" type="button" data-act="close">Cancel</button></div></form>`;
+    setTimeout(() => $("#l-name")?.focus(), 30);
+    return;
+  }
+  const l = leads.find(x => x.id === openId);
+  if (!l) { d.innerHTML = `<div class="d-head"><div><h2>Lead removed</h2><div class="meta">Someone deleted this lead.</div></div><button class="btn quiet" data-act="close">Close</button></div>`; return; }
+  const due = dueInfo(l), s = scriptFor(l);
+  const acts = canWrite ? actionsFor(l).map(a => `<button class="btn ${a.primary ? "primary" : ""}" data-act="${a.needs ? "set-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
+  const lostBtn = canWrite && isActive(l) && l.stage !== "meeting" ? `<button class="btn quiet" data-act="set-panel" data-panel="lost">Mark lost</button>` : "";
+  const panels = {
+    number: `<form class="inline-form" id="p-number"><input id="p-phone" type="tel" value="${esc(l.phone || "")}" placeholder="+91 98xxxxxxxx" required aria-label="Their number"><button class="btn primary" type="submit">Save number</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
+    meeting: `<form class="inline-form" id="p-meeting"><input id="p-when" type="datetime-local" required aria-label="Meeting date and time"><button class="btn primary" type="submit">Book meeting</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
+    callback: `<form class="inline-form" id="p-callback"><input id="p-date" type="date" required min="${today()}" aria-label="Call back on"><button class="btn primary" type="submit">Set call-back date</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
+    lost: `<form class="inline-form" id="p-lost"><select id="p-reason" aria-label="Reason">${LOST_REASONS.map(r => `<option>${esc(r)}</option>`).join("")}</select><button class="btn primary" type="submit">Mark lost</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
+    delete: `<div class="inline-form"><span>Delete ${esc(l.name)} and their history? This can't be undone.</span><button class="btn danger solid" data-act="delete" data-id="${esc(l.id)}">Delete</button><button class="btn quiet" data-act="set-panel" data-panel="">Keep</button></div>`,
+  };
+  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
+  const phone = l.phone ? `<span class="num">${esc(l.phone)}</span><div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.phone)}">Copy</button>
+      <a class="btn" href="https://wa.me/${esc(waNumber(l.phone))}" target="_blank" rel="noopener">WhatsApp</a><a class="btn quiet" href="tel:${esc(digits(l.phone))}">Call</a></div>` : `<span class="hint">Not shared yet</span>`;
+  const hist = (l.history || []).slice().reverse();
+  d.innerHTML = `<div class="d-head"><div><h2>${esc(l.name)}</h2><div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · "))}</div>
+      <div class="d-badges">${pill(l.stage)}${due.text ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ""}${dayChip(l)}</div></div>
+      <button class="btn quiet" data-act="close" aria-label="Close">Close</button></div>
+    <div class="d-sec" style="border-top:0">
+      <div class="nextbox"><div class="what">Next: ${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : what)}</div>
+        <div class="row-btns">${acts}${lostBtn}</div>
+        ${panel && panels[panel] && panel !== "delete" ? panels[panel] : ""}
+        ${s && isActive(l) ? `<div class="hint">Message: ${esc(s.title)}</div><pre id="msg">${esc(fillScript(s.body, l))}</pre><div class="row-btns"><button class="btn" data-act="copy-msg">Copy message for ${esc(firstName(l.name))}</button></div>` : ""}
+      </div>
+    </div>
+    <div class="d-sec"><h3>Contact</h3><dl class="kv">
+      <dt>LinkedIn</dt><dd>${l.linkedin ? `<a href="${esc(/^https?:\/\//i.test(l.linkedin) ? l.linkedin : "https://" + l.linkedin)}" target="_blank" rel="noopener">${esc(l.linkedin.replace(/^https?:\/\/(www\.)?/i, ""))}</a>` : `<span class="hint">No link yet</span>`}</dd>
+      <dt>Their phone</dt><dd>${phone}</dd>
+      <dt>Firm line</dt><dd>${l.firm_phone ? `<span class="num">${esc(l.firm_phone)}</span><div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.firm_phone)}">Copy</button><a class="btn quiet" href="tel:${esc(digits(l.firm_phone))}">Call</a></div>` : `<span class="hint">Not found yet</span>`}</dd>
+      <dt>Work email</dt><dd>${l.email ? `<span>${esc(l.email)}</span> <button class="btn quiet" data-act="copy-text" data-text="${esc(l.email)}">Copy</button>` : `<span class="hint">Not found yet</span>`}</dd>
+      <dt>Lookup</dt><dd>${lookupCell(l)}</dd>
+      ${l.website ? `<dt>Website</dt><dd><a href="${esc(/^https?:\/\//i.test(l.website) ? l.website : "https://" + l.website)}" target="_blank" rel="noopener">${esc(l.website.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, ""))}</a></dd>` : ""}
+      <dt>Source</dt><dd>${esc(l.source || "")}</dd>
+      <dt>Owner</dt><dd>${esc(ownerName(l))} ${canWrite && me.id && l.owner !== me.id ? `<button class="btn quiet" data-act="take" data-id="${esc(l.id)}">Assign to me</button>` : ""}</dd>
+      ${isActive(l) ? `<dt>Next date</dt><dd><input id="d-due" type="date" value="${esc(l.next_due || "")}" ${canWrite ? "" : "disabled"} style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)"></dd>` : ""}
+    </dl></div>
+    ${l.notes ? `<div class="d-sec"><h3>Why they fit</h3><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;overflow-wrap:anywhere">${esc(l.notes)}</div>${l.research_url ? `<a class="hint" href="${esc(l.research_url)}" target="_blank" rel="noopener">Where this came from</a>` : ""}</div>` : ""}
+    ${canWrite ? `<form class="d-sec" id="touch-form"><h3>Log a touch or note</h3><div class="inline-form" style="padding:0">
+      <select id="t-ch" aria-label="Channel" style="flex:0 1 130px">${CHANNELS.map(c => `<option>${c}</option>`).join("")}</select>
+      <input id="t-text" placeholder="e.g. Sent the sample post on WhatsApp" aria-label="What happened"><button class="btn" type="submit">Add</button></div></form>` : ""}
+    <div class="d-sec"><h3>History</h3>${hist.length ? `<ul class="hist">${hist.map(h => `<li><time>${esc(fmtStamp(h.at))}</time><div class="t">${esc(h.text || "")}${h.by_name ? ` · <span class="hint">${esc(h.by_name)}</span>` : ""}</div></li>`).join("")}</ul>` : `<div class="hint">Nothing logged yet.</div>`}</div>
+    ${canWrite ? `<details class="d-sec"><summary style="cursor:pointer;font-weight:600">Edit details</summary><form id="edit-form" style="display:grid;gap:10px;margin-top:10px">${detailsForm(l, false)}
+      <div class="row-btns"><button class="btn primary" type="submit">Save details</button></div></form></details>
+      <div class="d-sec">${panel === "delete" ? panels.delete : `<div><button class="btn quiet danger" data-act="set-panel" data-panel="delete">Delete lead</button></div>`}</div>` : ""}`;
+  if (panel === "number") setTimeout(() => $("#p-phone")?.focus(), 30);
+  if (panel === "meeting") setTimeout(() => $("#p-when")?.focus(), 30);
+}
+function openLead(id, p = null) { openId = id; panel = p; dupMatch = null; renderDrawer(); }
+function closeDrawer() { openId = null; panel = null; dupMatch = null; renderDrawer(); }
+function renderAll() {
+  renderSummary();
+  const ae = document.activeElement;
+  if (!($("#main").contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) renderMain();   // don't wipe a search or edit in progress
+  const d = $("#drawer");
+  const typing = !d.hidden && d.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if (!typing) renderDrawer();
+}
+
+/* ── small helpers ── */
+let toastTimer = null;
+function toast(msg) { const t = $("#s-toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+function copy(text, done = "Copied") {
+  const fallback = () => { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (_) {} ta.remove(); toast(ok ? done : "Couldn't copy. Select the text and copy it yourself."); };
+  try { navigator.clipboard.writeText(text).then(() => toast(done), fallback); } catch (_) { fallback(); }
+}
+
+/* ── events ── */
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+  if (act === "new") { if (!canWrite) return; openId = "new"; panel = null; dupMatch = null; renderDrawer(); }
+  else if (act === "close") closeDrawer();
+  else if (act === "open") openLead(id);
+  else if (act === "open-panel") openLead(id, el.dataset.panel);
+  else if (act === "set-panel") { panel = el.dataset.panel || null; renderDrawer(); }
+  else if (act === "action") { await runAction(id, el.dataset.a); }
+  else if (act === "take") { await patchLead(id, { owner: "me" }, "Took over this lead"); }
+  else if (act === "delete") { if (await safe(() => api("DELETE", `/sales/leads/${encodeURIComponent(id)}`), "Lead deleted")) { leads = leads.filter(x => x.id !== id); closeDrawer(); renderAll(); } }
+  else if (act === "copy-msg") { copy($("#msg")?.textContent || "", "Message copied"); }
+  else if (act === "copy-text") { copy(el.dataset.text || "", "Copied"); }
+  else if (act === "track") { pipeTrack = el.dataset.t === "dm" ? "dm" : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
+  else if (act === "lookup") { await doLookup(id, el); }
+  else if (act === "copy-script") { const s = scripts[+el.dataset.i]; if (s) copy(s.body, "Script copied"); }
+  else if (act === "add-anyway") { dupMatch = { forced: true }; $("#new-form")?.requestSubmit(); }
+  else if (act === "script-edit") { editingScript = +el.dataset.i; renderMain(); }
+  else if (act === "script-cancel") { editingScript = null; scripts = scripts.filter(s => s.title !== "New script" || s.body); renderMain(); }
+  else if (act === "script-add") { scripts = scripts.concat([{ key: "custom-" + Date.now().toString(36), title: "New script", when: "", body: "" }]); editingScript = scripts.length - 1; renderMain(); }
+  else if (act === "script-save" || act === "script-del") {
+    const i = +el.dataset.i; let items = scripts.map(s => ({ ...s }));
+    if (act === "script-del") items.splice(i, 1);
+    else items[i] = { ...items[i], title: $("#s-title").value.trim() || "Untitled", when: $("#s-when").value.trim(), body: $("#s-body").value };
+    editingScript = null;
+    const out = await safe(() => api("PUT", "/sales/scripts", { items }), act === "script-del" ? "Script deleted" : "Script saved");
+    if (out && out.items) scripts = out.items;
+    renderAll();
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && openId !== null) closeDrawer();
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches('[role="button"][data-act]')) { e.preventDefault(); e.target.click(); }
+});
+document.getElementById("tabs").addEventListener("click", e => {
+  const t = e.target.closest(".tab"); if (!t) return; view = t.dataset.view; editingScript = null; renderSummary(); renderMain();
+  try { localStorage.setItem("vs-view", view); } catch (_) {}
+});
+document.addEventListener("input", e => {
+  if (e.target.id === "f-q") { filters.q = e.target.value; const pos = e.target.selectionStart; renderMain(); const q = $("#f-q"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (_) {} } }
+});
+document.addEventListener("change", async e => {
+  if (e.target.id === "f-stage") { filters.stage = e.target.value; renderMain(); }
+  else if (e.target.id === "f-owner") { filters.owner = e.target.value; renderMain(); }
+  else if (e.target.id === "d-due" && openId && e.target.value) { await patchLead(openId, { next_due: e.target.value }, `Next date set to ${fmtDay(e.target.value)}`); }
+});
+document.addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.id === "new-form") {
+    const v = readDetails(); if (!v.name) { $("#l-name").focus(); return; }
+    if (!(dupMatch && dupMatch.forced)) {
+      const li = normLi(v.linkedin);
+      const hit = leads.find(l => (li && normLi(l.linkedin) === li) || (l.name.toLowerCase() === v.name.toLowerCase() && (l.company || "").toLowerCase() === v.company.toLowerCase()));
+      if (hit) { const keep = readDetails(); dupMatch = hit; renderDrawer(); Object.entries({ "l-name": keep.name, "l-role": keep.role, "l-company": keep.company, "l-city": keep.city, "l-linkedin": keep.linkedin, "l-phone": keep.phone, "l-firm-phone": keep.firm_phone, "l-email": keep.email }).forEach(([k, val]) => { const x = $("#" + k); if (x) x.value = val; }); return; }
+    }
+    const stage = $("#l-stage")?.value || "new", t = today();
+    const fields = { ...v, stage, dm_at: stage === "dm" || stage === "replied" ? t : "", next_due: stage === "dm" ? addDays(t, 3) : t };
+    const note = { new: "Added", tocall: "Added to the call list", dm: "Added (first DM already sent)", replied: "Added (they've replied)" }[stage] || "Added";
+    const doc = await safe(() => api("POST", "/sales/leads", { fields, note }), `${v.name} added`);
+    if (doc && doc.id) { putLead(doc); renderAll(); openLead(doc.id); }
+  } else if (f.id === "edit-form") {
+    const v = readDetails(); if (!v.name) return;
+    if (await patchLead(openId, v, "Edited details")) toast("Details saved");
+  } else if (f.id === "touch-form") {
+    const txt = $("#t-text").value.trim(); if (!txt) return;
+    const ok = await save(openId, {}, `${$("#t-ch").value}: ${txt}`, "Logged");
+    if (ok) { $("#t-text").value = ""; document.activeElement?.blur(); renderDrawer(); }
+  } else if (f.id === "p-number") {
+    const ph = $("#p-phone").value.trim(); if (digits(ph).length < 8) { toast("Enter the full number, with the country code if it isn't Indian."); return; }
+    await runAction(openId, "number", { phone: ph });
+  } else if (f.id === "p-meeting") {
+    const w = $("#p-when").value; if (!w) return; await runAction(openId, "meeting", { meeting_at: w });
+  } else if (f.id === "p-callback") {
+    const dt = $("#p-date").value; if (!dt) return; await runAction(openId, "callback", { date: dt });
+  } else if (f.id === "p-lost") {
+    await runAction(openId, "lost", { reason: $("#p-reason").value });
+  }
+});
+
+/* ── boot: lay the page out now, fill it once Voyce says who you are ── */
+try { const v = localStorage.getItem("vs-view"); if (["today", "pipeline", "all", "scripts"].includes(v)) view = v;
+  const tr = localStorage.getItem("vs-track"); if (tr === "dm" || tr === "call") pipeTrack = tr; } catch (_) {}
+try { const u = JSON.parse(localStorage.getItem("cm_user") || "null"); if (u) $("#nav-user").textContent = u.name || u.email || ""; } catch (_) {}
+renderSummary(); renderMain();
+async function startApp() {
+  const clerk = window.Clerk;
+  try { await clerk.load(); } catch (_) {}
+  if (!clerk || !clerk.user) { _toLogin(); return; }
+  await _refreshToken();
+  setInterval(_refreshToken, 50000);
+  window.addEventListener("focus", _refreshToken);
+  try { me = await api("GET", "/sales/me"); $("#nav-user").textContent = me.name || me.email || ""; }
+  catch (e) { if (e && e.code === 403) { denied = true; renderAll(); } return; }
+  await reload();
+  // A teammate's changes show up within half a minute, and as soon as you come back to the tab.
+  setInterval(() => { if (!document.hidden && ready) reload(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && ready) reload(); });
+}
+async function doAppLogout() {
+  try { if (window.Clerk) await window.Clerk.signOut(); } catch (_) {}
+  try { localStorage.clear(); } catch (_) {}
+  window.location.href = "/login";
+}
+</script>
+<script async crossorigin="anonymous" data-clerk-publishable-key="pk_live_Y2xlcmsudm95Y2UuY28uaW4k"
+  src="https://clerk.voyce.co.in/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" onload="startApp()"></script>
+</body>
+</html>

@@ -21,3 +21,5 @@ usage = _db["usage"]                   # 24-hour allowances for previews, idea l
 payments  = _db["payments"]
 scheduled = _db["scheduled_posts"]
 pending_posts = _db["pending_posts"]   # approval queue: generated posts held for the user's OK
+sales_leads = _db["sales_leads"]       # Voyce team outreach tracker (/sales): one doc per lead
+sales_config = _db["sales_config"]     # its shared message scripts
