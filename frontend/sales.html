@@ -80,6 +80,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* summary */
 .summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .chip { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.chip-link { cursor: pointer; font: inherit; font-size: 13px; }
+.chip-link:hover { border-color: var(--accent); color: var(--accent); }
 .chip b { font-family: var(--f-display); font-size: 16px; color: var(--fg); font-variant-numeric: tabular-nums; }
 .chip.alert { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: var(--bad-soft); }
 .chip.alert b { color: var(--bad); }
@@ -269,6 +271,9 @@ const STAGES = [
 ];
 const STAGE = Object.fromEntries(STAGES.map((s, i) => [s.key, { ...s, i }]));
 const CLOSED = new Set(["won", "lost"]);
+const isNotInt = l => l.stage === "lost" && l.lost_reason === "Not interested";
+// Reopen goes back to the step the lead was on before it was closed (a call lead stays on the call track).
+const lastOpenStage = l => { const h = (l.history || []).slice().reverse().find(x => x.stage && !CLOSED.has(x.stage)); return h ? h.stage : "tocall"; };
 const NEXT_STEP = { tocall: "Call the firm's line", try1: "Call again", try2: "Call again (last try)", try3: "Close, or switch to a LinkedIn DM",
   spoke: "Send the sample on WhatsApp", sample: "Call back about the sample", new: "Send the first DM", dm: "Send follow-up 1", fu1: "Send follow-up 2", fu2: "Send follow-up 3",
   fu3: "Close if there's still no reply", replied: "Ask for their number", number: "Call them", called: "Book the meeting",
@@ -323,6 +328,11 @@ function lookupCell(l) {
   if (!(l.linkedin || (l.name && l.company))) return note + `<span class="hint">Add their LinkedIn link or company to look them up.</span>`;
   return note + `<button class="btn" data-act="lookup" data-id="${esc(l.id)}">${l.lookup ? "Look up again" : "Find email & firm phone"}</button>`;
 }
+function closedBy(l) {
+  if (!CLOSED.has(l.stage)) return "";
+  const h = (l.history || []).slice().reverse().find(x => CLOSED.has(x.stage)); if (!h) return "";
+  return `<div class="hint">${esc([fmtStamp(h.at), h.by_name].filter(Boolean).join(" · "))}</div>`;
+}
 const ownerName = l => !l.owner ? "Nobody" : (l.owner === me.id ? "You" : (l.owner_name || "Teammate"));
 
 /* ── actions: what each step does to a lead ── */
@@ -376,7 +386,7 @@ const ACTION = {
   meeting: (l, v) => ({ stage: "meeting", meeting_at: v.meeting_at, next_due: v.meeting_at.slice(0, 10), _t: `Meeting booked for ${fmtMeeting(v.meeting_at)}` }),
   won: () => ({ stage: "won", next_due: "", _t: "Won: became a customer" }),
   lost: (l, v) => ({ stage: "lost", next_due: "", lost_reason: v.reason, _t: `Lost: ${v.reason}` }),
-  reopen: () => ({ stage: "replied", next_due: today(), lost_reason: "", _t: "Reopened" }),
+  reopen: l => ({ stage: lastOpenStage(l), next_due: today(), lost_reason: "", _t: "Reopened" }),
 };
 
 /* ── store: Voyce's /sales API (team only; the server stamps who did what) ── */
@@ -479,13 +489,15 @@ function renderSummary() {
   const week = addDays(t, 7);
   const meetings = leads.filter(l => l.stage === "meeting" && l.meeting_at && l.meeting_at.slice(0, 10) >= t && l.meeting_at.slice(0, 10) <= week).length;
   const won = leads.filter(l => l.stage === "won").length;
+  const notInt = leads.filter(isNotInt).length;
   $("#summary").innerHTML = !ready ? "" : [
     late ? `<span class="chip alert"><b>${late}</b> overdue</span>` : "",
     `<span class="chip"><b>${dueToday}</b> due today</span>`,
     `<span class="chip"><b>${calls}</b> calls to make</span>`,
     `<span class="chip"><b>${meetings}</b> meetings this week</span>`,
     `<span class="chip"><b>${active.length}</b> in progress</span>`,
-    `<span class="chip"><b>${won}</b> won</span>`].join("");
+    `<span class="chip"><b>${won}</b> won</span>`,
+    notInt ? `<button class="chip chip-link" data-act="show-notint" title="See who said no"><b>${notInt}</b> not interested</button>` : ""].join("");
   $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
   $("#n-all").textContent = ready ? String(leads.length) : "";
   $("#banner").hidden = true;
@@ -540,11 +552,12 @@ function viewAll() {
   const q = filters.q.trim().toLowerCase();
   let list = leads.slice();
   if (filters.stage === "active") list = list.filter(isActive);
+  else if (filters.stage === "notint") list = list.filter(isNotInt);
   else if (filters.stage !== "all") list = list.filter(l => l.stage === filters.stage);
   if (filters.owner === "mine") list = list.filter(l => l.owner && l.owner === me.id);
   if (q) list = list.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email].some(v => String(v || "").toLowerCase().includes(q)));
   list.sort((a, b) => (isActive(b) - isActive(a)) || (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
-  const opts = [["active", "In progress"], ["all", "All stages"], ...STAGES.map(s => [s.key, s.label])]
+  const opts = [["active", "In progress"], ["all", "All stages"], ["notint", "Not interested"], ...STAGES.map(s => [s.key, s.label])]
     .map(([v, t]) => `<option value="${v}" ${filters.stage === v ? "selected" : ""}>${esc(t)}</option>`).join("");
   const head = `<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city or number" value="${esc(filters.q)}">
     <select id="f-stage" aria-label="Stage">${opts}</select>
@@ -554,7 +567,7 @@ function viewAll() {
   return head + `<div class="table-scroll"><table><thead><tr><th>Name</th><th>Company</th><th>City</th><th>Stage</th><th>Next step</th><th>Phone</th><th>Owner</th></tr></thead><tbody>${list.map(l => {
     const d = dueInfo(l);
     return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td>${prio(l)}<b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
-      <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage])}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}</td>
+      <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage])}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}${closedBy(l)}</td>
       <td class="num">${esc(l.phone || "")}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
@@ -704,6 +717,7 @@ document.addEventListener("click", async e => {
   const act = el.dataset.act, id = el.dataset.id;
   if (act === "new") { if (!canWrite) return; openId = "new"; panel = null; dupMatch = null; renderDrawer(); }
   else if (act === "close") closeDrawer();
+  else if (act === "show-notint") { view = "all"; filters.stage = "notint"; filters.q = ""; renderSummary(); renderMain(); }
   else if (act === "open") openLead(id);
   else if (act === "open-panel") openLead(id, el.dataset.panel);
   else if (act === "set-panel") { panel = el.dataset.panel || null; renderDrawer(); }
