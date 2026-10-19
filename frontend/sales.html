@@ -72,6 +72,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.quiet { background: transparent; border-color: transparent; color: var(--muted); padding-inline: 8px; }
 .btn.quiet:hover { color: var(--fg); border-color: var(--line); }
 .btn.danger { color: var(--bad); }
+.btn.neg { color: var(--bad); }
+.toast-undo { margin-left: 10px; background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .btn.danger.solid { background: var(--bad); border-color: var(--bad); color: var(--surface); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -325,6 +327,12 @@ const ownerName = l => !l.owner ? "Nobody" : (l.owner === me.id ? "You" : (l.own
 
 /* ── actions: what each step does to a lead ── */
 function actionsFor(l) {
+  const acts = _actionsFor(l);
+  return NOT_INTERESTED_ON.has(l.stage) ? acts.concat([{ id: "notint", label: "Not interested", neg: true }]) : acts;
+}
+// Stages where they can say no: a call was answered or they wrote back. Closing it stops every follow-up.
+const NOT_INTERESTED_ON = new Set(["tocall", "try1", "try2", "spoke", "sample", "dm", "fu1", "fu2", "fu3", "replied", "number", "called"]);
+function _actionsFor(l) {
   const callOutcomes = next => [{ id: "spoke", label: "Spoke: interested", primary: true }, { id: next, label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
   switch (l.stage) {
     case "tocall": return callOutcomes("try1");
@@ -353,6 +361,7 @@ const ACTION = {
   callback: (l, v) => ({ next_due: v.date, _t: `Asked to be called back on ${fmtDay(v.date)}` }),
   to_dm: () => ({ stage: "new", next_due: today(), _t: "Switched to a LinkedIn DM after 3 unanswered calls" }),
   unreachable: () => ({ stage: "lost", next_due: "", lost_reason: "Unreachable by phone", _t: "Closed: unreachable by phone" }),
+  notint: () => ({ stage: "lost", next_due: "", lost_reason: "Not interested", _t: "Closed: not interested" }),
   sample: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Sent the sample on WhatsApp" }),
   sample_again: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Called about the sample" }),
   dm: () => ({ stage: "dm", next_due: addDays(today(), 3), dm_at: today(), _t: "Sent the first DM" }),
@@ -401,7 +410,9 @@ async function runAction(id, actId, vals = {}) {
   const l = leads.find(x => x.id === id); if (!l || !canWrite) return;
   const patch = ACTION[actId](l, vals); const text = patch._t; delete patch._t;
   panel = null;
-  await save(id, patch, text, text);
+  if (actId !== "notint") { await save(id, patch, text, text); return; }
+  const before = { stage: l.stage, next_due: l.next_due || "", lost_reason: l.lost_reason || "" };
+  if (await save(id, patch, text)) toast(`${l.name}: not interested. Closed.`, () => save(id, before, "Undid 'not interested'", "Reopened"));
 }
 async function patchLead(id, fields, text) { return save(id, fields, text); }
 async function reload() {
@@ -484,8 +495,9 @@ function renderSummary() {
 }
 function leadRow(l, opts = {}) {
   const d = dueInfo(l);
-  const acts = canWrite ? actionsFor(l).slice(0, 3).map(a =>
-    `<button class="btn ${a.primary ? "primary" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
+  const all = actionsFor(l), rowActs = all.filter(a => !a.neg).slice(0, 3).concat(all.filter(a => a.neg));
+  const acts = canWrite ? rowActs.map(a =>
+    `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
   const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
   return `<div class="row ${d.cls === "late" ? "late" : ""}">
     <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
@@ -609,7 +621,7 @@ function renderDrawer() {
   const l = leads.find(x => x.id === openId);
   if (!l) { d.innerHTML = `<div class="d-head"><div><h2>Lead removed</h2><div class="meta">Someone deleted this lead.</div></div>${CLOSE_BTN}</div>`; return; }
   const due = dueInfo(l), s = scriptFor(l);
-  const acts = canWrite ? actionsFor(l).map(a => `<button class="btn ${a.primary ? "primary" : ""}" data-act="${a.needs ? "set-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
+  const acts = canWrite ? actionsFor(l).map(a => `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "set-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
   const lostBtn = canWrite && isActive(l) && l.stage !== "meeting" ? `<button class="btn quiet" data-act="set-panel" data-panel="lost">Mark lost</button>` : "";
   const panels = {
     number: `<form class="inline-form" id="p-number"><input id="p-phone" type="tel" value="${esc(l.phone || "")}" placeholder="+91 98xxxxxxxx" required aria-label="Their number"><button class="btn primary" type="submit">Save number</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
@@ -674,7 +686,12 @@ function renderAll() {
 
 /* ── small helpers ── */
 let toastTimer = null;
-function toast(msg) { const t = $("#s-toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+function toast(msg, undo) {
+  const t = $("#s-toast"); t.textContent = msg;
+  if (undo) { const b = document.createElement("button"); b.className = "toast-undo"; b.textContent = "Undo";
+    b.onclick = () => { t.hidden = true; clearTimeout(toastTimer); undo(); }; t.append(" ", b); }
+  t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, undo ? 7000 : 2600);
+}
 function copy(text, done = "Copied") {
   const fallback = () => { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
     let ok = false; try { ok = document.execCommand("copy"); } catch (_) {} ta.remove(); toast(ok ? done : "Couldn't copy. Select the text and copy it yourself."); };
