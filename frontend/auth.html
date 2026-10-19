@@ -82,10 +82,10 @@
 
   <script>
     // Where to go after signing in: back to the page that sent you here, if it's one
-    // of ours (only /setup or /tool, so this can never redirect off the site).
+    // of ours (only /setup, /tool or /sales, so this can never redirect off the site).
     const _next = (() => {
       const n = new URLSearchParams(location.search).get("next") || "";
-      return /^\/(setup|tool)(#[a-z-]+)?$/.test(n) ? n : "";
+      return /^\/(setup|tool|sales)(#[a-z-]+)?$/.test(n) ? n : "";
     })();
 
     async function startApp() {

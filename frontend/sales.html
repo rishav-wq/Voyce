@@ -391,11 +391,15 @@ const ACTION = {
 
 /* ── store: Voyce's /sales API (team only; the server stamps who did what) ── */
 let _clerkToken = null;
-async function _refreshToken() { try { if (window.Clerk && window.Clerk.session) _clerkToken = await window.Clerk.session.getToken(); } catch (_) {} }
+async function _refreshToken(fresh) { try { if (window.Clerk && window.Clerk.session) _clerkToken = await window.Clerk.session.getToken(fresh ? { skipCache: true } : undefined); } catch (_) {} }
 function _toLogin() { window.location.href = "/login?next=" + encodeURIComponent(location.pathname); }
-async function api(method, path, body) {
+// Clerk's tokens last about a minute and a background tab's timers stall (sleep, other tabs), so every
+// call asks Clerk for a current token, and a rejected one gets one fresh retry before going to sign-in.
+async function api(method, path, body, retried) {
+  await _refreshToken();
   const r = await fetch(path, { method, headers: { "Content-Type": "application/json", "x-token": _clerkToken || "" }, body: body ? JSON.stringify(body) : undefined });
   let data = null; try { data = await r.json(); } catch (_) {}
+  if (r.status === 401 && !retried) { await _refreshToken(true); return api(method, path, body, true); }
   if (r.status === 401) { _toLogin(); throw { code: 401, detail: "" }; }
   if (!r.ok) throw { code: r.status, detail: (data && data.detail) || "" };
   return data;
