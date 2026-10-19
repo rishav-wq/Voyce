@@ -164,7 +164,7 @@ tr:last-child td { border-bottom: 0; }
   overscroll-behavior: contain;   /* scrolling the panel never scrolls the page behind it */
   padding: 0 var(--dp-x) 28px; }
 @media (min-width: 861px) { .scrim { left: 248px; } }   /* the sidebar stays bright */
-html.panel-open, html.panel-open body { overflow: hidden; }
+html.panel-open { overflow: hidden; }   /* on html only: overflow on body would make it the scroller and unstick the sidebar */
 .scrim { overscroll-behavior: contain; touch-action: none; }
 @media (max-width: 860px) { .drawer { --dp-x: 16px; top: 8px; right: 8px; bottom: 8px; left: 8px; border-radius: 14px; } }
 .d-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;
@@ -199,8 +199,8 @@ html.panel-open, html.panel-open body { overflow: hidden; }
 @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
 .warnbox { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
 .hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.hist li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 12.5px; }
-.hist time { color: var(--faint); font-variant-numeric: tabular-nums; }
+.hist li { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; font-size: 12.5px; }
+.hist time { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .hist .t { overflow-wrap: anywhere; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 40; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
 @media (prefers-reduced-motion: no-preference) { .drawer { animation: slide .18s ease-out; } @keyframes slide { from { transform: translateX(24px); opacity: .6; } } }
