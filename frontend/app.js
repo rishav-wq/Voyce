@@ -53,6 +53,7 @@ async function loadProfilePicker() {
     // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
     _setPreviewAuthor();
+    _syncWhatsAppTarget();
   } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
@@ -535,6 +536,59 @@ function _editorText(el) {
 function _postText() {
   return _editorText(document.getElementById("linkedin-content"));
 }
+// ── WhatsApp: send the post (and its image) as a sample ──────────────────────
+// Writing as someone who is also a Sales lead with a mobile number: their chat opens directly
+// (wa.me/<number>), which works even when they aren't in your contacts.
+let _waTarget = null;
+async function _syncWhatsAppTarget() {
+  _waTarget = null;
+  const btn = document.getElementById("wa-btn");
+  if (btn) btn.textContent = "WhatsApp";
+  const u = getUser(), prof = (typeof _activeProfile === "function") ? _activeProfile() : null;
+  if (!u || !u.sales_access || !prof || !prof.name) return;
+  const asked = prof.id;
+  try {
+    const r = await fetch("/sales/lead-for?name=" + encodeURIComponent(prof.name), { headers: { "x-token": getToken() } });
+    const t = r.ok ? await r.json() : {};
+    if ((_activeProfile() || {}).id !== asked) return;      // switched profile meanwhile
+    if (t && t.whatsapp) {
+      _waTarget = t;
+      if (btn) btn.textContent = "WhatsApp " + String(t.name || prof.name).split(" ")[0].replace(/[.,]$/, "");
+    }
+  } catch (_) {}
+}
+async function _imageToPngBlob() {
+  const bytes = Uint8Array.from(atob(_attachB64), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: _attachMime });
+  if (_attachMime === "image/png") return blob;
+  const bmp = await createImageBitmap(blob);           // the clipboard only takes PNG
+  const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+  c.getContext("2d").drawImage(bmp, 0, 0);
+  return await new Promise(res => c.toBlob(res, "image/png"));
+}
+async function shareWhatsApp(btn) {
+  const text = _postText();
+  if (!text) { toast("Generate a post first.", "warn"); return; }
+  const to = (_waTarget && _waTarget.whatsapp) || "";
+  // No one in particular, an image, and a share sheet that takes files (phones, Chrome/Edge on Windows): post + image together
+  if (!to && _attachB64 && navigator.canShare) {
+    try {
+      const bytes = Uint8Array.from(atob(_attachB64), c => c.charCodeAt(0));
+      const file = new File([bytes], "voyce-post." + _attachExt(), { type: _attachMime });
+      if (navigator.canShare({ files: [file], text })) { await navigator.share({ files: [file], text }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  // A WhatsApp link carries text only, so the image goes to the clipboard to paste into the chat
+  let copied = false;
+  if (_attachB64 && navigator.clipboard && window.ClipboardItem) {
+    try { const png = await _imageToPngBlob(); await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]); copied = true; } catch (_) {}
+  }
+  window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(text), "_blank", "noopener");
+  const who = to ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") : "";
+  toast(copied ? `Image copied: paste it into ${who ? who + "'s" : "the"} chat (Ctrl+V) before sending.`
+               : (_attachB64 ? "The image can't go in a WhatsApp link: attach it in the chat." : (who ? `Opening ${who}'s chat…` : "Opening WhatsApp…")), "info");
+}
+
 function _resetPostButton() {
   const btn = document.getElementById("post-now-btn");
   if (btn) { btn.disabled = false; btn.textContent = "Post now"; }

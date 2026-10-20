@@ -425,6 +425,8 @@
     .li-name { font-size: 14.5px; font-weight: 700; color: #16181d; line-height: 1.15; }
     .li-sub { font-size: 12px; color: #6d7482; }
     .li-title { font-size: 12px; color: #4b5260; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
+    .wa-btn { color: #0b7a3e; border-color: #b9e3c9; }
+    .wa-btn:hover { background: #effaf3; }
     .li-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 
     /* LinkedIn card spans full width */
@@ -631,7 +633,7 @@
         <span>Compose</span>
         <span id="writing-as" style="display:none;align-items:center;gap:8px;margin-left:auto;text-transform:none;letter-spacing:0;font-size:13px;color:#5b6270;">
           ✍️ Writing as
-          <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';_setPreviewAuthor();" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
+          <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';_setPreviewAuthor();_syncWhatsAppTarget();" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
           </select>
         </span>
       </div>
@@ -770,6 +772,7 @@
                  holds only what you do *to* a finished post. -->
             <div class="card-actions">
               <button class="action-btn" onclick="copyContent('linkedin-content', this)">Copy</button>
+              <button class="action-btn wa-btn" id="wa-btn" onclick="shareWhatsApp(this)" title="Send this post on WhatsApp">WhatsApp</button>
               <button class="action-btn" onclick="openSchedule()">Schedule</button>
               <button class="action-btn primary" id="post-now-btn" onclick="postToLinkedIn()">Post now</button>
             </div>

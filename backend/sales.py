@@ -341,6 +341,41 @@ def profile_lookup(body: ProfileLookupIn, x_token: str = Header(None)):
             "photo": photo_data_url(found.get("photo_url", ""))}
 
 
+def whatsapp_number(raw: str) -> str:
+    """An Indian mobile number as WhatsApp wants it (91XXXXXXXXXX), or "" for a landline or anything unclear.
+    Digits alone can't tell a Bengaluru landline (80 4568 5411) from a mobile, but the way it's written can:
+    landlines carry the city code as its own group (22, 80, 124, 484...); mobiles start their first group with 6-9."""
+    groups = re.findall(r"\d+", raw or "")
+    if groups and groups[0] in ("91", "0091"):
+        groups = groups[1:]
+    elif groups and len(groups[0]) == 12 and groups[0].startswith("91"):
+        groups = [groups[0][2:]] + groups[1:]
+    if not groups:
+        return ""
+    groups[0] = groups[0].lstrip("0")
+    d = "".join(groups)
+    first = groups[0]
+    if len(d) != 10 or not first or first[0] not in "6789" or len(first) < 3:
+        return ""
+    return "91" + d
+
+
+@router.get("/sales/lead-for")
+def lead_for(name: str = "", x_token: str = Header(None)):
+    """For the Write page's WhatsApp button: the Sales lead the team is writing as (same person by
+    name), with a mobile number to open their chat. Their own number first, then the firm's."""
+    import linkedin as li
+    _team_user(x_token)
+    name = (name or "").strip()[:120]
+    if not name:
+        return {}
+    for lead in db.sales_leads.find({}, {"_id": 0, "id": 1, "name": 1, "phone": 1, "firm_phone": 1}):
+        if li._same_person(name, lead.get("name", "")):
+            num = whatsapp_number(lead.get("phone", "")) or whatsapp_number(lead.get("firm_phone", ""))
+            return {"lead_id": lead["id"], "name": lead.get("name", ""), "whatsapp": num}
+    return {}
+
+
 class EnrichIn(BaseModel):
     linkedin: str = ""
     name: str = ""
