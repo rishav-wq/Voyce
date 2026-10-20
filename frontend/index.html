@@ -535,6 +535,13 @@
       white-space: pre-wrap; overflow-wrap: anywhere; }
     .wa-shot-tag { color: #0a66c2; font-weight: 600; }
     .wa-shot-img { display: block; width: 100%; height: auto; }
+    .wa-shot-slides { display: grid; gap: 4px; padding: 0 12px 10px; }
+    .wa-shot-slides img { display: block; width: 100%; height: auto; border-radius: 3px; }
+    .wa-shot-tile { position: relative; }
+    .wa-shot-more { position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: 3px; background: rgba(14,16,22,.92);
+      color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      font-size: 40px; font-weight: 700; line-height: 1; }
+    .wa-shot-more small { font-size: 13px; font-weight: 600; letter-spacing: .02em; opacity: .9; }
     .wa-shot .li-reactbar { margin: 4px 12px 0; padding: 0; border-top: 1px solid #e8e8e8; }
     .wa-shot .li-react { padding: 11px 2px; gap: 5px; font-size: 12.5px; color: rgba(0,0,0,.6); }
     .wa-shot .li-react span { display: inline; }
@@ -655,19 +662,6 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.15);
     }
     .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
-    /* Sending a carousel to a WhatsApp chat: two steps */
-    .modal-box.wa-send { width: 440px; max-width: calc(100vw - 32px); }
-    .modal-box.wa-send h3 { margin-bottom: 12px; }
-    .wa-send-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; }
-    .wa-send-strip img { flex: 0 0 auto; width: 56px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 4px; box-shadow: 0 0 0 1px #e4e7ec; }
-    .wa-step { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid #eef0f3; }
-    .wa-step-num { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; background: #24365e; color: #fff;
-      display: grid; place-items: center; font-size: 12.5px; font-weight: 700; }
-    .wa-step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-    .wa-step-text { font-size: 13.5px; line-height: 1.5; color: #2b303a; }
-    .wa-step-alt { font-size: 12px; color: #6d7482; line-height: 1.5; }
-    .wa-link { border: 0; background: none; padding: 0; font: inherit; color: #24365e; font-weight: 600; text-decoration: underline; cursor: pointer; }
-    .wa-send-foot { display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #eef0f3; }
     .modal-box label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
     .modal-box input[type=datetime-local] {
       width: 100%; padding: 10px 13px; border: 1.5px solid #d3d8e0;

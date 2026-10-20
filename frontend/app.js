@@ -631,7 +631,8 @@ function _el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
-function _buildShot() {
+// opts (carousels): text = the caption, slides = slide image URLs laid out cols to a row, width in px
+function _buildShot(opts = {}) {
   const shot = _el("div", "wa-shot"), card = _el("div", "wa-shot-card"), head = _el("div", "wa-shot-head");
   const av = document.getElementById("li-avatar").cloneNode(true);
   av.removeAttribute("id"); av.className = "wa-shot-av";
@@ -643,11 +644,27 @@ function _buildShot() {
   who.append(when);
   head.append(av, who, _el("div", "wa-shot-dots", "•••"));
   const text = _el("div", "wa-shot-text");
-  _postText().split(/(#[\p{L}_][\p{L}\p{N}_]*)/u).forEach((part, i) =>
+  (opts.text != null ? opts.text : _postText()).split(/(#[\p{L}_][\p{L}\p{N}_]*)/u).forEach((part, i) =>
     text.append(i % 2 ? _el("span", "wa-shot-tag", part) : document.createTextNode(part)));
   card.append(head, text);
+  if (opts.width) shot.style.width = opts.width + "px";
   const media = document.getElementById("li-media"), img = document.getElementById("li-attach-img");
-  if (media && getComputedStyle(media).display !== "none" && img && img.getAttribute("src")) {
+  if (opts.slides) {
+    const grid = _el("div", "wa-shot-slides");
+    grid.style.gridTemplateColumns = `repeat(${opts.cols || 2}, 1fr)`;
+    grid.append(...opts.slides.map((u, i) => {
+      const tile = _el("div", "wa-shot-tile"), im = _el("img");
+      im.src = u;
+      tile.append(im);
+      if (opts.more && i === opts.slides.length - 1) {   // like a photo album: there's more inside
+        const more = _el("div", "wa-shot-more", `+${opts.more}`);
+        more.append(_el("small", "", `more slide${opts.more === 1 ? "" : "s"}`));
+        tile.append(more);
+      }
+      return tile;
+    }));
+    card.append(grid);
+  } else if (media && getComputedStyle(media).display !== "none" && img && img.getAttribute("src")) {
     const pic = _el("img", "wa-shot-img");
     pic.src = img.src;
     card.append(pic);
@@ -659,10 +676,10 @@ function _buildShot() {
   shot.append(card, foot);
   return shot;
 }
-async function _previewImage() {
+async function _previewImage(opts) {
   await _loadHtml2Canvas();
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
-  const shot = _buildShot();
+  const shot = _buildShot(opts);
   // Off the page's edge, and moved into view only in html2canvas's copy. (Not visibility:hidden:
   // html2canvas carries that onto the SVG icons, which then come out blank.)
   document.body.appendChild(shot);
@@ -676,6 +693,17 @@ async function _previewImage() {
     shot.remove();
   }
 }
+// A carousel as one image, like a post: the caption, then every slide in a grid
+async function _carouselImage(cols = 2, width = 0, max = 6) {   // 2 a row reads on a phone
+  const blobs = await _carouselSlides();
+  const urls = blobs.slice(0, max).map(b => URL.createObjectURL(b));
+  try {
+    const cap = ((document.getElementById("carousel-post-text") || {}).textContent || "").trim();
+    return await _previewImage({ text: cap, slides: urls, cols, width, more: blobs.length - urls.length });
+  } finally {
+    urls.forEach(u => URL.revokeObjectURL(u));
+  }
+}
 function _openChat(to, text) {
   const url = "https://wa.me/" + (to || "") + (text ? "?text=" + encodeURIComponent(text) : "");
   const w = window.open(url, "_blank");
@@ -687,48 +715,46 @@ function _waIntro(kind) {
   const first = _waTarget ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") : "";
   return first ? `Hi ${first}, here's a LinkedIn ${kind} Voyce wrote for you:` : "";
 }
-// A carousel goes out on LinkedIn as its caption plus the slides, so the chat message carries
-// the caption and the album follows it. Without it a prospect saw only half the post.
-function _carouselMessage() {
-  const cap = ((document.getElementById("carousel-post-text") || {}).textContent || "").trim();
-  if (!cap) return _waIntro("carousel");
-  const first = _waTarget ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") : "";
-  return `Hi${first ? " " + first : ""}, here's a LinkedIn carousel Voyce wrote for you. This is the text that goes with it:\n\n${cap}\n\nThe slides are next 👇`;
-}
 async function shareWhatsApp(btn) {
   if (!_postText()) { toast("Generate a post first.", "warn"); return; }
-  const to = (_waTarget && _waTarget.whatsapp) || "";
   const label = btn ? btn.textContent : "";
   if (btn) { btn.disabled = true; btn.textContent = "Preparing…"; }
   try {
     let png = null;
     try { png = await _previewImage(); } catch (_) {}
     if (!png) { toast("Couldn't make the post image. Use Copy and paste the text instead.", "warn"); return; }
-    const file = new File([png], "linkedin-post.png", { type: "image/png" });
-    // Nobody in particular, and a share sheet that takes files (phones, Chrome/Edge on Windows): straight in
-    if (!to && navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file] }); } catch (e) { if (!(e && e.name === "AbortError")) toast("Sharing didn't work here.", "warn"); }
-      return;
-    }
-    // A WhatsApp link carries text only: the post image goes to the clipboard, to paste into the chat
-    let copied = false;
-    if (navigator.clipboard && window.ClipboardItem) {
-      try { await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]); copied = true; } catch (_) {}
-    }
-    if (!copied) {   // no clipboard for images here: save it, to attach
-      const a = document.createElement("a"); a.href = URL.createObjectURL(png); a.download = "linkedin-post.png"; a.click();
-    }
-    _openChat(to, _waIntro("post"));
-    const who = to ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") + "'s" : "the";
-    toast(copied ? `Post copied as an image: paste it into ${who} chat (Ctrl+V) and send.`
-                 : `Post saved as an image: attach it in ${who} chat.`, "info");
+    await _sendImageOnWhatsApp(png, "post");
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
-// Carousels go as the real thing: the PDF
-// Carousels go as every slide, as images: in WhatsApp they open as an album you can swipe,
-// where a PDF shows as a file icon. The slides come from the carousel PDF (pdf.js).
+// One image into WhatsApp, for a post and a carousel alike. Nobody in particular, and a share
+// sheet that takes files (phones, Chrome/Edge on Windows): straight in. Otherwise a chat link
+// carries text only, so the image goes to the clipboard and the chat opens to paste it into.
+async function _sendImageOnWhatsApp(png, kind) {
+  const to = (_waTarget && _waTarget.whatsapp) || "";
+  const name = `linkedin-${kind}.png`;
+  const file = new File([png], name, { type: "image/png" });
+  if (!to && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); } catch (e) { if (!(e && e.name === "AbortError")) toast("Sharing didn't work here.", "warn"); }
+    return;
+  }
+  let copied = false;
+  if (navigator.clipboard && window.ClipboardItem) {
+    try { await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]); copied = true; } catch (_) {}
+  }
+  if (!copied) {   // no clipboard for images here: save it, to attach
+    const a = document.createElement("a"); a.href = URL.createObjectURL(png); a.download = name; a.click();
+  }
+  _openChat(to, _waIntro(kind));
+  const who = to ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") + "'s" : "the";
+  const What = kind === "carousel" ? "Carousel" : "Post";
+  const pdf = kind === "carousel" ? " For every slide full size, also attach the PDF (Download PDF)." : "";
+  toast((copied ? `${What} copied as an image: paste it into ${who} chat (Ctrl+V) and send.`
+                : `${What} saved as an image: attach it in ${who} chat.`) + pdf, "info");
+}
+// The carousel's slides, drawn from its PDF (pdf.js): the card shows them and the WhatsApp
+// image is built from them.
 let _pdfjsLoading = null;
 function _loadPdfJs() {
   if (window.pdfjsLib) return Promise.resolve();
@@ -765,80 +791,25 @@ async function _drawCarouselSlides(b64) {
   }
   return out;
 }
+// A carousel into WhatsApp the way a post goes: one image that looks like it will on LinkedIn,
+// the caption and then its first six slides two to a row (the sixth marked "+N more"). Ten
+// slides in one picture came out too small to read on a phone; every slide, full size, is the PDF.
 async function shareCarouselWhatsApp(btn) {
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
-  const to = (_waTarget && _waTarget.whatsapp) || "";
   const label = btn ? btn.textContent : "";
-  if (btn) { btn.disabled = true; btn.textContent = "Preparing slides…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Preparing…"; }
   try {
-    let slides = [];
-    try { slides = await _carouselSlides(); } catch (_) {}
-    if (!slides.length) {   // couldn't draw the slides here: send the PDF instead
-      downloadCarousel(); _openChat(to, _carouselMessage());
+    let png = null;
+    try { png = await _carouselImage(); } catch (_) {}
+    if (!png) {   // couldn't draw the slides here: send the PDF instead
+      downloadCarousel(); _openChat((_waTarget && _waTarget.whatsapp) || "", _waIntro("carousel"));
       toast("Carousel PDF downloaded: attach it in the chat (📎 → Document) and send.", "info");
       return;
     }
-    const files = slides.map((b, i) => new File([b], `slide-${i + 1}.jpg`, { type: "image/jpeg" }));
-    if (!to && navigator.canShare && navigator.canShare({ files })) {
-      try { await navigator.share({ files }); } catch (e) { if (!(e && e.name === "AbortError")) toast("Sharing didn't work here.", "warn"); }
-      return;
-    }
-    _carouselSendPanel(to, files, !!(navigator.canShare && navigator.canShare({ files })));
+    await _sendImageOnWhatsApp(png, "carousel");
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = label; }
   }
-}
-// A carousel into a particular chat. A chat link carries text only and the clipboard holds one
-// image, so Ctrl+V can't bring 9 slides. Two steps, in a panel that stays put while you switch
-// to WhatsApp and back: open the chat (intro typed in), then add the slides, all at once through
-// the share window (into the WhatsApp app), or saved to Downloads to drag in.
-function _carouselSendPanel(to, files, canShare) {
-  document.getElementById("wa-send-modal")?.remove();
-  const first = to && _waTarget ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") : "";
-  const whose = first ? `${first}'s chat` : "the chat";
-  const n = files.length, urls = files.map(f => URL.createObjectURL(f));
-  const bg = _el("div", "modal-backdrop"), box = _el("div", "modal-box wa-send");
-  bg.id = "wa-send-modal";
-  const close = () => { urls.forEach(u => URL.revokeObjectURL(u)); bg.remove(); document.removeEventListener("keydown", onKey); };
-  const onKey = e => { if (e.key === "Escape") close(); };
-  bg.onclick = e => { if (e.target === bg) close(); };
-  document.addEventListener("keydown", onKey);
-  const strip = _el("div", "wa-send-strip");
-  strip.append(...urls.map((u, i) => { const im = _el("img"); im.src = u; im.alt = `Slide ${i + 1}`; return im; }));
-  const step = (num, text, ...buttons) => {
-    const row = _el("div", "wa-step"), body = _el("div", "wa-step-body");
-    body.append(_el("div", "wa-step-text", text), ...buttons);
-    row.append(_el("span", "wa-step-num", String(num)), body);
-    return row;
-  };
-  const button = (text, cls, onclick) => { const b = _el("button", "action-btn " + cls, text); b.type = "button"; b.onclick = onclick; return b; };
-  const save = () => {
-    files.forEach((f, i) => setTimeout(() => { const a = document.createElement("a"); a.href = urls[i]; a.download = f.name; a.click(); }, i * 250));
-    toast(`${n} slides saved to Downloads. If Chrome asks about downloading several files, choose Allow.`, "info");
-  };
-  const open = button(first ? `Open ${first}'s chat` : "Open WhatsApp", "wa-btn", () => _openChat(to, _carouselMessage()));
-  const s1 = step(1, first ? `Open ${whose}. Your hello and the post's text are typed in: press Enter to send.`
-                           : "Open WhatsApp and pick the chat. The post's text is typed in: press Enter to send.", open);
-  let s2;
-  if (canShare) {
-    const share = button(`Share ${n} slides`, "primary", async () => {
-      try { await navigator.share({ files }); }
-      catch (e) { if (!(e && e.name === "AbortError")) toast("The share window didn't open here. Save the slides instead.", "warn"); }
-    });
-    const alt = _el("div", "wa-step-alt", "No WhatsApp in that window? ");
-    const link = _el("button", "wa-link", "Save the slides");
-    link.type = "button"; link.onclick = save;
-    alt.append(link, document.createTextNode(` and drag them into ${whose}.`));
-    s2 = step(2, `Add the ${n} slides: in the share window pick WhatsApp, then ${whose}. They go as one album.`, share, alt);
-  } else {
-    s2 = step(2, `Save the ${n} slides, then drag them from Downloads into ${whose}. They go as one album.`,
-              button(`Save ${n} slides`, "primary", save));
-  }
-  const foot = _el("div", "wa-send-foot");
-  foot.append(button("Done", "", close));
-  box.append(_el("h3", "", first ? `Send this carousel to ${first}` : "Send this carousel on WhatsApp"), strip, s1, s2, foot);
-  bg.append(box);
-  document.body.append(bg);
 }
 
 function _resetPostButton() {
