@@ -317,6 +317,12 @@ const pill = k => { const s = STAGE[k] || STAGE.new; return `<span class="pill g
 const isActive = l => !CLOSED.has(l.stage);
 const prio = l => Number.isInteger(l.priority) && l.priority > 0 ? `<span class="prio" title="Call-list priority: ${l.priority}">#${l.priority}</span>` : "";
 const byPrio = (a, b) => (a.priority || 1e9) - (b.priority || 1e9);
+// Already being worked (called, sample sent, DM'd): these stay above leads nobody has contacted yet.
+const inProgress = l => isActive(l) && l.stage !== "tocall" && l.stage !== "new";
+const byWorkedFirst = (a, b) => inProgress(b) - inProgress(a);
+// Leads nobody has contacted yet: the ones with a number to call come before the ones without.
+const hasPhone = l => !!(String(l.phone || "").trim() || String(l.firm_phone || "").trim());
+const byPhoneFirst = (a, b) => (inProgress(a) || inProgress(b)) ? 0 : hasPhone(b) - hasPhone(a);
 const isDue = l => isActive(l) && l.next_due && l.next_due <= today();
 const normLi = u => String(u || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
 const digits = p => String(p || "").replace(/\D/g, "");
@@ -530,7 +536,9 @@ function emptyState(msg) {
 function viewToday() {
   if (!leads.length) return emptyState("No leads yet. Add the first person you're DMing on LinkedIn: a name and their profile link is enough. Voyce Sales then tells you when each follow-up is due.");
   const t = today();
-  const due = leads.filter(isDue).sort((a, b) => (a.next_due || "").localeCompare(b.next_due || "") || STAGE[b.stage].i - STAGE[a.stage].i || byPrio(a, b));
+  // Worked leads first (furthest along first); leads nobody has contacted yet go by their rank.
+  const due = leads.filter(isDue).sort((a, b) => byWorkedFirst(a, b) || byPhoneFirst(a, b) || (a.next_due || "").localeCompare(b.next_due || "")
+    || (inProgress(a) ? STAGE[b.stage].i - STAGE[a.stage].i : 0) || byPrio(a, b));
   const soon = leads.filter(l => isActive(l) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting").sort((a, b) => a.next_due.localeCompare(b.next_due) || byPrio(a, b));
   const meetings = leads.filter(l => l.stage === "meeting" && (l.meeting_at || "").slice(0, 10) >= t).sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
   const sec = (title, list, none) => `<section class="section"><h3>${title}<span class="num">${list.length}</span></h3>${list.length ? `<div class="list">${list.map(l => leadRow(l)).join("")}</div>` : `<div class="hint">${none}</div>`}</section>`;
@@ -560,7 +568,7 @@ function viewAll() {
   else if (filters.stage !== "all") list = list.filter(l => l.stage === filters.stage);
   if (filters.owner === "mine") list = list.filter(l => l.owner && l.owner === me.id);
   if (q) list = list.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email].some(v => String(v || "").toLowerCase().includes(q)));
-  list.sort((a, b) => (isActive(b) - isActive(a)) || (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
+  list.sort((a, b) => (isActive(b) - isActive(a)) || byWorkedFirst(a, b) || byPhoneFirst(a, b) || (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
   const opts = [["active", "In progress"], ["all", "All stages"], ["notint", "Not interested"], ...STAGES.map(s => [s.key, s.label])]
     .map(([v, t]) => `<option value="${v}" ${filters.stage === v ? "selected" : ""}>${esc(t)}</option>`).join("");
   const head = `<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city or number" value="${esc(filters.q)}">
