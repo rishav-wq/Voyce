@@ -733,9 +733,19 @@ function _loadPdfJs() {
   });
   return _pdfjsLoading;
 }
-async function _carouselSlides() {
+// Drawn once per carousel: the card shows these slides and WhatsApp sends the very same ones.
+let _slidesKey = null, _slidesJob = null;
+function _carouselSlides() {
+  if (_slidesKey !== _carouselPdfBase64 || !_slidesJob) {
+    const key = _slidesKey = _carouselPdfBase64;
+    _slidesJob = _drawCarouselSlides(key);
+    _slidesJob.catch(() => { if (_slidesKey === key) _slidesJob = null; });   // try again next time
+  }
+  return _slidesJob;
+}
+async function _drawCarouselSlides(b64) {
   await _loadPdfJs();
-  const bytes = Uint8Array.from(atob(_carouselPdfBase64), c => c.charCodeAt(0));
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
   const out = [];
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -1456,6 +1466,7 @@ function _showCarouselResult(data) {
   postBtn.textContent = "Post to LinkedIn";
   postBtn.disabled = false;
   document.getElementById("carousel-section").classList.add("visible");
+  _showCarouselSlides();
   markGenerated();
   document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1471,13 +1482,98 @@ function downloadCarousel() {
 // Look at the slides without committing to a download. A blob URL, not a data:
 // one — Chrome refuses to hand a data:application/pdf to its PDF viewer.
 let _carouselBlobUrl = null;
-function viewCarouselSlides() {
+// Every slide, right in the carousel card (it used to show only the caption: the slides were a
+// download or a new tab away). Click one to open the deck at that page.
+// Shown the way LinkedIn shows a carousel: one slide at a time from the cover, with arrows, a
+// counter and a progress bar, since the cover is what earns the swipe. "All N slides" lays
+// them out side by side for proofreading.
+let _slideUrls = [], _slideIdx = 0, _slidesAll = false;
+async function _showCarouselSlides() {
+  const box = document.getElementById("carousel-slides");
+  if (!box) return;
+  const key = _carouselPdfBase64;
+  _slideUrls.forEach(u => URL.revokeObjectURL(u));
+  _slideUrls = [];
+  box.replaceChildren(_el("div", "slides-note", "Drawing the slides…"));
+  try {
+    const blobs = await _carouselSlides();
+    if (key !== _carouselPdfBase64) return;   // a newer carousel took its place
+    _slideUrls = blobs.map(b => URL.createObjectURL(b));
+    _slideIdx = 0;
+    _slidesAll = false;
+    _paintSlides();
+  } catch (_) {
+    if (key === _carouselPdfBase64) box.replaceChildren(_el("div", "slides-note", "Couldn't draw the slides here. View slides opens them."));
+  }
+}
+function _paintSlides() {
+  const box = document.getElementById("carousel-slides");
+  const n = _slideUrls.length;
+  if (!box || !n) return;
+  const mode = _el("button", "slides-mode", _slidesAll ? "◫ One at a time" : `▦ All ${n} slides`);
+  mode.type = "button";
+  mode.onclick = () => { _slidesAll = !_slidesAll; _paintSlides(); };
+  if (_slidesAll) {
+    const grid = _el("div", "slides-grid");
+    grid.append(..._slideUrls.map((u, i) => {
+      const im = _el("img");
+      im.src = u; im.alt = `Slide ${i + 1}`; im.title = `Slide ${i + 1}`;
+      im.onclick = () => { _slideIdx = i; _slidesAll = false; _paintSlides(); };
+      return im;
+    }));
+    box.replaceChildren(grid, mode);
+    return;
+  }
+  const viewer = _el("div", "slide-viewer"), stage = _el("div", "slide-stage"), im = _el("img");
+  im.alt = ""; im.title = "Click to see it large";
+  im.draggable = false;
+  im.onclick = () => viewCarouselSlides(_slideIdx + 1);
+  const nav = (cls, label, d) => {
+    const b = _el("button", "slide-nav " + cls, label);
+    b.type = "button"; b.setAttribute("aria-label", d < 0 ? "Previous slide" : "Next slide");
+    b.onclick = () => _goSlide(d);
+    return b;
+  };
+  const prev = nav("prev", "‹", -1), next = nav("next", "›", 1), count = _el("span", "slide-count");
+  const bar = _el("div", "slide-progress"), fill = _el("i");
+  bar.append(fill);
+  stage.tabIndex = 0;
+  stage.setAttribute("aria-label", "Carousel slides: use the arrow keys");
+  stage.onkeydown = e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); _goSlide(e.key === "ArrowLeft" ? -1 : 1); } };
+  let sx = null, sy = 0;   // swipe on touch screens
+  stage.onpointerdown = e => { sx = e.clientX; sy = e.clientY; };
+  stage.onpointerup = e => {
+    if (sx === null) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    sx = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) _goSlide(dx < 0 ? 1 : -1);
+  };
+  stage.append(im, prev, next, count);
+  viewer.append(stage, bar);
+  box.replaceChildren(viewer, mode);
+  _slideEls = { im, prev, next, count, fill };
+  _goSlide(0);
+}
+let _slideEls = null;
+function _goSlide(d) {
+  const n = _slideUrls.length;
+  if (!n || !_slideEls) return;
+  _slideIdx = Math.max(0, Math.min(n - 1, _slideIdx + d));
+  const { im, prev, next, count, fill } = _slideEls;
+  im.src = _slideUrls[_slideIdx];
+  im.alt = `Slide ${_slideIdx + 1} of ${n}`;
+  prev.hidden = _slideIdx === 0;
+  next.hidden = _slideIdx === n - 1;
+  count.textContent = `${_slideIdx + 1} / ${n}`;
+  fill.style.width = `${((_slideIdx + 1) / n) * 100}%`;
+}
+function viewCarouselSlides(page) {
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
   try {
     if (_carouselBlobUrl) URL.revokeObjectURL(_carouselBlobUrl);
     const bytes = Uint8Array.from(atob(_carouselPdfBase64), c => c.charCodeAt(0));
     _carouselBlobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-    const w = window.open(_carouselBlobUrl, "_blank");
+    const w = window.open(_carouselBlobUrl + (typeof page === "number" ? "#page=" + page : ""), "_blank");
     if (!w) toast("Your browser blocked the popup — use Download PDF instead.", "warn");
   } catch (_) {
     toast("Couldn't open the slides. Download the PDF instead.", "error");

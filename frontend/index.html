@@ -555,6 +555,42 @@
     .carousel-inner { display: flex; flex-direction: column; gap: 9px; padding: 16px 20px 20px; }
     /* The hook is the carousel's first slide, so it gets to read like a title
        instead of an ellipsised italic squeezed in beside the buttons. */
+    /* The slides in the card, the way LinkedIn shows a carousel: one at a time on the feed grey */
+    .carousel-slides { margin-bottom: 8px; }
+    .carousel-slides:empty { display: none; }
+    .slide-viewer { background: #f3f2ef; border-radius: 10px; padding: 14px 14px 12px; }
+    .slide-stage { position: relative; max-width: 440px; margin: 0 auto; border-radius: 6px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.14); touch-action: pan-y; outline: none; }
+    .slide-stage:focus-visible { box-shadow: 0 0 0 2px #24365e; }
+    .slide-stage img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; cursor: zoom-in; user-select: none; }
+    .slide-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; padding: 0 0 3px;
+      border: 0; border-radius: 50%; background: rgba(255,255,255,.96); box-shadow: 0 1px 5px rgba(0,0,0,.28);
+      font-size: 26px; line-height: 1; color: #16181d; cursor: pointer; }
+    .slide-nav:hover { background: #fff; }
+    .slide-nav.prev { left: 10px; }
+    .slide-nav.next { right: 10px; }
+    .slide-nav[hidden] { display: none; }
+    .slide-count { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: 999px;
+      background: rgba(0,0,0,.62); color: #fff; font-size: 12px; font-weight: 600; pointer-events: none; }
+    .slide-progress { max-width: 440px; height: 4px; margin: 10px auto 0; border-radius: 4px; background: #dcd8d0; overflow: hidden; }
+    .slide-progress i { display: block; height: 100%; background: #24365e; transition: width .2s; }
+    .slides-mode { display: block; margin: 8px auto 0; border: 0; background: none; cursor: pointer;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; color: #24365e; }
+    .slides-mode:hover { text-decoration: underline; }
+    .slides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .slides-grid img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 6px;
+      background: #f3f5f8; box-shadow: 0 0 0 1px #e4e7ec; cursor: pointer; transition: box-shadow .15s; }
+    .slides-grid img:hover { box-shadow: 0 0 0 2px #24365e; }
+    .slides-note { padding: 18px 0; text-align: center; font-size: 12.5px; color: #8a909c; }
+    @media (max-width: 560px) {
+      .slides-grid { grid-template-columns: 1fr 1fr; }
+      .slide-nav { width: 30px; height: 30px; font-size: 21px; }
+      .slide-nav.prev { left: 6px; }
+      .slide-nav.next { right: 6px; }
+      /* Card buttons keep one-line labels and wrap onto a second row instead of squeezing */
+      .card-actions { flex-wrap: wrap; }
+      .card-header .action-btn { white-space: nowrap; }
+    }
     .carousel-hook { font-size: 15.5px; font-weight: 600; line-height: 1.35; color: #16181d; }
     .carousel-hook:empty { display: none; }
     .carousel-meta {
@@ -962,6 +998,7 @@
           </div>
         </div>
         <div class="carousel-inner">
+          <div class="carousel-slides" id="carousel-slides" aria-label="The carousel's slides"></div>
           <div class="carousel-hook" id="carousel-hook-label"></div>
           <div class="carousel-meta">Caption posted with the PDF <span>· portrait 1080×1350</span></div>
           <div class="carousel-post-text" id="carousel-post-text"></div>

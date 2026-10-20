@@ -1824,6 +1824,9 @@ OUTPUT HYGIENE (strict):
 post_text: the LinkedIn caption. Hook first (max 60 characters, self-contained, open loop),
 no warm-up. 60-120 words total, plain words a 15-year-old uses daily, most sentences under
 12 words, varied rhythm. No hashtags.
+Caption layout: the hook alone on the first line, then 2-3 short paragraphs of 2-3 sentences
+each (a blank line between paragraphs), then one closing line. Never put every sentence on its
+own line: a caption of one-line sentences reads as a stack of fragments, not a post.
 
 Return ONLY valid JSON."""
 
@@ -1901,8 +1904,37 @@ def _sanitize_carousel_result(result: dict) -> dict:
 
     if "post_text" in result:
         from generator import _strip_markdown
-        result["post_text"] = _strip_markdown(result.get("post_text") or "")
+        result["post_text"] = _caption_paragraphs(_strip_markdown(result.get("post_text") or ""))
     return result
+
+
+def _caption_paragraphs(text: str) -> str:
+    """Carousel captions came back one sentence per line, so on LinkedIn they read as a column of
+    short fragments down the left. The hook and the closing line keep their own lines; the
+    one-sentence lines between are joined into paragraphs of two or three. Lists (1., -, →, •)
+    and paragraphs that are already full are left as they are."""
+    paras = [p.strip() for p in re.split(r"\n\s*\n", (text or "").strip()) if p.strip()]
+    if len(paras) < 5:
+        return (text or "").strip()
+    listy = lambda p: "\n" in p or bool(re.match(r"^(\d+[.)]\s|[-•→*✓✅▪]\s?)", p))
+    out, buf = [paras[0]], []
+    def flush():
+        if buf:
+            out.append(" ".join(buf))
+            buf.clear()
+    for p in paras[1:-1]:
+        if listy(p) or len(p) > 150:
+            flush()
+            out.append(p)
+            continue
+        buf.append(p)
+        if len(buf) == 3 or sum(len(x) for x in buf) >= 100:
+            flush()
+    if len(buf) == 1 and len(out) > 1 and not listy(out[-1]) and out[-1] != paras[0]:
+        out[-1] += " " + buf.pop()   # no orphan line: it joins the paragraph before it
+    flush()
+    out.append(paras[-1])
+    return "\n\n".join(out)
 
 
 _SLIDE_CONSTRAINTS = """Slide constraints (follow exactly):
