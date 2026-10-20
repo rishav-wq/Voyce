@@ -106,7 +106,15 @@
     }
 
     /* ── Main layout ── */
-    .dash-body { max-width: 1080px; margin: 0 auto; padding: 30px 32px; width: 100%; }
+    /* Fills the screen; the cap only stops lines running across a very large monitor */
+    .dash-body { max-width: 1800px; margin: 0 auto; padding: 30px 32px; width: 100%; }
+    /* Posts waiting for you sit side by side when there's room; one alone takes the full width */
+    #pending-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr)); gap: 12px; align-items: start; }
+    #pending-container .pend-card { margin-bottom: 0; }
+    @media (min-width: 1300px) {
+      #view-account.on { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; align-items: start; }
+      #view-account .view-head { grid-column: 1 / -1; }
+    }
 
     /* ── Plan banner ── */
     .plan-banner {

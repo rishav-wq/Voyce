@@ -39,6 +39,7 @@ function pickProfile(id) {
   if (io) io.innerHTML = "";
   _setPreviewAuthor();
   _syncWhatsAppTarget();
+  _renderDrafts();
 }
 async function loadProfilePicker() {
   try {
@@ -64,6 +65,7 @@ async function loadProfilePicker() {
     _syncToolRuns();
     _setPreviewAuthor();
     _syncWhatsAppTarget();
+    _renderDrafts();   // now it knows whose drafts to show
   } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
@@ -1191,18 +1193,46 @@ function _capDrafts() {
   if (!grid) return;
   const tpl = getComputedStyle(grid).gridTemplateColumns;
   const cap = 2 * (tpl && tpl !== "none" ? tpl.split(" ").filter(Boolean).length : 3);
-  [...grid.children].forEach((c, i) => { c.hidden = !_draftsAll && i >= cap; });
+  const cards = [...grid.querySelectorAll(".draft-card")];
+  cards.forEach((c, i) => { c.hidden = !_draftsAll && i >= cap; });
   if (more) {
-    more.style.display = _drafts.length > cap ? "" : "none";
-    more.textContent = _draftsAll ? "Show fewer" : `Show all ${_drafts.length}`;
+    more.style.display = cards.length > cap ? "" : "none";
+    more.textContent = _draftsAll ? "Show fewer" : `Show all ${cards.length}`;
   }
+}
+// Drafts follow "Writing as": one person's samples at a time, everyone's a click away under All.
+// Drafts from the old history don't say who they were for, so they show under All only.
+let _draftsScope = "profile";
+function _scopedDrafts() {
+  if (_draftsScope === "all" || _profiles.length < 2) return _drafts;
+  const pid = getActiveProfileId();
+  return _drafts.filter(d => d.profileId === pid);
+}
+function setDraftsScope(scope) { _draftsScope = scope; _draftsAll = false; _renderDrafts(); }
+function _scopeBtn(scope, label) {
+  const b = _el("button", _draftsScope === scope ? "on" : "", label);
+  b.type = "button";
+  b.onclick = () => setDraftsScope(scope);
+  return b;
 }
 function _renderDrafts() {
   const sec = document.getElementById("drafts-section"), grid = document.getElementById("drafts-grid");
   if (!sec || !grid) return;
   sec.style.display = _drafts.length ? "" : "none";
-  document.getElementById("drafts-count").textContent = _drafts.length;
-  grid.replaceChildren(..._drafts.map(_draftCard));
+  const list = _scopedDrafts(), prof = _activeProfile(), split = _profiles.length >= 2;
+  const count = document.getElementById("drafts-count"), filter = document.getElementById("drafts-filter");
+  count.textContent = list.length;
+  count.hidden = split;   // the filter carries the counts
+  if (filter) {
+    filter.hidden = !split;
+    if (split) {
+      const mine = _drafts.filter(d => d.profileId === (prof && prof.id)).length;
+      filter.replaceChildren(_scopeBtn("profile", `${String((prof && prof.name) || "This profile").split(" ")[0]} · ${mine}`),
+                             _scopeBtn("all", `All · ${_drafts.length}`));
+    }
+  }
+  if (list.length) grid.replaceChildren(...list.map(_draftCard));
+  else grid.replaceChildren(_el("div", "drafts-empty", `No drafts as ${(prof && prof.name) || "this profile"} yet. Generate one and it shows up here.`));
   _capDrafts();
 }
 function toggleAllDrafts() { _draftsAll = !_draftsAll; _capDrafts(); }
