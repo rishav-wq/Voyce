@@ -70,6 +70,7 @@ def save_company(profile: dict) -> dict:
         "name":             profile["name"],
         "website_url":      website_url,
         "linkedin_url":     profile.get("linkedin_url", ""),
+        "li_photo":         profile.get("li_photo", ""),      # base64 JPEG from "Fill from LinkedIn"
         "industry":         profile["industry"],
         "tone":             profile.get("tone", "professional"),
         "post_time":        profile["post_time"],
@@ -122,7 +123,7 @@ def update_company(company_id: str, data: dict) -> dict | None:
     # so a form edit can never silently reset them.
     for field in ("name", "industry", "tone", "post_time", "linkedin_url",
                   "website_type", "designation", "allowed_hooks", "tone_shift", "knowledge",
-                  "product_name"):
+                  "product_name", "li_photo"):
         if field in data:
             c[field] = data[field]
     # An edit form without a time zone (or with a bad one) keeps the stored one.

@@ -254,7 +254,8 @@ def _apollo_match(lead: dict, reveal_phone: bool = False) -> tuple[dict | None, 
     name = (p.get("name") or f"{p.get('first_name') or ''} {p.get('last_name') or ''}").strip()
     return {"name": name, "linkedin": p.get("linkedin_url") or "", "email": email,
             "firm_phone": ph.get("sanitized_number") or ph.get("number") or org.get("sanitized_phone") or org.get("phone") or "",
-            "role": p.get("title") or "", "company": org.get("name") or "", "city": p.get("city") or ""}, "", request_id
+            "role": p.get("title") or "", "company": org.get("name") or "", "city": p.get("city") or "",
+            "photo_url": p.get("photo_url") or "", "headline": p.get("headline") or ""}, "", request_id
 
 
 def _fill_blanks(lead: dict, found: dict) -> dict:
@@ -293,6 +294,51 @@ def lookup_lead(lead_id: str, x_token: str = Header(None)):
     note = ("Apollo: found " + ", ".join(LABELS[k] for k in fill)) if fill else (err or "Apollo: nothing new")
     return _write(lead_id, {**fill, "lookup": "done" if found else "none", "lookup_note": note, "lookup_at": _now()},
                   user, note, lead.get("stage", ""))
+
+
+def photo_data_url(url: str) -> str:
+    """A person's photo from Apollo as a small JPEG data URL, or "" when there's no real one
+    (LinkedIn's grey placeholder lives on static.licdn.com)."""
+    if not url.startswith("https://") or "static.licdn.com" in url or "ghost" in url.lower():
+        return ""
+    try:
+        import base64, io
+        from PIL import Image
+        r = requests.get(url, timeout=8)
+        if not r.ok or not r.headers.get("content-type", "").startswith("image/") or len(r.content) > 3_000_000:
+            return ""
+        im = Image.open(io.BytesIO(r.content)).convert("RGB")
+        im.thumbnail((256, 256))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=85)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        return ""
+
+
+class ProfileLookupIn(BaseModel):
+    linkedin: str = ""
+
+
+@router.post("/sales/profile-lookup")
+def profile_lookup(body: ProfileLookupIn, x_token: str = Header(None)):
+    """For a Voyce profile written as someone else (a prospect's sample post): their name,
+    title and photo from their LinkedIn link, so the preview and image cards show them.
+    Team-only because it spends the team's Apollo credits (1 per lookup). Saves nothing."""
+    user = _team_user(x_token)
+    ratelimit.allow(f"sales-lookup:{user['id']}", 20, 60) or _too_fast()
+    url = body.linkedin.strip()[:300]
+    if "linkedin.com/in/" not in url.lower():
+        raise HTTPException(status_code=400, detail="Paste a LinkedIn profile link (linkedin.com/in/…).")
+    found, err, _ = _apollo_match({"linkedin": url})
+    if found is None:
+        raise HTTPException(status_code=502, detail=err)
+    if not found:
+        raise HTTPException(status_code=404, detail="Apollo has no one at that link. Check it, or fill the form in yourself.")
+    title, company = found.get("role", ""), found.get("company", "")
+    role = title if (not company or company.lower() in title.lower()) else (f"{title}, {company}" if title else company)
+    return {"name": found.get("name", "")[:120], "role": role[:160], "linkedin": found.get("linkedin") or url,
+            "photo": photo_data_url(found.get("photo_url", ""))}
 
 
 class EnrichIn(BaseModel):

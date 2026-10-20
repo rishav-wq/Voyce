@@ -3,6 +3,7 @@ import base64
 import hmac
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -111,6 +112,34 @@ def author_for(conn: str) -> dict:
         logging.warning("LinkedIn author lookup failed; the card uses the profile name")
     _AUTHOR_CACHE[conn] = (datetime.now(timezone.utc), out)
     return dict(out)
+
+
+def _same_person(a: str, b: str) -> bool:
+    """'Anan Zahra' and 'Anan Zahra K S' are the same person; 'Ravichandran V' and 'Rishav Raj' aren't."""
+    ta = re.findall(r"[a-z0-9]+", (a or "").lower())
+    tb = re.findall(r"[a-z0-9]+", (b or "").lower())
+    return bool(ta and tb) and ta[0] == tb[0] and (set(ta) <= set(tb) or set(tb) <= set(ta))
+
+
+def author_for_profile(company: dict | None, user_id: str) -> dict:
+    """The LinkedIn name and photo to show for a post written as `company`, but only when that
+    LinkedIn account is the profile's own: it has its own connection, or there is no profile
+    (you post as yourself), or the profile's name is the account's name. A profile made for
+    someone else (a prospect's sample) posts through the owner's account, and must not wear
+    the owner's face: {} then, and the card shows the profile's name and initial."""
+    conn = connection_for(company, user_id)
+    stored = None
+    if company and company.get("li_photo"):   # their photo from "Fill from LinkedIn" (team lookup)
+        try:
+            stored = base64.b64decode(company["li_photo"])
+        except Exception:
+            stored = None
+    if company and not company.get("li_conn") and not _same_person(company.get("name", ""), _get_token_entry(conn).get("name", "")):
+        return {"avatar": stored} if stored else {}
+    found = author_for(conn)
+    if stored and not found.get("avatar"):
+        found = {**found, "avatar": stored}
+    return found
 
 
 def connection_info(conn: str) -> dict:

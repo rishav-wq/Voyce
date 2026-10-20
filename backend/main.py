@@ -604,6 +604,7 @@ class CompanyRequest(BaseModel):
     voice_posts: str = ""   # pasted recent posts -> voice examples (fastest way to match a voice)
     tone_shift: bool = False  # opt-in: keep the voice from examples but shift register toward `tone`
     knowledge: str = ""     # curated facts/rules/angles the AI must ground every post in
+    li_photo: str = ""      # their photo from "Fill from LinkedIn" (data URL), for previews and image cards
     timezone: str = ""      # IANA zone from the browser, e.g. "America/New_York"; post_time is local to it
 
 
@@ -1139,6 +1140,22 @@ def linkedin_callback(request: Request, code: str = None, error: str = None, sta
                               "under Data privacy → Permitted services. You can close this window.")
 
 
+@app.get("/author")
+def post_author(profile_id: str = "", x_token: str = Header(None)):
+    """Who the Write preview shows as the poster: the profile's name and title, and the LinkedIn
+    photo only when that account is the profile's own (li.author_for_profile)."""
+    import base64
+    user = _require_user(x_token)
+    profile = _resolve_profile(user["id"], profile_id)
+    a = li.author_for_profile(profile, user["id"])
+    photo = ""
+    if a.get("avatar"):
+        kind = "png" if a["avatar"].startswith(bytes([0x89]) + b"PNG") else "jpeg"
+        photo = f"data:image/{kind};base64," + base64.b64encode(a["avatar"]).decode()
+    return {"name": a.get("name") or (profile or {}).get("name") or user.get("name") or "",
+            "title": ((profile or {}).get("designation") or "").strip(), "photo": photo}
+
+
 @app.get("/auth/linkedin/status")
 def linkedin_status(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
@@ -1518,7 +1535,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
             author = None
             if (content.get("format") or "").strip().lower() == "tweet_card":
-                author = li.author_for(li.connection_for(profile, user["id"])) or None
+                author = li.author_for_profile(profile, user["id"]) or None
             fallback_name = (profile or {}).get("name") or user.get("name") or "Voyce"
             png_bytes = render_ai_image_png(content, profile or {"name": fallback_name}, author=author)
             headline = content.get("alt_text", "")
@@ -1660,6 +1677,28 @@ def _apply_voice_posts(company_id: str, voice_posts: str) -> dict | None:
     return None
 
 
+def _clean_li_photo(data: dict) -> dict:
+    """Keep a profile's photo only with a LinkedIn link, and only as a real image: re-encoded
+    to a small JPEG (base64), whatever was sent."""
+    raw = (data.get("li_photo") or "").strip()
+    data["li_photo"] = ""
+    if not raw or not (data.get("linkedin_url") or "").strip():
+        return data
+    try:
+        import base64, io
+        from PIL import Image
+        blob = base64.b64decode(raw.split(",", 1)[1] if raw.startswith("data:") else raw)
+        if len(blob) <= 2_000_000:
+            im = Image.open(io.BytesIO(blob)).convert("RGB")
+            im.thumbnail((256, 256))
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=85)
+            data["li_photo"] = base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        pass
+    return data
+
+
 @app.post("/companies")
 def create_company(request: CompanyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
@@ -1672,7 +1711,7 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
         raise HTTPException(status_code=400, detail=(
             f"You've reached the limit of {max_profiles} profiles. Delete one to add another."))
     try:
-        data = request.model_dump()
+        data = _clean_li_photo(request.model_dump())
         data["user_id"] = user["id"]
         # Daily automation is an explicit opt-in: every new profile starts paused so
         # nothing ever auto-posts before the user deliberately turns it on.
@@ -1743,7 +1782,7 @@ def edit_company(company_id: str, request: CompanyRequest, x_token: str = Header
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     try:
-        data = request.model_dump()
+        data = _clean_li_photo(request.model_dump())
         if not _is_pro(user):
             data["carousel_enabled"] = False
         updated = update_company(company_id, data)

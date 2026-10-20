@@ -52,6 +52,7 @@ async function loadProfilePicker() {
     // Ideas need a profile to draw a niche from; the tool panel is always visible,
     // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
+    _setPreviewAuthor();
   } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
@@ -486,13 +487,32 @@ async function generate() {
 
 // ── Draft persistence (survive a page refresh) ──────────────────────────────────
 const _DRAFT_KEY = "cm_draft";
-function _setPreviewAuthor() {
-  const u = getUser();
-  const name = (u && (u.name || u.email)) || "You";
-  const av = document.getElementById("li-avatar");
-  const nm = document.getElementById("li-name");
-  if (av) av.textContent = (name.trim()[0] || "Y").toUpperCase();
+// The preview shows who the post is written as: the "Writing as" profile's name and title,
+// with their LinkedIn photo only when that LinkedIn account is the profile's own (/author).
+const _authorCache = {};
+function _activeProfile() { return _profiles.find(p => p.id === getActiveProfileId()) || _profiles[0] || null; }
+function _paintAuthor(name, title, photo) {
+  const av = document.getElementById("li-avatar"), nm = document.getElementById("li-name"), tt = document.getElementById("li-title");
+  if (av) {
+    if (photo) { const img = new Image(); img.alt = ""; img.src = photo; av.replaceChildren(img); }
+    else av.textContent = ((name || "").trim()[0] || "Y").toUpperCase();
+  }
   if (nm) nm.textContent = name;
+  if (tt) { tt.textContent = title || ""; tt.hidden = !title; }
+}
+async function _setPreviewAuthor() {
+  const u = getUser(), prof = _activeProfile();
+  _paintAuthor((prof && prof.name) || (u && (u.name || u.email)) || "You", (prof && prof.designation) || "", "");
+  const key = (prof && prof.id) || "_me";
+  try {
+    if (!_authorCache[key]) {
+      const r = await fetch("/author" + (prof ? "?profile_id=" + encodeURIComponent(prof.id) : ""), { headers: { "x-token": getToken() } });
+      if (!r.ok) return;
+      _authorCache[key] = await r.json();
+    }
+    const a = _authorCache[key], now = _activeProfile();
+    if (((now && now.id) || "_me") === key) _paintAuthor(a.name || (prof && prof.name) || "You", a.title || "", a.photo || "");
+  } catch (_) {}
 }
 // The post as the user sees it. The preview is contenteditable, and pressing
 // Enter there inserts <div>/<br> elements that textContent silently drops, so

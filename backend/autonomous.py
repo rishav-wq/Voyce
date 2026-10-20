@@ -951,7 +951,7 @@ def _tweet_card_for(post_text: str, company: dict):
         from carousel import _card_author
         handle = (company.get("designation") or "").strip()   # real title, never an invented @handle
         # The account it posts as: its LinkedIn name and photo, else the profile name
-        author = li.author_for(li.connection_for(company, company.get("user_id", "")))
+        author = li.author_for_profile(company, company.get("user_id", ""))
         name, avatar = _card_author(company.get("name", "") or "Voyce", author)
         img = _slide_tweet_card(hook, name, handle, _get_palette(company),
                                 rw=IMG_POST_W * _SCALE, avatar=avatar)

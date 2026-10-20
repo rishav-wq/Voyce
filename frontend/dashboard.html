@@ -552,6 +552,13 @@
     }
     .form-group input:focus, .form-group select:focus { border-color: #24365e; }
     .form-hint { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .li-fill-row { display: flex; gap: 8px; }
+    .li-fill-row input { flex: 1; min-width: 0; }
+    .li-fill-row .act-btn { white-space: nowrap; }
+    .li-found { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: #16181d; }
+    .li-found img, .li-found .li-found-av { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+    .li-found .li-found-av { background: #24365e; color: #fff; display: grid; place-items: center; font-weight: 700; }
+    .li-found .li-clear { margin-left: auto; font-size: 12px; color: #5b6270; background: none; border: 0; cursor: pointer; text-decoration: underline; }
 
     .li-upload-box { background: #f5f7fb; border: 1.5px dashed #b9c4dc; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
     .li-upload-box .li-upload-title { font-size: 13px; font-weight: 600; color: #24365e; margin-bottom: 4px; }
@@ -923,6 +930,17 @@
             <label>Role <span class="optional-tag">(optional)</span></label>
             <input type="text" id="p-designation" placeholder="e.g. Fractional CMO, Leadership Coach, Consultant" />
             <p class="form-hint">Helps suggest topics and pitch posts at the right level.</p>
+          </div>
+          <!-- Team only: writing as someone else (a prospect's sample). Their photo and title come
+               from their LinkedIn link via Apollo, for the post preview and image cards. -->
+          <div class="form-group" id="p-li-row" hidden>
+            <label>Their LinkedIn <span class="optional-tag">(optional)</span></label>
+            <div class="li-fill-row">
+              <input type="text" inputmode="url" id="p-linkedin-url" placeholder="linkedin.com/in/their-name" autocomplete="off" />
+              <button type="button" class="act-btn" id="p-li-fill" onclick="fillFromLinkedIn()">Fill from LinkedIn</button>
+            </div>
+            <div class="li-found" id="p-li-found" hidden></div>
+            <p class="form-hint">For a profile you write as someone else. Fills their name, title and photo for the preview and image cards (1 Apollo credit).</p>
           </div>
           <div class="form-group"><label>What are the posts about? *</label><input type="text" id="p-industry" placeholder="e.g. leadership, B2B marketing, consulting" autocomplete="off" required />
             <div class="topic-suggest" id="p-topic-suggest"></div>
@@ -3009,6 +3027,7 @@
 
     function openModal() {
       _editingId = null;
+      _liRowSync();
       personalToneTouched = false;
       document.querySelector(".modal-drawer h2").textContent = "New profile";
       document.querySelector(".modal-drawer .modal-sub").textContent = "Who should Voyce write as? You can change any of this later.";
@@ -3017,6 +3036,7 @@
       document.querySelectorAll("#modal-overlay form").forEach(f => f.reset());
       document.getElementById("p-website-type-row").style.display = "none";
       const vs = document.getElementById("p-li-status"); if (vs) vs.textContent = "";
+      _liPhoto = ""; _showLiFound(null);
       document.getElementById("p-topic-suggest")?.classList.remove("visible");
       document.getElementById("p-submit-btn").textContent = "Create profile →";
       voicePane("paste");
@@ -3030,6 +3050,44 @@
       document.getElementById("modal-overlay").classList.remove("open");
       document.body.style.overflow = "";
       _editingId = null;
+    }
+    // ── Their LinkedIn (team only): name, title and photo for a profile written as someone else ──
+    let _liPhoto = "";
+    function _liRowSync() {
+      let team = false;
+      try { team = !!(JSON.parse(localStorage.getItem("cm_user") || "null") || {}).sales_access; } catch (_) {}
+      const row = document.getElementById("p-li-row"); if (row) row.hidden = !team;
+    }
+    function _showLiFound(f) {
+      const box = document.getElementById("p-li-found"); if (!box) return;
+      if (!f) { box.hidden = true; box.replaceChildren(); return; }
+      box.replaceChildren();
+      if (f.photo) { const img = new Image(); img.alt = ""; img.src = f.photo; box.append(img); }
+      else { const d = document.createElement("span"); d.className = "li-found-av"; d.textContent = ((f.name || "?").trim()[0] || "?").toUpperCase(); box.append(d); }
+      const t = document.createElement("span");
+      t.textContent = [f.name, f.role].filter(Boolean).join(" · ") + (f.photo ? "" : " (no photo on LinkedIn)");
+      const x = document.createElement("button"); x.type = "button"; x.className = "li-clear"; x.textContent = "Remove photo";
+      x.onclick = () => { _liPhoto = ""; _showLiFound({ ...f, photo: "" }); };
+      box.append(t); if (f.photo) box.append(x);
+      box.hidden = false;
+    }
+    async function fillFromLinkedIn() {
+      const url = (document.getElementById("p-linkedin-url").value || "").trim();
+      const btn = document.getElementById("p-li-fill");
+      if (!/linkedin\.com\/in\//i.test(url)) { toast("Paste their LinkedIn profile link (linkedin.com/in/…).", "warn"); return; }
+      btn.disabled = true; const label = btn.textContent; btn.textContent = "Looking up…";
+      try {
+        const r = await fetch("/sales/profile-lookup", { method: "POST", headers: ah(), body: JSON.stringify({ linkedin: url }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "That lookup didn't work. Try again.");
+        const nm = document.getElementById("p-name"), rl = document.getElementById("p-designation");
+        if (!nm.value.trim() && d.name) nm.value = d.name;          // fills blanks, never overwrites
+        if (!rl.value.trim() && d.role) rl.value = d.role;
+        if (d.linkedin) document.getElementById("p-linkedin-url").value = d.linkedin;
+        _liPhoto = d.photo || "";
+        _showLiFound({ name: d.name, role: d.role, photo: _liPhoto });
+      } catch (e) { toast(e.message, "warn"); }
+      btn.disabled = false; btn.textContent = label;
     }
     function closeModalIfBg(e) { if (e.target === document.getElementById("modal-overlay")) closeModal(); }
 
@@ -3056,6 +3114,7 @@
           if (!p) return;
           _editingId = id;
           personalToneTouched = true;
+          _liRowSync();
           // Editing: show everything so prefilled advanced values are visible
           document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = true);
           const isPersonal = p.profile_type === "personal";
@@ -3072,6 +3131,9 @@
           if (isPersonal) {
             document.getElementById("p-name").value        = p.name || "";
             document.getElementById("p-designation").value = p.designation || "";
+            document.getElementById("p-linkedin-url").value = p.linkedin_url || "";
+            _liPhoto = p.li_photo ? "data:image/jpeg;base64," + p.li_photo : "";
+            _showLiFound(p.linkedin_url ? { name: p.name, role: p.designation, photo: _liPhoto } : null);
             document.getElementById("p-knowledge").value   = p.knowledge || "";
             document.getElementById("p-product-name").value = p.product_name || "";
             const pw = document.getElementById("p-website");
@@ -3115,6 +3177,8 @@
       const payload = isPersonal ? {
         name: document.getElementById("p-name").value,
         designation: document.getElementById("p-designation").value || "",
+        linkedin_url: (document.getElementById("p-linkedin-url")?.value || "").trim(),
+        li_photo: _liPhoto || "",
         website_url: document.getElementById("p-website").value || "",
         website_type: wtEl ? wtEl.value : "own",
         industry: document.getElementById("p-industry").value,
