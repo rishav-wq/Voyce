@@ -37,6 +37,15 @@ async function loadProfilePicker() {
     if (!res.ok) { updateProgress(); return; }
     _profiles = await res.json();
     updateProgress();
+    // Sales team: teammates' profiles too (prospect samples), for drafting only
+    try {
+      const u = getUser();
+      if (u && u.sales_access) {
+        const tr = await fetch("/team/profiles", { headers: { "x-token": getToken() } });
+        const shared = tr.ok ? await tr.json() : [];
+        if (Array.isArray(shared)) _profiles = _profiles.concat(shared.filter(p => p && p.id && !_profiles.some(q => q.id === p.id)));
+      }
+    } catch (_) {}
     if (!_profiles.length) return;
     let active = getActiveProfileId();
     if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
@@ -44,15 +53,16 @@ async function loadProfilePicker() {
     const wrap = document.getElementById("writing-as");
     const sel  = document.getElementById("profile-picker");
     if (wrap && sel && _profiles.length >= 2) {  // only worth a picker with 2+ profiles
-      sel.innerHTML = _profiles.map(p =>
-        `<option value="${_escHtmlCreate(p.id)}" ${p.id === active ? "selected" : ""}>${_escHtmlCreate(p.name)}${p.profile_type === "personal" ? "" : " · company"}</option>`
-      ).join("");
+      const opt = p => `<option value="${_escHtmlCreate(p.id)}" ${p.id === active ? "selected" : ""}>${_escHtmlCreate(p.name)}${p.shared ? ` · ${_escHtmlCreate((p.owner_name || "").split(" ")[0])}'s` : (p.profile_type === "personal" ? "" : " · company")}</option>`;
+      const own = _profiles.filter(p => !p.shared), mates = _profiles.filter(p => p.shared);
+      sel.innerHTML = own.map(opt).join("") + (mates.length ? `<optgroup label="Shared by your team">${mates.map(opt).join("")}</optgroup>` : "");
       wrap.style.display = "flex";
     }
     // Ideas need a profile to draw a niche from; the tool panel is always visible,
     // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
     _setPreviewAuthor();
+    _syncShared();
   } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
@@ -538,6 +548,18 @@ function _postText() {
 function _resetPostButton() {
   const btn = document.getElementById("post-now-btn");
   if (btn) { btn.disabled = false; btn.textContent = "Post now"; }
+  _syncShared();
+}
+// A teammate's profile publishes through THEIR LinkedIn, so it's for drafting here:
+// Post now and Schedule are off, and the note says to copy the post instead.
+function _syncShared() {
+  const p = (_profiles || []).find(x => x.id === getActiveProfileId());
+  const shared = !!(p && p.shared);
+  const who = shared ? ((p.owner_name || "your teammate").split(" ")[0]) : "";
+  const post = document.getElementById("post-now-btn"), sch = document.getElementById("schedule-btn");
+  [post, sch].forEach(b => { if (!b) return; b.disabled = shared; b.title = shared ? `${who}'s profile: copy the post and send it. Only ${who} can publish it.` : ""; });
+  const note = document.getElementById("shared-note");
+  if (note) { note.hidden = !shared; note.textContent = shared ? `${who}'s profile: draft and copy here; only ${who} can post it.` : ""; }
 }
 
 function saveDraft() {
