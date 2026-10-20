@@ -270,11 +270,6 @@ def _conn_for(user: dict, profile_id: str = "") -> str:
     profile's own account if it has one, otherwise the user's."""
     if profile_id:
         company = get_company(profile_id)
-        if company and company.get("user_id") != user["id"] and _team_profile(user["id"], profile_id):
-            # A teammate's profile publishes through THEIR LinkedIn: never from someone else's session.
-            owner = db.users.find_one({"id": company["user_id"]}, {"name": 1}) or {}
-            who = (owner.get("name") or "your teammate").split(" ")[0]
-            raise HTTPException(status_code=403, detail=f"This is {who}'s profile. Copy the post and send it; only {who} can publish or schedule it.")
         if not company or company.get("user_id") != user["id"]:
             raise HTTPException(status_code=404, detail="Profile not found")
         return li.connection_for(company, user["id"])
@@ -317,21 +312,8 @@ def _friendly_fetch_error(exc: Exception, input_type: str) -> str:
     return "Could not read that content. Please try again."
 
 
-def _team_profile(user_id: str, profile_id: str):
-    """A teammate's profile, when both people are on the Voyce Sales team: the team drafts
-    prospect samples as each other's profiles. Drafting only; publishing stays with the owner."""
-    import sales
-    company = get_company(profile_id) if profile_id else None
-    if not company or not company.get("user_id") or company.get("user_id") == user_id:
-        return None
-    me = db.users.find_one({"id": user_id}, {"_id": 0})
-    owner = db.users.find_one({"id": company["user_id"]}, {"_id": 0})
-    return company if sales.is_member(me) and sales.is_member(owner) else None
-
-
 def _resolve_profile(user_id: str, profile_id: str = ""):
-    """The profile to write as: the explicit valid choice if given (your own, or a teammate's
-    on the Sales team), else your first one."""
+    """The profile to write as: the explicit valid choice if given, else the first one."""
     profiles = list_companies(user_id)
     profile = None
     if profile_id:
@@ -339,8 +321,6 @@ def _resolve_profile(user_id: str, profile_id: str = ""):
             if p.get("id") == profile_id:
                 profile = p
                 break
-        if profile is None:
-            profile = _team_profile(user_id, profile_id)
     if profile is None:
         profile = profiles[0] if profiles else None
     return profile
@@ -1158,26 +1138,6 @@ def linkedin_callback(request: Request, code: str = None, error: str = None, sta
                               f"{owner.get('name') or 'Your Voyce contact'} can now publish posts they approve "
                               f"to your LinkedIn from Voyce. You can disconnect at any time in LinkedIn's settings, "
                               "under Data privacy → Permitted services. You can close this window.")
-
-
-@app.get("/team/profiles")
-def team_profiles(x_token: str = Header(None)):
-    """For the Sales team: the profiles teammates set up (prospect samples, their own), so the
-    Write page can draft as them. Everyone else gets an empty list."""
-    import sales
-    user = _require_user(x_token)
-    if not sales.is_member(user):
-        return []
-    mates = {u["id"]: (u.get("name") or (u.get("email") or "").split("@")[0] or "Teammate")
-             for u in db.users.find({"id": {"$ne": user["id"]}}, {"_id": 0, "id": 1, "name": 1, "email": 1, "sales_access": 1})
-             if sales.is_member(u)}
-    if not mates:
-        return []
-    out = []
-    for c in db.companies.find({"user_id": {"$in": list(mates)}}, {"_id": 0, "id": 1, "name": 1, "designation": 1, "profile_type": 1, "user_id": 1}):
-        out.append({**{k: c.get(k, "") for k in ("id", "name", "designation", "profile_type")},
-                    "shared": True, "owner_name": mates[c["user_id"]]})
-    return sorted(out, key=lambda c: (c["owner_name"], c["name"]))
 
 
 @app.get("/author")
@@ -2259,7 +2219,7 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
     Free. Each idea can be expanded via /preview (post_type + seed)."""
     user = _require_user(x_token)
     company = get_company(company_id)
-    if not company or (company.get("user_id") != user["id"] and not _team_profile(user["id"], company_id)):
+    if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
     _rate_limit(f"ideas:{user['id']}", 12)
     tier = _plan_tier(user)
