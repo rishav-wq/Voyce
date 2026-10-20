@@ -694,7 +694,7 @@ async function _previewImage(opts) {
   }
 }
 // A carousel as one image, like a post: the caption, then every slide in a grid
-async function _carouselImage(cols = 2, width = 0, max = 6) {   // 2 a row reads on a phone
+async function _carouselImage(cols = 2, width = 0, max = 4) {   // 2x2 reads on a phone
   const blobs = await _carouselSlides();
   const urls = blobs.slice(0, max).map(b => URL.createObjectURL(b));
   try {
@@ -792,7 +792,7 @@ async function _drawCarouselSlides(b64) {
   return out;
 }
 // A carousel into WhatsApp the way a post goes: one image that looks like it will on LinkedIn,
-// the caption and then its first six slides two to a row (the sixth marked "+N more"). Ten
+// the caption and then its first four slides two to a row (the fourth marked "+N more"). Ten
 // slides in one picture came out too small to read on a phone; every slide, full size, is the PDF.
 async function shareCarouselWhatsApp(btn) {
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
