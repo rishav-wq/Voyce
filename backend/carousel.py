@@ -1302,11 +1302,12 @@ def render_image_post_png(content: dict, company: dict) -> bytes:
     return buf.getvalue()
 
 
-# ── AI illustration image post (research-grounded) ───────────────────────────
-# Research (deep-research, 2026): for founders, AI images work ONLY when they read as
-# intentionally-designed flat/editorial graphics — never photorealistic, never AI human
-# faces/hands (the #1 credibility killer and "AI slop" tell), never model-rendered text
-# (garbles). So we generate a clean, muted, flat illustration and add any text ourselves.
+# ── AI photo image post (research-grounded) ──────────────────────────────────
+# Research (deep-research, 2026): AI human faces/hands are the #1 credibility killer and
+# "AI slop" tell, and model-rendered text garbles. Until Oct 2026 that meant flat illustrations
+# only; owners' own posts are photographic, so scenes are now realistic editorial photos that
+# keep the guardrails: no visible faces (people from behind / over the shoulder / out of focus),
+# no readable text, no AI clichés. Any text is still added by us, never by the model.
 
 _AI_IMAGE_SYSTEM = """You design the VISUAL for a founder's LinkedIn post, plus the caption.
 
@@ -1319,42 +1320,43 @@ FORMAT — decide this FIRST. Images on LinkedIn earn attention by carrying INFO
 - "tweet_card": the claim is a HOT TAKE — contrarian, spicy, a little confrontational → a
   social-screenshot style card of that line (fill card_headline with the take, max ~30 words).
   Reads as a captured opinion, not marketing. Use for the boldest, most argument-starting claims.
-- "scene": ONLY for tangible, physical, visual topics (farming, logistics, food, manufacturing,
-  travel...) where a real scene from the post's world adds feeling that text cannot. A decorative
-  metaphor for an abstract topic is NOT a scene — abstract topics take a card.
+- "scene": a realistic PHOTOGRAPH of a real moment from the post's world (a sales team rehearsing
+  before a negotiation, a plant manager on the shop floor, a founder on a client call) where the
+  picture adds feeling that text cannot. A decorative metaphor is NOT a scene.
 
 Return JSON:
-image_concept: FIRST boil the post down to its ONE core message in a short phrase (e.g. "build a button,
-  not a platform", "talk to users instead of just coding", "focus on a single channel"). THEN describe,
-  in 2-3 sentences for an illustrator, a SIMPLE, bold, iconic visual metaphor a reader would INSTANTLY
-  connect to THAT message — a stranger seeing the image beside the post should think "yes, that fits."
-  Compose it like a New Yorker / Monocle / Stripe-press editorial illustration: ONE clear focal subject,
-  a few supporting shapes at most, generous negative space. Conceptual, a little clever, concrete, ON-TOPIC.
-  Example — post about "talk to your users, don't just build": "A lone office chair turned away from a
-  softly glowing desk lamp to face a single empty chair across a small round table."
-  Example — post about "ship one simple thing, not a sprawling platform": "A single oversized, satisfying
-  round button resting alone on a clean pedestal, dwarfing a small tangled heap of disconnected parts
-  pushed to the edge of the frame."
-  LITERAL vs METAPHOR — choose deliberately:
-  - If the post is about TANGIBLE, PHYSICAL work (farming, logistics, food, manufacturing,
-    construction, retail, healthcare...), paint a REAL SCENE from that world: its actual places,
-    tools, vehicles, crops, materials. A post about farmers wants a field at dawn or a loaded
-    truck on a wet rural road, NOT a clever object metaphor. Literal, specific, alive.
-  - Reserve conceptual metaphors for ABSTRACT topics (strategy, mindset, code, money, careers)
-    where there is nothing physical to show.
-  - If an AUTHOR'S WORLD is given, set the scene inside that world.
+image_concept: FIRST boil the post down to its ONE core message in a short phrase (e.g. "prepare for
+  the buyer's pushback before the meeting", "talk to users instead of just coding"). THEN describe, in
+  2-3 sentences for a PHOTOGRAPHER, a real, candid moment that shows THAT message — the kind of frame a
+  business magazine (Bloomberg Businessweek, HBR, The Economic Times) would run beside the story. A
+  stranger seeing the photo beside the post should think "yes, that's what this is about."
+  Example — post about preparing for a tough B2B negotiation: "Over-the-shoulder shot in a small meeting
+  room the evening before a big deal: a sales manager leans in across the table while a colleague, arms
+  folded, plays the hard-nosed buyer. Warm desk light, a closed laptop and coffee cups, city dusk through
+  the window."
+  Example — post about "talk to your users, don't just build": "A founder seen from behind, sitting across
+  a cafe table from a customer, notebook closed, listening; the customer slightly out of focus, mid-gesture."
+  SUBJECT vs SETTING: the post's core message is the SUBJECT — what the people in the frame are doing.
+  If an AUTHOR'S WORLD is given, it is only the SETTING (the kind of office, site, clients, props) and only
+  when it fits. Never swap the post's subject for the author's industry: a negotiation post by an
+  equipment-sales coach shows a negotiation (maybe with a dealer's yard through the window), not a
+  machine standing alone.
   HARD RULES:
-  - The metaphor MUST relate to the post's actual subject. If you can't say in one line why it fits, pick another.
-  - KEEP IT SIMPLE AND TEXT-FREE. The illustration tool scrawls gibberish letters onto anything that
-    normally carries text or dense repeated detail — so NEVER feature: screens / monitors / phones showing a
-    UI, dashboards, spreadsheets, charts or graphs, keyboards, circuit boards or breadboards, books,
-    newspapers, documents, letters, signs, price tags, or labelled buttons/keys. Pick clean, textless
-    objects and shapes instead, and keep the scene uncluttered (a few big elements, not a busy detailed one).
-  - Do NOT produce decorative or unrelated scenery — no temples, monuments, landmarks, palaces, cityscapes,
-    landscapes, or pretty buildings — unless the post is literally about that.
-  - BAN tired clichés: lightbulbs, handshakes, chess pieces, gears, rockets, ladders, mountains-with-a-flag,
-    two cups, glowing brains, generic upward arrows.
-  - NEVER include text, numbers, letters, logos, brand names, charts with labels, or human faces.
+  - It MUST show the post's actual subject. If you can't say in one line why it fits, pick another moment.
+  - PEOPLE: welcome, as real working professionals in candid moments — but seen from behind, over the
+    shoulder, or turned away, with anyone facing the camera softly out of focus. Put the sharp focus on
+    hands, objects or the nearest person's back. NO sharp, clearly visible faces (AI faces look fake, and
+    could be mistaken for a real person), no direct eye contact with the camera. If an AUTHOR'S REGION is
+    given, the people and places belong there.
+  - NO readable text anywhere: the image tool writes gibberish on anything that carries writing, so no
+    screens or phones showing content, no documents facing the camera, no whiteboards with writing, no
+    signs, labels, logos, price tags or charts. Laptops closed or seen from behind; papers face down or blurred.
+  - Keep it simple: one clear moment, a few elements, not a busy crowded frame.
+  - BAN AI and stock clichés: robots, holograms, glowing brains or circuits, floating interfaces, handshakes
+    to camera, chess pieces, lightbulbs, rockets, ladders, upward arrows, people pointing at screens,
+    staged high-fives, grinning stock-photo models.
+  - Do NOT produce decorative or unrelated scenery (landmarks, skylines as the subject, pretty landscapes)
+    unless the post is literally about that.
 alt_text: a short accessibility description of the image (<= 100 chars).
 CAPTION RULE: the image carries the CLAIM; post_text makes the CASE. post_text must NOT open
 with or repeat the card_headline/key_line — it expands the claim with a story, example, or
@@ -1402,19 +1404,36 @@ def _palette_words(p: dict) -> str:
             "and a neutral ink tone for linework — muted and tasteful, not saturated")
 
 
-def _build_ai_image_prompt(concept: str, p: dict) -> str:
+_TZ_REGION = {"Asia/Kolkata": "India", "Asia/Calcutta": "India", "Asia/Dubai": "the UAE", "Asia/Singapore": "Singapore",
+              "Europe/London": "the UK", "Australia/Sydney": "Australia", "Australia/Melbourne": "Australia",
+              "America/New_York": "the United States", "America/Chicago": "the United States",
+              "America/Los_Angeles": "the United States", "America/Toronto": "Canada"}
+
+
+def _region_for(company: dict | None) -> str:
+    """Where the author works, from their profile's time zone, so the people and places in a
+    photo look like their world (an Indian sales coach's post shouldn't show only Western faces)."""
+    return _TZ_REGION.get(((company or {}).get("timezone") or "").strip(), "")
+
+
+def _build_ai_image_prompt(concept: str, p: dict, region: str = "") -> str:
+    # Realistic editorial photography (was a flat illustration until Oct 2026: owners' own posts are
+    # photographic, and a cartoon beside a B2B post read as clip art).
     return (
-        f"Minimalist flat editorial illustration for a premium magazine cover. Concept: {concept}. "
-        f"Style: {_palette_words(p)}. Bold, simple flat vector shapes with subtle grain and soft flat "
-        "shading, clean confident linework, ONE clear focal subject with generous negative space — keep "
-        "it simple and uncluttered, only a few large elements, NOT busy or finely detailed. High contrast, "
-        "tasteful, restrained, conceptual — like Stripe Press, Monocle, or a New Yorker cover. "
+        f"A realistic editorial photograph for a business magazine feature. Scene: {concept}. "
+        "Shot on a full-frame camera with a 35mm or 50mm lens, natural or practical light, shallow depth "
+        "of field, true-to-life colour with a gentle, slightly warm grade, real textures and believable "
+        "imperfections — candid and documentary, like a Bloomberg Businessweek or HBR feature photo, not a "
+        "posed stock photo. One clear moment, simple uncluttered composition. "
+        + (f"Set in {region}: the people, offices and places look like {region}. " if region else "")
+        + "People: natural and candid. The sharp focus falls on hands, objects or the back and shoulder of "
+        "the nearest person; anyone facing the camera is turned away or softly blurred by the shallow depth "
+        "of field — NO sharp, clearly visible faces, nobody looking into the camera, hands relaxed and natural. "
+        "Devices are plain, with NO brand logos (blank laptop lids). "
         "CRITICAL: absolutely NO text, NO words, NO letters, NO numbers, NO gibberish writing, NO labels, "
-        "NO signs, NO logos, NO watermark, NO charts or graphs. Do NOT draw screens or phones with "
-        "interfaces, keyboards, circuit boards, books or documents, or anything that would carry writing. "
-        "NO close-up faces or detailed hands (small, distant human figures whose faces aren't visible are "
-        "fine and add life to a scene). NO photorealism, NO 3D render, NO glossy corporate stock "
-        "look, NO cliche startup imagery. Vertical 4:5 poster composition."
+        "NO signs, NO logos, NO watermark, NO charts — screens off or turned away, papers face down or blurred. "
+        "NO illustration, NO cartoon, NO 3D render, NO CGI sheen, NO robots, holograms or glowing AI imagery, "
+        "NO grinning stock models. Vertical 4:5 composition."
     )
 
 
@@ -1431,7 +1450,7 @@ def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
 
 
 def generate_ai_image_post(raw_text: str, company: dict = None, force_format: str = None) -> dict:
-    """LLM: pick the strongest idea → a concrete visual concept + caption for an AI illustration.
+    """LLM: pick the strongest idea → a concrete visual concept + caption for an AI photo.
     force_format pins the output to one of scene|quote_card|list_card|tweet_card when the
     user chose the format explicitly instead of letting the model pick."""
     from generator import _strip_markdown
@@ -1442,8 +1461,12 @@ def generate_ai_image_post(raw_text: str, company: dict = None, force_format: st
         if vb:
             voice_section = f"\n\nVOICE PROFILE:\n{vb[:1200]}"
     industry = (company or {}).get("industry", "").strip()
-    world = f"\nAUTHOR'S WORLD: {industry} — set the visual inside this world." if industry else ""
-    prompt = f"""Content to turn into ONE editorial illustration + caption:
+    world = (f"\nAUTHOR'S WORLD: {industry} — the SETTING only (place, people, props) where it fits; "
+             "the post's own point is the subject.") if industry else ""
+    region = _region_for(company)
+    if region:
+        world += f"\nAUTHOR'S REGION: {region} — the people and places in the photo belong there."
+    prompt = f"""Content to turn into ONE realistic editorial photo + caption:
 
 {raw_text[:2000]}{voice_section}{world}
 
@@ -1531,8 +1554,8 @@ def _card_author(brand: str, author: dict | None):
 
 
 def render_ai_image_png(content: dict, company: dict, author: dict | None = None) -> bytes:
-    """Generate a flat editorial illustration for the concept, composed to 4:5 with a small
-    brand wordmark. Falls back to the branded insight card if image generation is unavailable."""
+    """Generate a realistic editorial photo for the concept, composed to 4:5. Falls back to the
+    branded insight card if image generation is unavailable."""
     from llm import generate_image
     p = _get_palette(company)
     brand = (company or {}).get("name", "Voyce")
@@ -1576,7 +1599,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
     # Transient API failures are common enough to deserve one retry before falling back.
     img_bytes = None
     if concept:
-        rendered_prompt = _build_ai_image_prompt(concept, p)
+        rendered_prompt = _build_ai_image_prompt(concept, p, _region_for(company))
         for _ in range(2):
             img_bytes = generate_image(rendered_prompt)
             if img_bytes:
