@@ -1516,7 +1516,11 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             from carousel import generate_ai_image_post, render_ai_image_png
             force = {"tweet": "tweet_card", "scene": "scene"}.get(request.style)
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
-            png_bytes = render_ai_image_png(content, profile or {"name": "Voyce"})
+            author = None
+            if (content.get("format") or "").strip().lower() == "tweet_card":
+                author = li.author_for(li.connection_for(profile, user["id"])) or None
+            fallback_name = (profile or {}).get("name") or user.get("name") or "Voyce"
+            png_bytes = render_ai_image_png(content, profile or {"name": fallback_name}, author=author)
             headline = content.get("alt_text", "")
         auth_module.increment_gens(user["id"])
         return {

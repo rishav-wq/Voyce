@@ -83,6 +83,36 @@ def connection_for(company: dict | None, user_id: str = "") -> str:
     return (company or {}).get("user_id") or user_id
 
 
+_AUTHOR_CACHE: dict = {}
+_AUTHOR_TTL = timedelta(hours=6)
+
+
+def author_for(conn: str) -> dict:
+    """The person a post goes out as: the name and current photo of the LinkedIn account
+    behind `conn`, for the tweet card. LinkedIn's photo links expire, so the photo comes from
+    userinfo with their own token, cached for a few hours. Never raises: {} or no "avatar"
+    just means the card falls back to the profile name and an initial."""
+    entry = _get_token_entry(conn) if conn else {}
+    if not entry.get("access_token"):
+        return {}
+    hit = _AUTHOR_CACHE.get(conn)
+    if hit and datetime.now(timezone.utc) - hit[0] < _AUTHOR_TTL:
+        return dict(hit[1])
+    out = {"name": entry.get("name", "")}
+    try:
+        info = _userinfo(entry["access_token"])
+        out["name"] = info.get("name") or out["name"]
+        pic = info.get("picture") or ""
+        if pic.startswith("https://"):
+            r = requests.get(pic, timeout=8)
+            if r.ok and r.headers.get("content-type", "").startswith("image/") and len(r.content) < 3_000_000:
+                out["avatar"] = r.content
+    except Exception:
+        logging.warning("LinkedIn author lookup failed; the card uses the profile name")
+    _AUTHOR_CACHE[conn] = (datetime.now(timezone.utc), out)
+    return dict(out)
+
+
 def connection_info(conn: str) -> dict:
     entry = _get_token_entry(conn)
     exp = token_expires_at(conn)

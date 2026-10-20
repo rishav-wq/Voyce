@@ -948,14 +948,11 @@ def _tweet_card_for(post_text: str, company: dict):
         hook = next((l.strip() for l in post_text.splitlines() if l.strip()), "")
         if not (10 <= len(hook) <= 180):
             return None
-        name = company.get("name", "") or "Voyce"
+        from carousel import _card_author
         handle = (company.get("designation") or "").strip()   # real title, never an invented @handle
-        avatar = None
-        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-        av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "assets", "avatars", f"{slug}.png")
-        if slug and os.path.exists(av_path):
-            avatar = Image.open(av_path)
+        # The account it posts as: its LinkedIn name and photo, else the profile name
+        author = li.author_for(li.connection_for(company, company.get("user_id", "")))
+        name, avatar = _card_author(company.get("name", "") or "Voyce", author)
         img = _slide_tweet_card(hook, name, handle, _get_palette(company),
                                 rw=IMG_POST_W * _SCALE, avatar=avatar)
         buf = _io.BytesIO()

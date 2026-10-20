@@ -1108,7 +1108,9 @@ def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
     f_handle = _font(29 * _SCALE)
     tx = ax + av_r * 2 + int(26 * _SCALE)
     name_txt = (name or "")[:28]
-    draw.text((tx, ay + int(2 * _SCALE)), name_txt, font=f_name, fill=(255, 255, 255))
+    # With no title under it, the name centres on the photo instead of sitting at its top
+    name_y = ay + int(2 * _SCALE) if (handle or "").strip() else ay + av_r - draw.textbbox((0, 0), name_txt or "A", font=f_name)[3] // 2
+    draw.text((tx, name_y), name_txt, font=f_name, fill=(255, 255, 255))
     # No verified seal and no @handle. Both were invented: the card implied an X
     # post and a verification nobody had, and the made-up handle could belong to a
     # stranger. The second line is the author's real title, when there is one.
@@ -1506,7 +1508,29 @@ Return ONLY JSON: {{"post_text": "..."}}""",
     }
 
 
-def render_ai_image_png(content: dict, company: dict) -> bytes:
+def _card_author(brand: str, author: dict | None):
+    """Name and avatar for a tweet card: the LinkedIn account it posts as when we know it,
+    else the profile name and a photo kept under assets/avatars/<name-slug>.png."""
+    name = ((author or {}).get("name") or "").strip() or brand
+    avatar = None
+    if (author or {}).get("avatar"):
+        try:
+            avatar = Image.open(io.BytesIO(author["avatar"]))
+            avatar.load()
+        except Exception:
+            avatar = None
+    if avatar is None:
+        try:
+            slug = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+            av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatars", f"{slug}.png")
+            if slug and os.path.exists(av_path):
+                avatar = Image.open(av_path)
+        except Exception:
+            avatar = None
+    return name, avatar
+
+
+def render_ai_image_png(content: dict, company: dict, author: dict | None = None) -> bytes:
     """Generate a flat editorial illustration for the concept, composed to 4:5 with a small
     brand wordmark. Falls back to the branded insight card if image generation is unavailable."""
     from llm import generate_image
@@ -1533,17 +1557,9 @@ def render_ai_image_png(content: dict, company: dict) -> bytes:
             card_line = key_line
         content = {**content, "card_headline": card_line}
         handle = ((company or {}).get("designation") or "").strip()   # real title, never an invented @handle
-        # Real photo avatar by convention: backend/assets/avatars/<name-slug>.png
-        avatar_img = None
-        try:
-            slug = re.sub(r"[^a-z0-9]+", "-", (brand or "").lower()).strip("-")
-            av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatars", f"{slug}.png")
-            if slug and os.path.exists(av_path):
-                avatar_img = Image.open(av_path)
-        except Exception:
-            avatar_img = None
+        name, avatar_img = _card_author(brand, author)
         img = _slide_tweet_card(
-            content.get("card_headline") or content.get("key_line", ""), brand, handle, p,
+            content.get("card_headline") or content.get("key_line", ""), name, handle, p,
             rw=IMG_POST_W * _SCALE, avatar=avatar_img)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
