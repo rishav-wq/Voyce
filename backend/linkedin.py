@@ -2,6 +2,7 @@ import os
 import base64
 import hmac
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -142,9 +143,19 @@ def exchange_code_for_token(code: str) -> dict:
 
 
 def _decode_id_token(id_token: str) -> dict:
+    """The claims in LinkedIn's OpenID id_token. A JWT is base64url without padding: plain
+    b64decode dropped its '-' and '_' and failed for about a third of people, depending on
+    what their name and photo URL encode to, so their LinkedIn never connected."""
     payload = id_token.split('.')[1]
-    payload += '=' * (4 - len(payload) % 4)
-    return json.loads(base64.b64decode(payload))
+    return json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
+
+
+def _userinfo(access_token: str) -> dict:
+    """The same claims straight from LinkedIn (OpenID userinfo), for when the id_token is unreadable."""
+    r = requests.get("https://api.linkedin.com/v2/userinfo",
+                     headers={"Authorization": f"Bearer {access_token}"}, timeout=15)
+    r.raise_for_status()
+    return r.json()
 
 
 def save_token(user_id: str, token_data: dict):
@@ -158,14 +169,22 @@ def save_token(user_id: str, token_data: dict):
     if expires_in > 0:
         entry["expires_at"] = (datetime.now(timezone.utc)
                                + timedelta(seconds=expires_in)).isoformat()
-    if "id_token" in token_data:
-        claims = _decode_id_token(token_data["id_token"])
-        entry["person_id"] = claims.get("sub", "")
-        # Shown on the profile card ("Posts as: Jane Smith"), so it's clear
-        # which LinkedIn account each profile publishes to.
-        entry["name"] = (claims.get("name")
-                         or " ".join(x for x in (claims.get("given_name"), claims.get("family_name")) if x)
-                         or "")
+    claims = {}
+    if token_data.get("id_token"):
+        try:
+            claims = _decode_id_token(token_data["id_token"])
+        except Exception:
+            logging.warning("LinkedIn id_token unreadable; asking userinfo instead")
+    if not claims.get("sub"):
+        claims = _userinfo(entry["access_token"])   # raises if LinkedIn won't say who this is
+    if not claims.get("sub"):
+        raise RuntimeError("LinkedIn didn't return the member id")   # posting needs it: fail now, not at the first post
+    entry["person_id"] = claims["sub"]
+    # Shown on the profile card ("Posts as: Jane Smith"), so it's clear
+    # which LinkedIn account each profile publishes to.
+    entry["name"] = (claims.get("name")
+                     or " ".join(x for x in (claims.get("given_name"), claims.get("family_name")) if x)
+                     or "")
     _save_token_entry(user_id, entry)
 
 
