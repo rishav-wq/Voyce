@@ -230,6 +230,9 @@ def _build_voice_block(company: dict | None) -> str:
     parts.append(f"Author: {who} ({'personal brand — first person' if is_personal else 'company page'})")
     if company.get("tone"):
         parts.append(f"Preferred tone: {company['tone']}")
+    if (company.get("profile_facts") or "").strip():
+        parts.append("Their career (from their LinkedIn profile; real background to draw on when it fits, "
+                     "never embellished):\n" + company["profile_facts"].strip()[:8000])
 
     li = company.get("linkedin_analysis", {})
     if li.get("writing_style"):

@@ -1699,6 +1699,9 @@ def _clean_li_photo(data: dict) -> dict:
     return data
 
 
+TEAM_MAX_PROFILES = 200   # Sales team (admins / sales_access): sample profiles for prospects; a cap only against runaway loops
+
+
 @app.post("/companies")
 def create_company(request: CompanyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
@@ -1707,6 +1710,9 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     # Three profiles on every plan; on Pro each can post to its own LinkedIn
     # account. Accounts that already have more keep them — this only blocks new ones.
     max_profiles = payments.MAX_PROFILES
+    import sales
+    if sales.is_member(user):
+        max_profiles = TEAM_MAX_PROFILES   # the Voyce team makes a profile per prospect sample
     if len(existing) >= max_profiles:
         raise HTTPException(status_code=400, detail=(
             f"You've reached the limit of {max_profiles} profiles. Delete one to add another."))
@@ -2246,6 +2252,16 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
         kb = (subject.get("knowledge") or "").strip()
         kb_block = ("\nKNOWLEDGE BASE — draw ideas from these facts/rules and honour any "
                     "'never say' rules; do not contradict or invent around them:\n" + kb[:2000] + "\n") if kb else ""
+        # What makes ideas theirs: their career (profile PDF), what they posted lately, what they told us
+        role = (subject.get("designation") or "").strip()
+        facts = (subject.get("profile_facts") or "").strip()
+        facts_block = ("\nTHEIR CAREER (their LinkedIn profile; real facts to build ideas on):\n" + facts[:8000] + "\n") if facts else ""
+        recent = [str(p)[:500] for p in (subject.get("linkedin_top_posts") or [])[:5] if str(p).strip()]
+        recent_block = ("\nTHEIR RECENT POSTS (don't repeat these topics or hooks; build on what they're focused on now):\n"
+                        + "\n---\n".join(recent) + "\n") if recent else ""
+        told = [str(n.get("text", ""))[:300] for n in (subject.get("author_notes") or [])[:8] if n.get("text")]
+        notes_block = ("\nTHINGS THEY TOLD US (their own words, real):\n- " + "\n- ".join(told) + "\n") if told else ""
+        today_str = datetime.now(timezone.utc).strftime("%d %B %Y")
         NL = chr(10)
         steer = (request.context if request else "").strip()[:1200]
         steer_block = ((NL + "WHAT THEY WANT TO POST ABOUT — this is the brief, and it "
@@ -2253,28 +2269,43 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
                         "news only where it genuinely supports it, and ignore it entirely "
                         "where it does not:" + NL + steer + NL) if steer else "")
 
-        prompt = f"""You are a LinkedIn content strategist for {who} ({subject.get('industry', '')}).
-{kb_block}{steer_block}
-Propose 5 DISTINCT post ideas for the coming days. Each must use a DIFFERENT post type from this menu — spread across the menu, do not repeat a type:
+        prompt = f"""You are a LinkedIn content strategist for {who}{(', ' + role) if role else ''} ({subject.get('industry', '')}).
+TODAY is {today_str}. Dates in what follows are correct as of today.
+{facts_block}{kb_block}{recent_block}{notes_block}{steer_block}
+Propose 5 DISTINCT post ideas for the coming days that only THIS person could write. Each must use a DIFFERENT post type from this menu — spread across the menu, do not repeat a type:
 {type_menu}
 
-Ground each idea in something real: prefer a specific item from the news below and name it; an evergreen angle (a core concept, a myth to bust, a how-to) is fine too — mark those with an empty source. Never invent a statistic or a source.
+Build every idea on something real and say what in "based_on": copy the exact phrase from THEIR CAREER, the KNOWLEDGE BASE, THINGS THEY TOLD US, or a recent post it builds on, or the news title.
+{('- At least 2 ideas come from THEIR CAREER (a role, a responsibility, a move they made).' + chr(10)) if facts else ''}- Prefer a specific item from the news for the rest and name it in "source"; an evergreen angle is fine too (empty source).
+- No embellishment: never invent scenes, feelings, quotes, lessons they didn't state, clients, numbers or results. Say what the record says, in plain words.
+- Where the record gives different numbers for the same thing (e.g. 30+, 33 and 35 years), don't state an exact count.
+- Never invent a statistic or a source.
 NEWS:
 {news_ctx or '(no fresh news — propose evergreen angles from the niche)'}
 
 Return ONLY JSON:
-{{"ideas":[{{"hook":"the post's premise in <=14 words","post_type":"<one key from the menu>","why":"one line: why it lands or what it teaches","source":"exact news title it draws on, or empty if evergreen"}}]}}"""
-        data = generate_json(prompt, max_tokens=900, temperature=0.7)
+{{"ideas":[{{"hook":"the post's premise in <=14 words","post_type":"<one key from the menu>","why":"one line: why it lands or what it teaches","based_on":"the exact fact or news title it is built on","source":"exact news title it draws on, or empty if evergreen"}}]}}"""
+        data = generate_json(prompt, max_tokens=1400, temperature=0.7)
         src_url = {(n.get("title") or ""): (n.get("url") or "") for n in news}
+
+        def _news_title(t: str) -> str:
+            """The model sometimes shortens a headline; map it back to the real one so the link survives."""
+            if not t or t in src_url:
+                return t
+            words = set(re.findall(r"[a-z0-9]+", t.lower()))
+            best = max(src_url, key=lambda title: len(words & set(re.findall(r"[a-z0-9]+", title.lower()))), default="")
+            overlap = len(words & set(re.findall(r"[a-z0-9]+", best.lower())))
+            return best if words and overlap >= max(2, len(words) * 0.6) else t
         ideas = []
         for it in (data.get("ideas") or [])[:6]:
             pt = str(it.get("post_type", "")).strip()
-            src = str(it.get("source", "")).strip()
+            src = _news_title(str(it.get("source", "")).strip())
             ideas.append({
                 "hook": str(it.get("hook", "")).strip()[:160],
                 "post_type": pt,
                 "post_type_label": POST_TYPE_LABELS.get(pt, pt.replace("_", " ").title() if pt else "Post"),
                 "why": str(it.get("why", "")).strip()[:200],
+                "based_on": str(it.get("based_on", "")).strip()[:220],
                 "source": src[:160],
                 "source_url": src_url.get(src, ""),
             })
@@ -2477,6 +2508,7 @@ async def upload_linkedin_data(company_id: str, file: UploadFile = File(...), x_
         "type": result["type"],
         "posts_found": result.get("posts_found", 0),
         "analysis": result.get("analysis", {}),
+        "facts": result["type"] == "pdf",
     }
 
 

@@ -964,7 +964,7 @@
             </div>
             <div id="p-voice-pane-archive" style="display:none;">
               <input type="file" id="p-li-file" accept=".pdf,.zip" />
-              <p class="form-hint" style="margin-top:6px;">ZIP: LinkedIn → Settings → Data Privacy → Get a copy (~24h). PDF: your profile → More → Save to PDF.</p>
+              <p class="form-hint" style="margin-top:6px;">PDF: their profile → More → Save to PDF (career facts, for post ideas). ZIP: Settings → Data Privacy → Get a copy (~24h; their posts, for the voice).</p>
             </div>
             <div class="li-upload-status" id="p-li-status"></div>
           </div>
@@ -1582,6 +1582,7 @@
             <div style="font-size:11.5px;color:#98a0ae;margin-top:4px;line-height:1.5;">
               <span style="color:#24365e;font-weight:600;">${_escHtml(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtml(it.why) : ""}${it.source ? ` · <span title="grounded in this source">📰 ${_escHtml(it.source)}</span>` : " · evergreen"}
             </div>
+            ${it.based_on && it.based_on !== it.source ? `<div style="font-size:11.5px;color:#5b6270;margin-top:4px;line-height:1.45;border-left:2px solid #d3d8e0;padding-left:7px;">Based on: ${_escHtml(it.based_on)}</div>` : ""}
             <div style="margin-top:8px;"><button class="act-btn" onclick="previewIdea('${id}', ${i})">Preview this →</button></div>
           </div>`).join("") + `</div>`;
       } catch (e) {
@@ -2257,7 +2258,9 @@
         const form = new FormData();
         form.append("file", liFile);
         const r = await fetch(`/companies/${id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
-        if (r.ok && st) { st.textContent = "✓ Style learned"; st.className = "li-upload-status ok"; }
+        const d = r.ok ? await r.json().catch(() => ({})) : {};
+        if (r.ok && st) { st.textContent = d.facts ? "✓ Career facts read from the profile PDF (used for post ideas)" : "✓ Style learned"; st.className = "li-upload-status ok"; }
+        if (!r.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || "Couldn't read that file.", "warn"); }
       }
       const shots = document.getElementById("p-voice-shots")?.files;
       if (shots && shots.length) {
@@ -2304,10 +2307,10 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         const n = data.posts_found ? ` · ${data.posts_found} posts analysed` : "";
-        status.textContent = `✓ Writing style learned${n}`;
+        status.textContent = data.facts ? "✓ Career facts read from the profile PDF" : `✓ Writing style learned${n}`;
         status.className = "card-li-status ok";
         fileInput.value = "";
-        toast("Writing style learned!", "success");
+        toast(data.facts ? "Career facts read: post ideas now draw on their profile." : "Writing style learned!", "success");
         loadProfiles();
       } catch (err) {
         status.textContent = "Error: " + err.message;

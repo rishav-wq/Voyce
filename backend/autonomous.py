@@ -747,6 +747,11 @@ def _build_company_brief(company: dict) -> str:
         parts.append(
             "\n--- KNOWLEDGE BASE (ground every claim in these facts/rules; never "
             "contradict them or invent around them) ---\n" + company["knowledge"].strip()[:2000])
+    if (company.get("profile_facts") or "").strip():
+        parts.append(
+            "\n--- THEIR CAREER (from their LinkedIn profile; real facts you may draw on when they fit. "
+            "Never embellish them or add scenes, feelings or results they don't state) ---\n"
+            + company["profile_facts"].strip()[:8000])
     told = notes_mod.record_block(company)
     if told:
         parts.append("\n--- " + told)
@@ -1045,7 +1050,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
 def _knows_their_past(company: dict) -> bool:
     """True when the profile holds anything about the author's real past."""
     return bool(company.get("linkedin_top_posts") or company.get("author_notes")
-                or (company.get("knowledge") or "").strip()
+                or (company.get("knowledge") or "").strip() or (company.get("profile_facts") or "").strip()
                 or (company.get("website_content") and company.get("website_type") != "external")
                 or (company.get("analysis") or {}).get("description"))
 
@@ -1068,6 +1073,8 @@ def _author_record(company: dict) -> str:
         parts.append(f"Their past post {i}:\n{str(post)[:600]}")
     if (company.get("knowledge") or "").strip():
         parts.append("Facts they gave:\n" + company["knowledge"].strip()[:2000])
+    if (company.get("profile_facts") or "").strip():
+        parts.append("Their LinkedIn profile (career):\n" + company["profile_facts"].strip()[:8000])
     told = notes_mod.record_block(company)
     if told:
         parts.append(told)

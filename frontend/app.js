@@ -106,6 +106,7 @@ async function suggestIdeasCreate() {
         <div class="idea-meta">
           <span class="idea-type">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
         </div>
+        ${it.based_on && it.based_on !== it.source ? `<div class="idea-basis">Based on: ${_escHtmlCreate(it.based_on)}</div>` : ""}
         <button type="button" class="idea-use" onclick="useIdea(${i})">Use this idea →</button>
       </div>`).join("");
   } catch (e) {
@@ -122,6 +123,7 @@ function useIdea(i) {
   _switchInputTab("text");   // keeps whatever was in the other tab there
   const parts = [`Write a ${it.post_type_label || "LinkedIn"} post about: ${it.hook}.`];
   if (it.why) parts.push(it.why);
+  if (it.based_on && it.based_on !== it.source) parts.push(`Build it on this real fact about them: "${it.based_on}".`);
   if (it.source) parts.push(`It should react to this from the news: "${it.source}".`);
   ta.value = parts.join(" ");
   ta.scrollIntoView({ behavior: "smooth", block: "center" });

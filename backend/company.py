@@ -176,6 +176,12 @@ def set_scheduled_type(company_id: str, day: str, post_type: str) -> bool:
 
 
 def save_linkedin_data(company_id: str, linkedin_result: dict):
+    if linkedin_result.get("type") == "pdf":
+        # Career facts only. It used to overwrite the voice too, wiping any pasted posts.
+        result = db.companies.update_one({"id": company_id}, {"$set": {
+            "profile_facts": linkedin_result.get("profile_text", ""),
+            "profile_facts_at": datetime.now().isoformat()}})
+        return result.matched_count > 0
     result = db.companies.update_one(
         {"id": company_id},
         {"$set": {

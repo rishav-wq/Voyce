@@ -14,17 +14,18 @@ load_dotenv()
 # ── PDF Parser ────────────────────────────────────────────────────────────────
 
 def parse_linkedin_pdf(file_bytes: bytes) -> dict:
-    """Parse a LinkedIn profile PDF downloaded from LinkedIn."""
+    """A LinkedIn profile PDF (their profile -> More -> Save to PDF): headline, About, every role
+    with dates, education. It holds no posts, so it is career facts (for ideas and the fact check),
+    never a source of voice: analysing it for "writing style" only produced guesses."""
     text = ""
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for page in pdf.pages:
             text += (page.extract_text() or "") + "\n"
-
-    return {
-        "type": "pdf",
-        "raw_text": text[:6000],
-        "analysis": _analyze_linkedin_data(text[:6000], "profile PDF"),
-    }
+    text = re.sub(r"(?m)^\s*Page \d+ of \d+\s*$", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    if len(text) < 80:
+        raise ValueError("That PDF has no readable text. Download it again from their LinkedIn profile: More → Save to PDF.")
+    return {"type": "pdf", "profile_text": text[:8000], "posts_found": 0}
 
 
 # ── ZIP Archive Parser ────────────────────────────────────────────────────────
