@@ -215,17 +215,27 @@
       .work-preview { grid-column: 2; grid-row: 1 / span 4; min-width: 0; }
       .work-preview .output-section.visible { margin: 0 0 24px; }
       .work-preview .output-grid { grid-template-columns: 1fr; }
-      .work-preview .card-header { flex-wrap: wrap; gap: 10px; }
-      .work-preview .card-actions { flex-wrap: wrap; }
+      /* The card's own badge says what it is, so the cards' tops line up with Compose and the tools */
+      .work-preview .output-section-title { display: none; }
+      .work-preview .card-header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+      .work-preview .card-actions { flex-wrap: wrap; gap: 5px; margin-left: auto; justify-content: flex-end; }
+      .work-preview .card-header .action-btn { padding: 6px 9px; }
+      .work-preview .card-header .platform-badge { font-size: 11px; padding: 3px 8px; letter-spacing: .02em; }
       .work-preview .card-header .action-btn, .work-preview .platform-badge { white-space: nowrap; }
-      .preview-empty { display: block; background: #fff; border: 1.5px dashed #d8dde6; border-radius: 16px; padding: 22px 22px 24px; }
+      .preview-empty { display: flex; flex-direction: column; min-height: var(--compose-h, 0px);
+        background: #fff; border: 1.5px dashed #d8dde6; border-radius: 16px; padding: 22px 22px 20px; }
       .work-preview:has(.output-section.visible) .preview-empty { display: none; }
     }
     .pe-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
     .pe-av { width: 44px; height: 44px; border-radius: 50%; background: #eef1f5; flex: 0 0 auto; }
     .pe-lines { flex: 1; }
     .preview-empty i { display: block; height: 10px; border-radius: 6px; background: #eef1f5; margin-bottom: 10px; }
-    .preview-empty p { margin: 18px 0 0; font-size: 13px; color: #8a909c; line-height: 1.5; }
+    .preview-empty .pe-img { flex: 1; min-height: 60px; margin: 8px 0 14px; border-radius: 10px; background: #f3f5f8; }
+    .pe-bar { display: flex; justify-content: space-around; padding-top: 12px; border-top: 1px solid #f0f2f5; }
+    .preview-empty .pe-bar i { width: 52px; margin: 0; }
+    .preview-empty p { margin: 14px 0 0; font-size: 13px; color: #8a909c; line-height: 1.5; text-align: center; }
+    /* Side by side with Compose, the tools panel starts and ends with it: one clean row of boxes */
+    @media (min-width: 1200px) { .work-tools { min-height: var(--compose-h, 0px); } }
 
     @media (max-width: 1199px) {
       .workspace { grid-template-columns: 1fr; }
@@ -527,6 +537,7 @@
     .wa-shot .li-react svg { width: 18px; height: 18px; stroke: rgba(0,0,0,.6); }
     .wa-shot-foot { padding-top: 9px; text-align: center; font-size: 11px; color: rgba(0,0,0,.45); }
     .wa-shot-foot b { font-family: 'Space Grotesk', sans-serif; color: #24365e; }
+    .ideas-when { font-size: 11.5px; color: #98a0ae; margin-bottom: 8px; }
     .idea-basis { font-size: 11.5px; color: #5b6270; margin: 4px 0 2px; line-height: 1.45; border-left: 2px solid #d3d8e0; padding-left: 7px; }
     .li-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 
@@ -865,6 +876,8 @@
     <div class="preview-empty" aria-hidden="true">
       <div class="pe-head"><span class="pe-av"></span><span class="pe-lines"><i style="width:42%"></i><i style="width:64%;margin:0"></i></span></div>
       <i style="width:94%"></i><i style="width:88%"></i><i style="width:58%"></i>
+      <div class="pe-img"></div>
+      <div class="pe-bar"><i></i><i></i><i></i><i></i></div>
       <p>Your post shows up here, the way it will look on LinkedIn. Generate one, or click a draft.</p>
     </div>
 

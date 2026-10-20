@@ -35,8 +35,7 @@ function pickProfile(id) {
   setActiveProfile(id);
   const sel = document.getElementById("profile-picker");
   if (sel) sel.value = id;
-  const io = document.getElementById("ideas-out");
-  if (io) io.innerHTML = "";
+  _restoreIdeas();   // that person's ideas, not the last person's
   _setPreviewAuthor();
   _syncWhatsAppTarget();
   _renderDrafts();
@@ -65,7 +64,8 @@ async function loadProfilePicker() {
     _syncToolRuns();
     _setPreviewAuthor();
     _syncWhatsAppTarget();
-    _renderDrafts();   // now it knows whose drafts to show
+    _renderDrafts();   // now it knows whose drafts and ideas to show
+    _restoreIdeas();
   } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
@@ -76,9 +76,49 @@ function _escHtmlCreate(s) {
 
 // ── Post ideas on Create: pillar-spanning, grounded in live news ──────────────
 let _createIdeas = [];
+// Ideas stay put: saved per profile (this browser and account), so a trip to Queue or Settings,
+// a reload, or switching "Writing as" no longer throws a list away. They lapse after a week,
+// since they react to that week's news.
+const _IDEAS_TTL = 7 * 864e5;
+function _ideasKey(pid) { return `cm_ideas:${_uid()}:${pid}`; }
+function _ideasPid() { return getActiveProfileId() || (_profiles[0] && _profiles[0].id) || ""; }
+function _saveIdeas(pid, ideas) {
+  try { localStorage.setItem(_ideasKey(pid), JSON.stringify({ at: Date.now(), ideas })); } catch (_) {}
+}
+function _savedIdeas(pid) {
+  try {
+    const s = JSON.parse(localStorage.getItem(_ideasKey(pid)) || "null");
+    return s && Date.now() - s.at < _IDEAS_TTL && (s.ideas || []).length ? s : null;
+  } catch (_) { return null; }
+}
+function _renderIdeas(ideas, at) {
+  _createIdeas = ideas;
+  _markToolFilled("ideas", true);
+  document.getElementById("ideas-out").innerHTML =
+    (at ? `<div class="ideas-when">Suggested ${_escHtmlCreate(_ago(at))} · run it again for fresh ones</div>` : "") +
+    ideas.map((it, i) => `
+      <div class="idea-card">
+        <div class="idea-hook">${_escHtmlCreate(it.hook)}</div>
+        <div class="idea-meta">
+          <span class="idea-type">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
+        </div>
+        ${it.based_on && it.based_on !== it.source ? `<div class="idea-basis">Based on: ${_escHtmlCreate(it.based_on)}</div>` : ""}
+        <button type="button" class="idea-use" onclick="useIdea(${i})">Use this idea →</button>
+      </div>`).join("");
+}
+// The "Writing as" profile's saved ideas, or an empty panel
+function _restoreIdeas() {
+  const out = document.getElementById("ideas-out");
+  if (!out) return;
+  const pid = _ideasPid(), s = pid ? _savedIdeas(pid) : null;
+  if (s) { _renderIdeas(s.ideas, s.at); return; }
+  out.innerHTML = "";
+  _createIdeas = [];
+  _markToolFilled("ideas", false);
+}
 async function suggestIdeasCreate() {
   const out = document.getElementById("ideas-out");
-  const pid = getActiveProfileId() || (_profiles[0] && _profiles[0].id);
+  const pid = _ideasPid();
   if (!pid) { toast("Create a profile first, then I can suggest ideas.", "warn"); return; }
   showTool("ideas");
   // Only Paste Text is a brief. A link in the URL or YouTube tab used to steer the
@@ -109,18 +149,11 @@ async function suggestIdeasCreate() {
       return;
     }
     if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
-    _createIdeas = data.ideas || [];
-    if (!_createIdeas.length) { out.innerHTML = `<div class="tool-empty">No ideas came back — try again in a moment.</div>`; return; }
-    _markToolFilled("ideas", true);
-    out.innerHTML = _createIdeas.map((it, i) => `
-      <div class="idea-card">
-        <div class="idea-hook">${_escHtmlCreate(it.hook)}</div>
-        <div class="idea-meta">
-          <span class="idea-type">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
-        </div>
-        ${it.based_on && it.based_on !== it.source ? `<div class="idea-basis">Based on: ${_escHtmlCreate(it.based_on)}</div>` : ""}
-        <button type="button" class="idea-use" onclick="useIdea(${i})">Use this idea →</button>
-      </div>`).join("");
+    const ideas = data.ideas || [];
+    if (ideas.length) _saveIdeas(pid, ideas);
+    if (_ideasPid() !== pid) return;   // switched "Writing as" meanwhile: they're saved for later
+    if (!ideas.length) { out.innerHTML = `<div class="tool-empty">No ideas came back — try again in a moment.</div>`; return; }
+    _renderIdeas(ideas, 0);
   } catch (e) {
     out.innerHTML = `<div style="font-size:12.5px;color:#c0392b;line-height:1.5;">${_escHtmlCreate(e.message)}</div>`;
   }
@@ -1051,6 +1084,14 @@ function pickVariant(i) {
   _renderVariants(i);
   el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
+
+// The empty preview and the tools panel are as tall as Compose (CSS reads --compose-h), so the
+// columns line up; it follows Compose as it changes (the picker appearing, a resized text box).
+(function () {
+  const card = document.querySelector(".input-card");
+  if (!card || !window.ResizeObserver) return;
+  new ResizeObserver(() => document.documentElement.style.setProperty("--compose-h", card.getBoundingClientRect().height + "px")).observe(card);
+})();
 
 // ── Recent drafts: every post and carousel made in this browser, as small cards under the preview ──
 // In IndexedDB, not localStorage: a draft keeps its image or carousel PDF and who it was written as,
