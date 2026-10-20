@@ -427,6 +427,71 @@
     .li-title { font-size: 12px; color: #4b5260; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
     .wa-btn { color: #0b7a3e; border-color: #b9e3c9; }
     .wa-btn:hover { background: #effaf3; }
+    /* Recent drafts: small cards under the preview */
+    .drafts-section { margin-top: 28px; }
+    .drafts-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .drafts-head .output-section-title { margin: 0; }
+    .drafts-count { font-size: 12px; font-weight: 700; color: #24365e; background: #e7ebf4; border-radius: 999px; padding: 1px 8px; }
+    .drafts-note { margin-left: auto; font-size: 12px; color: #8a909c; }
+    .drafts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .draft-card { position: relative; display: flex; flex-direction: column; height: 232px; overflow: hidden; cursor: pointer;
+      background: #fff; border: 1px solid #e3e6eb; border-radius: 12px; transition: border-color .15s, box-shadow .15s, transform .15s; }
+    .draft-card[hidden] { display: none; }
+    .draft-card:hover { border-color: #c5ccd8; box-shadow: 0 6px 16px rgba(22,24,29,.08); transform: translateY(-1px); }
+    .draft-card:focus-visible { outline: 2px solid #24365e; outline-offset: 2px; }
+    .draft-card.open { border: 1.5px solid #24365e; box-shadow: 0 0 0 3px rgba(36,54,94,.08); }
+    .draft-thumb { height: 88px; flex: 0 0 auto; overflow: hidden; background: #f1f3f6; }
+    .draft-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .draft-slide { display: flex; align-items: center; padding: 10px 14px; background: #16181d; color: #fff;
+      font: 700 13px/1.3 'Space Grotesk', sans-serif; }
+    .draft-slide span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .draft-who { display: flex; align-items: center; gap: 7px; padding: 10px 12px 0; min-width: 0; }
+    .draft-av { width: 22px; height: 22px; flex: 0 0 auto; border-radius: 50%; overflow: hidden; background: #24365e; color: #fff;
+      display: grid; place-items: center; font: 700 10px 'Space Grotesk', sans-serif; }
+    .draft-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .draft-name { min-width: 0; font-size: 12px; font-weight: 700; color: #16181d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .draft-who.anon .draft-av { display: none; }
+    .draft-who.anon .draft-name { color: #8a909c; font-weight: 600; }
+    .draft-text { padding: 6px 12px 0; font-size: 12.5px; line-height: 1.45; color: #3b414c; white-space: pre-line;
+      display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+    .draft-text.long { -webkit-line-clamp: 9; }
+    .draft-foot { margin-top: auto; padding: 8px 12px 10px; display: flex; justify-content: space-between; font-size: 11px; color: #8a909c; }
+    .draft-kind { font-weight: 600; }
+    .draft-open { color: #24365e; font-weight: 700; }
+    .draft-del { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+      background: rgba(255,255,255,.94); color: #5b6270; font-size: 15px; line-height: 22px; cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,.14); opacity: 0; transition: opacity .15s; }
+    .draft-del:hover { color: #b42318; }
+    .draft-card:hover .draft-del, .draft-card:focus-within .draft-del { opacity: 1; }
+    @media (hover: none) { .draft-del { opacity: 1; } }
+    .drafts-more { margin-top: 12px; }
+    @media (max-width: 560px) { .drafts-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .drafts-note { display: none; } }
+    /* The post image sent on WhatsApp (built off-screen by _previewImage): the LinkedIn app's look */
+    .wa-shot { position: absolute; left: -10000px; top: 0; pointer-events: none;
+      width: 460px; box-sizing: border-box; padding: 14px 14px 10px; background: #f4f2ee;
+      font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .wa-shot-card { background: #fff; border-radius: 10px; overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(140,140,140,.22), 0 2px 8px rgba(0,0,0,.05); }
+    .wa-shot-head { display: flex; align-items: flex-start; gap: 9px; padding: 12px 14px 0 16px; }
+    .wa-shot-av { width: 48px; height: 48px; border-radius: 50%; background: #24365e; color: #fff; flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center; font: 700 19px 'Space Grotesk', sans-serif; overflow: hidden; }
+    .wa-shot-av img { width: 100%; height: 100%; border-radius: 50%; display: block; }
+    .wa-shot-who { flex: 1; min-width: 0; }
+    .wa-shot-name { font-size: 14px; font-weight: 600; line-height: 20px; color: rgba(0,0,0,.9); }
+    .wa-shot-title, .wa-shot-when { font-size: 12px; line-height: 16px; color: rgba(0,0,0,.6); }
+    .wa-shot-when { display: flex; align-items: center; gap: 2px; }
+    .wa-shot-when svg { width: 12px; height: 12px; fill: none; stroke: rgba(0,0,0,.6); stroke-width: 1.3; position: relative; top: 1px; }
+    .wa-shot-dots { font-size: 11px; line-height: 20px; letter-spacing: 1px; color: rgba(0,0,0,.6); }
+    .wa-shot-text { padding: 10px 16px 12px; font-size: 14px; line-height: 20px; color: rgba(0,0,0,.9);
+      white-space: pre-wrap; overflow-wrap: anywhere; }
+    .wa-shot-tag { color: #0a66c2; font-weight: 600; }
+    .wa-shot-img { display: block; width: 100%; height: auto; }
+    .wa-shot .li-reactbar { margin: 4px 12px 0; padding: 0; border-top: 1px solid #e8e8e8; }
+    .wa-shot .li-react { padding: 11px 2px; gap: 5px; font-size: 12.5px; color: rgba(0,0,0,.6); }
+    .wa-shot .li-react span { display: inline; }
+    .wa-shot .li-react svg { width: 18px; height: 18px; stroke: rgba(0,0,0,.6); }
+    .wa-shot-foot { padding-top: 9px; text-align: center; font-size: 11px; color: rgba(0,0,0,.45); }
+    .wa-shot-foot b { font-family: 'Space Grotesk', sans-serif; color: #24365e; }
     .idea-basis { font-size: 11.5px; color: #5b6270; margin: 4px 0 2px; line-height: 1.45; border-left: 2px solid #d3d8e0; padding-left: 7px; }
     .li-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 
@@ -634,7 +699,7 @@
         <span>Compose</span>
         <span id="writing-as" style="display:none;align-items:center;gap:8px;margin-left:auto;text-transform:none;letter-spacing:0;font-size:13px;color:#5b6270;">
           ✍️ Writing as
-          <select id="profile-picker" onchange="setActiveProfile(this.value);document.getElementById('ideas-out').innerHTML='';_setPreviewAuthor();_syncWhatsAppTarget();" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
+          <select id="profile-picker" onchange="pickProfile(this.value)" style="font-family:inherit;font-size:13px;font-weight:600;color:#16181d;padding:6px 10px;border:1.5px solid #d3d8e0;border-radius:8px;background:#fff;cursor:pointer;">
           </select>
         </span>
       </div>
@@ -829,6 +894,7 @@
           <div class="card-actions">
             <button class="action-btn" onclick="viewCarouselSlides()" title="Open the rendered slides">◫ View slides</button>
             <button class="action-btn" onclick="downloadCarousel()">⬇ Download PDF</button>
+            <button class="action-btn wa-btn" id="wa-btn-carousel" onclick="shareCarouselWhatsApp(this)" title="Send this carousel on WhatsApp">WhatsApp</button>
             <button class="action-btn primary" id="post-carousel-btn" onclick="postCarousel()">Post to LinkedIn</button>
           </div>
         </div>
@@ -838,6 +904,18 @@
           <div class="carousel-post-text" id="carousel-post-text"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Recent drafts: everything made here, as small cards. Was a "Past" tab in the side panel,
+         where earlier posts were out of sight; click a card to open it in the preview. -->
+    <div class="drafts-section" id="drafts-section" style="display:none;">
+      <div class="drafts-head">
+        <div class="output-section-title">Recent drafts</div>
+        <span class="drafts-count" id="drafts-count">0</span>
+        <span class="drafts-note">Saved in this browser · click one to open it</span>
+      </div>
+      <div class="drafts-grid" id="drafts-grid"></div>
+      <button type="button" class="action-btn drafts-more" id="drafts-more" style="display:none;" onclick="toggleAllDrafts()">Show all</button>
     </div>
 
     <!-- Queue -->
@@ -855,7 +933,6 @@
         <button class="tool-tab active" role="tab" data-tool="ideas"    onclick="showTool('ideas')">💡 Ideas<span class="tool-dot"></span></button>
         <button class="tool-tab"        role="tab" data-tool="rewrites" onclick="showTool('rewrites')">⟳ Rewrites<span class="tool-dot"></span></button>
         <button class="tool-tab"        role="tab" data-tool="hashtags" onclick="showTool('hashtags')"># Tags<span class="tool-dot"></span></button>
-        <button class="tool-tab"        role="tab" data-tool="history"  onclick="showTool('history')">🕘 Past</button>
       </div>
       <div class="tool-body">
 
@@ -877,11 +954,6 @@
           <p class="tool-intro">Tags that fit this post, mixed between broad reach and your niche.</p>
           <button type="button" class="tool-run" id="hashtags-run" onclick="suggestHashtags()"># Suggest hashtags</button>
           <div id="hashtags-row" style="display:none;margin-top:12px;"></div>
-        </div>
-
-        <div class="tool-pane" id="tool-history" role="tabpanel">
-          <p class="tool-intro">Posts you generated in this browser. Click one to load it back.</p>
-          <div id="history-panel"></div>
         </div>
 
       </div>

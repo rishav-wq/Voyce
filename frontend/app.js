@@ -30,6 +30,16 @@ let _profiles = [];
 let _profilesKnown = false, _liKnown = false;
 function getActiveProfileId() { return localStorage.getItem("cm_profile_id") || ""; }
 function setActiveProfile(id) { localStorage.setItem("cm_profile_id", id); }
+// "Writing as" changed, by the picker or by opening a draft written as someone else
+function pickProfile(id) {
+  setActiveProfile(id);
+  const sel = document.getElementById("profile-picker");
+  if (sel) sel.value = id;
+  const io = document.getElementById("ideas-out");
+  if (io) io.innerHTML = "";
+  _setPreviewAuthor();
+  _syncWhatsAppTarget();
+}
 async function loadProfilePicker() {
   try {
     const res = await fetch("/companies", { headers: { "x-token": getToken() } });
@@ -224,6 +234,7 @@ async function startApp() {
   // A new account goes through onboarding first, however sign-up got it here.
   if ((getUser() || {}).needs_onboarding) { location.replace("/onboarding"); return; }
   loadProfilePicker();
+  _loadDrafts();
   const user = getUser();
   if (user) {
     const tag = document.getElementById("user-tag");
@@ -515,6 +526,7 @@ async function _setPreviewAuthor() {
     }
     const a = _authorCache[key], now = _activeProfile();
     if (((now && now.id) || "_me") === key) _paintAuthor(a.name || (prof && prof.name) || "You", a.title || "", a.photo || "");
+    _syncDraft();   // the open draft's card gets the photo too
   } catch (_) {}
 }
 // The post as the user sees it. The preview is contenteditable, and pressing
@@ -546,6 +558,7 @@ async function _syncWhatsAppTarget() {
   _waTarget = null;
   const btn = document.getElementById("wa-btn");
   if (btn) btn.textContent = "WhatsApp";
+  const cb = document.getElementById("wa-btn-carousel"); if (cb) cb.textContent = "WhatsApp";
   const u = getUser(), prof = (typeof _activeProfile === "function") ? _activeProfile() : null;
   if (!u || !u.sales_access || !prof || !prof.name) return;
   const asked = prof.id;
@@ -554,41 +567,177 @@ async function _syncWhatsAppTarget() {
     const t = r.ok ? await r.json() : {};
     if ((_activeProfile() || {}).id !== asked) return;      // switched profile meanwhile
     if (t && t.whatsapp) {
-      _waTarget = t;
-      if (btn) btn.textContent = "WhatsApp " + String(t.name || prof.name).split(" ")[0].replace(/[.,]$/, "");
+      _waTarget = { ...t, name: prof.name || t.name };
+      const lbl = "WhatsApp " + String(prof.name || t.name).split(" ")[0].replace(/[.,]$/, "");
+      if (btn) btn.textContent = lbl;
+      const cb = document.getElementById("wa-btn-carousel"); if (cb) cb.textContent = lbl;
     }
   } catch (_) {}
 }
-async function _imageToPngBlob() {
-  const bytes = Uint8Array.from(atob(_attachB64), c => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: _attachMime });
-  if (_attachMime === "image/png") return blob;
-  const bmp = await createImageBitmap(blob);           // the clipboard only takes PNG
-  const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
-  c.getContext("2d").drawImage(bmp, 0, 0);
-  return await new Promise(res => c.toBlob(res, "image/png"));
+// What a prospect gets on WhatsApp: their post as it will look in the LinkedIn app, as one image.
+// Drawn off-screen at phone width in LinkedIn's own font and colours (every line, no fold; the
+// attached image or tweet card; hashtags in LinkedIn blue) on the feed's grey, so it reads on a
+// phone and comes out the same whatever the size of this window. No made-up likes or comments.
+let _h2cLoading = null;
+function _loadHtml2Canvas() {
+  if (window.html2canvas) return Promise.resolve();
+  if (!_h2cLoading) _h2cLoading = new Promise((res, rej) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    sc.onload = res; sc.onerror = () => { _h2cLoading = null; rej(new Error("image tool didn't load")); };
+    document.head.appendChild(sc);
+  });
+  return _h2cLoading;
+}
+const _GLOBE_SVG = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3"/><path d="M1.7 8h12.6M8 1.7c2.1 2.3 2.1 10.3 0 12.6M8 1.7c-2.1 2.3-2.1 10.3 0 12.6"/></svg>';
+function _el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function _buildShot() {
+  const shot = _el("div", "wa-shot"), card = _el("div", "wa-shot-card"), head = _el("div", "wa-shot-head");
+  const av = document.getElementById("li-avatar").cloneNode(true);
+  av.removeAttribute("id"); av.className = "wa-shot-av";
+  const who = _el("div", "wa-shot-who"), title = document.getElementById("li-title");
+  who.append(_el("div", "wa-shot-name", document.getElementById("li-name").textContent));
+  if (title && !title.hidden && title.textContent.trim()) who.append(_el("div", "wa-shot-title", title.textContent));
+  const when = _el("div", "wa-shot-when", "Now • ");
+  when.insertAdjacentHTML("beforeend", _GLOBE_SVG);
+  who.append(when);
+  head.append(av, who, _el("div", "wa-shot-dots", "•••"));
+  const text = _el("div", "wa-shot-text");
+  _postText().split(/(#[\p{L}_][\p{L}\p{N}_]*)/u).forEach((part, i) =>
+    text.append(i % 2 ? _el("span", "wa-shot-tag", part) : document.createTextNode(part)));
+  card.append(head, text);
+  const media = document.getElementById("li-media"), img = document.getElementById("li-attach-img");
+  if (media && getComputedStyle(media).display !== "none" && img && img.getAttribute("src")) {
+    const pic = _el("img", "wa-shot-img");
+    pic.src = img.src;
+    card.append(pic);
+  }
+  const bar = document.querySelector("#card-linkedin .li-reactbar");
+  if (bar) card.append(bar.cloneNode(true));
+  const foot = _el("div", "wa-shot-foot", "Drafted with ");
+  foot.append(_el("b", "", "Voyce"));
+  shot.append(card, foot);
+  return shot;
+}
+async function _previewImage() {
+  await _loadHtml2Canvas();
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const shot = _buildShot();
+  // Off the page's edge, and moved into view only in html2canvas's copy. (Not visibility:hidden:
+  // html2canvas carries that onto the SVG icons, which then come out blank.)
+  document.body.appendChild(shot);
+  try {
+    const canvas = await window.html2canvas(shot, {
+      scale: 2.5, backgroundColor: "#f4f2ee", logging: false,
+      onclone: doc => { const s = doc.querySelector(".wa-shot"); if (s) s.style.left = "0px"; },
+    });
+    return await new Promise(res => canvas.toBlob(res, "image/png"));
+  } finally {
+    shot.remove();
+  }
+}
+function _openChat(to, text) {
+  const url = "https://wa.me/" + (to || "") + (text ? "?text=" + encodeURIComponent(text) : "");
+  const w = window.open(url, "_blank");
+  if (w) { try { w.opener = null; } catch (_) {} return true; }
+  toast("The browser blocked WhatsApp from opening: allow pop-ups for voyce.co.in, then press the button again.", "warn");
+  return false;
+}
+function _waIntro(kind) {
+  const first = _waTarget ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") : "";
+  return first ? `Hi ${first}, here's a LinkedIn ${kind} Voyce wrote for you:` : "";
 }
 async function shareWhatsApp(btn) {
-  const text = _postText();
-  if (!text) { toast("Generate a post first.", "warn"); return; }
+  if (!_postText()) { toast("Generate a post first.", "warn"); return; }
   const to = (_waTarget && _waTarget.whatsapp) || "";
-  // No one in particular, an image, and a share sheet that takes files (phones, Chrome/Edge on Windows): post + image together
-  if (!to && _attachB64 && navigator.canShare) {
-    try {
-      const bytes = Uint8Array.from(atob(_attachB64), c => c.charCodeAt(0));
-      const file = new File([bytes], "voyce-post." + _attachExt(), { type: _attachMime });
-      if (navigator.canShare({ files: [file], text })) { await navigator.share({ files: [file], text }); return; }
-    } catch (e) { if (e && e.name === "AbortError") return; }
+  const label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Preparing…"; }
+  try {
+    let png = null;
+    try { png = await _previewImage(); } catch (_) {}
+    if (!png) { toast("Couldn't make the post image. Use Copy and paste the text instead.", "warn"); return; }
+    const file = new File([png], "linkedin-post.png", { type: "image/png" });
+    // Nobody in particular, and a share sheet that takes files (phones, Chrome/Edge on Windows): straight in
+    if (!to && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); } catch (e) { if (!(e && e.name === "AbortError")) toast("Sharing didn't work here.", "warn"); }
+      return;
+    }
+    // A WhatsApp link carries text only: the post image goes to the clipboard, to paste into the chat
+    let copied = false;
+    if (navigator.clipboard && window.ClipboardItem) {
+      try { await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]); copied = true; } catch (_) {}
+    }
+    if (!copied) {   // no clipboard for images here: save it, to attach
+      const a = document.createElement("a"); a.href = URL.createObjectURL(png); a.download = "linkedin-post.png"; a.click();
+    }
+    _openChat(to, _waIntro("post"));
+    const who = to ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") + "'s" : "the";
+    toast(copied ? `Post copied as an image: paste it into ${who} chat (Ctrl+V) and send.`
+                 : `Post saved as an image: attach it in ${who} chat.`, "info");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
-  // A WhatsApp link carries text only, so the image goes to the clipboard to paste into the chat
-  let copied = false;
-  if (_attachB64 && navigator.clipboard && window.ClipboardItem) {
-    try { const png = await _imageToPngBlob(); await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]); copied = true; } catch (_) {}
+}
+// Carousels go as the real thing: the PDF
+// Carousels go as every slide, as images: in WhatsApp they open as an album you can swipe,
+// where a PDF shows as a file icon. The slides come from the carousel PDF (pdf.js).
+let _pdfjsLoading = null;
+function _loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve();
+  if (!_pdfjsLoading) _pdfjsLoading = new Promise((res, rej) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; res(); };
+    sc.onerror = () => { _pdfjsLoading = null; rej(new Error("slide tool didn't load")); };
+    document.head.appendChild(sc);
+  });
+  return _pdfjsLoading;
+}
+async function _carouselSlides() {
+  await _loadPdfJs();
+  const bytes = Uint8Array.from(atob(_carouselPdfBase64), c => c.charCodeAt(0));
+  const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+  const out = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const vp = page.getViewport({ scale: 1080 / page.getViewport({ scale: 1 }).width });
+    const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    out.push(await new Promise(r => c.toBlob(r, "image/jpeg", 0.9)));
   }
-  window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(text), "_blank", "noopener");
-  const who = to ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") : "";
-  toast(copied ? `Image copied: paste it into ${who ? who + "'s" : "the"} chat (Ctrl+V) before sending.`
-               : (_attachB64 ? "The image can't go in a WhatsApp link: attach it in the chat." : (who ? `Opening ${who}'s chat…` : "Opening WhatsApp…")), "info");
+  return out;
+}
+async function shareCarouselWhatsApp(btn) {
+  if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
+  const to = (_waTarget && _waTarget.whatsapp) || "";
+  const label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Preparing slides…"; }
+  try {
+    let slides = [];
+    try { slides = await _carouselSlides(); } catch (_) {}
+    if (!slides.length) {   // couldn't draw the slides here: send the PDF instead
+      downloadCarousel(); _openChat(to, _waIntro("carousel"));
+      toast("Carousel PDF downloaded: attach it in the chat (📎 → Document) and send.", "info");
+      return;
+    }
+    const files = slides.map((b, i) => new File([b], `slide-${i + 1}.jpg`, { type: "image/jpeg" }));
+    if (!to && navigator.canShare && navigator.canShare({ files })) {
+      try { await navigator.share({ files }); } catch (e) { if (!(e && e.name === "AbortError")) toast("Sharing didn't work here.", "warn"); }
+      return;
+    }
+    // A specific chat on a computer: save the slides, then drag them in (WhatsApp sends them as an album)
+    files.forEach((f, i) => setTimeout(() => { const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); }, i * 250));
+    _openChat(to, _waIntro("carousel"));
+    const who = to ? String(_waTarget.name || "").split(" ")[0].replace(/[.,]$/, "") + "'s" : "the";
+    toast(`${files.length} slides saved to Downloads: drag them into ${who} chat and they go as an album.`, "info");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }
 
 function _resetPostButton() {
@@ -597,6 +746,7 @@ function _resetPostButton() {
 }
 
 function saveDraft() {
+  _syncDraft();
   const post = _postText();
   if (!post) { localStorage.removeItem(_DRAFT_KEY); return; }
   try {
@@ -638,13 +788,14 @@ function toggleFold() {
 
 function renderOutputs(data) {
   document.getElementById("linkedin-content").textContent = data.linkedin_post || "";
+  _newDraft("post", { text: data.linkedin_post || "" });
+  _loadHtml2Canvas().catch(() => {});
   _resetPostButton();   // a new post can be posted, even after the last one was
   _makeEditable();
   _applyFold();
   _setPreviewAuthor();
   if (!_attachIsUpload) attachRemove();   // keep a user-uploaded image; clear AI-generated ones
   saveDraft();
-  _pushHistory(data.linkedin_post || "");
   // Fresh post → the old rewrites and hashtag suggestions belong to the old text
   hideVariants();
   window._tagPool = null;
@@ -666,7 +817,7 @@ function _makeEditable() {
     el.classList.remove("li-clamp"); el.style.maxHeight = "";
     const b = document.getElementById("li-see-more"); if (b) b.style.display = "none";
   });
-  el.addEventListener("blur", () => { saveDraft(); _updateActiveHistory(); _applyFold(); });
+  el.addEventListener("blur", () => { saveDraft(); _applyFold(); });
 }
 
 // ── Rewrites: two alternate versions of the whole post, alongside the original ─
@@ -733,7 +884,6 @@ function showTool(name) {
     t.classList.toggle("active", t.dataset.tool === name));
   document.querySelectorAll(".tool-pane").forEach(p =>
     p.classList.toggle("active", p.id === `tool-${name}`));
-  if (name === "history") _renderHistory();
   _syncToolRuns();
   // Only matters on narrow screens, where the panel sits below the work column.
   if (window.innerWidth < 1200) {
@@ -900,64 +1050,163 @@ function pickVariant(i) {
   el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-// ── Generation history (this browser) ─────────────────────────────────────────
-const _HIST_KEY = "cm_history";
-// The Past entry currently in the editor, keyed by its ts, so edits update that
-// entry in place instead of leaving history stuck on the first draft.
-let _activeHistId = null;
-function _pushHistory(text) {
-  if (!text || !text.trim()) return;
-  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
-  if (h[0] && h[0].text === text) { _activeHistId = h[0].ts; return; }   // dedupe consecutive identical
-  const entry = { text, ts: Date.now() };
-  h.unshift(entry);
-  h = h.slice(0, 25);
-  try { localStorage.setItem(_HIST_KEY, JSON.stringify(h)); } catch (_) {}
-  _activeHistId = entry.ts;
+// ── Recent drafts: every post and carousel made in this browser, as small cards under the preview ──
+// In IndexedDB, not localStorage: a draft keeps its image or carousel PDF and who it was written as,
+// so opening one brings back exactly what was made, with the right photo and WhatsApp chat.
+// The old text-only history (cm_history) moves in once.
+const _DRAFTS_MAX = 60;
+let _drafts = [], _draftsAll = false, _draftsDb = null;
+let _activeDraftId = null, _activeCarouselDraftId = null;   // what the preview and the carousel card show
+function _draftsStore(mode) {
+  if (!_draftsDb) _draftsDb = new Promise((res, rej) => {
+    const r = indexedDB.open("voyce", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("drafts", { keyPath: "id" });
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return _draftsDb.then(db => db.transaction("drafts", mode).objectStore("drafts"));
 }
-// Sync the active Past entry with edits, so history reflects the post you actually
-// shaped — not just the draft the model first returned.
-function _updateActiveHistory() {
-  if (_activeHistId == null) return;
+function _idbReq(req) {
+  return new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+}
+async function _putDraft(d) { try { await _idbReq((await _draftsStore("readwrite")).put(d)); } catch (_) {} }
+async function _dropDraft(id) { try { await _idbReq((await _draftsStore("readwrite")).delete(id)); } catch (_) {} }
+function _uid() { return (getUser() || {}).id || ""; }
+async function _loadDrafts() {
+  try {
+    const all = await _idbReq((await _draftsStore("readonly")).getAll());
+    _drafts = all.filter(d => d.uid === _uid());   // a shared computer: only this account's drafts
+    let old = [];
+    try { old = JSON.parse(localStorage.getItem("cm_history") || "[]"); } catch (_) {}
+    const add = old.filter(o => o && o.text && !_drafts.some(d => d.id === o.ts))
+                   .map(o => ({ id: o.ts, uid: _uid(), kind: "post", text: o.text }));
+    if (add.length) {
+      const st = await _draftsStore("readwrite");
+      await Promise.all(add.map(d => _idbReq(st.put(d))));
+      _drafts.push(...add);
+    }
+    if (old.length) localStorage.removeItem("cm_history");
+  } catch (_) {}   // no IndexedDB here (some private windows): drafts last for this visit
+  _drafts.sort((a, b) => b.id - a.id);
+  _renderDrafts();
+}
+function _newDraft(kind, fields) {
+  const prof = _activeProfile(), a = _authorCache[(prof && prof.id) || "_me"] || {};
+  const id = Math.max(Date.now(), _drafts.length ? _drafts[0].id + 1 : 0);   // unique: it's the store's key
+  const d = { id, uid: _uid(), kind, profileId: prof ? prof.id : "",
+              name: a.name || (prof && prof.name) || (getUser() || {}).name || "", photo: a.photo || "", ...fields };
+  _drafts.unshift(d);
+  _drafts.splice(_DRAFTS_MAX).forEach(x => _dropDraft(x.id));
+  _putDraft(d);
+  if (kind === "carousel") _activeCarouselDraftId = d.id; else _activeDraftId = d.id;
+  _renderDrafts();
+}
+// The open draft follows edits, an added or removed image, and the author's photo once it loads.
+function _syncDraft() {
+  const d = _drafts.find(x => x.id === _activeDraftId);
+  if (!d) return;
   const text = _postText().trim();
   if (!text) return;
-  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
-  const it = h.find(e => e.ts === _activeHistId);
-  if (!it || it.text === text) return;
-  it.text = text;
-  try { localStorage.setItem(_HIST_KEY, JSON.stringify(h)); } catch (_) {}
-  _renderHistory();   // keep the Past tab live if it happens to be open
+  const a = _authorCache[d.profileId || "_me"] || {};
+  const next = { text, img: _attachB64 || "", mime: _attachMime, upload: _attachIsUpload,
+                 photo: a.photo || d.photo || "", name: a.name || d.name || "" };
+  if (Object.keys(next).every(k => d[k] === next[k])) return;
+  Object.assign(d, next);
+  _putDraft(d);
+  _renderDrafts();
 }
-function toggleHistory() { showTool("history"); }
-
-function _renderHistory() {
-  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
-  const p = document.getElementById("history-panel");
-  if (!p) return;
-  if (!h.length) { p.innerHTML = `<div class="tool-empty">Nothing yet. Posts you generate show up here so you can come back to one.</div>`; return; }
-  // Slice the raw text, then escape it — escaping first can cut through an
-  // entity and leave a stray "&#3" on screen.
-  p.innerHTML = h.map((it, i) => {
-    const snip = it.text.slice(0, 180);
-    return `<div class="hist-item">
-      <div class="hist-text">${_escHtmlCreate(snip)}${it.text.length > 180 ? "…" : ""}</div>
-      <div class="hist-foot">
-        <span>${new Date(it.ts).toLocaleString()}</span>
-        <button type="button" class="action-btn" onclick="loadFromHistory(${i})">Load &amp; edit</button>
-      </div></div>`;
-  }).join("");
+function openDraft(id) {
+  const d = _drafts.find(x => x.id === id);
+  if (!d) return;
+  // Back to the person it was written as: the preview's name and photo, and the WhatsApp chat
+  if (d.profileId && d.profileId !== getActiveProfileId() && _profiles.some(p => p.id === d.profileId)) pickProfile(d.profileId);
+  if (d.kind === "carousel") {
+    _activeCarouselDraftId = d.id;
+    _showCarouselResult({ pdf_base64: d.pdf, post_text: d.text, hook: d.hook });
+  } else {
+    _activeDraftId = d.id;   // edits from here update this same draft
+    const el = document.getElementById("linkedin-content");
+    el.textContent = d.text;
+    _resetPostButton(); _makeEditable(); _applyFold();
+    _attachB64 = d.img || null; _attachMime = d.mime || "image/png"; _attachIsUpload = !!d.upload;
+    if (d.img) _renderAttachment(`data:${_attachMime};base64,${d.img}`); else _attachState("empty");
+    saveDraft();
+    hideVariants(); window._tagPool = null; hideHashtags();   // they belonged to the other post
+    document.getElementById("output-section").classList.add("visible");
+    _syncToolRuns();
+    document.getElementById("output-section").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  _renderDrafts();
 }
-function loadFromHistory(i) {
-  let h; try { h = JSON.parse(localStorage.getItem(_HIST_KEY) || "[]"); } catch (_) { h = []; }
-  const it = h[i]; if (!it) return;
-  _activeHistId = it.ts;   // edits from here update this same entry
-  const el = document.getElementById("linkedin-content");
-  el.textContent = it.text; _resetPostButton(); _makeEditable(); _applyFold(); saveDraft();
-  document.getElementById("output-section").classList.add("visible");
-  _syncToolRuns();
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
-  toast("Loaded — edit it and post.", "success");
+function deleteDraft(id) {
+  _drafts = _drafts.filter(d => d.id !== id);
+  if (_activeDraftId === id) _activeDraftId = null;
+  if (_activeCarouselDraftId === id) _activeCarouselDraftId = null;
+  _dropDraft(id);
+  _renderDrafts();
 }
+function _ago(ts) {
+  const s = (Date.now() - ts) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  if (s < 172800) return "yesterday";
+  return new Date(ts).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+function _draftCard(d) {
+  const open = d.id === (d.kind === "carousel" ? _activeCarouselDraftId : _activeDraftId);
+  const c = _el("div", "draft-card" + (open ? " open" : ""));
+  c.tabIndex = 0; c.setAttribute("role", "button"); c.title = "Open this draft";
+  c.onclick = () => openDraft(d.id);
+  c.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDraft(d.id); } };
+  if (d.kind === "carousel") {
+    const t = _el("div", "draft-thumb draft-slide");
+    t.append(_el("span", "", d.hook || (d.text || "").split("\n")[0]));
+    c.append(t);
+  } else if (d.img) {
+    const t = _el("div", "draft-thumb"), im = _el("img");
+    im.alt = ""; im.loading = "lazy"; im.src = `data:${d.mime || "image/png"};base64,${d.img}`;
+    t.append(im); c.append(t);
+  }
+  // Drafts from the old history don't say who they were written as
+  const who = _el("div", "draft-who" + (d.name ? "" : " anon")), av = _el("span", "draft-av");
+  if (d.photo) { const im = _el("img"); im.alt = ""; im.src = d.photo; av.append(im); }
+  else av.textContent = ((d.name || "?").trim()[0] || "?").toUpperCase();
+  who.append(av, _el("span", "draft-name", d.name || "Earlier draft"));
+  c.append(who);
+  c.append(_el("div", "draft-text" + (d.kind === "post" && !d.img ? " long" : ""), (d.text || "").replace(/\n\s*\n+/g, "\n")));
+  const foot = _el("div", "draft-foot");
+  foot.append(_el("span", "draft-kind", d.kind === "carousel" ? "Carousel" : d.img ? "Post · image" : "Post"),
+              _el("span", open ? "draft-open" : "", open ? "Open" : _ago(d.id)));
+  c.append(foot);
+  const del = _el("button", "draft-del", "×");
+  del.type = "button"; del.title = "Remove this draft"; del.setAttribute("aria-label", "Remove this draft");
+  del.onclick = e => { e.stopPropagation(); deleteDraft(d.id); };
+  c.append(del);
+  return c;
+}
+// Two rows to start with; the rest behind "Show all"
+function _capDrafts() {
+  const grid = document.getElementById("drafts-grid"), more = document.getElementById("drafts-more");
+  if (!grid) return;
+  const tpl = getComputedStyle(grid).gridTemplateColumns;
+  const cap = 2 * (tpl && tpl !== "none" ? tpl.split(" ").filter(Boolean).length : 3);
+  [...grid.children].forEach((c, i) => { c.hidden = !_draftsAll && i >= cap; });
+  if (more) {
+    more.style.display = _drafts.length > cap ? "" : "none";
+    more.textContent = _draftsAll ? "Show fewer" : `Show all ${_drafts.length}`;
+  }
+}
+function _renderDrafts() {
+  const sec = document.getElementById("drafts-section"), grid = document.getElementById("drafts-grid");
+  if (!sec || !grid) return;
+  sec.style.display = _drafts.length ? "" : "none";
+  document.getElementById("drafts-count").textContent = _drafts.length;
+  grid.replaceChildren(..._drafts.map(_draftCard));
+  _capDrafts();
+}
+function toggleAllDrafts() { _draftsAll = !_draftsAll; _capDrafts(); }
+window.addEventListener("resize", () => { clearTimeout(window._draftsRz); window._draftsRz = setTimeout(_capDrafts, 150); });
 
 // ── Post Now ──────────────────────────────────────────────────────────────────
 async function postToLinkedIn() {
@@ -1115,6 +1364,7 @@ async function generateCarousel() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Carousel generation failed.");
     _showCarouselResult(data);
+    _newDraft("carousel", { text: data.post_text || "", pdf: data.pdf_base64, hook: data.hook || "" });
     toast("Carousel ready! Download the PDF to preview.", "success");
   } catch (err) {
     showError(err.message);

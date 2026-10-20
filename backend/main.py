@@ -2215,6 +2215,14 @@ class IdeasRequest(BaseModel):
     context: str = ""
 
 
+def _clip_words(text: str, n: int) -> str:
+    """At most n characters, cut at a word, with an ellipsis when cut."""
+    if len(text) <= n:
+        return text
+    cut = text[:n].rsplit(" ", 1)[0].rstrip(" ,;:-(")
+    return cut + "…"
+
+
 @app.post("/companies/{company_id}/ideas")
 def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
                   x_token: str = Header(None)):
@@ -2305,7 +2313,7 @@ Return ONLY JSON:
                 "post_type": pt,
                 "post_type_label": POST_TYPE_LABELS.get(pt, pt.replace("_", " ").title() if pt else "Post"),
                 "why": str(it.get("why", "")).strip()[:200],
-                "based_on": str(it.get("based_on", "")).strip()[:220],
+                "based_on": _clip_words(str(it.get("based_on", "")).strip(), 160),
                 "source": src[:160],
                 "source_url": src_url.get(src, ""),
             })
