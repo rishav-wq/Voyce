@@ -1047,6 +1047,20 @@ def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
     return img.resize((rw // _SCALE, rh // _SCALE), Image.LANCZOS)
 
 
+def _fit_one_line(draw, text: str, font, max_w: int) -> str:
+    """One line that fits max_w: whole when it fits, else ended at a whole word with "…"
+    (never on a dangling "of", "and", "|")."""
+    t = " ".join((text or "").split())
+    if _tw(draw, t, font) <= max_w:
+        return t
+    words = t.split()
+    while words and _tw(draw, " ".join(words) + "…", font) > max_w:
+        words.pop()
+    while words and (words[-1].lower() in {"of", "at", "and", "&", "the", "for", "in", "to", "|", "-", "–"}):
+        words.pop()
+    return (" ".join(words).rstrip(" ,;:-|") + "…") if words else ""
+
+
 def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
                       rw: int = _RW, rh: int = 0, avatar: Image.Image = None) -> Image.Image:
     """Social-screenshot style, matched to the real genre: pure-black frame CROPPED TO
@@ -1107,14 +1121,18 @@ def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
     f_name = _font(34 * _SCALE, bold=True)
     f_handle = _font(29 * _SCALE)
     tx = ax + av_r * 2 + int(26 * _SCALE)
-    name_txt = (name or "")[:28]
+    line_w = rw - pad_x - tx - int(70 * _SCALE)   # up to the overflow dots
+    name_txt = _fit_one_line(draw, name, f_name, line_w)
+    # A LinkedIn headline runs long ("Director, X College | Business Development, Y"): the part
+    # before the first "|", ended at a whole word. It used to be cut at 40 characters mid-word.
+    handle = _fit_one_line(draw, re.split(r"\s+[|•·]\s+", (handle or "").strip())[0], f_handle, line_w)
     # With no title under it, the name centres on the photo instead of sitting at its top
     name_y = ay + int(2 * _SCALE) if (handle or "").strip() else ay + av_r - draw.textbbox((0, 0), name_txt or "A", font=f_name)[3] // 2
     draw.text((tx, name_y), name_txt, font=f_name, fill=(255, 255, 255))
     # No verified seal and no @handle. Both were invented: the card implied an X
     # post and a verification nobody had, and the made-up handle could belong to a
     # stranger. The second line is the author's real title, when there is one.
-    draw.text((tx, ay + int(50 * _SCALE)), (handle or "")[:40], font=f_handle, fill=(113, 118, 123))
+    draw.text((tx, ay + int(50 * _SCALE)), handle, font=f_handle, fill=(113, 118, 123))
 
     # Overflow dots top-right (subtle platform chrome)
     dots_y = ay + int(18 * _SCALE)
