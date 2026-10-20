@@ -568,14 +568,15 @@ function _applyFold() {
   requestAnimationFrame(() => {
     const folded = el.scrollHeight > el.clientHeight + 4;
     btn.style.display = folded ? "" : "none";
-    if (!folded) { el.classList.remove("li-clamp"); el.style.maxHeight = ""; }
+    if (!folded) { el.classList.remove("li-clamp"); el.style.maxHeight = "none"; }
   });
 }
 function toggleFold() {
   const el  = document.getElementById("linkedin-content");
   const btn = document.getElementById("li-see-more");
   const nowClamped = el.classList.toggle("li-clamp");
-  el.style.maxHeight = nowClamped ? _foldHeight(el) + "px" : "";
+  // Expanded shows the whole post: "" would fall back to the card's 480px cap and an inner scrollbar
+  el.style.maxHeight = nowClamped ? _foldHeight(el) + "px" : "none";
   btn.textContent = nowClamped ? "…see more" : "see less";
 }
 
