@@ -57,9 +57,9 @@
         "url": "https://voyce.co.in/",
         "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule to approve with one tap or post automatically, through the official LinkedIn API.",
         "offers": [
-          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 generations (posts, previews or idea lists), manual posting to LinkedIn, no credit card." },
-          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited generations, previews and idea lists, daily posting on your schedule, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
-          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 generations per pass (posts, previews and idea lists), and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 free tries (posts, carousels, images, previews or idea lists), manual posting to LinkedIn, no credit card." },
+          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited posts, carousels, images, previews and idea lists, daily posting on your schedule, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
+          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 posts, carousels or images per pass (previews and idea lists included), and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
         ]
       },
       {
@@ -70,7 +70,7 @@
           { "@type": "Question", "name": "Will the posts actually sound like me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the core of it. Add a few of your past LinkedIn posts and Voyce writes in your rhythm, vocabulary, and tone, so it reads like you wrote it, not generic AI." } },
           { "@type": "Question", "name": "Does it post automatically, or do I approve first?", "acceptedAnswer": { "@type": "Answer", "text": "You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it is based on, and nothing goes out until you tap Approve. If you would rather not check, switch to automatic posting. A post that fails Voyce's fact and quality check is always held for you." } },
           { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration, and by default you approve every post." } },
-          { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 generations to try: each post, carousel, image, preview or idea list uses one. Plus manual posting to LinkedIn. No credit card required." } },
+          { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 free tries: each post, carousel, image, preview or list of post ideas uses one. You can post them to LinkedIn yourself. No credit card required." } },
           { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI provider, Google Gemini. The Privacy Policy has the details." } },
           { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
           { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them." } }
@@ -180,25 +180,33 @@
   /* Hero: a morning with Voyce — the approval email, one tap, live on LinkedIn */
   .loop{position:relative;max-width:440px;margin-left:auto;}
   .loop-cap{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 10px 4px;}
-  .mail{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px 18px;box-shadow:0 1px 2px rgba(22,24,29,.06),0 18px 40px rgba(22,24,29,.10);}
-  .mail-top{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-faint);margin-bottom:10px;}
-  .mail-av{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;flex:none;}
-  .mail-from{font-weight:600;color:var(--ink);}
-  .mail-time{margin-left:auto;}
-  .mail-subj{font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.01em;margin-bottom:10px;color:var(--ink);}
-  .mail-body{font-size:14px;line-height:1.55;color:#2b2f38;border-left:3px solid #e4e7ec;padding:2px 0 2px 12px;margin-bottom:10px;}
-  .mail-src{font-size:12px;color:var(--ink-faint);line-height:1.45;margin-bottom:14px;}
-  .mail-src b{color:var(--ink-soft);font-weight:600;}
-  .mail-btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;}
-  .loop-tap{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-faint);margin:12px 0 12px 22px;}
-  .loop-tap::before{content:"";width:1.5px;height:22px;background:var(--line);}
-  .live{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--ink);box-shadow:0 8px 20px rgba(22,24,29,.07);}
-  .live-dot{width:9px;height:9px;border-radius:50%;background:var(--success);flex:none;}
-  .live small{font-weight:500;color:var(--ink-faint);}
+  .hero-alt{display:inline-block;margin-top:14px;font-size:14px;color:var(--ink-soft);text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px;}
+  .hero-alt:hover{color:var(--ink);text-decoration-color:var(--ink);}
+  .mstep{list-style:none;margin:0;padding:0;position:relative;}
+  .mstep::before{content:"";position:absolute;left:13px;top:14px;bottom:18px;width:2px;background:var(--line);}
+  .ms{position:relative;display:flex;gap:14px;align-items:flex-start;}
+  .ms + .ms{margin-top:14px;}
+  .ms-dot{position:relative;z-index:1;flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;box-shadow:0 0 0 4px var(--paper);}
+  .ms-done .ms-dot{background:var(--success);}
+  .ms-body{flex:1;min-width:0;}
+  .ms-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-height:28px;padding-top:3px;}
+  .ms-line b{font-family:var(--display);font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);}
+  .ms-line span{font-size:12.5px;color:var(--ink-faint);}
+  .lp{margin-top:10px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px 16px;box-shadow:0 1px 2px rgba(22,24,29,.06),0 18px 40px rgba(22,24,29,.10);}
+  .lp-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .lp-head img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;}
+  .lp-name{font-size:14px;font-weight:600;color:var(--ink);line-height:1.25;}
+  .lp-meta{font-size:12px;color:var(--ink-faint);line-height:1.3;}
+  .lp-text{font-size:15px;line-height:1.5;color:#1d2129;}
+  .lp-more{font-size:13.5px;color:var(--ink-faint);margin-top:2px;}
+  .lp-src{font-size:12px;line-height:1.45;color:var(--ink-faint);margin:12px 0 14px;padding-top:10px;border-top:1px solid #f0f2f5;}
+  .lp-src b{color:var(--ink-soft);font-weight:600;}
+  .lp-btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;}
   @media(prefers-reduced-motion:no-preference){
-    .mail{animation:loopin .7s cubic-bezier(.2,.7,.2,1) both .2s;}
-    .mail-btn{animation:looptap 1.6s ease both 1.4s;}
-    .loop-tap,.live{animation:loopin .6s cubic-bezier(.2,.7,.2,1) both 2.3s;}
+    .ms:nth-child(1){animation:loopin .7s cubic-bezier(.2,.7,.2,1) both .2s;}
+    .lp-btn{animation:looptap 1.6s ease both 1.4s;}
+    .ms:nth-child(2){animation:loopin .6s cubic-bezier(.2,.7,.2,1) both 2.1s;}
+    .ms:nth-child(3){animation:loopin .6s cubic-bezier(.2,.7,.2,1) both 2.6s;}
     @keyframes loopin{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
     @keyframes looptap{0%,100%{transform:none;box-shadow:none;}45%{transform:scale(.96);box-shadow:0 0 0 7px rgba(36,54,94,.14);}}
   }
@@ -401,7 +409,7 @@
   <div class="wrap nav-inner">
     <div class="logo"><span class="logo-mark">V</span>oyce</div>
     <div class="nav-links">
-      <a href="#features">Features</a><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/voice-check">Free Voice Check</a>
+      <a href="#features">Features</a><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/voice-check">Try it free</a>
     </div>
     <div class="nav-right">
       <a class="nav-login" href="/login">Log in</a>
@@ -417,26 +425,34 @@
     <h1 class="hero-h1" style="margin-top:26px;">Show up on LinkedIn.<br>Sound like <em class="you">you</em>.</h1>
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="hero-sub">Every morning Voyce writes your take on this week's news in your niche, in your voice, and emails it to you. Tap Approve and it's on LinkedIn.</p>
+        <p class="hero-sub">Voyce writes your LinkedIn posts for you, in your own words and style, about what's happening in your field this week. Each morning one lands in your email: read it, tap Approve, and it's on LinkedIn.</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="/signup">Write my first post →</a>
-          <a class="btn btn-ghost" href="/voice-check">Try it on your posts</a>
+          <a class="btn btn-primary" href="/signup">Get my first post free →</a>
         </div>
+        <a class="hero-alt" href="/voice-check">or paste one of your posts and see a new one in your voice, no sign-up</a>
         <div class="hero-trust"><span>Your first post in under a minute</span><span>No card</span><span>Pro is a 30-day pass that never auto-renews</span></div>
       </div>
-      <!-- What a morning with Voyce looks like. The post and its source are real:
-           the founder's own Voyce post, cut where its LinkedIn preview cuts it. -->
-      <div class="loop" role="img" aria-label="A morning with Voyce: an email with today's post and the news it's based on, one tap on Approve, and it's live on LinkedIn.">
+      <!-- A morning with Voyce, in three steps. The post and its source are real: the founder's
+           own Voyce post, shown to its first line and cut there, as the LinkedIn feed cuts it. -->
+      <div class="loop" role="img" aria-label="A morning with Voyce: at 8:58 Voyce emails you today's post and the news it's based on, you tap Approve, and at 9:02 it's live on LinkedIn.">
         <div class="loop-cap">A morning with Voyce</div>
-        <div class="mail" aria-hidden="true">
-          <div class="mail-top"><span class="mail-av">V</span><span class="mail-from">Voyce</span><span class="mail-time">8:58 AM</span></div>
-          <div class="mail-subj">Your post for Rishav Raj is ready to approve</div>
-          <div class="mail-body">Your LinkedIn headline might be quietly killing your reach.<br><br>With the recent “360 Brew” update, the algorithm now scans your…</div>
-          <div class="mail-src">Based on: <b>Forbes</b> · The LinkedIn Algorithm Changed Again. Here's What's New For 2026</div>
-          <span class="mail-btn">✓ Approve &amp; post</span>
-        </div>
-        <div class="loop-tap" aria-hidden="true">one tap</div>
-        <div class="live" aria-hidden="true"><span class="live-dot"></span>Live on LinkedIn <small>· 9:02 AM</small></div>
+        <ol class="mstep" aria-hidden="true">
+          <li class="ms">
+            <span class="ms-dot">1</span>
+            <div class="ms-body">
+              <div class="ms-line"><b>Voyce writes today's post</b><span>8:58 AM · in your email</span></div>
+              <div class="lp">
+                <div class="lp-head"><img src="/static/proof-avatar.png" alt=""><div><div class="lp-name">Rishav Raj</div><div class="lp-meta">Building Voyce in public</div></div></div>
+                <div class="lp-text">Your LinkedIn headline might be quietly killing your reach.</div>
+                <div class="lp-more">…see more</div>
+                <div class="lp-src">Written from this week's news: <b>Forbes</b>, “The LinkedIn Algorithm Changed Again”</div>
+                <span class="lp-btn">✓ Approve &amp; post</span>
+              </div>
+            </div>
+          </li>
+          <li class="ms"><span class="ms-dot">2</span><div class="ms-body"><div class="ms-line"><b>You tap Approve</b><span>one tap, even from your phone</span></div></div></li>
+          <li class="ms ms-done"><span class="ms-dot">✓</span><div class="ms-body"><div class="ms-line"><b>It's live on LinkedIn</b><span>9:02 AM</span></div></div></li>
+        </ol>
       </div>
     </div>
 
@@ -507,7 +523,7 @@
     <h2 class="sec-title" style="margin-top:18px;">Everything LinkedIn needs.<br>Nothing else.</h2>
     <div class="feat-grid">
       <div class="feat"><div class="feat-k">Daily posting</div><h3>On your schedule, with your OK</h3><p>Set a time once. Voyce finds this week's news in your niche, writes your take, and emails you a preview to approve — or posts it for you, if you'd rather not check.</p></div>
-      <div class="feat"><div class="feat-k">Carousels</div><h3>Branded, no Canva</h3><p>Designed PDF carousels from any idea, posted as LinkedIn documents. On Pro, add them to your daily posts.</p></div>
+      <div class="feat"><div class="feat-k">Carousels</div><h3>Slide posts, no Canva</h3><p>Turn any idea into a designed carousel: the swipeable slide posts you see on LinkedIn. On Pro, add them to your daily posts.</p></div>
       <div class="feat"><div class="feat-k">Your voice</div><h3>Sounds like <em class="you">you</em></h3><p>Add a few of your past posts and Voyce matches your tone and phrasing — not generic AI.</p></div>
       <div class="feat"><div class="feat-k">Anywhere</div><h3>Paste &amp; go</h3><p>Drop in text, a URL, or a YouTube link — get ready-to-post content in seconds.</p></div>
       <div class="feat"><div class="feat-k">History</div><h3>Every daily post, with its source</h3><p>See each daily post Voyce wrote, when it went out, and the news it was based on.</p></div>
@@ -524,7 +540,7 @@
     <p class="sec-sub">No design tools. No writers. Answer one question and Voyce does the writing.</p>
     <div class="step-grid">
       <div class="step"><div class="step-n">STEP 01</div><h3>Tell it what you post about</h3><p>One question. Paste a few of your posts too, and it writes in your rhythm and phrasing.</p></div>
-      <div class="step"><div class="step-n">STEP 02</div><h3>See your first post</h3><p>Written from this week's news in your niche, usually in under a minute. Post it, and LinkedIn connects in one tap through its official API.</p></div>
+      <div class="step"><div class="step-n">STEP 02</div><h3>See your first post</h3><p>Written from this week's news in your niche, usually in under a minute. Post it: LinkedIn connects in one tap through its own official sign-in. Voyce never sees your password.</p></div>
       <div class="step"><div class="step-n">STEP 03</div><h3>Approve each morning</h3><p>On Pro, a post a day lands in your inbox: text, carousel or image card. Tap Approve, or let it post on its own.</p></div>
     </div>
   </div>
@@ -697,7 +713,7 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
         <div class="price-tier">Free</div><div class="price-amt" id="free-amt">$0</div><div class="price-per">No credit card needed</div>
         <a class="btn btn-ghost" href="/signup">Get started free</a>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>5 generations</b> to try</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>5 free tries</b>: posts, carousels or images</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Posts, carousels &amp; images</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Post manually to LinkedIn</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Up to 3 profiles</li>
@@ -708,12 +724,12 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
         <div class="price-tier">Pro</div><div class="price-amt" id="pro-amt"><sup>$</sup>49 <small>/ 30 days</small></div><div class="price-per" id="pro-per">founding price · a 30-day pass, billed as ₹4,699 · no auto-charge</div>
         <a class="btn btn-primary" href="/signup">Upgrade to Pro →</a>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-gens"><b>Unlimited</b> generations</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-gens"><b>Unlimited</b> posts, carousels and images</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><b>Daily posting on your schedule</b></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Every daily post logged with its source</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-profiles">Up to 3 profiles, each on its own LinkedIn</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Automated carousels</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-drafts"><b>Unlimited</b> previews and idea lists</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Carousels in your daily posts</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span id="pro-drafts"><b>Unlimited</b> post ideas and previews</span></li>
         </ul>
       </div>
     </div>
@@ -731,7 +747,7 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
       <details><summary>Will the posts actually sound like me?</summary><p>Yes — that's the core of it. Add a few of your past LinkedIn posts and Voyce writes in your rhythm, vocabulary, and tone, so it reads like you wrote it, not generic AI.</p></details>
       <details><summary>Does it post automatically, or do I approve first?</summary><p>You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it's based on, and nothing goes out until you tap Approve (unapproved posts expire after 48 hours, so stale news never ships). If you'd rather not check, switch to automatic posting. A post that fails Voyce's fact and quality check is always held for you, either way.</p></details>
       <details><summary>Won't LinkedIn ban my account?</summary><p>Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration — and by default, you approve every post.</p></details>
-      <details><summary>What do I get for free?</summary><p>5 generations to try: each post, carousel, image, preview or idea list uses one. Plus manual posting to LinkedIn. No credit card required.</p></details>
+      <details><summary>What do I get for free?</summary><p>5 free tries: each post, carousel, image, preview or list of post ideas uses one. You can post them to LinkedIn yourself. No credit card required.</p></details>
       <details><summary>Is my content private?</summary><p>Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI provider, Google Gemini — the <a href="/privacy">Privacy Policy</a> has the details.</p></details>
       <details><summary>Can I cancel anytime?</summary><p>There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to.</p></details>
       <details><summary>Does it work for a company page too?</summary><p>Not yet — company pages need a separate LinkedIn approval. On Pro, though, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them.</p></details>
@@ -746,7 +762,7 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
       <h2>Stay visible.<br>Stay <em class="you">booked</em>.</h2>
       <p>Set it up once. Voyce writes in your style and has each post ready while you're with clients — so the blank box never wins again.</p>
       <a class="btn btn-paper" href="/signup" style="font-size:16px;padding:15px 28px;">Write my first post →</a>
-      <div class="cta-fine">No credit card · 5 free generations · First post in under a minute · Official LinkedIn API</div>
+      <div class="cta-fine">No credit card · 5 free tries · First post in under a minute · Official LinkedIn sign-in</div>
     </div>
   </div>
 </section>
@@ -755,7 +771,7 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
 <footer class="footer">
   <div class="wrap footer-inner">
     <div class="logo"><span class="logo-mark">V</span>oyce</div>
-    <div class="footer-links"><a href="/voice-check">Free Voice Check</a><a href="/how-to-not-sound-like-ai-on-linkedin">Guide: sound human on LinkedIn</a><a href="/about">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refund Policy</a><a href="/shipping">Shipping &amp; Delivery</a><a href="/contact">Contact</a></div>
+    <div class="footer-links"><a href="/voice-check">Try it free</a><a href="/how-to-not-sound-like-ai-on-linkedin">Guide: sound human on LinkedIn</a><a href="/about">About</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refund Policy</a><a href="/shipping">Shipping &amp; Delivery</a><a href="/contact">Contact</a></div>
     <div class="footer-copy">© 2026 Voyce. All rights reserved. &nbsp;·&nbsp; <span>Last updated: October 2026</span></div>
   </div>
 </footer>
@@ -779,8 +795,8 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
     set("pro-amt", "<sup>₹</sup>" + rupees + " <small>/ 30 days</small>");
     set("pro-per", "founding India price · a 30-day pass · no auto-charge");
     set("pro-profiles", "3 profiles, each on its own LinkedIn · 1 on daily posting");
-    set("pro-gens", "<b>" + (c.pass_generations || 60) + "</b> generations per pass");
-    set("pro-drafts", "Previews and idea lists come out of the " + (c.pass_generations || 60));
+    set("pro-gens", "<b>" + (c.pass_generations || 60) + "</b> posts, carousels or images per pass");
+    set("pro-drafts", "Post ideas and previews count toward the " + (c.pass_generations || 60));
     set("cmp-voyce-price", "₹" + rupees);
     // One currency on the page: the AI tools bill in dollars (converted at
     // ~₹95), and a ghostwriter in India charges less than one in the US.
