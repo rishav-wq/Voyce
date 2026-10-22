@@ -1788,6 +1788,11 @@ def get_companies(x_token: str = Header(None)):
         c["recent_post_types"] = info["recent_post_types"]
         c["week_plan"] = get_week_plan(c)
         c["post_type_descriptions"] = POST_TYPE_DESCRIPTIONS
+        try:   # several topics: which one the next daily post is about
+            from autonomous import _topic_for_today
+            c["next_topic"] = _topic_for_today(c)
+        except Exception:
+            c["next_topic"] = ""
         # Which LinkedIn this profile publishes to: its own (a client's), or the user's.
         info = li.connection_info(li.connection_for(c, user["id"]))
         c["li"] = {"own_account": bool(c.get("li_conn")), "connected": info["connected"],

@@ -2008,7 +2008,9 @@ def render_carousel_slides(content: dict, company: dict, author: dict | None = N
     if recap:
         slides.append(_edc_recap(recap.get("title", ""), recap.get("bullets", []), num, total, t, name, avatar))
         num += 1
-    topics = [x.strip(" .-") for x in re.split(r"[,;\n|]+", (company or {}).get("industry", "") or "") if len(x.strip()) >= 3]
+    # all their topics (a daily run narrows "industry" to today's one and keeps the full list here)
+    all_t = (company or {}).get("all_topics") or (company or {}).get("industry", "") or ""
+    topics = [x.strip(" .-") for x in re.split(r"[,;\n|]+", all_t) if len(x.strip()) >= 3]
     slides.append(_edc_last(cta.get("headline", ""), cta.get("cta", ""), total, t, name, title, avatar, topics))
     return slides
 

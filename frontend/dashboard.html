@@ -540,6 +540,21 @@
     .pf-foot .submit-btn { margin: 0; }
     details.adv .adv-inner .form-group:first-child { margin-top: 12px; }
 
+    .label-sub { font-weight: 500; color: #98a0ae; font-size: 12px; margin-left: 4px; }
+    .topic-rows { display: flex; flex-direction: column; gap: 6px; }
+    .topic-row { display: flex; align-items: center; gap: 8px; }
+    .topic-row .topic-n { flex: 0 0 22px; height: 22px; border-radius: 50%; background: #e7ebf4; color: #24365e;
+      font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
+    .topic-row input { flex: 1; min-width: 0; }
+    .topic-row .topic-x { flex: 0 0 auto; width: 28px; height: 28px; padding: 0; border: 1px solid #e4e7ec; border-radius: 8px;
+      background: #fff; color: #8a909c; font-size: 16px; line-height: 1; cursor: pointer; }
+    .topic-row .topic-x:hover { color: #b42318; border-color: #f0c2bd; }
+    .topic-add { margin-top: 8px; padding: 5px 10px; border: 1px dashed #c9d2e2; border-radius: 8px; background: #fff;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; color: #24365e; cursor: pointer; }
+    .topic-add[hidden] { display: none; }
+    .card-topics { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 2px; }
+    .card-topics span { padding: 2px 9px; border-radius: 999px; background: #eef1f6; color: #2b303a; font-size: 12px; font-weight: 600; }
+    .card-topics span.next { background: #24365e; color: #fff; }
     .topic-suggest { display: none; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
     .topic-suggest.visible { display: flex; }
     .topic-suggest .ts-label { font-size: 11px; color: #888; font-weight: 600; }
@@ -950,9 +965,14 @@
             <div class="li-found" id="p-li-found" hidden></div>
             <p class="form-hint">For a profile you write as someone else. Fills their name, title and photo for the preview and image cards (1 Apollo credit).</p>
           </div>
-          <div class="form-group"><label>What are the posts about? *</label><input type="text" id="p-industry" placeholder="e.g. leadership, B2B marketing, consulting" autocomplete="off" required />
+          <!-- Each topic its own field: a person with several sides (a coach, a consultant, an author)
+               gets one post a day about each in turn. Saved joined by commas in p-industry. -->
+          <div class="form-group"><label>What are the posts about? * <span class="label-sub">up to 5 topics, one a day in turns</span></label>
+            <input type="hidden" id="p-industry" />
+            <div class="topic-rows" id="p-topic-rows"></div>
+            <button type="button" class="topic-add" id="p-topic-add" onclick="addTopicRow()">+ Add a topic</button>
             <div class="topic-suggest" id="p-topic-suggest"></div>
-            <p class="form-hint">Up to 5 topics, separated by commas. Voyce takes them in turns, one a day, and finds this week's news on each.</p>
+            <p class="form-hint">Each topic is one side of your work: your coaching, your consulting, your book. Voyce writes about one a day, in turns, from this week's news on it.</p>
           </div>
 
           <div class="li-upload-box pf-voice">
@@ -1420,7 +1440,7 @@
 
           <div style="font-size:12.5px;color:#5b6270;line-height:1.5;margin:2px 0 14px;">
             ${voiceLine}<br>
-            <span style="color:#98a0ae;">Posts about:</span> ${p.industry}<br>
+            ${_topicsHtml(raw)}
             ${_liRow(raw)}
           </div>
 
@@ -2828,6 +2848,73 @@
     // ── Topic suggestions (based on designation + current trends) ────────────
     const _topicSuggestCache = {};
 
+    // ── Topics: one field each, up to 5, saved as "a, b, c" (what the daily writer reads) ──
+    const TOPIC_MAX = 5;
+    const TOPIC_EXAMPLES = ["e.g. Executive coaching", "e.g. Strategy consulting for family businesses", "e.g. Lessons from my book",
+                            "e.g. Leadership in the social sector", "e.g. HR and culture"];
+    function _splitTopics(s) {
+      const seen = new Set();
+      return String(s || "").split(/[,;\n|]+/).map(t => t.trim().replace(/^[.\-–\s]+|[.\-–\s]+$/g, ""))
+        .filter(t => t.length >= 2 && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase())).slice(0, TOPIC_MAX);
+    }
+    function _topicRowsToField() {
+      const vals = [...document.querySelectorAll("#p-topic-rows input")].map(i => i.value.replace(/[,;|]/g, " ").trim()).filter(Boolean);
+      const f = document.getElementById("p-industry");
+      if (f.value !== vals.join(", ")) { f.value = vals.join(", "); f.dispatchEvent(new Event("input")); }
+      const rows = document.querySelectorAll("#p-topic-rows .topic-row");
+      rows.forEach((r, i) => { r.querySelector(".topic-n").textContent = i + 1; r.querySelector(".topic-x").hidden = rows.length < 2; });
+      const add = document.getElementById("p-topic-add");
+      if (add) add.hidden = rows.length >= TOPIC_MAX;
+    }
+    function _topicRow(val) {
+      const row = document.createElement("div");
+      row.className = "topic-row";
+      const n = document.createElement("span"); n.className = "topic-n";
+      const inp = document.createElement("input");
+      inp.type = "text"; inp.autocomplete = "off"; inp.value = val || "";
+      inp.oninput = _topicRowsToField;
+      const x = document.createElement("button");
+      x.type = "button"; x.className = "topic-x"; x.textContent = "×"; x.title = "Remove this topic";
+      x.setAttribute("aria-label", "Remove this topic");
+      x.onclick = () => {   // the last field empties instead of going
+        if (document.querySelectorAll("#p-topic-rows .topic-row").length < 2) inp.value = ""; else row.remove();
+        _topicRowsToField(); _placeholders();
+      };
+      row.append(n, inp, x);
+      return row;
+    }
+    function _placeholders() {
+      document.querySelectorAll("#p-topic-rows input").forEach((inp, i) => {
+        inp.placeholder = TOPIC_EXAMPLES[i] || "Another topic";
+        inp.setAttribute("aria-label", "Topic " + (i + 1));
+      });
+    }
+    function _renderTopicRows(list) {
+      const box = document.getElementById("p-topic-rows");
+      if (!box) return;
+      box.replaceChildren(...(list && list.length ? list : [""]).slice(0, TOPIC_MAX).map(_topicRow));
+      _placeholders();
+      _topicRowsToField();
+    }
+    function addTopicRow() {
+      const box = document.getElementById("p-topic-rows");
+      if (!box || box.children.length >= TOPIC_MAX) return;
+      const row = _topicRow("");
+      box.appendChild(row);
+      _placeholders(); _topicRowsToField();
+      row.querySelector("input").focus();
+    }
+    // The card: the topics as tags; with several, which one the next daily post is about
+    function _topicsHtml(raw) {
+      const topics = _splitTopics(raw.industry || "");
+      if (topics.length < 2) return `<span style="color:#98a0ae;">Posts about:</span> ${_escHtml(raw.industry || "")}<br>`;
+      const next = (raw.next_topic || "").toLowerCase();
+      return `<span style="color:#98a0ae;">Posts about, one a day in turns:</span><div class="card-topics">${
+        topics.map(t => `<span class="${t.toLowerCase() === next ? "next" : ""}" title="${t.toLowerCase() === next ? "Next daily post" : ""}">${_escHtml(t)}</span>`).join("")
+      }</div>${raw.next_topic ? `<span style="color:#98a0ae;">Next:</span> ${_escHtml(raw.next_topic)}<br>` : ""}`;
+    }
+    document.addEventListener("DOMContentLoaded", () => _renderTopicRows(_splitTopics(document.getElementById("p-industry")?.value || "")));
+
     async function loadTopicSuggestions(desigInputId, boxId, topicsInputId) {
       const desigEl = document.getElementById(desigInputId);
       const desig = desigEl.value.trim();
@@ -2866,6 +2953,7 @@
             current.push(t);
             input.value = current.join(", ");
             input.dispatchEvent(new Event("input"));
+            if (topicsInputId === "p-industry") _renderTopicRows(current);
           }
           chip.classList.add("added");
         };
@@ -3053,6 +3141,7 @@
       const vs = document.getElementById("p-li-status"); if (vs) vs.textContent = "";
       _liPhoto = ""; _showLiFound(null);
       document.getElementById("p-topic-suggest")?.classList.remove("visible");
+      _renderTopicRows([]);
       document.getElementById("p-submit-btn").textContent = "Create profile →";
       voicePane("paste");
       document.getElementById("modal-success").style.display = "none";
@@ -3155,6 +3244,7 @@
             pw.value = p.website_url || "";
             pw.dispatchEvent(new Event("input"));
             document.getElementById("p-industry").value = p.industry || "";
+            _renderTopicRows(_splitTopics(p.industry || ""));
             document.getElementById("p-tone").value     = p.tone || "conversational";
             document.getElementById("p-time").value     = p.post_time || "09:00";
             const wtVal = p.website_type || "own";
@@ -3181,6 +3271,14 @@
     async function submitProfile(e, mode) {
       e.preventDefault();
       const isPersonal = mode === "personal";
+      if (isPersonal) {
+        _topicRowsToField();
+        if (!document.getElementById("p-industry").value.trim()) {
+          const first = document.querySelector("#p-topic-rows input");
+          if (first) { first.focus(); first.setCustomValidity("Add at least one topic"); first.reportValidity(); setTimeout(() => first.setCustomValidity(""), 2500); }
+          return;
+        }
+      }
       const btn = document.getElementById(isPersonal ? "p-submit-btn" : "c-submit-btn");
       const isEdit = !!_editingId;
       btn.disabled = true;
