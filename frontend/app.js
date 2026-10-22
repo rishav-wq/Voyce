@@ -1662,6 +1662,7 @@ function _renderAttachment(dataUrl) {
 }
 
 function attachRemove() {
+  _setImageMeta("", ""); _showImageOptions([], "");
   _attachB64 = null;
   _attachMime = "image/png";
   _attachIsUpload = false;
@@ -1673,6 +1674,67 @@ function attachRemove() {
 
 // Generate an on-brand illustration FOR THE CURRENT POST and attach it.
 // Used both by the "Add an AI image" toggle (during generate) and the Regenerate button.
+// ── Image design: which design, which colours, and options to pick from ────────
+// The card colour sets, mirrored from carousel._ED_THEMES: [key, name, background, accent].
+const _CARD_THEMES = [["light", "Cream", "#f4f0e8", "#24365e"], ["mint", "Mint", "#e7f5ed", "#1d4ed8"],
+  ["sky", "Sky", "#eaf2fb", "#047857"], ["sage", "Sage", "#ecf1e8", "#1e305c"], ["lavender", "Lavender", "#f1edfb", "#5b21b6"],
+  ["peach", "Peach", "#fdefe5", "#0f666b"], ["rose", "Rose", "#fcedf1", "#881337"], ["sand", "Sand", "#f3ede0", "#166534"],
+  ["forest", "Forest", "#112b22", "#78e2b2"], ["dark", "Charcoal", "#16181d", "#d6aa48"]];
+const _FORMAT_NAMES = { photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Tweet card", scene: "Photo", source: "Source card" };
+const _DESIGNED = ["illustration", "photo_text", "list", "quote"];   // colours and 3 options apply
+let _imgTheme = "";   // "" = surprise me
+function _themeName(k) { const t = _CARD_THEMES.find(x => x[0] === k); return t ? t[1] : ""; }
+function _paintSwatches() {
+  const box = document.getElementById("img-swatches");
+  if (!box) return;
+  const any = _el("button", "img-sw img-sw-any" + (_imgTheme ? "" : " on"), "Surprise me");
+  any.type = "button"; any.title = "A different colour set each time";
+  any.onclick = () => { _imgTheme = ""; _paintSwatches(); };
+  box.replaceChildren(any, ..._CARD_THEMES.map(([k, name, bg, accent]) => {
+    const b = _el("button", "img-sw" + (_imgTheme === k ? " on" : ""));
+    b.type = "button"; b.title = name; b.setAttribute("aria-label", name);
+    b.style.background = bg;
+    const dot = _el("i"); dot.style.background = accent; b.append(dot);
+    b.onclick = () => { _imgTheme = k; _paintSwatches(); };
+    return b;
+  }));
+}
+// Colours and options only mean something for the designed cards (Auto may pick one)
+function _syncDesignRow() {
+  const style = (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration";
+  const line = document.getElementById("img-colour-line");
+  if (line) line.style.display = _DESIGNED.includes(style) ? "" : "none";
+}
+document.querySelectorAll('input[name="img-style"]').forEach(r => r.addEventListener("change", _syncDesignRow));
+_paintSwatches();
+_syncDesignRow();
+function _setImageMeta(format, theme) {
+  const el = document.getElementById("img-meta");
+  if (!el) return;
+  const f = _FORMAT_NAMES[format] || "";
+  el.textContent = f ? f + (theme && _themeName(theme) ? " · " + _themeName(theme) : "") : "";
+}
+function _showImageOptions(options, format) {
+  const box = document.getElementById("img-options");
+  if (!box) return;
+  if (!options || options.length < 2) { box.hidden = true; box.replaceChildren(); return; }
+  box.hidden = false;
+  box.replaceChildren(...options.map((o, i) => {
+    const b = _el("button", i === 0 ? "on" : ""), im = _el("img");
+    b.type = "button"; b.title = "Use this one";
+    im.src = "data:image/png;base64," + o.image_base64; im.alt = _themeName(o.theme);
+    b.append(im, document.createTextNode(_themeName(o.theme)));
+    b.onclick = () => {
+      _attachB64 = o.image_base64; _attachMime = "image/png"; _attachIsUpload = false;
+      document.getElementById("li-attach-img").src = "data:image/png;base64," + o.image_base64;
+      box.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+      _setImageMeta(format, o.theme);
+      saveDraft();
+    };
+    return b;
+  }));
+}
+
 async function attachGenerateImage() {
   const post = _postText().trim();
   const source = post || document.getElementById("content-input").value.trim();
@@ -1696,7 +1758,8 @@ async function attachGenerateImage() {
       body: JSON.stringify(
         imgStyle === "source"
           ? { input_type: "url", content: articleUrl, style: "source", post_text: source, profile_id: getActiveProfileId() }
-          : { input_type: "text", content: source, style: imgStyle, profile_id: getActiveProfileId() }
+          : { input_type: "text", content: source, style: imgStyle, profile_id: getActiveProfileId(), theme: _imgTheme,
+              options: (document.getElementById("img-three") || {}).checked && _DESIGNED.includes(imgStyle) ? 3 : 1 }
       )
     });
     const data = await res.json();
@@ -1714,8 +1777,11 @@ async function attachGenerateImage() {
     _attachMime = "image/png";
     _attachIsUpload = false;
     _renderAttachment("data:image/png;base64," + data.image_base64);
+    const fmt = imgStyle === "source" ? "source" : data.format;
+    _setImageMeta(fmt, data.theme);
+    _showImageOptions(data.options, fmt);
     saveDraft();
-    toast("Image added to your post.", "success");
+    toast(data.options && data.options.length > 1 ? "3 options ready: pick one under the image." : "Image added to your post.", "success");
   } catch (err) {
     const msg = /failed to fetch|networkerror|load failed/i.test(err.message || "")
       ? "The image took too long to generate. Your post is ready without it — or hit Regenerate to try again."
@@ -1746,6 +1812,7 @@ async function attachHandleUpload(event) {
   _attachB64  = String(dataUrl).split(",")[1];
   _attachMime = file.type || "image/png";
   _attachIsUpload = true;
+  _setImageMeta("", ""); _showImageOptions([], "");   // their own image: no design label
   _renderAttachment(dataUrl);
   saveDraft();
   toast("Image added to your post.", "success");

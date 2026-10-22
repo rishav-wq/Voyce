@@ -552,6 +552,8 @@ class GenerateRequest(BaseModel):
     post_text: str = ""           # source cards: the post's text, so the smart crop knows
                                   # which region of the article page the post actually cites
     carousel_theme: str = ""           # override the profile's carousel theme for this render
+    theme: str = ""               # image cards: a colour set (carousel._ED_THEMES), "" = a random one
+    options: int = 1              # image cards: 1-3 colour versions to choose from (drawn, not generated)
 
 
 class VariationsRequest(BaseModel):
@@ -1527,25 +1529,36 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             from carousel import generate_image_post_from_text, render_image_post_png
             content = generate_image_post_from_text(context_text, company=profile)
             author = li.author_for_profile(profile, user["id"]) or None   # the card is signed with their photo
-            png_bytes = render_image_post_png(content, profile or {"name": "Voyce"}, author=author)
+            meta: dict = {}
+            png_bytes = render_image_post_png(content, profile or {"name": "Voyce"}, author=author,
+                                              theme=request.theme, meta=meta)
+            opts = [{"png": png_bytes, **meta}]
             headline = content.get("card_headline", "")
         else:  # "illustration" — model picks the format; "tweet" — forced tweet card (rendered
             # server-side, never touches the image API); "scene" — forced AI illustration
-            from carousel import generate_ai_image_post, render_ai_image_png
-            force = {"tweet": "tweet_card", "scene": "scene"}.get(request.style)
+            from carousel import generate_ai_image_post, render_ai_image_options
+            # The design picked on Write; "illustration" (Auto) lets the writer choose
+            force = {"tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
+                     "list": "list_card", "quote": "quote_card"}.get(request.style)
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
             # Tweet, list and quote cards (and the card a failed photo falls back to) carry the
             # author's name and photo
             author = li.author_for_profile(profile, user["id"]) or None
             fallback_name = (profile or {}).get("name") or user.get("name") or "Voyce"
-            png_bytes = render_ai_image_png(content, profile or {"name": fallback_name}, author=author)
+            opts = render_ai_image_options(content, profile or {"name": fallback_name}, author=author,
+                                           theme=request.theme, n=request.options)
+            png_bytes = opts[0]["png"]
             headline = content.get("alt_text", "")
-        auth_module.increment_gens(user["id"])
+        auth_module.increment_gens(user["id"])   # one write-up, however many colour versions
         return {
             "post_text":    content.get("post_text", ""),
             "image_base64": base64.b64encode(png_bytes).decode(),
             "headline":     headline,
             "alt_text":     content.get("alt_text", ""),
+            "format":       opts[0].get("format", ""),
+            "theme":        opts[0].get("theme", ""),
+            "options":      ([{"image_base64": base64.b64encode(o["png"]).decode(), "theme": o.get("theme", "")}
+                              for o in opts] if len(opts) > 1 else []),
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))

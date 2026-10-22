@@ -1089,10 +1089,18 @@ _ED_THEMES = {
 }
 
 
-def _pick_card_theme() -> str:
-    """A different look from post to post: any of the colour sets, at random."""
+def _pick_card_theme(theme: str = "") -> str:
+    """The colour set asked for, else a different look from post to post: any of them, at random."""
     import random
-    return random.choice(list(_ED_THEMES))
+    return theme if theme in _ED_THEMES else random.choice(list(_ED_THEMES))
+
+
+def _option_themes(theme: str, n: int) -> list[str]:
+    """n different colour sets for side-by-side options, the one asked for first."""
+    import random
+    first = _pick_card_theme(theme)
+    rest = [t for t in _ED_THEMES if t != first]
+    return [first] + random.sample(rest, max(0, min(n, len(_ED_THEMES)) - 1))
 
 
 def _brand_accent(company: dict | None):
@@ -1123,16 +1131,31 @@ def _ed_line_h(draw, font) -> int:
     return draw.textbbox((0, 0), "Hg", font=font)[3]
 
 
+def _phrase_marks(text: str, emphasis: str) -> set:
+    """Word positions (in text.split()) of the emphasis phrase's first appearance, as a phrase."""
+    norm = lambda w: w.strip('.,!?;:"\'“”‘’()').lower()
+    target = [norm(w) for w in (emphasis or "").split() if norm(w)]
+    flat = [norm(w) for w in (text or "").split()]
+    for i in range(len(flat) - len(target) + 1) if target else []:
+        if flat[i:i + len(target)] == target:
+            return set(range(i, i + len(target)))
+    return set()
+
+
 def _ed_draw_marked(draw, text: str, font, x: int, y: int, max_w: int, t: dict, emphasis: str,
                     gap: int, color=None) -> int:
-    """Left-aligned wrapped text; the emphasis words sit on a highlighter mark. Returns the new y."""
-    emph = {w.strip('.,!?;:"\'').lower() for w in (emphasis or "").split()}
+    """Left-aligned wrapped text; the emphasis phrase sits on a highlighter mark. Returns the new y.
+    The phrase is marked where it first appears, as a phrase: marking each of its words anywhere
+    lit up every "the" in a headline whose phrase was "the pushback"."""
+    marked = _phrase_marks(text, emphasis)
     space, lh = _tw(draw, " ", font), _ed_line_h(draw, font)
     color = color or t["ink"]
+    wi = 0                                     # index of the line's first word in the whole text
     for line in _wrap(draw, text, font, max_w):
         words = line.split()
         widths = [_tw(draw, w, font) for w in words]
-        marks = [w.strip('.,!?;:"\'').lower() in emph for w in words]
+        marks = [(wi + k) in marked for k in range(len(words))]
+        wi += len(words)
         cx = x
         for i, ww in enumerate(widths):       # the marks first, joined across marked neighbours
             if marks[i]:
@@ -1220,52 +1243,68 @@ def _ed_list_card(tag: str, headline: str, emphasis: str, points: list, name: st
     f_head = f_head or _font_black(52 * S)
     h_head = _ed_block_h(draw, headline, f_head, max_w, head_gap)
     after_head = 60 * S
-    # Points: the largest size whose rows all fit, then the spare room spread between them
-    pts = _ed_points(points)
-    f_num = _font_black(56 * S)
-    num_w = _tw(draw, "00", f_num) + 30 * S
+    # Points: just their short labels, as large as fits; the spare room spread between them.
+    # (Explanations under each point made the card a second copy of the caption.)
+    pts = [lab or desc for lab, desc in _ed_points(points)]
+    f_num = _font_black(64 * S)
+    num_w = _tw(draw, "00", f_num) + 34 * S
     text_w = max_w - num_w
-    min_gap, max_gap = 44 * S, 120 * S
+    min_gap, max_gap = 40 * S, 120 * S
     avail = bottom - y - h_head - after_head
-    chosen = None
-    for s in (46, 44, 42, 40, 38, 36, 34, 32):
-        f_lab, f_desc = _font(s * S, bold=True), _font(int(s * 0.86) * S)
-        rows = []
-        for lab, desc in pts:
-            h = 0
-            if lab:
-                h += _ed_block_h(draw, lab, f_lab, text_w, 8 * S) + 10 * S
-            h += _ed_block_h(draw, desc, f_desc if lab else f_lab, text_w, 10 * S)
-            rows.append(h)
+    f_lab = None
+    for s in (58, 54, 50, 46, 42, 38, 34):
+        f_try = _font(s * S, bold=True)
+        rows = [_ed_block_h(draw, pt, f_try, text_w, 10 * S) for pt in pts]
         if sum(rows) + min_gap * max(0, len(rows) - 1) <= avail:
-            chosen = (f_lab, f_desc, rows)
+            f_lab = f_try
             break
-    if chosen is None:
-        f_lab, f_desc = _font(32 * S, bold=True), _font(28 * S)
-        rows = [avail // max(1, len(pts))] * len(pts)
-    else:
-        f_lab, f_desc, rows = chosen
+    if f_lab is None:
+        f_lab = _font(34 * S, bold=True)
+        rows = [_ed_block_h(draw, pt, f_lab, text_w, 10 * S) for pt in pts]
     spare = avail - sum(rows)
     gap = max(min_gap, min(max_gap, spare // max(1, len(rows) - 1))) if len(rows) > 1 else 0
     block = h_head + after_head + sum(rows) + gap * max(0, len(rows) - 1)
     y += max(0, (bottom - y - block) // 2)       # whatever is still spare: above and below, evenly
     y = _ed_draw_marked(draw, headline, f_head, pad, y, max_w, t, emphasis, head_gap)
     y += after_head - head_gap
-    for i, ((lab, desc), h) in enumerate(zip(pts, rows)):
-        draw.text((pad, y - 6 * S), f"{i + 1:02d}", font=f_num, fill=t["accent"])
-        ty = y
-        if lab:
-            ty = _ed_draw_marked(draw, lab, f_lab, pad + num_w, ty, text_w, t, "", 8 * S)
-            ty += 10 * S - 8 * S
-            _ed_draw_marked(draw, desc, f_desc, pad + num_w, ty, text_w, t, "", 10 * S, color=t["body"])
-        else:
-            _ed_draw_marked(draw, desc, f_lab, pad + num_w, ty, text_w, t, "", 10 * S)
+    for i, (pt, h) in enumerate(zip(pts, rows)):
+        draw.text((pad, y - 8 * S), f"{i + 1:02d}", font=f_num, fill=t["accent"])
+        _ed_draw_marked(draw, pt, f_lab, pad + num_w, y, text_w, t, "", 10 * S)
         y += h
         if i < len(pts) - 1:
             draw.rectangle([pad + num_w, y + gap // 2, rw - pad, y + gap // 2 + 2 * S], fill=t["rule"])
             y += gap
     draw.rectangle([pad, sig_y - 30 * S, rw - pad, sig_y - 28 * S], fill=t["rule"])
     _ed_signature(img, draw, avatar, name, title, pad, sig_y, max_w, t, t["accent"])
+    return img.resize((rw // S, rh // S), Image.LANCZOS)
+
+
+def _ed_photo_card(photo, headline: str, emphasis: str, name: str, title: str = "", avatar=None,
+                   theme: str = "light", brand_accent=None, rw: int = 1080 * _SCALE, rh: int = 1350 * _SCALE) -> Image.Image:
+    """A relevant photo with the post's point under it: the photo carries the moment, one short line
+    carries the message. The text sits on a colour panel, never on the photo, so it always reads."""
+    t = _ed_theme(theme, brand_accent)
+    S = _SCALE
+    img = Image.new("RGB", (rw, rh), t["bg"])
+    draw = ImageDraw.Draw(img)
+    pad = 72 * S
+    max_w = rw - pad * 2
+    f_head = None
+    for s in (70, 64, 58, 52, 46):
+        f_try = _font_black(s * S)
+        if len(_wrap(draw, headline, f_try, max_w)) <= 3:
+            f_head = f_try
+            break
+    f_head = f_head or _font_black(46 * S)
+    h_head = _ed_block_h(draw, headline, f_head, max_w, 10 * S) if (headline or "").strip() else 0
+    sig_h = 72 * S
+    panel_h = max(int(rh * 0.30), 52 * S + h_head + 44 * S + sig_h + pad)
+    photo_h = rh - panel_h
+    img.paste(_cover_crop(photo, rw, photo_h), (0, 0))
+    y = photo_h + 52 * S
+    if h_head:
+        _ed_draw_marked(draw, headline, f_head, pad, y, max_w, t, emphasis, 10 * S)
+    _ed_signature(img, draw, avatar, name, title, pad, rh - pad - sig_h, max_w, t, t["accent"])
     return img.resize((rw // S, rh // S), Image.LANCZOS)
 
 
@@ -1378,14 +1417,19 @@ Return ONLY valid JSON:
 IMG_POST_W, IMG_POST_H = 1080, 1350
 
 
-def render_image_post_png(content: dict, company: dict, author: dict | None = None) -> bytes:
-    """The quote card at 4:5: the one line, signed by its author, in a random colour set."""
+def render_image_post_png(content: dict, company: dict, author: dict | None = None,
+                          theme: str = "", meta: dict | None = None) -> bytes:
+    """The quote card at 4:5: the one line, signed by its author, in the colour set asked for
+    (else a random one). meta, when given, gets what was drawn: format and colour set."""
     brand = (company or {}).get("name", "Voyce")
     name, avatar = _card_author(brand, author)
+    theme = _pick_card_theme(theme)
+    if meta is not None:
+        meta.update(format="quote_card", theme=theme)
     img = _ed_quote_card(
         content.get("card_headline", ""), content.get("card_subtext", ""), content.get("card_emphasis", ""),
         content.get("card_tag", ""), name, (company or {}).get("designation", ""), avatar,
-        theme=_pick_card_theme(), brand_accent=_brand_accent(company),
+        theme=theme, brand_accent=_brand_accent(company),
         rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE,
     )
     buf = io.BytesIO()
@@ -1402,18 +1446,20 @@ def render_image_post_png(content: dict, company: dict, author: dict | None = No
 
 _AI_IMAGE_SYSTEM = """You design the VISUAL for a founder's LinkedIn post, plus the caption.
 
-FORMAT — decide this FIRST. Images on LinkedIn earn attention by carrying INFORMATION, not decoration:
-- "list_card": the post's payload is a list, framework, steps, rules, or lessons → a designed
-  card with the headline + 2-4 numbered points (fill card_points). DEFAULT for abstract
-  professional topics with enumerable substance.
-- "quote_card": the post's power is ONE sharp quotable claim → a designed poster of that line
-  (fill card_headline/card_emphasis/card_subtext). Use when there's a killer one-liner but no list.
-- "tweet_card": the claim is a HOT TAKE — contrarian, spicy, a little confrontational → a
-  social-screenshot style card of that line (fill card_headline with the take, max ~30 words).
-  Reads as a captured opinion, not marketing. Use for the boldest, most argument-starting claims.
-- "scene": a realistic PHOTOGRAPH of a real moment from the post's world (a sales team rehearsing
-  before a negotiation, a plant manager on the shop floor, a founder on a client call) where the
-  picture adds feeling that text cannot. A decorative metaphor is NOT a scene.
+FORMAT — decide this FIRST. On LinkedIn a real, relevant photo beats a designed graphic, and the
+image must never repeat the caption — keep any text on it SHORT:
+- "photo_card": DEFAULT. A realistic PHOTOGRAPH of a real moment from the post's world (fill
+  image_concept) with ONE short line under it: card_headline = the post's point in max 9 words,
+  card_emphasis = 1-3 words of it. Use whenever the point can be shown as a moment — a
+  conversation, a meeting, a site visit, a desk, a decision, a team at work.
+- "scene": the same kind of photo with no text, when the picture alone says it.
+- "list_card": ONLY when the list itself is the value (steps, rules, a framework) → a headline
+  (max 9 words) + 3-4 SHORT points in card_points, each a 2-6 word label with NO explanation
+  (the caption explains them).
+- "quote_card": ONE sharp quotable claim and nothing to show as a photo (card_headline max 12 words).
+- "tweet_card": a HOT TAKE — contrarian, a little confrontational → a social-screenshot style card
+  of that line (card_headline, max ~30 words). Use for the boldest, most argument-starting claims.
+A decorative metaphor is NOT a photo; for photo_card and scene, describe a real moment.
 
 Return JSON:
 image_concept: FIRST boil the post down to its ONE core message in a short phrase (e.g. "prepare for
@@ -1458,6 +1504,9 @@ post_text: the LinkedIn caption. First line max 60 characters, self-contained, o
 
 VOICE: if a voice/author profile is provided, write the caption the way that author talks.
 FACTUAL SAFETY: never invent exact stats, product versions, dates, or named studies.
+NEVER FABRICATE: no first-person stories, clients, conversations, numbers or results that are not
+in the content ("Last week a CEO handed me..." when the content says no such thing). Expand only
+with what the content and the author profile actually say.
 NEVER USE: "It's not X. It's Y.", "Let that sink in", game-changer, unlock, leverage, synergy.
 
 Return ONLY JSON: {"image_concept": "...", "alt_text": "...", "post_text": "..."}"""
@@ -1540,6 +1589,9 @@ def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
 
 
 
+_IMAGE_FORMATS = ("photo_card", "scene", "quote_card", "list_card", "tweet_card")
+
+
 def generate_ai_image_post(raw_text: str, company: dict = None, force_format: str = None) -> dict:
     """LLM: pick the strongest idea → a concrete visual concept + caption for an AI photo.
     force_format pins the output to one of scene|quote_card|list_card|tweet_card when the
@@ -1572,9 +1624,9 @@ Also return "key_line": the single most quotable line from the post itself (max 
 verbatim or lightly trimmed) — punchy enough to stand alone on a typographic card.
 {f'''
 REQUIRED FORMAT: "{force_format}" — the user chose this format explicitly. Design for exactly
-this format and set "format" to this value.''' if force_format in ("scene", "quote_card", "list_card", "tweet_card") else ""}
+this format and set "format" to this value.''' if force_format in _IMAGE_FORMATS else ""}
 Return ONLY valid JSON:
-{{"format": "list_card|quote_card|tweet_card|scene", "image_concept": "... (scene only)",
+{{"format": "photo_card|scene|list_card|quote_card|tweet_card", "image_concept": "... (photo_card and scene)",
 "card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...",
 "card_points": ["...", "..."], "alt_text": "...", "key_line": "...", "post_text": "..."}}"""
     result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1600, temperature=0.85)
@@ -1604,10 +1656,10 @@ Return ONLY JSON: {{"post_text": "..."}}""",
             result["post_text"] = fix["post_text"]
 
     fmt = (result.get("format") or "").strip().lower()
-    if force_format in ("scene", "quote_card", "list_card", "tweet_card"):
+    if force_format in _IMAGE_FORMATS:
         fmt = force_format
-    if fmt not in ("scene", "quote_card", "list_card", "tweet_card"):
-        fmt = "scene" if (result.get("image_concept") or "").strip() else "quote_card"
+    if fmt not in _IMAGE_FORMATS:
+        fmt = "photo_card" if (result.get("image_concept") or "").strip() else "quote_card"
     return {
         "format":        fmt,
         "image_concept": (result.get("image_concept") or "").strip(),
@@ -1644,9 +1696,55 @@ def _card_author(brand: str, author: dict | None):
     return name, avatar
 
 
-def render_ai_image_png(content: dict, company: dict, author: dict | None = None) -> bytes:
+def render_ai_image_options(content: dict, company: dict, author: dict | None = None,
+                            theme: str = "", n: int = 1) -> list[dict]:
+    """The image for a post, and for the designed cards (list, quote) up to 3 colour versions of
+    it to choose from. Those are drawn here, so the extra versions cost nothing; photos and tweet
+    cards come one at a time. [{"png": bytes, "format": ..., "theme": ...}], the asked-for one first."""
+    fmt = (content.get("format") or "scene").strip().lower()
+    n = max(1, min(3, int(n or 1)))
+    photo = None
+    if fmt == "photo_card":   # one photo, however many colour versions of its panel
+        photo = _ai_photo(content, company)
+        if photo is None:
+            n = 1             # it falls back to a card below
+    designed = ((fmt == "list_card" and content.get("card_points"))
+                or (fmt == "quote_card" and (content.get("card_headline") or content.get("key_line")))
+                or (fmt == "photo_card" and photo is not None))
+    out = []
+    for th in (_option_themes(theme, n) if designed else [theme]):
+        meta: dict = {}
+        png = render_ai_image_png(content, company, author=author, theme=th, meta=meta,
+                                  photo=(photo if photo is not None else False) if fmt == "photo_card" else None)
+        out.append({"png": png, "format": meta.get("format", fmt), "theme": meta.get("theme", "")})
+    return out
+
+
+def _ai_photo(content: dict, company: dict):
+    """The realistic photo for a post's concept (one retry), or None when the image model fails."""
+    from llm import generate_image
+    concept = (content.get("image_concept") or "").strip()
+    if not concept:
+        return None
+    prompt = _build_ai_image_prompt(concept, _get_palette(company), _region_for(company))
+    for _ in range(2):
+        b = generate_image(prompt)
+        if b:
+            try:
+                im = Image.open(io.BytesIO(b))
+                im.load()
+                return im
+            except Exception:
+                return None
+    return None
+
+
+def render_ai_image_png(content: dict, company: dict, author: dict | None = None,
+                        theme: str = "", meta: dict | None = None, photo=None) -> bytes:
     """Generate a realistic editorial photo for the concept, composed to 4:5. Falls back to the
-    branded insight card if image generation is unavailable."""
+    branded insight card if image generation is unavailable. theme picks the designed cards'
+    colour set (else random); meta, when given, gets what was drawn (format, colour set)."""
+    meta = {} if meta is None else meta
     from llm import generate_image
     p = _get_palette(company)
     brand = (company or {}).get("name", "Voyce")
@@ -1656,11 +1754,13 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
     # Designed value cards: information over decoration. Rendered by us — always crisp, always relevant.
     if fmt == "list_card" and content.get("card_points"):
         name, avatar_img = _card_author(brand, author)
+        theme = _pick_card_theme(theme)
+        meta.update(format="list_card", theme=theme)
         img = _ed_list_card(
             content.get("card_tag", ""), content.get("card_headline") or content.get("key_line", ""),
             content.get("card_emphasis", ""), content.get("card_points"), name,
             (company or {}).get("designation", ""), avatar_img,
-            theme=_pick_card_theme(), brand_accent=_brand_accent(company),
+            theme=theme, brand_accent=_brand_accent(company),
             rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -1678,9 +1778,25 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         img = _slide_tweet_card(
             content.get("card_headline") or content.get("key_line", ""), name, handle, p,
             rw=IMG_POST_W * _SCALE, avatar=avatar_img)
+        meta.update(format="tweet_card", theme="")
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
+    if fmt == "photo_card":
+        # photo: the one already made, False when it was tried and failed, None to make it here
+        photo = _ai_photo(content, company) if photo is None else photo
+        if photo is not False and photo is not None:
+            name, avatar_img = _card_author(brand, author)
+            theme = _pick_card_theme(theme)
+            meta.update(format="photo_card", theme=theme)
+            img = _ed_photo_card(photo, content.get("card_headline") or content.get("key_line", ""),
+                                 content.get("card_emphasis", ""), name, (company or {}).get("designation", ""),
+                                 avatar_img, theme=theme, brand_accent=_brand_accent(company),
+                                 rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+        concept = ""   # the photo didn't come: don't ask the image model again, use the card below
     if fmt == "quote_card" and (content.get("card_headline") or content.get("key_line")):
         card = {
             "card_headline": content.get("card_headline") or content.get("key_line", ""),
@@ -1688,7 +1804,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
             "card_emphasis": content.get("card_emphasis", ""),
             "card_tag": content.get("card_tag", ""),
         }
-        return render_image_post_png(card, company, author=author)
+        return render_image_post_png(card, company, author=author, theme=theme, meta=meta)
 
     # Transient API failures are common enough to deserve one retry before falling back.
     img_bytes = None
@@ -1701,6 +1817,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
     if img_bytes:
         try:
             canvas = _cover_crop(Image.open(io.BytesIO(img_bytes)), IMG_POST_W, IMG_POST_H)
+            meta.update(format="scene", theme="")
             buf = io.BytesIO()
             canvas.save(buf, format="PNG")
             return buf.getvalue()
@@ -1715,7 +1832,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         "card_headline": content.get("card_headline") or content.get("key_line") or first_sentence or brand,
         "card_subtext": "", "card_emphasis": "", "card_tag": "",
     }
-    return render_image_post_png(card, company, author=author)
+    return render_image_post_png(card, company, author=author, theme=theme, meta=meta)
 
 
 def generate_caption_from_text(raw_text: str, company: dict = None) -> dict:

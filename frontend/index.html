@@ -468,6 +468,33 @@
     .li-title { font-size: 12px; color: #4b5260; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
     .wa-btn { color: #0b7a3e; border-color: #b9e3c9; }
     .wa-btn:hover { background: #effaf3; }
+    /* Image design picker (under Compose) */
+    .img-design { gap: 10px; margin: 10px 0 0 2px; }
+    .img-design-line { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; font-size: 13px; color: #5b6270; }
+    .img-design-k { min-width: 58px; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #8a909c; }
+    .img-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+    .img-seg label { position: relative; cursor: pointer; }
+    .img-seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .img-seg span { display: inline-block; padding: 6px 11px; border: 1.5px solid #d3d8e0; border-radius: 999px; background: #fff;
+      font-size: 12.5px; font-weight: 600; color: #3b414c; transition: border-color .12s, background .12s; }
+    .img-seg label:hover span { border-color: #9aa3b2; }
+    .img-seg input:checked + span { border-color: #24365e; background: #24365e; color: #fff; }
+    .img-seg input:focus-visible + span { outline: 2px solid #24365e; outline-offset: 2px; }
+    .img-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .img-sw { width: 26px; height: 26px; padding: 0; border: 1.5px solid #d3d8e0; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+    .img-sw i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+    .img-sw.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #24365e; border-color: transparent; }
+    .img-sw-any { width: auto; height: 26px; padding: 0 11px; border-radius: 999px; background: #fff; font-family: inherit; font-size: 12px; font-weight: 600; color: #3b414c; }
+    .img-three { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; cursor: pointer; }
+    .img-options { display: flex; justify-content: center; gap: 10px; padding: 10px 16px 0; }
+    .img-options[hidden] { display: none; }
+    .img-options button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none;
+      cursor: pointer; font-family: inherit; font-size: 11.5px; color: #5b6270; }
+    .li-media .img-options img { width: 84px; max-height: none; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 6px; box-shadow: 0 0 0 1px #e4e7ec; display: block; }
+    .img-options button.on { color: #16181d; font-weight: 700; }
+    .li-media .img-options button.on img { box-shadow: 0 0 0 2px #24365e; }
+    .img-meta { align-self: center; margin-right: 2px; font-size: 12px; color: #8a909c; }
+    .img-meta:empty { display: none; }
     /* Recent drafts: small cards under the preview */
     .drafts-section { margin-top: 28px; }
     .drafts-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -806,7 +833,7 @@
       <textarea id="content-input" placeholder="Paste your blog post, article, notes, or any content here..." rows="4"></textarea>
       <div class="img-choice">
         <label class="img-toggle" title="Also create an on-brand image for this post">
-          <input type="checkbox" id="add-image-toggle" onchange="document.getElementById('img-style-row').style.display=this.checked?'flex':'none'" />
+          <input type="checkbox" id="add-image-toggle" onchange="document.getElementById('img-style-row').style.display=this.checked?'grid':'none'" />
           <span class="img-toggle-track"><span class="img-toggle-thumb"></span></span>
           <span class="img-toggle-text">Add an AI image<span class="img-toggle-sub"> — made from your post</span></span>
         </label>
@@ -814,10 +841,26 @@
         <button type="button" class="img-src-btn" onclick="attachTriggerUpload()">📤 Upload your own</button>
         <input type="file" id="attach-upload" accept="image/*" hidden onchange="attachHandleUpload(event)" />
       </div>
-      <div id="img-style-row" style="display:none;gap:16px;align-items:center;flex-wrap:wrap;margin:8px 0 0 2px;font-size:13px;color:#5b6270;">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="illustration" checked> AI illustration</label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="tweet"> Tweet card <span style="color:#98a0ae;">(high-reach format)</span></label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="img-style" value="source"> Source card <span style="color:#98a0ae;">(cites the article — Website URL input)</span></label>
+      <!-- The image's design: Auto lets Voyce pick the best one for the post. Colour sets apply to the
+           designed cards; "Show 3 options" draws three of them to choose from (one generation). -->
+      <div id="img-style-row" class="img-design" style="display:none;">
+        <div class="img-design-line">
+          <span class="img-design-k">Design</span>
+          <div class="img-seg" role="radiogroup" aria-label="Image design">
+            <label title="Voyce picks the design that fits the post"><input type="radio" name="img-style" value="illustration" checked><span>Auto</span></label>
+            <label title="A realistic photo of a moment from the post's world, with its point in one short line"><input type="radio" name="img-style" value="photo_text"><span>Photo + headline</span></label>
+            <label title="A realistic photo of a moment from the post's world, no text"><input type="radio" name="img-style" value="scene"><span>Photo</span></label>
+            <label title="Headline and numbered points"><input type="radio" name="img-style" value="list"><span>List card</span></label>
+            <label title="One strong line, large"><input type="radio" name="img-style" value="quote"><span>Quote card</span></label>
+            <label title="Looks like a post on X: high-reach format"><input type="radio" name="img-style" value="tweet"><span>Tweet card</span></label>
+            <label title="Cites the article: needs a link in the Website URL tab"><input type="radio" name="img-style" value="source"><span>Source card</span></label>
+          </div>
+        </div>
+        <div class="img-design-line" id="img-colour-line">
+          <span class="img-design-k">Colours</span>
+          <div class="img-swatches" id="img-swatches" role="radiogroup" aria-label="Card colours"></div>
+          <label class="img-three"><input type="checkbox" id="img-three"> Show 3 options</label>
+        </div>
       </div>
       <div class="btn-row">
         <button class="generate-btn" id="generate-btn" onclick="generate()">
@@ -967,7 +1010,9 @@
           <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->
           <div class="li-media" id="li-media">
             <img id="li-attach-img" alt="Attached image" />
+            <div class="img-options" id="img-options" hidden></div>
             <div class="li-media-tools">
+              <span class="img-meta" id="img-meta"></span>
               <button type="button" class="img-src-btn" onclick="attachGenerateImage()">🔄 Regenerate</button>
               <button type="button" class="img-src-btn danger" onclick="attachRemove()">✕ Remove</button>
             </div>
