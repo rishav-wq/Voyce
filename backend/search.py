@@ -11,6 +11,7 @@ Key improvements:
 
 import os
 import random
+import re
 import requests
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -104,6 +105,24 @@ _DIVERSITY_ANGLES = [
 ]
 
 
+# For a person's profile the generic angles above pulled in unrelated stories ("open source",
+# "US market" beside "executive coaching"); these suit a professional's niche.
+_PRO_ANGLES = ["survey", "research report", "case study", "CEO interview", "leadership", "trend", "new study"]
+
+# Words that mark a sports story. "Coaching", "team" and "season" are business words too, so a
+# search for top teams or coaching kept returning NBA predictions and cricket coaches.
+_SPORTS = re.compile(r"\b(nba|nfl|mlb|nhl|ipl|bcci|ecb|cricket|wicket|football|soccer|premier league|la liga|rugby|"
+                     r"olympics?|fifa|uefa|espn|cricbuzz|playoffs?|quarterback|touchdown|super bowl|world cup|"
+                     r"grand slam|formula 1|f1|athletes?|sports?)\b", re.I)
+
+
+def _off_topic(r: dict, topic: str) -> bool:
+    """A sports story, unless the topic itself is about sport."""
+    if _SPORTS.search(topic or ""):
+        return False
+    return bool(_SPORTS.search(" ".join((r.get("title", ""), r.get("url", ""), (r.get("content") or "")[:200]))))
+
+
 _NEWS_TYPES = {"trend_commentary", "trend_reaction", "product_spotlight"}
 _STAT_TYPES = {"industry_stat", "stat_reaction"}
 
@@ -132,7 +151,11 @@ def search_industry_news(
     num_results: int = 5,
     post_type: str = "",
     extra_angles: list[str] | None = None,
+    region: str = "",
+    context: str = "",
 ) -> list[dict]:
+    """region: where the author works ("India"), so the news is theirs; context: words that keep
+    an ambiguous topic in the business world ("business workplace" for a person)."""
     if not TAVILY_API_KEY:
         return []
 
@@ -143,9 +166,9 @@ def search_industry_news(
     # Add a random diversity angle to break repetition. Product-level angles
     # (e.g. "LinkedIn algorithm change", "creator monetization" for a content product)
     # join the generic pool so each product's news stays niche-appropriate.
-    angle = random.choice(_DIVERSITY_ANGLES + [a for a in (extra_angles or []) if a])
+    angle = random.choice((_PRO_ANGLES if context else _DIVERSITY_ANGLES) + [a for a in (extra_angles or []) if a])
     year = datetime.now(timezone.utc).year
-    query = f"{template.format(industry=industry, year=year)} {angle}".strip()
+    query = " ".join(x for x in (template.format(industry=industry, year=year), context, region, angle) if x).strip()
 
     # A post that reacts to news must not treat an old story as new: those
     # types search news only, from the past week. Stats may come from this
@@ -183,6 +206,8 @@ def search_industry_news(
         })
 
     for r in data.get("results", []):
+        if _off_topic(r, industry):
+            continue
         snippet = r.get("content", "") or r.get("snippet", "")
         results.append({
             "title": r.get("title", ""),

@@ -852,7 +852,7 @@ Reward specificity, a clear point of view, and a human rhythm. Penalise vague mo
             "linkedin_analysis":  parsed.get("analysis") or {},
         }
         post_type = "expert_insight_p"
-        news = search_industry_news(niche, name, 3, post_type=post_type)
+        news = search_industry_news(niche, name, 3, post_type=post_type, context="business workplace")
         news_ctx = format_news_context(news)
         sample_post = generate_autonomous_post(temp, news_ctx, post_type)
         src = news[0] if news else {}
@@ -2207,13 +2207,17 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
         from autonomous import (generate_autonomous_post, _get_post_type, POST_TYPE_LABELS,
                                 COMPANY_ROTATION, PERSONAL_ROTATION)
         from search import search_industry_news, format_news_context
+        from autonomous import _topic_for_today, news_search_args
         subject = company   # the profile is the subject (voice + niche + knowledge)
+        today_topic = _topic_for_today(company)   # several topics: the one the next daily post is about
+        if today_topic:
+            subject = {**company, "industry": today_topic, "all_topics": company.get("industry", "")}
         valid = set((PERSONAL_ROTATION if company.get("profile_type") == "personal"
                      else COMPANY_ROTATION).values())
         pt = post_type if post_type in valid else _get_post_type(company)
         news_results = search_industry_news(
             subject["industry"], subject["name"], 3, post_type=pt,
-            extra_angles=subject.get("search_angles") or [])
+            extra_angles=subject.get("search_angles") or [], **news_search_args(company))
         news_context = format_news_context(news_results)
         if seed.strip():
             # A chosen idea: make the generator build the post around this angle.
@@ -2273,15 +2277,16 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
             f"- {t}: {POST_TYPE_LABELS.get(t, t)}"
             f"{' — ' + POST_TYPE_DESCRIPTIONS[POST_TYPE_LABELS[t]] if POST_TYPE_LABELS.get(t) in POST_TYPE_DESCRIPTIONS else ''}"
             for t in types)
-        from autonomous import profile_topics
+        from autonomous import profile_topics, news_search_args
         topics = profile_topics(subject)
+        nargs = news_search_args(subject)
         if len(topics) > 1:   # news for each topic, so every side of their work gets ideas
             news = []
             for t in topics:
-                news += search_industry_news(t, subject["name"], 2, extra_angles=subject.get("search_angles") or [])
+                news += search_industry_news(t, subject["name"], 2, extra_angles=subject.get("search_angles") or [], **nargs)
         else:
             news = search_industry_news(subject["industry"], subject["name"], 6,
-                                        extra_angles=subject.get("search_angles") or [])
+                                        extra_angles=subject.get("search_angles") or [], **nargs)
         news_ctx = format_news_context(news)
         topics_block = (f"\nTHEIR TOPICS: {'; '.join(topics)}. Spread the 5 ideas across these: at least one idea for each topic.\n"
                         if len(topics) > 1 else "")

@@ -821,6 +821,14 @@ def profile_topics(company: dict) -> list[str]:
     return out[:5] or ([raw.strip()] if raw.strip() else [])
 
 
+def news_search_args(company: dict) -> dict:
+    """How to search the news for this profile: a person's region (from their time zone) and a
+    business context, so an Indian coach's "top team effectiveness" finds workplace stories."""
+    from carousel import _region_for
+    personal = company.get("profile_type") == "personal"
+    return {"region": _region_for(company), "context": "business workplace" if personal else ""}
+
+
 def _topic_for_today(company: dict) -> str:
     """With several topics (an author, consultant and coach), the daily post takes them in turns:
     today's is the one used longest ago, a never-used one first. "" with a single topic."""
@@ -1493,7 +1501,7 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         # The profile carries the niche and any extra search angles.
         news_results = search_industry_news(
             subject["industry"], subject["name"], num_results, post_type=post_type,
-            extra_angles=subject.get("search_angles") or [],
+            extra_angles=subject.get("search_angles") or [], **news_search_args(company),
         )
         news_context = format_news_context(news_results)
         # What the post was built from, kept with it so the user can check it. The
