@@ -1468,7 +1468,7 @@
               ${cpw !== "0" ? `<div class="auto-more-row">
                 <span>Carousel look:</span>
                 <select onchange="setCarouselTheme('${p.id}', this.value)" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;max-width:100%;">
-                  ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(p.carousel_theme || "") === v ? "selected" : ""}>${l}</option>`).join("")}
+                  ${CAROUSEL_THEMES.map(([v, l]) => `<option value="${v}" ${(OLD_CAROUSEL_THEMES[p.carousel_theme] ?? p.carousel_theme ?? "") === v ? "selected" : ""}>${l}</option>`).join("")}
                 </select>
               </div>` : ""}
               <div class="auto-more-row">
@@ -1827,17 +1827,21 @@
       loadProfiles();  // re-render so the theme picker appears/disappears
     }
 
+    // The carousel colour sets (carousel._ED_THEMES); older saved names map to the nearest one
+    const OLD_CAROUSEL_THEMES = { warm_violet: "light", clean_light: "lavender", warm_paper: "peach", deep_teal: "forest",
+                                  warm_dark: "dark", dark_pro: "dark", fintech_navy: "dark", deep_indigo: "lavender", electric: "forest" };
     const CAROUSEL_THEMES = [
-      ["", "Auto (based on industry)"],
-      ["warm_violet", "Voyce — Cream + Deep Navy (default)"],
-      ["dark_pro", "Dark Pro — Navy + Cyan"],
-      ["fintech_navy", "Fintech Navy — Navy + Azure + Amber"],
-      ["warm_dark", "Warm Dark — Charcoal + Amber"],
-      ["deep_teal", "Deep Teal — Teal + Emerald"],
-      ["deep_indigo", "Deep Indigo — Indigo + Violet"],
-      ["clean_light", "Clean Light — White + Indigo"],
-      ["warm_paper", "Warm Paper — Cream + Burnt Orange"],
-      ["electric", "Electric — Black + Lime"],
+      ["", "Surprise me (a different set each deck)"],
+      ["light", "Cream + navy"],
+      ["mint", "Mint + blue"],
+      ["sky", "Sky + green"],
+      ["sage", "Sage + navy"],
+      ["lavender", "Lavender + violet"],
+      ["peach", "Peach + teal"],
+      ["rose", "Rose + wine"],
+      ["sand", "Sand + forest"],
+      ["forest", "Forest + mint (dark)"],
+      ["dark", "Charcoal + gold (dark)"],
     ];
 
     const CAROUSEL_MIX = [[0, "None", "None", "No carousels: text and image posts only"],

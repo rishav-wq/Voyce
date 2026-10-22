@@ -1522,7 +1522,12 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
                             author_context=_author_record(subject))
             report.update({"passed": bool(v.get("passes", True)), "reason": v.get("reason", "")})
             previews: list = []
-            pdf_bytes = render_carousel_pdf(content, subject, previews=previews)
+            try:   # their name and photo on the cover and the last slide; a deck without them still posts
+                author = li.author_for_profile(company, company.get("user_id", "")) or None
+            except Exception:
+                logger.exception("[Carousel] author lookup failed")
+                author = None
+            pdf_bytes = render_carousel_pdf(content, subject, previews=previews, author=author)
             post_text = content.get("post_text", "")
             payload = {"format": "carousel", "post_text": post_text, "publish_text": post_text,
                        "asset_b64": _b64.b64encode(pdf_bytes).decode(), "alt_text": "",

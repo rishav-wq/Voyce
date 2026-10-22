@@ -1333,7 +1333,8 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
             profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
         context_text = _with_profile_context(profile, raw_text)
         content   = generate_carousel_from_text(context_text, company=profile)
-        pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"})
+        author    = li.author_for_profile(profile, user["id"]) or None   # cover and last slide carry their photo
+        pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"}, author=author)
         auth_module.increment_gens(user["id"])
         return {
             "post_text":  content.get("post_text", ""),
