@@ -77,8 +77,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.danger.solid { background: var(--bad); border-color: var(--bad); color: var(--surface); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* summary */
-.summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+/* summary: today's progress, then a few totals */
+.summary { margin-top: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.progress { padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.progress-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+.progress-head h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; font-family: var(--f-body); }
+.goal { font-size: 13px; color: var(--muted); }
+.goal b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px 34px; margin-top: 10px; }
+.stat { display: grid; align-content: start; min-width: 92px; }
+.stat b { font-family: var(--f-display); font-size: 26px; line-height: 1.1; color: var(--fg); font-variant-numeric: tabular-nums; }
+.stat b small { font-size: 15px; color: var(--faint); font-weight: 600; }
+.stat span { font-size: 12.5px; color: var(--muted); }
+.stat:first-child { min-width: 170px; }
+.bar { height: 6px; margin-top: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s ease; }
+.bar.full i { background: var(--ok); }
+.sec-hint { margin: -4px 0 8px; }
+.split { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.stat .split b { font-family: var(--f-body); font-size: inherit; line-height: inherit; font-weight: 700; color: var(--fg); }
+.week { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.week summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+.week summary:hover { color: var(--accent); }
+.week .table-scroll { display: inline-block; max-width: 100%; margin-top: 8px; vertical-align: top; }
+.week-t { width: auto; min-width: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.week-t th, .week-t td { padding: 6px 10px; text-align: right; white-space: nowrap; }
+.week-t th:first-child, .week-t td:first-child { text-align: left; }
+.week-t tr.is-today td { font-weight: 600; }
+@media (max-width: 520px) { .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; } .stat:first-child { grid-column: 1 / -1; min-width: 0; } }
 .chip { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .chip-link { cursor: pointer; font: inherit; font-size: 13px; }
 .chip-link:hover { border-color: var(--accent); color: var(--accent); }
@@ -283,7 +310,7 @@ const NEXT_STEP = { tocall: "Call the firm's line", try1: "Call again", try2: "C
   spoke: "Send the sample on WhatsApp", sample: "Call back about the sample", new: "Send the first DM", dm: "Send follow-up 1", fu1: "Send follow-up 2", fu2: "Send follow-up 3",
   fu3: "Close if there's still no reply", replied: "Ask for their number", number: "Call them", called: "Book the meeting",
   meeting: "Meeting", won: "Paying customer", lost: "Closed" };
-const SCRIPT_FOR = { tocall: "smb_call", try1: "smb_call", try2: "smb_call", try3: "dm", spoke: "wa_sample", sample: "sample_callback", new: "dm", dm: "fu1", fu1: "fu2", fu2: "fu3", replied: "ask_number", number: "call", called: "call" };
+const SCRIPT_FOR = { tocall: "smb_call", try1: "smb_call", try2: "smb_call", try3: "dm", spoke: "wa_sample", sample: "sample_callback", new: "dm", dm: "fu1", fu1: "fu2", fu2: "fu3", replied: "ask_number", number: "call", called: "call", meeting: "setup_close" };
 const LOST_REASONS = ["No reply after 3 follow-ups", "Not interested", "Wrong number", "Wants company page posting", "Unreachable by phone", "Not a fit", "Price", "Using another tool", "Other"];
 const SOURCES = ["LinkedIn DM", "Cold call list", "Voyce signup", "Referral", "Event", "WhatsApp group", "Other"];
 let pipeTrack = "call";
@@ -364,15 +391,15 @@ function _actionsFor(l) {
     case "try2": return callOutcomes("try3");
     case "try3": return [{ id: "to_dm", label: "Switch to LinkedIn DM", primary: true }, { id: "unreachable", label: "Close: unreachable" }];
     case "spoke": return [{ id: "sample", label: "Mark sample sent", primary: true }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
-    case "sample": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "sample_again", label: "Called again" }];
+    case "sample": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "sample_noans", label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
     case "new": return [{ id: "dm", label: "Mark DM sent", primary: true }];
     case "dm": return [{ id: "fu1", label: "Mark follow-up 1 sent", primary: true }, { id: "replied", label: "They replied" }];
     case "fu1": return [{ id: "fu2", label: "Mark follow-up 2 sent", primary: true }, { id: "replied", label: "They replied" }];
     case "fu2": return [{ id: "fu3", label: "Mark follow-up 3 sent", primary: true }, { id: "replied", label: "They replied" }];
     case "fu3": return [{ id: "noreply", label: "Close: no reply", primary: true }, { id: "replied", label: "They replied" }];
     case "replied": return [{ id: "number", label: "Got their number", primary: true, needs: "number" }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
-    case "number": return [{ id: "called", label: "Mark called", primary: true }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
-    case "called": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "called_again", label: "Called again" }];
+    case "number":
+    case "called": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "call_noans", label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
     case "meeting": return [{ id: "won", label: "Mark won", primary: true }, { id: "lost", label: "Mark lost", needs: "lost" }];
     default: return [{ id: "reopen", label: "Reopen", primary: true }];
   }
@@ -389,6 +416,8 @@ const ACTION = {
   wrongnum: l => ({ stage: "new", next_due: today(), bad_number: dialled(l), _t: `Wrong number (${dialled(l)}): switched to a LinkedIn DM` }),
   sample: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Sent the sample on WhatsApp" }),
   sample_again: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Called about the sample" }),
+  sample_noans: () => ({ next_due: addDays(today(), 1), _t: "Called about the sample: no answer" }),
+  call_noans: () => ({ next_due: addDays(today(), 1), _t: "Called: no answer" }),
   dm: () => ({ stage: "dm", next_due: addDays(today(), 3), dm_at: today(), _t: "Sent the first DM" }),
   fu1: () => ({ stage: "fu1", next_due: addDays(today(), 4), _t: "Sent follow-up 1" }),
   fu2: () => ({ stage: "fu2", next_due: addDays(today(), 7), _t: "Sent follow-up 2" }),
@@ -505,25 +534,82 @@ async function checkPhones() {
 }
 
 /* ── render: summary, tabs, views ── */
+// Progress, counted from every lead's history, so it moves with each tap. A call is counted by what
+// happened: answered, no answer or wrong number. Taps on one lead within 5 minutes are one call.
+const DAILY_CALLS = 10;
+const GOAL = { from: "2026-10-23", by: "2026-11-05", setups: 8, paying: 3 };   // the plan: first customers before Diwali
+const CALLISH = new Set(["tocall", "try1", "try2", "try3", "spoke", "sample", "number", "called"]);
+const OUTCOME_RANK = { answered: 3, wrong: 2, noanswer: 1, unknown: 0 };
+// Notes typed in "Log a touch" count too: before these buttons the team logged "forwarded to voice mail" there.
+const NOTE_NOANSWER = /voice ?mail|switched off|not reachable|unreachable|calls? (are )?blocked|didn.?t pick|not picking|no answer/i;
+function callOutcome(text, prev) {
+  if (/^(Called|Third call)/.test(text) && /no answer/i.test(text)) return "noanswer";
+  if (/^Wrong number/.test(text)) return "wrong";
+  if (/^(LinkedIn|WhatsApp|Call|Email|Note): /.test(text)) return /wrong number/i.test(text) ? "wrong" : NOTE_NOANSWER.test(text) ? "noanswer" : "";
+  if (/^(Spoke to them|Asked to be called back)/.test(text)) return "answered";
+  if ((text === "Closed: not interested" || /^Meeting booked/.test(text)) && CALLISH.has(prev)) return "answered";
+  if (/^(Called about the sample|Called again|Called them)$/.test(text)) return "unknown";   // older taps didn't say
+  return "";
+}
+function dayStats(day) {
+  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, by: {} };
+  for (const l of leads) {
+    let last = null, unreachable = false;
+    (l.history || []).forEach((h, i) => {
+      const text = h.text || "", at = h.at ? new Date(h.at) : null;
+      if (!at || ymd(at) !== day || !h.by) return;      // only what a teammate did (not research or data fixes)
+      if (/^Spoke to them: interested/.test(text)) n.interested++;
+      if (/^Sent the sample/.test(text)) n.samples++;
+      if (/^Meeting booked/.test(text)) n.setups++;
+      const o = callOutcome(text, (l.history[i - 1] || {}).stage);
+      if (!o) return;
+      if (o === "noanswer" || o === "wrong") unreachable = true;
+      else if (o === "answered" && unreachable && text === "Closed: not interested") return;   // closed after not getting through
+      if (last && at - last.at < 5 * 60e3) {           // the same call, tapped twice: keep the clearest outcome
+        if (OUTCOME_RANK[o] > OUTCOME_RANK[last.o]) { n[last.o]--; n[o]++; last.o = o; }
+        last.at = at; return;
+      }
+      last = { at, o }; n.calls++; n[o]++;
+      const who = firstName(h.by_name || "Someone"); n.by[who] = (n.by[who] || 0) + 1;
+    });
+  }
+  return n;
+}
+function progressCard() {
+  const t = today(), p = dayStats(t), pct = Math.min(100, Math.round(p.calls / DAILY_CALLS * 100));
+  const setupsSince = leads.filter(l => (l.history || []).some(h => /^Meeting booked/.test(h.text || "") && h.at && ymd(new Date(h.at)) >= GOAL.from)).length;
+  const paying = leads.filter(l => l.stage === "won").length;
+  const stat = (num, label, extra = "") => `<div class="stat"><b>${num}</b><span>${label}</span>${extra}</div>`;
+  const split = [[p.answered, "answered"], [p.noanswer, "no answer"], [p.wrong, p.wrong === 1 ? "wrong number" : "wrong numbers"], [p.unknown, "outcome not marked"]]
+    .filter(([v], i) => v || i < 2).map(([v, s]) => `<b>${v}</b> ${s}`).join(" · ");
+  const people = Object.entries(p.by);
+  const who = people.length > 1 ? `<div class="split">${people.sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} <b>${v}</b>`).join(" · ")}</div>` : "";
+  const goal = t <= GOAL.by ? `<div class="goal">Goal by ${esc(fmtDay(GOAL.by))}: <b>${GOAL.setups}</b> setup calls · <b>${GOAL.paying}</b> paying. So far <b>${setupsSince}</b> and <b>${paying}</b>.</div>` : "";
+  return `<section class="progress" aria-label="Today's progress"><div class="progress-head"><h2>Today · ${esc(fmtDay(t))}</h2>${goal}</div>
+    <div class="stats">${stat(`${p.calls}<small> / ${DAILY_CALLS}</small>`, p.calls >= DAILY_CALLS ? "calls made: done for today" : "calls made",
+      `<div class="bar ${p.calls >= DAILY_CALLS ? "full" : ""}" role="progressbar" aria-label="Calls made" aria-valuemin="0" aria-valuemax="${DAILY_CALLS}" aria-valuenow="${p.calls}"><i style="width:${pct}%"></i></div><div class="split">${split}</div>${who}`)}
+    ${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
+    ${weekTable(t)}</section>`;
+}
+// This week, Monday to today: the same counts per day, to see how each day really went.
+function weekTable(t) {
+  const weekday = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).getDay(); };
+  const dow = (weekday(t) + 6) % 7;   // 0 = Monday
+  const days = Array.from({ length: dow + 1 }, (_, i) => addDays(t, i - dow)).filter(day => day === t || weekday(day) !== 0 || dayStats(day).calls);
+  const rows = days.map(day => { const s = dayStats(day);
+    return `<tr${day === t ? ' class="is-today"' : ""}><td>${esc(fmtDay(day))}</td><td>${s.calls}</td><td>${s.answered}</td><td>${s.noanswer}</td><td>${s.wrong}</td><td>${s.interested}</td><td>${s.samples}</td><td>${s.setups}</td></tr>`; }).join("");
+  return `<details class="week"><summary>This week, day by day</summary><div class="table-scroll"><table class="week-t"><thead><tr><th>Day</th><th>Calls</th><th>Answered</th><th>No answer</th><th>Wrong no.</th><th>Interested</th><th>Samples</th><th>Setup calls</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+}
 function renderSummary() {
   const t = today(), active = leads.filter(isActive);
   const late = active.filter(l => l.next_due && l.next_due < t).length;
-  const dueToday = active.filter(l => l.next_due === t).length;
-  const calls = leads.filter(l => l.stage === "number").length;
-  const week = addDays(t, 7);
-  const meetings = leads.filter(l => l.stage === "meeting" && l.meeting_at && l.meeting_at.slice(0, 10) >= t && l.meeting_at.slice(0, 10) <= week).length;
-  const won = leads.filter(l => l.stage === "won").length;
   const notInt = leads.filter(isNotInt).length;
   const wrongNums = leads.filter(isWrongNum).length;
-  $("#summary").innerHTML = !ready ? "" : [
+  $("#summary").innerHTML = !ready ? "" : progressCard() + `<div class="chips">${[
     late ? `<span class="chip alert"><b>${late}</b> overdue</span>` : "",
-    `<span class="chip"><b>${dueToday}</b> due today</span>`,
-    `<span class="chip"><b>${calls}</b> calls to make</span>`,
-    `<span class="chip"><b>${meetings}</b> meetings this week</span>`,
     `<span class="chip"><b>${active.length}</b> in progress</span>`,
-    `<span class="chip"><b>${won}</b> won</span>`,
     notInt ? `<button class="chip chip-link" data-act="show-notint" title="See who said no"><b>${notInt}</b> not interested</button>` : "",
-    wrongNums ? `<button class="chip chip-link" data-act="show-wrongnum" title="See whose number was wrong"><b>${wrongNums}</b> wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""].join("");
+    wrongNums ? `<button class="chip chip-link" data-act="show-wrongnum" title="See whose number was wrong"><b>${wrongNums}</b> wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""].join("")}</div>`;
   $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
   $("#n-all").textContent = ready ? String(leads.length) : "";
   $("#banner").hidden = true;
@@ -552,16 +638,24 @@ function emptyState(msg) {
 function viewToday() {
   if (!leads.length) return emptyState("No leads yet. Add the first person you're DMing on LinkedIn: a name and their profile link is enough. Voyce Sales then tells you when each follow-up is due.");
   const t = today();
-  // Worked leads first (furthest along first); leads nobody has contacted yet go by their rank.
-  const due = leads.filter(isDue).sort((a, b) => byWorkedFirst(a, b) || byPhoneFirst(a, b) || (a.next_due || "").localeCompare(b.next_due || "")
-    || (inProgress(a) ? STAGE[b.stage].i - STAGE[a.stage].i : 0) || byPrio(a, b));
+  // The day in the plan's order: booked meetings, the people who said yes, retries, new calls, DMs.
+  const byDue = (a, b) => (a.next_due || "").localeCompare(b.next_due || "");
+  const meetings = leads.filter(l => l.stage === "meeting").sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
+  const groups = TODAY_GROUPS.map(g => ({ ...g, list: leads.filter(l => isDue(l) && g.stages.includes(l.stage))
+    .sort((a, b) => byDue(a, b) || (g.key === "warm" ? STAGE[b.stage].i - STAGE[a.stage].i : 0) || byPrio(a, b)) }));
   const soon = leads.filter(l => isActive(l) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting").sort((a, b) => a.next_due.localeCompare(b.next_due) || byPrio(a, b));
-  const meetings = leads.filter(l => l.stage === "meeting" && (l.meeting_at || "").slice(0, 10) >= t).sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
-  const sec = (title, list, none) => `<section class="section"><h3>${title}<span class="num">${list.length}</span></h3>${list.length ? `<div class="list">${list.map(l => leadRow(l)).join("")}</div>` : `<div class="hint">${none}</div>`}</section>`;
-  return sec("Due now", due, "Nothing due. Every follow-up is on schedule.") +
-         sec("Coming up in the next 3 days", soon, "Nothing in the next 3 days.") +
-         sec("Meetings", meetings, "No meetings booked yet.");
+  const sec = (key, title, hint, list) => `<section class="section" data-group="${key}"><h3>${title}<span class="num">${list.length}</span></h3>${hint ? `<div class="hint sec-hint">${hint}</div>` : ""}<div class="list">${list.map(l => leadRow(l)).join("")}</div></section>`;
+  const shown = [meetings.length ? sec("meet", "Setup calls booked", "Run the setup call, then mark it won or lost.", meetings) : "",
+                 ...groups.filter(g => g.list.length).map(g => sec(g.key, g.title, g.hint, g.list))].join("");
+  return (shown || `<section class="section"><div class="hint">Nothing due. Every follow-up is on schedule.</div></section>`) +
+         (soon.length ? sec("soon", "Coming up in the next 3 days", "", soon) : "");
 }
+const TODAY_GROUPS = [
+  { key: "warm", title: "Follow up first: they said yes", hint: "The warmest leads. Aim for a booked setup call.", stages: ["spoke", "sample", "replied", "number", "called"] },
+  { key: "retry", title: "Call again: no answer", hint: "Try another time of day. After the third try, switch to a LinkedIn DM.", stages: ["try1", "try2", "try3"] },
+  { key: "new", title: "New calls", hint: "Strongest first. Best answered Tue to Thu, 3 to 5 pm.", stages: ["tocall"] },
+  { key: "dm", title: "LinkedIn DMs", hint: "", stages: ["new", "dm", "fu1", "fu2", "fu3"] },
+];
 function viewPipeline() {
   if (!leads.length) return emptyState("The pipeline fills in as you add leads and mark each step.");
   const switcher = `<div class="row-btns" style="margin-bottom:12px" role="group" aria-label="Track">${[["call", "Cold calls"], ["dm", "LinkedIn DMs"]].map(([k, t]) =>
