@@ -32,7 +32,7 @@ LOOKUP_STATES = {"", "done", "none"}
 # field -> max length; anything else a client sends is dropped
 TEXT_FIELDS = {"name": 120, "role": 160, "company": 160, "city": 80, "linkedin": 300, "website": 300,
                "phone": 40, "firm_phone": 60, "email": 160, "source": 60, "segment": 60,
-               "lost_reason": 120, "notes": 4000, "research_url": 500}
+               "lost_reason": 120, "notes": 4000, "research_url": 500, "bad_number": 60}
 DATE_FIELDS = {"next_due", "dm_at"}            # "" or YYYY-MM-DD
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$")

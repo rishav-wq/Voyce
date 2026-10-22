@@ -82,6 +82,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chip { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .chip-link { cursor: pointer; font: inherit; font-size: 13px; }
 .chip-link:hover { border-color: var(--accent); color: var(--accent); }
+.bad-num { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 6px; background: var(--bad-soft); color: var(--bad); font-size: 11.5px; font-weight: 600; font-family: inherit; }
 .chip b { font-family: var(--f-display); font-size: 16px; color: var(--fg); font-variant-numeric: tabular-nums; }
 .chip.alert { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: var(--bad-soft); }
 .chip.alert b { color: var(--bad); }
@@ -272,6 +273,10 @@ const STAGES = [
 const STAGE = Object.fromEntries(STAGES.map((s, i) => [s.key, { ...s, i }]));
 const CLOSED = new Set(["won", "lost"]);
 const isNotInt = l => l.stage === "lost" && l.lost_reason === "Not interested";
+// A number that reached someone else. The person may still fit, so the lead moves to a LinkedIn DM instead of closing.
+const isWrongNum = l => !!String(l.bad_number || "").trim() || (l.stage === "lost" && l.lost_reason === "Wrong number");
+const isBadNum = (l, n) => !!digits(n) && digits(n) === digits(l.bad_number);
+const badTag = (l, n) => isBadNum(l, n) ? ` <span class="bad-num">Wrong number</span>` : "";
 // Reopen goes back to the step the lead was on before it was closed (a call lead stays on the call track).
 const lastOpenStage = l => { const h = (l.history || []).slice().reverse().find(x => x.stage && !CLOSED.has(x.stage)); return h ? h.stage : "tocall"; };
 const NEXT_STEP = { tocall: "Call the firm's line", try1: "Call again", try2: "Call again (last try)", try3: "Close, or switch to a LinkedIn DM",
@@ -279,7 +284,7 @@ const NEXT_STEP = { tocall: "Call the firm's line", try1: "Call again", try2: "C
   fu3: "Close if there's still no reply", replied: "Ask for their number", number: "Call them", called: "Book the meeting",
   meeting: "Meeting", won: "Paying customer", lost: "Closed" };
 const SCRIPT_FOR = { tocall: "smb_call", try1: "smb_call", try2: "smb_call", try3: "dm", spoke: "wa_sample", sample: "sample_callback", new: "dm", dm: "fu1", fu1: "fu2", fu2: "fu3", replied: "ask_number", number: "call", called: "call" };
-const LOST_REASONS = ["No reply after 3 follow-ups", "Not interested", "Wants company page posting", "Unreachable by phone", "Not a fit", "Price", "Using another tool", "Other"];
+const LOST_REASONS = ["No reply after 3 follow-ups", "Not interested", "Wrong number", "Wants company page posting", "Unreachable by phone", "Not a fit", "Price", "Using another tool", "Other"];
 const SOURCES = ["LinkedIn DM", "Cold call list", "Voyce signup", "Referral", "Event", "WhatsApp group", "Other"];
 let pipeTrack = "call";
 const CHANNELS = ["LinkedIn", "WhatsApp", "Call", "Email", "Note"];
@@ -321,7 +326,7 @@ const byPrio = (a, b) => (a.priority || 1e9) - (b.priority || 1e9);
 const inProgress = l => isActive(l) && l.stage !== "tocall" && l.stage !== "new";
 const byWorkedFirst = (a, b) => inProgress(b) - inProgress(a);
 // Leads nobody has contacted yet: the ones with a number to call come before the ones without.
-const hasPhone = l => !!(String(l.phone || "").trim() || String(l.firm_phone || "").trim());
+const hasPhone = l => [l.phone, l.firm_phone].some(n => digits(n) && !isBadNum(l, n));
 const byPhoneFirst = (a, b) => (inProgress(a) || inProgress(b)) ? 0 : hasPhone(b) - hasPhone(a);
 const isDue = l => isActive(l) && l.next_due && l.next_due <= today();
 const normLi = u => String(u || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
@@ -344,8 +349,11 @@ const ownerName = l => !l.owner ? "Nobody" : (l.owner === me.id ? "You" : (l.own
 /* ── actions: what each step does to a lead ── */
 function actionsFor(l) {
   const acts = _actionsFor(l);
-  return NOT_INTERESTED_ON.has(l.stage) ? acts.concat([{ id: "notint", label: "Not interested", neg: true }]) : acts;
+  const wrong = WRONG_NUMBER_ON.has(l.stage) && hasPhone(l) ? [{ id: "wrongnum", label: "Wrong number", neg: true }] : [];
+  return acts.concat(wrong, NOT_INTERESTED_ON.has(l.stage) ? [{ id: "notint", label: "Not interested", neg: true }] : []);
 }
+const WRONG_NUMBER_ON = new Set(["tocall", "try1", "try2", "try3"]);
+const dialled = l => [l.phone, l.firm_phone].find(n => digits(n) && !isBadNum(l, n)) || "";
 // Stages where they can say no: a call was answered or they wrote back. Closing it stops every follow-up.
 const NOT_INTERESTED_ON = new Set(["tocall", "try1", "try2", "spoke", "sample", "dm", "fu1", "fu2", "fu3", "replied", "number", "called"]);
 function _actionsFor(l) {
@@ -378,6 +386,7 @@ const ACTION = {
   to_dm: () => ({ stage: "new", next_due: today(), _t: "Switched to a LinkedIn DM after 3 unanswered calls" }),
   unreachable: () => ({ stage: "lost", next_due: "", lost_reason: "Unreachable by phone", _t: "Closed: unreachable by phone" }),
   notint: () => ({ stage: "lost", next_due: "", lost_reason: "Not interested", _t: "Closed: not interested" }),
+  wrongnum: l => ({ stage: "new", next_due: today(), bad_number: dialled(l), _t: `Wrong number (${dialled(l)}): switched to a LinkedIn DM` }),
   sample: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Sent the sample on WhatsApp" }),
   sample_again: () => ({ stage: "sample", next_due: addDays(today(), 2), _t: "Called about the sample" }),
   dm: () => ({ stage: "dm", next_due: addDays(today(), 3), dm_at: today(), _t: "Sent the first DM" }),
@@ -430,6 +439,11 @@ async function runAction(id, actId, vals = {}) {
   const l = leads.find(x => x.id === id); if (!l || !canWrite) return;
   const patch = ACTION[actId](l, vals); const text = patch._t; delete patch._t;
   panel = null;
+  if (actId === "wrongnum") {
+    const before = { stage: l.stage, next_due: l.next_due || "", bad_number: l.bad_number || "" };
+    if (await save(id, patch, text)) toast(`${l.name}: wrong number. Moved to LinkedIn DMs.`, () => save(id, before, "Undid 'wrong number'", "Back on the call list"));
+    return;
+  }
   if (actId !== "notint") { await save(id, patch, text, text); return; }
   const before = { stage: l.stage, next_due: l.next_due || "", lost_reason: l.lost_reason || "" };
   if (await save(id, patch, text)) toast(`${l.name}: not interested. Closed.`, () => save(id, before, "Undid 'not interested'", "Reopened"));
@@ -500,6 +514,7 @@ function renderSummary() {
   const meetings = leads.filter(l => l.stage === "meeting" && l.meeting_at && l.meeting_at.slice(0, 10) >= t && l.meeting_at.slice(0, 10) <= week).length;
   const won = leads.filter(l => l.stage === "won").length;
   const notInt = leads.filter(isNotInt).length;
+  const wrongNums = leads.filter(isWrongNum).length;
   $("#summary").innerHTML = !ready ? "" : [
     late ? `<span class="chip alert"><b>${late}</b> overdue</span>` : "",
     `<span class="chip"><b>${dueToday}</b> due today</span>`,
@@ -507,7 +522,8 @@ function renderSummary() {
     `<span class="chip"><b>${meetings}</b> meetings this week</span>`,
     `<span class="chip"><b>${active.length}</b> in progress</span>`,
     `<span class="chip"><b>${won}</b> won</span>`,
-    notInt ? `<button class="chip chip-link" data-act="show-notint" title="See who said no"><b>${notInt}</b> not interested</button>` : ""].join("");
+    notInt ? `<button class="chip chip-link" data-act="show-notint" title="See who said no"><b>${notInt}</b> not interested</button>` : "",
+    wrongNums ? `<button class="chip chip-link" data-act="show-wrongnum" title="See whose number was wrong"><b>${wrongNums}</b> wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""].join("");
   $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
   $("#n-all").textContent = ready ? String(leads.length) : "";
   $("#banner").hidden = true;
@@ -565,11 +581,12 @@ function viewAll() {
   let list = leads.slice();
   if (filters.stage === "active") list = list.filter(isActive);
   else if (filters.stage === "notint") list = list.filter(isNotInt);
+  else if (filters.stage === "wrongnum") list = list.filter(isWrongNum);
   else if (filters.stage !== "all") list = list.filter(l => l.stage === filters.stage);
   if (filters.owner === "mine") list = list.filter(l => l.owner && l.owner === me.id);
   if (q) list = list.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email].some(v => String(v || "").toLowerCase().includes(q)));
   list.sort((a, b) => (isActive(b) - isActive(a)) || byWorkedFirst(a, b) || byPhoneFirst(a, b) || (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
-  const opts = [["active", "In progress"], ["all", "All stages"], ["notint", "Not interested"], ...STAGES.map(s => [s.key, s.label])]
+  const opts = [["active", "In progress"], ["all", "All stages"], ["notint", "Not interested"], ["wrongnum", "Wrong number"], ...STAGES.map(s => [s.key, s.label])]
     .map(([v, t]) => `<option value="${v}" ${filters.stage === v ? "selected" : ""}>${esc(t)}</option>`).join("");
   const head = `<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city or number" value="${esc(filters.q)}">
     <select id="f-stage" aria-label="Stage">${opts}</select>
@@ -580,7 +597,7 @@ function viewAll() {
     const d = dueInfo(l);
     return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td>${prio(l)}<b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
       <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage])}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}${closedBy(l)}</td>
-      <td class="num">${esc(l.phone || "")}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
+      <td class="num">${esc(l.phone || "")}${badTag(l, l.phone)}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}${badTag(l, l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 function viewScripts() {
@@ -657,11 +674,11 @@ function renderDrawer() {
   };
   const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
   const canAsk = l.linkedin || (l.name && l.company);
-  const phone = l.phone ? `<span class="num">${esc(l.phone)}</span>${l.phone_source === "Apollo" ? ` <span class="hint">${esc(l.phone_note || "From Apollo")}</span>` : ""}<div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.phone)}">Copy</button>
+  const phone = l.phone ? `<span class="num">${esc(l.phone)}</span>${badTag(l, l.phone)}${l.phone_source === "Apollo" ? ` <span class="hint">${esc(l.phone_note || "From Apollo")}</span>` : ""}<div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.phone)}">Copy</button>
       <a class="btn" href="https://wa.me/${esc(waNumber(l.phone))}" target="_blank" rel="noopener">WhatsApp</a><a class="btn quiet" href="tel:${esc(digits(l.phone))}">Call</a></div>`
     : l.phone_reveal === "pending" ? `<span class="hint">Apollo is finding their number. It usually takes a few minutes and shows up here by itself.</span>`
     : `<span class="hint">${esc(l.phone_reveal === "none" ? (l.phone_note || "Apollo had no number for them") : "Not shared yet")}</span>${canWrite && canAsk ? `<div class="row-btns"><button class="btn" data-act="reveal" data-id="${esc(l.id)}">${l.phone_reveal === "none" ? "Try Apollo again" : "Get their number from Apollo"}</button></div><div class="hint">About 9 Apollo credits. It's their own number: say who you are, and stop if they ask you to.</div>` : ""}`;
-  const toCall = canWrite && l.phone && ["new", "dm", "fu1", "fu2", "fu3"].includes(l.stage) ? `<button class="btn" data-act="to-call" data-id="${esc(l.id)}">Move to the call list</button>` : "";
+  const toCall = canWrite && l.phone && !isBadNum(l, l.phone) && ["new", "dm", "fu1", "fu2", "fu3"].includes(l.stage) ? `<button class="btn" data-act="to-call" data-id="${esc(l.id)}">Move to the call list</button>` : "";
   const hist = (l.history || []).slice().reverse();
   d.innerHTML = `<div class="d-head"><div><h2>${esc(l.name)}</h2><div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · "))}</div>
       <div class="d-badges">${pill(l.stage)}${due.text ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ""}${dayChip(l)}</div></div>
@@ -682,7 +699,7 @@ function renderDrawer() {
     <div class="d-sec"><h3>Contact</h3><dl class="kv">
       <dt>LinkedIn</dt><dd>${l.linkedin ? `<a href="${esc(/^https?:\/\//i.test(l.linkedin) ? l.linkedin : "https://" + l.linkedin)}" target="_blank" rel="noopener">${esc(l.linkedin.replace(/^https?:\/\/(www\.)?/i, ""))}</a>` : `<span class="hint">No link yet</span>`}</dd>
       <dt>Their phone</dt><dd>${phone}</dd>
-      <dt>Firm line</dt><dd>${l.firm_phone ? `<span class="num">${esc(l.firm_phone)}</span><div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.firm_phone)}">Copy</button><a class="btn quiet" href="tel:${esc(digits(l.firm_phone))}">Call</a></div>` : `<span class="hint">Not found yet</span>`}</dd>
+      <dt>Firm line</dt><dd>${l.firm_phone ? `<span class="num">${esc(l.firm_phone)}</span>${badTag(l, l.firm_phone)}<div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.firm_phone)}">Copy</button><a class="btn quiet" href="tel:${esc(digits(l.firm_phone))}">Call</a></div>` : `<span class="hint">Not found yet</span>`}</dd>
       <dt>Work email</dt><dd>${l.email ? `<span>${esc(l.email)}</span> <button class="btn quiet" data-act="copy-text" data-text="${esc(l.email)}">Copy</button>` : `<span class="hint">Not found yet</span>`}</dd>
       <dt>Lookup</dt><dd>${lookupCell(l)}</dd>
       ${l.website ? `<dt>Website</dt><dd><a href="${esc(/^https?:\/\//i.test(l.website) ? l.website : "https://" + l.website)}" target="_blank" rel="noopener">${esc(l.website.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, ""))}</a></dd>` : ""}
@@ -730,6 +747,7 @@ document.addEventListener("click", async e => {
   if (act === "new") { if (!canWrite) return; openId = "new"; panel = null; dupMatch = null; renderDrawer(); }
   else if (act === "close") closeDrawer();
   else if (act === "show-notint") { view = "all"; filters.stage = "notint"; filters.q = ""; renderSummary(); renderMain(); }
+  else if (act === "show-wrongnum") { view = "all"; filters.stage = "wrongnum"; filters.q = ""; renderSummary(); renderMain(); }
   else if (act === "open") openLead(id);
   else if (act === "open-panel") openLead(id, el.dataset.panel);
   else if (act === "set-panel") { panel = el.dataset.panel || null; renderDrawer(); }
