@@ -876,8 +876,8 @@ Return ONLY JSON: {"card_tag": "...", "card_headline": "...", "card_emphasis": "
 "card_subtext": "...", "post_text": "..."}"""
 
 
-def _finalize_image_post(result: dict) -> dict:
-    from generator import _strip_markdown
+def _finalize_image_post(result: dict, company: dict = None) -> dict:
+    from generator import _strip_markdown, drop_author_furniture
     headline = _clean_slide_text(result.get("card_headline", ""))
     sub = (result.get("card_subtext") or "").strip()
     emphasis = _clean_slide_text(result.get("card_emphasis", "")) if result.get("card_emphasis") else ""
@@ -885,11 +885,11 @@ def _finalize_image_post(result: dict) -> dict:
     if emphasis and emphasis.lower() not in headline.lower():
         emphasis = ""
     return {
-        "card_tag":      _clean_slide_text(result.get("card_tag", "")) if result.get("card_tag") else "",
+        "card_tag":      drop_author_furniture(_clean_slide_text(result.get("card_tag", "")), company) if result.get("card_tag") else "",
         "card_headline": headline,
         "card_emphasis": emphasis,
         "card_subtext":  _clean_slide_text(sub) if sub else "",
-        "post_text":     _strip_markdown(result.get("post_text", "") or ""),
+        "post_text":     drop_author_furniture(_strip_markdown(result.get("post_text", "") or ""), company),
     }
 
 
@@ -909,7 +909,7 @@ Build the card around the single most quotable, scroll-stopping idea in the cont
 Return ONLY valid JSON:
 {{"card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...", "post_text": "..."}}"""
     result = generate_json(prompt, system=_IMAGE_POST_SYSTEM, max_tokens=1200, temperature=0.85)
-    return _finalize_image_post(result)
+    return _finalize_image_post(result, company)
 
 
 # Image posts render as vertical 4:5 (1080x1350) — the tallest ratio LinkedIn shows
@@ -1095,7 +1095,7 @@ def generate_ai_image_post(raw_text: str, company: dict = None, force_format: st
     """LLM: pick the strongest idea → a concrete visual concept + caption for an AI photo.
     force_format pins the output to one of scene|quote_card|list_card|tweet_card when the
     user chose the format explicitly instead of letting the model pick."""
-    from generator import _strip_markdown
+    from generator import _strip_markdown, drop_author_furniture
     voice_section = ""
     if company:
         from generator import _build_voice_block
@@ -1162,14 +1162,14 @@ Return ONLY JSON: {{"post_text": "..."}}""",
     return {
         "format":        fmt,
         "image_concept": (result.get("image_concept") or "").strip(),
-        "card_tag":      (result.get("card_tag") or "").strip(),
+        "card_tag":      drop_author_furniture((result.get("card_tag") or "").strip(), company),
         "card_headline": (result.get("card_headline") or "").strip(),
         "card_emphasis": (result.get("card_emphasis") or "").strip(),
         "card_subtext":  (result.get("card_subtext") or "").strip(),
         "card_points":   [str(x).strip() for x in (result.get("card_points") or []) if str(x).strip()][:4],
         "alt_text":      (result.get("alt_text") or "").strip(),
         "key_line":      (result.get("key_line") or "").strip(),
-        "post_text":     _strip_markdown(result.get("post_text", "") or ""),
+        "post_text":     drop_author_furniture(_strip_markdown(result.get("post_text", "") or ""), company),
     }
 
 
@@ -1571,7 +1571,7 @@ def _clean_slide_text(text: str) -> str:
     return t if len(t) >= 2 else "Insight"
 
 
-def _sanitize_carousel_result(result: dict) -> dict:
+def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
     hook = result.get("hook_slide") or {}
     hook["headline"] = _clean_slide_text(hook.get("headline", ""))
     hook["subtext"] = _clean_slide_text(hook.get("subtext", ""))
@@ -1613,8 +1613,8 @@ def _sanitize_carousel_result(result: dict) -> dict:
     result["cta_slide"] = cta
 
     if "post_text" in result:
-        from generator import _strip_markdown
-        result["post_text"] = _caption_paragraphs(_strip_markdown(result.get("post_text") or ""))
+        from generator import _strip_markdown, drop_author_furniture
+        result["post_text"] = _caption_paragraphs(drop_author_furniture(_strip_markdown(result.get("post_text") or ""), company))
     return result
 
 
@@ -1676,7 +1676,7 @@ Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""
 
     result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85)
-    return _sanitize_carousel_result(result)
+    return _sanitize_carousel_result(result, company)
 
 
 # ── Autonomous content generation ────────────────────────────────────────────
@@ -1709,7 +1709,7 @@ Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""
 
     result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85)
-    return _sanitize_carousel_result(result)
+    return _sanitize_carousel_result(result, company)
 
 
 # ── PDF assembly ──────────────────────────────────────────────────────────────

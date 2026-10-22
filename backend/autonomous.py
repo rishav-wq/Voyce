@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 
 from llm import generate as llm_generate
-from generator import HUMANIZE_PROMPT, _strip_markdown
+from generator import HUMANIZE_PROMPT, _strip_markdown, drop_author_furniture
 import analytics
 import notes as notes_mod
 from search import search_industry_news, format_news_context
@@ -743,7 +743,10 @@ def _build_company_brief(company: dict) -> str:
         # if new ("my last 7 posts bombed", every day, as a carousel).
         parts.append("HOW TO USE THESE EXAMPLES: copy the rhythm, vocabulary and tone only. NEVER reuse "
                      "their hooks, opening lines or phrases, and never retell their stories, numbers or "
-                     "experiences as if they just happened.")
+                     "experiences as if they just happened. Leave out any series title, episode number "
+                     "or sign-off they put on their own posts (\"X NOTES | #5\", \"Day 12 of...\"): those "
+                     "belong to the posts they write, and a number you add is made up. Don't sign off "
+                     "with their name or title.")
 
     if (company.get("knowledge") or "").strip():
         parts.append(
@@ -1086,7 +1089,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
                        "note_id": note["id"] if note else ""})
     if note and company.get("id"):
         notes_mod.mark_used(company["id"], note["id"])
-    return chosen
+    return drop_author_furniture(chosen, company)
 
 
 def _knows_their_past(company: dict) -> bool:

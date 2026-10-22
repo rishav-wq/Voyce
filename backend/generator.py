@@ -24,6 +24,58 @@ def _strip_markdown(text: str) -> str:
     text = re.sub(r",[ \t]*,", ", ", text)                        # collapse ",,"
     return text
 
+
+_NUMBERED = re.compile(r"#\s*\d+|\b(day|episode|ep|part|edition|issue|vol|volume|no|chapter|week|note)\.?\s*#?\s*\d+\b", re.I)
+
+
+def _line_key(line: str) -> str:
+    """A line's words only: "TRUSTED ADVISOR NOTES | #5" and "Trusted Advisor Notes #6" match."""
+    return " ".join(re.findall(r"[a-z]+", (line or "").lower()))
+
+
+def _furniture_keys(examples: list) -> set[str]:
+    """Lines that belong to the author's own posts only: a numbered series header
+    ("TRUSTED ADVISOR NOTES | #5", "Day 12 of...") or a header/sign-off that recurs
+    across their posts ("Insight to Impact."). Hashtag lines don't count."""
+    counts, keys = {}, set()
+    for post in (examples or [])[:5]:
+        lines = [ln.strip() for ln in str(post).splitlines() if ln.strip()]
+        lines = [ln for ln in lines if not re.fullmatch(r"(#\w+[\s,]*)+", ln)]
+        edges = lines[:2] + lines[-4:]
+        keys |= {_line_key(ln) for ln in lines[:2] if len(ln) <= 60 and _NUMBERED.search(ln)}
+        for k in {_line_key(ln) for ln in edges}:
+            counts[k] = counts.get(k, 0) + 1
+    keys |= {k for k, n in counts.items() if n >= 2}
+    keys.discard("")
+    return keys
+
+
+def drop_author_furniture(text: str, company: dict | None) -> str:
+    """Take out what the writer copied from the author's own posts that isn't voice: their
+    series header (Anand's samples came out as "TRUSTED ADVISOR NOTES | #6", an episode he
+    never wrote, numbered by the model), a recurring sign-off, or their name and title typed
+    as a signature (LinkedIn already shows both above the post)."""
+    if not text or not company:
+        return text
+    keys = _furniture_keys(company.get("linkedin_top_posts") or [])
+    name = _line_key(company.get("name", ""))
+    role = set(_line_key(company.get("designation", "")).split())
+    lines = text.splitlines()
+    out, after_name = [], False
+    for i, ln in enumerate(lines):
+        k = _line_key(ln)
+        if after_name and k and not ln.strip().startswith("#"):
+            after_name = False
+            if len(set(k.split()) & role) >= 2:
+                continue                                   # the title line under the name
+        if k in keys and k:
+            continue
+        if name and k == name and i >= len(lines) - 6:
+            after_name = True
+            continue
+        out.append(ln)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
 SYSTEM_PROMPT = """You are an elite ghostwriter. You write social content that sounds like a specific
 human wrote it — never like AI, never like a template.
 
@@ -258,7 +310,10 @@ def _build_voice_block(company: dict | None) -> str:
         parts.append("\nHOW TO USE THESE EXAMPLES: copy the author's sentence rhythm, vocabulary, "
                      "tone, and structure. NEVER reuse their hooks, opening lines, or any specific "
                      "phrase or sentence from them. Every post must open differently from all the "
-                     "examples above. If a line you are about to write appears in an example, rewrite it.")
+                     "examples above. If a line you are about to write appears in an example, rewrite it. "
+                     "Leave out any series title, episode number or sign-off they put on their own "
+                     "posts (\"X NOTES | #5\", \"Day 12 of...\"): those belong to the posts they write, "
+                     "and a number you add is made up. Don't sign off with their name or title.")
 
     return "\n".join(parts)
 
@@ -290,5 +345,5 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
         pass  # keep the draft if humanize fails
 
     if draft.get("linkedin_post"):
-        draft["linkedin_post"] = _strip_markdown(draft["linkedin_post"])
+        draft["linkedin_post"] = drop_author_furniture(_strip_markdown(draft["linkedin_post"]), company)
     return draft
