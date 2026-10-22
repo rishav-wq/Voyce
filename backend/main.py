@@ -2254,9 +2254,18 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
             f"- {t}: {POST_TYPE_LABELS.get(t, t)}"
             f"{' — ' + POST_TYPE_DESCRIPTIONS[POST_TYPE_LABELS[t]] if POST_TYPE_LABELS.get(t) in POST_TYPE_DESCRIPTIONS else ''}"
             for t in types)
-        news = search_industry_news(subject["industry"], subject["name"], 6,
-                                    extra_angles=subject.get("search_angles") or [])
+        from autonomous import profile_topics
+        topics = profile_topics(subject)
+        if len(topics) > 1:   # news for each topic, so every side of their work gets ideas
+            news = []
+            for t in topics:
+                news += search_industry_news(t, subject["name"], 2, extra_angles=subject.get("search_angles") or [])
+        else:
+            news = search_industry_news(subject["industry"], subject["name"], 6,
+                                        extra_angles=subject.get("search_angles") or [])
         news_ctx = format_news_context(news)
+        topics_block = (f"\nTHEIR TOPICS: {'; '.join(topics)}. Spread the 5 ideas across these: at least one idea for each topic.\n"
+                        if len(topics) > 1 else "")
         who = subject.get("product_name") or subject.get("name", "")
         kb = (subject.get("knowledge") or "").strip()
         kb_block = ("\nKNOWLEDGE BASE — draw ideas from these facts/rules and honour any "
@@ -2280,7 +2289,7 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
 
         prompt = f"""You are a LinkedIn content strategist for {who}{(', ' + role) if role else ''} ({subject.get('industry', '')}).
 TODAY is {today_str}. Dates in what follows are correct as of today.
-{facts_block}{kb_block}{recent_block}{notes_block}{steer_block}
+{facts_block}{kb_block}{recent_block}{notes_block}{steer_block}{topics_block}
 Propose 5 DISTINCT post ideas for the coming days that only THIS person could write. Each must use a DIFFERENT post type from this menu — spread across the menu, do not repeat a type:
 {type_menu}
 

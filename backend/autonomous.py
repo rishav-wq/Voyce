@@ -689,7 +689,7 @@ def _build_company_brief(company: dict) -> str:
         author_line += " (personal brand — write in first person, as if the author is speaking)"
         parts = [
             author_line,
-            f"Topics they cover: {company['industry']}",
+            f"Topics they cover: {company.get('all_topics') or company['industry']}",
         ]
         if designation:
             parts.append(f"Their role gives them credibility on: {designation}")
@@ -707,6 +707,8 @@ def _build_company_brief(company: dict) -> str:
             f"Key topics: {', '.join(analysis.get('key_topics', []))}",
             f"Content themes: {', '.join(analysis.get('content_themes', []))}",
         ]
+    if company.get("all_topics"):
+        parts.append(f"Today's post is about ONE of their topics: {company['industry']}. Keep it to that topic.")
     if company.get("website_content"):
         is_external = (company.get("website_type") == "external")
         if is_external:
@@ -805,11 +807,43 @@ def _openings_to_avoid(company: dict, n: int = 10) -> list[str]:
     return uniq
 
 
+def profile_topics(company: dict) -> list[str]:
+    """The topics a profile posts about, from its one "What are the posts about?" line, split on
+    commas, semicolons or new lines. At most 5: more dilutes what LinkedIn reads as their
+    expertise (360Brew favours a few related topics, posted consistently)."""
+    raw = str(company.get("industry") or "")
+    out, seen = [], set()
+    for part in re.split(r"[,;\n|]+", raw):
+        t = part.strip(" .-–")
+        if len(t) >= 3 and t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+    return out[:5] or ([raw.strip()] if raw.strip() else [])
+
+
+def _topic_for_today(company: dict) -> str:
+    """With several topics (an author, consultant and coach), the daily post takes them in turns:
+    today's is the one used longest ago, a never-used one first. "" with a single topic."""
+    topics = profile_topics(company)
+    if len(topics) < 2:
+        return ""
+    last_used = {}   # topic -> how many posts ago (0 = the latest)
+    try:
+        for i, e in enumerate(get_post_log([company.get("id", "")])[:60]):
+            t = (e.get("topic") or "").lower()
+            if t and t not in last_used and e.get("status") not in ("failed", "skipped"):
+                last_used[t] = i
+    except Exception:
+        logger.exception("[Topics] could not read recent posts")
+    return max(topics, key=lambda t: (last_used.get(t.lower(), 10 ** 6), -topics.index(t)))
+
+
 def _avoid_block(openings: list[str]) -> str:
     if not openings:
         return ""
-    return ("\nOPENINGS ALREADY USED — this post must open differently from every one of these, "
-            "in wording AND in shape (no new number in the same template):\n"
+    return ("\nRECENT POSTS (their first lines) — this post must open differently from every one of these, "
+            "in wording AND in shape (no new number in the same template), and take a different angle "
+            "on its subject, not the same point again:\n"
             + "\n".join(f"- {o}" for o in openings))
 
 
@@ -1412,8 +1446,14 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         post_type  = _get_post_type(company, runs_today)
         do_carousel = _should_post_carousel(company, local_today)
 
-    # The subject for this post is the profile itself (its voice, niche, knowledge).
+    # The subject for this post is the profile itself (its voice, niche, knowledge). With several
+    # topics, today's is taken in turn: the news search, the post and its checks work on that one,
+    # and the brief still lists them all. It was one string searched as a whole, so a profile with
+    # three sides got posts about whichever the news favoured that week.
     subject = company
+    today_topic = _topic_for_today(company)
+    if today_topic:
+        subject = {**company, "industry": today_topic, "all_topics": company.get("industry", "")}
 
     log_entry = {
         "company_id":   company_id,
@@ -1426,6 +1466,8 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         "post_text":    "",
         "error":        "",
     }
+    if today_topic:
+        log_entry["topic"] = today_topic   # so the next run takes the next topic
 
     try:
         user_id = company.get("user_id", "")
