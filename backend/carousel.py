@@ -386,16 +386,6 @@ def _draw_rounded_rect(draw: ImageDraw.Draw, x0: int, y0: int, x1: int, y1: int,
     draw.rounded_rectangle([x0, y0, x1, y1], radius=radius, fill=fill)
 
 
-def _draw_dot_grid(draw: ImageDraw.Draw, x0: int, y0: int, cols: int, rows: int,
-                   spacing: int, dot_r: int, color: tuple):
-    """Decorative dot-grid pattern in a rectangular region."""
-    for row in range(rows):
-        for col in range(cols):
-            cx = x0 + col * spacing
-            cy = y0 + row * spacing
-            _draw_circle(draw, cx, cy, dot_r, color)
-
-
 def _draw_corner_arc(draw: ImageDraw.Draw, cx: int, cy: int,
                      r_outer: int, r_inner: int, color: tuple):
     """Concentric quarter-circle arcs for decorative corner element."""
@@ -955,98 +945,6 @@ def _draw_centered_emphasis(draw, text, font, cx, y, max_w, base, accent, emphas
     return y
 
 
-def _slide_quote(headline: str, subtext: str, brand: str, p: dict,
-                 emphasis: str = "", tag: str = "", rw: int = _RW, rh: int = _RH) -> Image.Image:
-    """Standalone branded 'poster' image for a single text+image post.
-    Centered composition with a top category tag and an accent-highlighted key phrase —
-    deliberately distinct from the left-aligned carousel slides.
-    rw/rh are the supersampled render dimensions (default 1:1); pass a taller rh for 4:5."""
-    # Diagonal-feel gradient background
-    img = Image.new("RGB", (rw, rh), p["bg"])
-    _draw_gradient_bg(img, p["bg"], _mix(p["bg"], p["accent"], 0.24))
-    draw = ImageDraw.Draw(img)
-
-    # Big soft glow bottom-left + ghost ring top-right for depth
-    _draw_circle(draw, -int(140 * _SCALE), rh + int(120 * _SCALE),
-                 int(560 * _SCALE), _mix(p["bg"], p["accent"], 0.12))
-    _draw_circle(draw, rw + int(120 * _SCALE), -int(120 * _SCALE),
-                 int(440 * _SCALE), _mix(p["bg"], p["accent"], 0.10))
-    _draw_dot_grid(draw, rw - int(250 * _SCALE), rh - int(170 * _SCALE),
-                   5, 3, int(42 * _SCALE), int(5 * _SCALE), _mix(p["bg"], p["accent"], 0.18))
-
-    cx = rw // 2
-    pad_x = int(110 * _SCALE)
-    max_w = rw - pad_x * 2
-
-    # ── Top category tag (pill) ──
-    tag = (tag or "").strip().upper()[:22]
-    tag_bottom = int(150 * _SCALE)
-    if tag:
-        f_tag = _font(28 * _SCALE, bold=True)
-        tw = _tw(draw, tag, f_tag)
-        ph, pv = int(26 * _SCALE), int(13 * _SCALE)
-        pill_w = tw + ph * 2
-        th = draw.textbbox((0, 0), tag, font=f_tag)[3]
-        pill_h = th + pv * 2
-        px = cx - pill_w // 2
-        py = int(120 * _SCALE)
-        _draw_rounded_rect(draw, px, py, px + pill_w, py + pill_h, pill_h // 2,
-                           _mix(p["bg"], p["accent"], 0.28))
-        draw.text((px + ph, py + pv), tag, font=f_tag, fill=p["accent"])
-        tag_bottom = py + pill_h
-
-    # ── Center block: headline (with accent emphasis) + divider + subtext ──
-    brand_reserved = int(150 * _SCALE)
-    region_top = tag_bottom + int(40 * _SCALE)
-    region_h = rh - region_top - brand_reserved
-    head_gap = int(14 * _SCALE)
-    sub_gap = int(10 * _SCALE)
-    divider_h = int(6 * _SCALE)
-    gap_after_head = int(30 * _SCALE)
-    gap_before_sub = int(22 * _SCALE)
-
-    hook_text, f_head, _ = _fit_text_to_box(
-        draw, headline, max_w, int(region_h * 0.66), [108, 98, 88, 80, 72, 64], gap=head_gap, max_lines=6
-    )
-    h_head = _wrap_height(draw, _wrap(draw, hook_text, f_head, max_w), f_head, head_gap)
-
-    has_sub = bool((subtext or "").strip())
-    if has_sub:
-        sub_text, f_sub, _ = _fit_text_to_box(
-            draw, subtext[:160], max_w, int(region_h * 0.22), [38, 36, 34, 32, 30], gap=sub_gap, max_lines=3
-        )
-        h_sub = _wrap_height(draw, _wrap(draw, sub_text, f_sub, max_w), f_sub, sub_gap)
-    else:
-        sub_text, f_sub, h_sub = "", _font(34 * _SCALE), 0
-
-    block_h = h_head + (gap_after_head + divider_h + gap_before_sub + h_sub if has_sub else 0)
-    y = region_top + max(0, (region_h - block_h) // 2)
-
-    y = _draw_centered_emphasis(draw, hook_text, f_head, cx, y, max_w,
-                                p["title"], p["accent"], emphasis, head_gap)
-    if has_sub:
-        y += gap_after_head - head_gap
-        draw.rectangle([cx - int(40 * _SCALE), y, cx + int(40 * _SCALE), y + divider_h], fill=p["accent"])
-        y += divider_h + gap_before_sub
-        for line in _wrap(draw, sub_text, f_sub, max_w):
-            lw = _tw(draw, line, f_sub)
-            draw.text((cx - lw // 2, y), line, font=f_sub, fill=p["subtitle"])
-            y += draw.textbbox((0, 0), line, font=f_sub)[3] + sub_gap
-
-    # ── Brand bottom-center with accent dot ──
-    f_brand = _font(26 * _SCALE, bold=True)
-    bw = _tw(draw, brand, f_brand)
-    dot_r = int(7 * _SCALE)
-    gap = int(14 * _SCALE)
-    total_w = dot_r * 2 + gap + bw
-    bx = cx - total_w // 2
-    by = rh - int(96 * _SCALE)
-    _draw_circle(draw, bx + dot_r, by + int(16 * _SCALE), dot_r, p["accent"])
-    draw.text((bx + dot_r * 2 + gap, by), brand, font=f_brand, fill=p["subtitle"])
-
-    return img.resize((rw // _SCALE, rh // _SCALE), Image.LANCZOS)
-
-
 def _fit_one_line(draw, text: str, font, max_w: int) -> str:
     """One line that fits max_w: whole when it fits, else ended at a whole word with "…"
     (never on a dangling "of", "and", "|")."""
@@ -1151,90 +1049,264 @@ def _slide_tweet_card(text: str, name: str, handle: str, p: dict,
     return img.resize((rw // _SCALE, rh_dyn // _SCALE), Image.LANCZOS)
 
 
-def _slide_list_card(tag: str, headline: str, emphasis: str, points: list, brand: str, p: dict,
-                     rw: int = _RW, rh: int = _RH) -> Image.Image:
-    """Branded 'framework' card: headline + numbered value points. The information-dense
-    counterpart to _slide_quote — for posts whose payload is a list, steps, or rules."""
-    img = Image.new("RGB", (rw, rh), p["bg"])
-    _draw_gradient_bg(img, p["bg"], _mix(p["bg"], p["accent"], 0.22))
+# ── Designed image cards, editorial (light or dark) ───────────────────────────
+# The list and quote cards were dark gradients with neon accents, glowing circles and dot grids:
+# the look people now read as AI-made, picked by industry so every tech profile got the same blue.
+# These share the carousel's editorial system instead: flat paper (light) or charcoal (dark),
+# black-weight type, a highlighter mark on the key words, and the author's photo and name
+# signing the card. Colours are the house set unless the profile has its own brand colour.
+_ED_THEMES = {
+    "light": {"bg": (244, 240, 232), "ink": (23, 21, 31), "body": (58, 53, 70), "muted": (122, 114, 99),
+              "rule": (221, 213, 199), "accent": (36, 54, 94), "marker": (246, 214, 112), "on_marker": (23, 21, 31),
+              "mark_top": 0.30},   # a highlighter stroke over the lower part of the words
+    "mint":  {"bg": (231, 245, 237), "ink": (15, 29, 48), "body": (44, 62, 84), "muted": (96, 118, 136),
+              "rule": (200, 225, 211), "accent": (29, 78, 216), "marker": (160, 228, 186), "on_marker": (15, 29, 48),
+              "mark_top": 0.30},   # pale mint, blue numbers, light-green highlighter
+    "sky":   {"bg": (234, 242, 251), "ink": (15, 23, 42), "body": (51, 65, 85), "muted": (100, 116, 139),
+              "rule": (206, 221, 240), "accent": (4, 120, 87), "marker": (178, 240, 200), "on_marker": (15, 23, 42),
+              "mark_top": 0.30},   # pale blue, green numbers, mint highlighter
+    "sage":  {"bg": (236, 241, 232), "ink": (20, 33, 27), "body": (55, 70, 62), "muted": (110, 124, 114),
+              "rule": (211, 221, 205), "accent": (30, 48, 92), "marker": (214, 240, 140), "on_marker": (20, 33, 27),
+              "mark_top": 0.30},   # soft sage, deep navy numbers, lime highlighter
+    "lavender": {"bg": (241, 237, 251), "ink": (26, 20, 46), "body": (62, 54, 86), "muted": (116, 108, 140),
+              "rule": (221, 213, 240), "accent": (91, 33, 182), "marker": (221, 206, 255), "on_marker": (26, 20, 46),
+              "mark_top": 0.30},   # lavender, violet numbers, lilac highlighter
+    "peach": {"bg": (253, 239, 229), "ink": (38, 24, 18), "body": (78, 58, 48), "muted": (136, 112, 98),
+              "rule": (240, 218, 202), "accent": (15, 102, 107), "marker": (255, 203, 164), "on_marker": (38, 24, 18),
+              "mark_top": 0.30},   # peach, deep teal numbers, apricot highlighter
+    "rose":  {"bg": (252, 237, 241), "ink": (40, 18, 27), "body": (82, 52, 63), "muted": (138, 108, 118),
+              "rule": (240, 214, 223), "accent": (136, 19, 55), "marker": (251, 204, 220), "on_marker": (40, 18, 27),
+              "mark_top": 0.30},   # rose, wine numbers, pink highlighter
+    "sand":  {"bg": (243, 237, 224), "ink": (24, 30, 22), "body": (60, 66, 54), "muted": (120, 122, 104),
+              "rule": (224, 215, 196), "accent": (22, 101, 52), "marker": (190, 232, 160), "on_marker": (24, 30, 22),
+              "mark_top": 0.30},   # sand, forest numbers, leaf-green highlighter
+    "forest": {"bg": (17, 43, 34), "ink": (240, 246, 240), "body": (198, 216, 206), "muted": (132, 160, 146),
+              "rule": (44, 76, 63), "accent": (120, 226, 178), "marker": (120, 226, 178), "on_marker": (17, 43, 34),
+              "mark_top": 0.04},   # deep forest, mint numbers and mark
+    "dark":  {"bg": (22, 24, 29), "ink": (244, 241, 234), "body": (205, 207, 214), "muted": (138, 144, 156),
+              "rule": (52, 56, 66), "accent": (214, 170, 72), "marker": (214, 170, 72), "on_marker": (22, 24, 29),
+              "mark_top": 0.04},   # dark words on the mark: it has to cover them whole
+}
+
+
+def _pick_card_theme() -> str:
+    """A different look from post to post: any of the colour sets, at random."""
+    import random
+    return random.choice(list(_ED_THEMES))
+
+
+def _brand_accent(company: dict | None):
+    """The profile's own brand colour, if it has one (a stored theme, or a brand colour)."""
+    spec = _palette_from_spec((company or {}).get("theme_spec") or {})
+    if spec:
+        return tuple(spec["accent"])
+    hx = (company or {}).get("brand_color", "")
+    if hx and hx.startswith("#"):
+        rgb = _hex_to_rgb(hx)
+        if rgb and 0.10 < _luminance(rgb) < 0.92:
+            return rgb
+    return None
+
+
+def _ed_theme(theme: str, brand_accent: tuple | None = None) -> dict:
+    t = dict(_ED_THEMES.get(theme, _ED_THEMES["light"]))
+    if brand_accent:   # a real brand colour, made readable on this background
+        a = tuple(brand_accent)
+        if _luminance(t["bg"]) > 0.5:
+            t["accent"] = a if _luminance(a) < 0.32 else _mix(a, t["ink"], 0.55)
+        else:
+            t["accent"] = a if _luminance(a) > 0.45 else _mix(a, (255, 255, 255), 0.45)
+    return t
+
+
+def _ed_line_h(draw, font) -> int:
+    return draw.textbbox((0, 0), "Hg", font=font)[3]
+
+
+def _ed_draw_marked(draw, text: str, font, x: int, y: int, max_w: int, t: dict, emphasis: str,
+                    gap: int, color=None) -> int:
+    """Left-aligned wrapped text; the emphasis words sit on a highlighter mark. Returns the new y."""
+    emph = {w.strip('.,!?;:"\'').lower() for w in (emphasis or "").split()}
+    space, lh = _tw(draw, " ", font), _ed_line_h(draw, font)
+    color = color or t["ink"]
+    for line in _wrap(draw, text, font, max_w):
+        words = line.split()
+        widths = [_tw(draw, w, font) for w in words]
+        marks = [w.strip('.,!?;:"\'').lower() in emph for w in words]
+        cx = x
+        for i, ww in enumerate(widths):       # the marks first, joined across marked neighbours
+            if marks[i]:
+                x1 = cx + ww + (space if i + 1 < len(words) and marks[i + 1] else 0)
+                draw.rectangle([cx - int(8 * _SCALE), y + int(lh * t.get("mark_top", 0.30)), x1 + int(8 * _SCALE), y + int(lh * 1.06)],
+                               fill=t["marker"])
+            cx += ww + space
+        cx = x
+        for i, (w, ww) in enumerate(zip(words, widths)):
+            draw.text((cx, y), w, font=font, fill=t["on_marker"] if marks[i] else color)
+            cx += ww + space
+        y += lh + gap
+    return y
+
+
+def _ed_block_h(draw, text: str, font, max_w: int, gap: int) -> int:
+    n = len(_wrap(draw, text, font, max_w))
+    return n * _ed_line_h(draw, font) + gap * max(0, n - 1)
+
+
+def _ed_signature(img, draw, avatar, name: str, title: str, x: int, y: int, max_w: int, t: dict, accent):
+    """The author signing the card: photo (or initial), name, title. y is the top of the row."""
+    r = int(36 * _SCALE)
+    if avatar is not None:
+        av = avatar.convert("RGB").resize((r * 2, r * 2), Image.LANCZOS)
+        m = Image.new("L", (r * 2, r * 2), 0)
+        ImageDraw.Draw(m).ellipse([0, 0, r * 2, r * 2], fill=255)
+        img.paste(av, (x, y), m)
+    else:
+        _draw_circle(draw, x + r, y + r, r, accent)
+        f_i = _font(32 * _SCALE, bold=True)
+        ini = (name or "V").strip()[0].upper()
+        ib = draw.textbbox((0, 0), ini, font=f_i)
+        draw.text((x + r - (ib[2] - ib[0]) // 2 - ib[0], y + r - (ib[3] - ib[1]) // 2 - ib[1]), ini, font=f_i, fill=t["bg"])
+    tx, w = x + r * 2 + int(20 * _SCALE), max_w - r * 2 - int(20 * _SCALE)
+    f_n, f_t = _font(28 * _SCALE, bold=True), _font(23 * _SCALE)
+    nm = _fit_one_line(draw, name, f_n, w)
+    tt = _fit_one_line(draw, re.split(r"\s+[|•·]\s+", (title or "").strip())[0], f_t, w)
+    if tt:
+        draw.text((tx, y + int(6 * _SCALE)), nm, font=f_n, fill=t["ink"])
+        draw.text((tx, y + int(42 * _SCALE)), tt, font=f_t, fill=t["muted"])
+    else:
+        draw.text((tx, y + r - _ed_line_h(draw, f_n) // 2), nm, font=f_n, fill=t["ink"])
+
+
+def _ed_points(points: list) -> list:
+    """'1. Label: rest' -> ('Label', 'rest'); the card numbers them itself."""
+    out = []
+    for pt in points or []:
+        s = re.sub(r"^\s*(?:\d{1,2}\s*[.):-]|[-•*→✓])\s*", "", str(pt)).strip()
+        if not s:
+            continue
+        m = re.match(r"^([^:]{3,48}):\s+(.+)$", s)
+        out.append((m.group(1).strip(), m.group(2).strip()) if m else ("", s))
+    return out[:4]
+
+
+def _ed_list_card(tag: str, headline: str, emphasis: str, points: list, name: str, title: str = "",
+                  avatar=None, theme: str = "light", brand_accent=None,
+                  rw: int = 1080 * _SCALE, rh: int = 1350 * _SCALE) -> Image.Image:
+    t = _ed_theme(theme, brand_accent)
+    img = Image.new("RGB", (rw, rh), t["bg"])
     draw = ImageDraw.Draw(img)
-    _draw_circle(draw, -int(140 * _SCALE), rh + int(120 * _SCALE),
-                 int(520 * _SCALE), _mix(p["bg"], p["accent"], 0.10))
-    _draw_dot_grid(draw, rw - int(250 * _SCALE), int(120 * _SCALE),
-                   5, 3, int(42 * _SCALE), int(5 * _SCALE), _mix(p["bg"], p["accent"], 0.18))
-
-    cx = rw // 2
-    pad_x = int(100 * _SCALE)
-    max_w = rw - pad_x * 2
-
-    # Top pill tag
-    tag = (tag or "").strip().upper()[:22]
-    y = int(110 * _SCALE)
+    S = _SCALE
+    pad = 84 * S
+    max_w = rw - pad * 2
+    y = 92 * S
+    tag = (tag or "").strip().upper()[:28]
     if tag:
-        f_tag = _font(28 * _SCALE, bold=True)
-        tw = _tw(draw, tag, f_tag)
-        ph, pv = int(26 * _SCALE), int(13 * _SCALE)
-        th = draw.textbbox((0, 0), tag, font=f_tag)[3]
-        px = cx - (tw + ph * 2) // 2
-        _draw_rounded_rect(draw, px, y, px + tw + ph * 2, y + th + pv * 2, (th + pv * 2) // 2,
-                           _mix(p["bg"], p["accent"], 0.28))
-        draw.text((px + ph, y + pv), tag, font=f_tag, fill=p["accent"])
-        y += th + pv * 2 + int(46 * _SCALE)
-
-    # Measure everything first, then vertically center the whole block (headline + points)
-    head_gap = int(12 * _SCALE)
-    hook_text, f_head, _ = _fit_text_to_box(
-        draw, headline, max_w, int(rh * 0.24), [72, 64, 58, 52, 46], gap=head_gap, max_lines=3)
-    h_head = _wrap_height(draw, _wrap(draw, hook_text, f_head, max_w), f_head, head_gap)
-    gap_after_head = int(56 * _SCALE)
-
-    pts = [str(pt).strip() for pt in (points or []) if str(pt).strip()][:4]
-    f_num = _font(40 * _SCALE, bold=True)
-    body_sizes = [40, 38, 36, 34] if len(pts) <= 3 else [36, 34, 32, 30]
-    item_gap = int(8 * _SCALE)
-    item_spacing = int(44 * _SCALE)
-    bottom_limit = rh - int(150 * _SCALE)
-    num_w = _tw(draw, "01", f_num) + int(28 * _SCALE)
-    text_w = max_w - num_w
-
-    items = []
-    for pt in pts:
-        body, f_body, _ = _fit_text_to_box(
-            draw, pt, text_w, int(rh * 0.14), body_sizes, gap=item_gap, max_lines=3)
-        lines = _wrap(draw, body, f_body, text_w)
-        items.append((lines, f_body, _wrap_height(draw, lines, f_body, item_gap)))
-
-    total_h = h_head + gap_after_head + sum(h for _, _, h in items) + item_spacing * max(0, len(items) - 1)
-    y += max(0, (bottom_limit - y - total_h) // 2)
-
-    y = _draw_centered_emphasis(draw, hook_text, f_head, cx, y, max_w,
-                                p["title"], p["accent"], emphasis, head_gap)
-    y += gap_after_head - head_gap
-
-    for i, (lines, f_body, item_h) in enumerate(items):
-        if y + item_h > bottom_limit:
+        f_tag = _font(24 * S, bold=True)
+        draw.rectangle([pad, y + 13 * S, pad + 34 * S, y + 17 * S], fill=t["accent"])
+        draw.text((pad + 48 * S, y), tag, font=f_tag, fill=t["accent"])
+        y += 70 * S
+    sig_h = 72 * S
+    sig_y = rh - pad - sig_h
+    bottom = sig_y - 56 * S                       # the rule above the signature sits here
+    # Headline: as big as fits in three lines
+    head_gap = 10 * S
+    f_head = None
+    for s in (88, 80, 72, 64, 58, 52):
+        f_try = _font_black(s * S)
+        if len(_wrap(draw, headline, f_try, max_w)) <= 3:
+            f_head = f_try
             break
-        draw.text((pad_x, y), f"{i + 1:02d}", font=f_num, fill=p["accent"])
+    f_head = f_head or _font_black(52 * S)
+    h_head = _ed_block_h(draw, headline, f_head, max_w, head_gap)
+    after_head = 60 * S
+    # Points: the largest size whose rows all fit, then the spare room spread between them
+    pts = _ed_points(points)
+    f_num = _font_black(56 * S)
+    num_w = _tw(draw, "00", f_num) + 30 * S
+    text_w = max_w - num_w
+    min_gap, max_gap = 44 * S, 120 * S
+    avail = bottom - y - h_head - after_head
+    chosen = None
+    for s in (46, 44, 42, 40, 38, 36, 34, 32):
+        f_lab, f_desc = _font(s * S, bold=True), _font(int(s * 0.86) * S)
+        rows = []
+        for lab, desc in pts:
+            h = 0
+            if lab:
+                h += _ed_block_h(draw, lab, f_lab, text_w, 8 * S) + 10 * S
+            h += _ed_block_h(draw, desc, f_desc if lab else f_lab, text_w, 10 * S)
+            rows.append(h)
+        if sum(rows) + min_gap * max(0, len(rows) - 1) <= avail:
+            chosen = (f_lab, f_desc, rows)
+            break
+    if chosen is None:
+        f_lab, f_desc = _font(32 * S, bold=True), _font(28 * S)
+        rows = [avail // max(1, len(pts))] * len(pts)
+    else:
+        f_lab, f_desc, rows = chosen
+    spare = avail - sum(rows)
+    gap = max(min_gap, min(max_gap, spare // max(1, len(rows) - 1))) if len(rows) > 1 else 0
+    block = h_head + after_head + sum(rows) + gap * max(0, len(rows) - 1)
+    y += max(0, (bottom - y - block) // 2)       # whatever is still spare: above and below, evenly
+    y = _ed_draw_marked(draw, headline, f_head, pad, y, max_w, t, emphasis, head_gap)
+    y += after_head - head_gap
+    for i, ((lab, desc), h) in enumerate(zip(pts, rows)):
+        draw.text((pad, y - 6 * S), f"{i + 1:02d}", font=f_num, fill=t["accent"])
         ty = y
-        for line in lines:
-            draw.text((pad_x + num_w, ty), line, font=f_body, fill=p["body"])
-            ty += draw.textbbox((0, 0), line, font=f_body)[3] + item_gap
-        y += item_h + item_spacing
-        if i < len(items) - 1:
-            draw.rectangle([pad_x + num_w, y - int(22 * _SCALE), rw - pad_x, y - int(22 * _SCALE) + int(2 * _SCALE)],
-                           fill=_mix(p["bg"], p["accent"], 0.16))
+        if lab:
+            ty = _ed_draw_marked(draw, lab, f_lab, pad + num_w, ty, text_w, t, "", 8 * S)
+            ty += 10 * S - 8 * S
+            _ed_draw_marked(draw, desc, f_desc, pad + num_w, ty, text_w, t, "", 10 * S, color=t["body"])
+        else:
+            _ed_draw_marked(draw, desc, f_lab, pad + num_w, ty, text_w, t, "", 10 * S)
+        y += h
+        if i < len(pts) - 1:
+            draw.rectangle([pad + num_w, y + gap // 2, rw - pad, y + gap // 2 + 2 * S], fill=t["rule"])
+            y += gap
+    draw.rectangle([pad, sig_y - 30 * S, rw - pad, sig_y - 28 * S], fill=t["rule"])
+    _ed_signature(img, draw, avatar, name, title, pad, sig_y, max_w, t, t["accent"])
+    return img.resize((rw // S, rh // S), Image.LANCZOS)
 
-    # Brand bottom-center
-    f_brand = _font(26 * _SCALE, bold=True)
-    bw = _tw(draw, brand, f_brand)
-    dot_r = int(7 * _SCALE)
-    gap = int(14 * _SCALE)
-    bx = cx - (dot_r * 2 + gap + bw) // 2
-    by = rh - int(96 * _SCALE)
-    _draw_circle(draw, bx + dot_r, by + int(16 * _SCALE), dot_r, p["accent"])
-    draw.text((bx + dot_r * 2 + gap, by), brand, font=f_brand, fill=p["subtitle"])
 
-    return img.resize((rw // _SCALE, rh // _SCALE), Image.LANCZOS)
+def _ed_quote_card(headline: str, subtext: str, emphasis: str, tag: str, name: str, title: str = "",
+                   avatar=None, theme: str = "light", brand_accent=None,
+                   rw: int = 1080 * _SCALE, rh: int = 1350 * _SCALE) -> Image.Image:
+    t = _ed_theme(theme, brand_accent)
+    img = Image.new("RGB", (rw, rh), t["bg"])
+    draw = ImageDraw.Draw(img)
+    S = _SCALE
+    pad = 84 * S
+    max_w = rw - pad * 2
+    y = 92 * S
+    tag = (tag or "").strip().upper()[:28]
+    if tag:
+        f_tag = _font(24 * S, bold=True)
+        draw.rectangle([pad, y + 13 * S, pad + 34 * S, y + 17 * S], fill=t["accent"])
+        draw.text((pad + 48 * S, y), tag, font=f_tag, fill=t["accent"])
+        y += 70 * S
+    sig_y = rh - pad - 72 * S
+    bottom = sig_y - 56 * S
+    head_gap = 12 * S
+    f_head = None
+    for s in (104, 96, 88, 80, 72, 64, 58):
+        f_try = _font_black(s * S)
+        if len(_wrap(draw, headline, f_try, max_w)) <= 5:
+            f_head = f_try
+            break
+    f_head = f_head or _font_black(58 * S)
+    f_sub = _font(36 * S)
+    h_head = _ed_block_h(draw, headline, f_head, max_w, head_gap)
+    h_sub = (40 * S + _ed_block_h(draw, subtext, f_sub, max_w, 12 * S)) if (subtext or "").strip() else 0
+    block = h_head + h_sub
+    y += max(0, (bottom - y - block) // 2)
+    y = _ed_draw_marked(draw, headline, f_head, pad, y, max_w, t, emphasis, head_gap)
+    if h_sub:
+        y += 40 * S - head_gap
+        _ed_draw_marked(draw, subtext, f_sub, pad, y, max_w, t, "", 12 * S, color=t["body"])
+    draw.rectangle([pad, sig_y - 30 * S, rw - pad, sig_y - 28 * S], fill=t["rule"])
+    _ed_signature(img, draw, avatar, name, title, pad, sig_y, max_w, t, t["accent"])
+    return img.resize((rw // S, rh // S), Image.LANCZOS)
 
 
 # ── Single image post (branded quote card) ───────────────────────────────────
@@ -1306,13 +1378,14 @@ Return ONLY valid JSON:
 IMG_POST_W, IMG_POST_H = 1080, 1350
 
 
-def render_image_post_png(content: dict, company: dict) -> bytes:
-    """Render the branded 'insight card' image post at 4:5."""
-    p = _get_palette(company)
+def render_image_post_png(content: dict, company: dict, author: dict | None = None) -> bytes:
+    """The quote card at 4:5: the one line, signed by its author, in a random colour set."""
     brand = (company or {}).get("name", "Voyce")
-    img = _slide_quote(
-        content.get("card_headline", ""), content.get("card_subtext", ""), brand, p,
-        emphasis=content.get("card_emphasis", ""), tag=content.get("card_tag", ""),
+    name, avatar = _card_author(brand, author)
+    img = _ed_quote_card(
+        content.get("card_headline", ""), content.get("card_subtext", ""), content.get("card_emphasis", ""),
+        content.get("card_tag", ""), name, (company or {}).get("designation", ""), avatar,
+        theme=_pick_card_theme(), brand_accent=_brand_accent(company),
         rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE,
     )
     buf = io.BytesIO()
@@ -1582,9 +1655,12 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
 
     # Designed value cards: information over decoration. Rendered by us — always crisp, always relevant.
     if fmt == "list_card" and content.get("card_points"):
-        img = _slide_list_card(
+        name, avatar_img = _card_author(brand, author)
+        img = _ed_list_card(
             content.get("card_tag", ""), content.get("card_headline") or content.get("key_line", ""),
-            content.get("card_emphasis", ""), content.get("card_points"), brand, p,
+            content.get("card_emphasis", ""), content.get("card_points"), name,
+            (company or {}).get("designation", ""), avatar_img,
+            theme=_pick_card_theme(), brand_accent=_brand_accent(company),
             rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -1612,7 +1688,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
             "card_emphasis": content.get("card_emphasis", ""),
             "card_tag": content.get("card_tag", ""),
         }
-        return render_image_post_png(card, company)
+        return render_image_post_png(card, company, author=author)
 
     # Transient API failures are common enough to deserve one retry before falling back.
     img_bytes = None
@@ -1639,7 +1715,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         "card_headline": content.get("card_headline") or content.get("key_line") or first_sentence or brand,
         "card_subtext": "", "card_emphasis": "", "card_tag": "",
     }
-    return render_image_post_png(card, company)
+    return render_image_post_png(card, company, author=author)
 
 
 def generate_caption_from_text(raw_text: str, company: dict = None) -> dict:

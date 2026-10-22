@@ -1526,16 +1526,17 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
             content = generate_image_post_from_text(context_text, company=profile)
-            png_bytes = render_image_post_png(content, profile or {"name": "Voyce"})
+            author = li.author_for_profile(profile, user["id"]) or None   # the card is signed with their photo
+            png_bytes = render_image_post_png(content, profile or {"name": "Voyce"}, author=author)
             headline = content.get("card_headline", "")
         else:  # "illustration" — model picks the format; "tweet" — forced tweet card (rendered
             # server-side, never touches the image API); "scene" — forced AI illustration
             from carousel import generate_ai_image_post, render_ai_image_png
             force = {"tweet": "tweet_card", "scene": "scene"}.get(request.style)
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
-            author = None
-            if (content.get("format") or "").strip().lower() == "tweet_card":
-                author = li.author_for_profile(profile, user["id"]) or None
+            # Tweet, list and quote cards (and the card a failed photo falls back to) carry the
+            # author's name and photo
+            author = li.author_for_profile(profile, user["id"]) or None
             fallback_name = (profile or {}).get("name") or user.get("name") or "Voyce"
             png_bytes = render_ai_image_png(content, profile or {"name": fallback_name}, author=author)
             headline = content.get("alt_text", "")
