@@ -81,8 +81,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .summary { margin-top: 18px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .progress { padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
-.progress-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
-.progress-head h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; font-family: var(--f-body); }
+.progress-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px 16px; }
+.meters { display: flex; flex-wrap: wrap; gap: 12px; }
+.meter { width: 320px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.meter.done { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: var(--ok-soft); }
+.meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.meter-top b { font-family: var(--f-display); font-size: 24px; line-height: 1.1; color: var(--fg); font-variant-numeric: tabular-nums; }
+.meter-top b small { font-size: 14px; color: var(--faint); font-weight: 600; }
+.meter .bar { margin-top: 6px; }
+.meter .split { margin-top: 7px; }
+.meter .split b { font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+.progress-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title meters" "stats meters" "goal meters"; gap: 10px 24px; align-items: start; }
+.progress-grid > h2 { grid-area: title; }
+.progress-grid > .meters { grid-area: meters; }
+.progress-grid > .stats { grid-area: stats; margin-top: 4px; gap: 12px 32px; }
+.progress-grid .stat { min-width: 0; }
+.progress-grid > .goal { grid-area: goal; align-self: end; }
+@media (max-width: 900px) { .progress-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "meters" "stats" "goal"; } .meters { width: 100%; } .meter { flex: 1 1 260px; width: auto; } }
+.progress h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; font-family: var(--f-body); }
 .goal { font-size: 13px; color: var(--muted); }
 .goal b { color: var(--fg); font-variant-numeric: tabular-nums; }
 .stats { display: flex; flex-wrap: wrap; gap: 12px 34px; margin-top: 10px; }
@@ -90,7 +106,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .stat b { font-family: var(--f-display); font-size: 26px; line-height: 1.1; color: var(--fg); font-variant-numeric: tabular-nums; }
 .stat b small { font-size: 15px; color: var(--faint); font-weight: 600; }
 .stat span { font-size: 12.5px; color: var(--muted); }
-.stat:first-child { min-width: 170px; }
+.stat-target { min-width: 170px; }
 .bar { height: 6px; margin-top: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s ease; }
 .bar.full i { background: var(--ok); }
@@ -114,7 +130,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .week-t th, .week-t td { padding: 6px 10px; text-align: right; white-space: nowrap; }
 .week-t th:first-child, .week-t td:first-child { text-align: left; }
 .week-t tr.is-today td { font-weight: 600; }
-@media (max-width: 520px) { .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; } .stat:first-child { grid-column: 1 / -1; min-width: 0; } }
+@media (max-width: 520px) { .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; } .stat:first-child { min-width: 0; } .stat-target { grid-column: 1 / -1; min-width: 0; } }
 .chip { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .chip-link { cursor: pointer; font: inherit; font-size: 13px; }
 .chip-link:hover { border-color: var(--accent); color: var(--accent); }
@@ -546,7 +562,10 @@ async function checkPhones() {
 /* ── render: summary, tabs, views ── */
 // Progress, counted from every lead's history, so it moves with each tap. A call is counted by what
 // happened: answered, no answer or wrong number. Taps on one lead within 5 minutes are one call.
-const DAILY_CALLS = 15;
+const DAILY_CALLS = 20, DAILY_DMS = 50;   // Rishav's daily targets (23 Oct 2026)
+// "n / target" with a bar that turns green at the target
+const targetStat = (n, target, label, doneLabel, extra = "") => `<div class="stat stat-target"><b>${n}<small> / ${target}</small></b><span>${n >= target ? doneLabel : label}</span>
+  <div class="bar ${n >= target ? "full" : ""}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}"><i style="width:${Math.min(100, Math.round(n / target * 100))}%"></i></div>${extra}</div>`;
 const GOAL = { from: "2026-10-23", by: "2026-11-05", setups: 8, paying: 3 };   // the plan: first customers before Diwali
 const CALLISH = new Set(["tocall", "try1", "try2", "try3", "spoke", "sample", "number", "called"]);
 const OUTCOME_RANK = { answered: 3, wrong: 2, noanswer: 1, unknown: 0 };
@@ -587,7 +606,7 @@ function dayStats(day) {
   return n;
 }
 function progressCard() {
-  const t = today(), p = dayStats(t), pct = Math.min(100, Math.round(p.calls / DAILY_CALLS * 100));
+  const t = today(), p = dayStats(t);
   const setupsSince = leads.filter(l => (l.history || []).some(h => /^Meeting booked/.test(h.text || "") && h.at && ymd(new Date(h.at)) >= GOAL.from)).length;
   const paying = leads.filter(l => l.stage === "won").length;
   const stat = (num, label, extra = "") => `<div class="stat"><b>${num}</b><span>${label}</span>${extra}</div>`;
@@ -596,11 +615,13 @@ function progressCard() {
   const people = Object.entries(p.by);
   const who = people.length > 1 ? `<div class="split">${people.sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} <b>${v}</b>`).join(" · ")}</div>` : "";
   const goal = t <= GOAL.by ? `<div class="goal">Goal by ${esc(fmtDay(GOAL.by))}: <b>${GOAL.setups}</b> setup calls · <b>${GOAL.paying}</b> paying. So far <b>${setupsSince}</b> and <b>${paying}</b>.</div>` : "";
-  return `<section class="progress" aria-label="Today's progress"><div class="progress-head"><h2>Today · ${esc(fmtDay(t))}</h2>${goal}</div>
-    <div class="stats">${stat(`${p.calls}<small> / ${DAILY_CALLS}</small>`, p.calls >= DAILY_CALLS ? "calls made: done for today" : "calls made",
-      `<div class="bar ${p.calls >= DAILY_CALLS ? "full" : ""}" role="progressbar" aria-label="Calls made" aria-valuemin="0" aria-valuemax="${DAILY_CALLS}" aria-valuenow="${p.calls}"><i style="width:${pct}%"></i></div><div class="split">${split}</div>${who}`)}
-    ${stat(p.dms, "LinkedIn DMs")}${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
-    ${weekTable(t)}</section>`;
+  // The day's two activity targets, side by side at the top right; results underneath.
+  const meter = (n, target, label, extra = "") => `<div class="meter${n >= target ? " done" : ""}"><div class="meter-top"><span>${label}${n >= target ? ": done for today" : ""}</span><b>${n}<small> / ${target}</small></b></div>
+    <div class="bar ${n >= target ? "full" : ""}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}"><i style="width:${Math.min(100, Math.round(n / target * 100))}%"></i></div>${extra}</div>`;
+  return `<section class="progress" aria-label="Today's progress"><div class="progress-grid"><h2>Today · ${esc(fmtDay(t))}</h2>
+    <div class="meters">${meter(p.calls, DAILY_CALLS, "Calls made", `<div class="split">${split}</div>${who}`)}${meter(p.dms, DAILY_DMS, "LinkedIn DMs")}</div>
+    <div class="stats">${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
+    ${goal}</div>${weekTable(t)}</section>`;
 }
 // This week, Monday to today: the same counts per day, to see how each day really went.
 function weekTable(t) {
@@ -754,7 +775,7 @@ function viewDms() {
   const fus = leads.reduce((n, l) => n + (l.history || []).filter(h => h.by && h.at && ymd(new Date(h.at)) === t && FU_RE.test(h.text || "")).length, 0);
   const strip = week.map(d => `<span class="dm-day${d === t ? " is-today" : ""}"><b>${count(d)}</b>${esc(fmtDay(d).split(" ")[0])}</span>`).join("");
   const head = `<section class="progress" aria-label="LinkedIn DMs sent"><div class="progress-head"><h2>LinkedIn DMs · ${esc(fmtDay(t))}</h2><div class="goal">This week: <b>${week.reduce((n, d) => n + count(d), 0)}</b> sent</div></div>
-    <div class="stats"><div class="stat"><b>${count(t)}</b><span>sent today</span></div><div class="stat"><b>${fus}</b><span>follow-ups today</span></div><div class="dm-week" aria-label="DMs sent each day this week">${strip}</div></div></section>`;
+    <div class="stats">${targetStat(count(t), DAILY_DMS, "sent today", "sent today: done for today")}<div class="stat"><b>${fus}</b><span>follow-ups today</span></div><div class="dm-week" aria-label="DMs sent each day this week">${strip}</div></div></section>`;
   const form = canWrite ? `<form class="dm-form" id="dm-form"><label for="dm-urls">LinkedIn profile links of people you've just messaged <span class="hint">one per line</span></label>
     <textarea id="dm-urls" rows="3" placeholder="https://www.linkedin.com/in/…" spellcheck="false"></textarea>
     <input id="dm-note" maxlength="200" placeholder="Short note (optional), e.g. ex-CHRO, met at the NHRD meet" aria-label="Short note">
