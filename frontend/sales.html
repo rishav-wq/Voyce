@@ -562,7 +562,7 @@ async function checkPhones() {
 /* ── render: summary, tabs, views ── */
 // Progress, counted from every lead's history, so it moves with each tap. A call is counted by what
 // happened: answered, no answer or wrong number. Taps on one lead within 5 minutes are one call.
-const DAILY_CALLS = 20, DAILY_DMS = 50;   // Rishav's daily targets (23 Oct 2026)
+const DAILY_CALLS = 25, DAILY_DMS = 50;   // Rishav's daily targets (23 Oct 2026)
 // "n / target" with a bar that turns green at the target
 const targetStat = (n, target, label, doneLabel, extra = "") => `<div class="stat stat-target"><b>${n}<small> / ${target}</small></b><span>${n >= target ? doneLabel : label}</span>
   <div class="bar ${n >= target ? "full" : ""}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}"><i style="width:${Math.min(100, Math.round(n / target * 100))}%"></i></div>${extra}</div>`;
