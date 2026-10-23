@@ -95,6 +95,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s ease; }
 .bar.full i { background: var(--ok); }
 .sec-hint { margin: -4px 0 8px; }
+.dm-form { display: grid; gap: 8px; margin: 16px 0 6px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.dm-form label { font-weight: 600; font-size: 13.5px; }
+.dm-form textarea, .dm-form input { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 13.5px; }
+.dm-form textarea { resize: vertical; min-height: 74px; font-family: var(--f-body); }
+.dm-week { display: flex; gap: 6px; align-items: flex-end; margin-left: auto; flex-wrap: wrap; }
+.dm-day { display: grid; justify-items: center; min-width: 40px; padding: 6px 4px; border-radius: 10px; background: var(--surface-2); font-size: 11.5px; color: var(--muted); }
+.dm-day b { font-family: var(--f-display); font-size: 17px; color: var(--fg); font-variant-numeric: tabular-nums; }
+.dm-day.is-today { background: var(--accent-soft); color: var(--accent); }
+@media (max-width: 520px) { .dm-week { grid-column: 1 / -1; margin-left: 0; } }
 .split { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
 .stat .split b { font-family: var(--f-body); font-size: inherit; line-height: inherit; font-weight: 700; color: var(--fg); }
 .week { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
@@ -267,6 +276,7 @@ html.panel-open { overflow: hidden; }   /* on html only: overflow on body would 
         <button class="tab" role="tab" data-view="today" aria-selected="true">Today<span class="n" id="n-today"></span></button>
         <button class="tab" role="tab" data-view="pipeline" aria-selected="false">Pipeline</button>
         <button class="tab" role="tab" data-view="all" aria-selected="false">All leads<span class="n" id="n-all"></span></button>
+        <button class="tab" role="tab" data-view="dms" aria-selected="false">LinkedIn DMs<span class="n" id="n-dms"></span></button>
         <button class="tab" role="tab" data-view="scripts" aria-selected="false">Scripts</button>
       </nav>
       <div id="main"><div class="empty"><p>Loading your leads…</p></div></div>
@@ -552,7 +562,7 @@ function callOutcome(text, prev) {
   return "";
 }
 function dayStats(day) {
-  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, by: {} };
+  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, dms: 0, by: {} };
   for (const l of leads) {
     let last = null, unreachable = false;
     (l.history || []).forEach((h, i) => {
@@ -561,6 +571,7 @@ function dayStats(day) {
       if (/^Spoke to them: interested/.test(text)) n.interested++;
       if (/^Sent the sample/.test(text)) n.samples++;
       if (/^Meeting booked/.test(text)) n.setups++;
+      if (DM_RE.test(text)) n.dms++;
       const o = callOutcome(text, (l.history[i - 1] || {}).stage);
       if (!o) return;
       if (o === "noanswer" || o === "wrong") unreachable = true;
@@ -588,7 +599,7 @@ function progressCard() {
   return `<section class="progress" aria-label="Today's progress"><div class="progress-head"><h2>Today · ${esc(fmtDay(t))}</h2>${goal}</div>
     <div class="stats">${stat(`${p.calls}<small> / ${DAILY_CALLS}</small>`, p.calls >= DAILY_CALLS ? "calls made: done for today" : "calls made",
       `<div class="bar ${p.calls >= DAILY_CALLS ? "full" : ""}" role="progressbar" aria-label="Calls made" aria-valuemin="0" aria-valuemax="${DAILY_CALLS}" aria-valuenow="${p.calls}"><i style="width:${pct}%"></i></div><div class="split">${split}</div>${who}`)}
-    ${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
+    ${stat(p.dms, "LinkedIn DMs")}${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
     ${weekTable(t)}</section>`;
 }
 // This week, Monday to today: the same counts per day, to see how each day really went.
@@ -597,8 +608,8 @@ function weekTable(t) {
   const dow = (weekday(t) + 6) % 7;   // 0 = Monday
   const days = Array.from({ length: dow + 1 }, (_, i) => addDays(t, i - dow)).filter(day => day === t || weekday(day) !== 0 || dayStats(day).calls);
   const rows = days.map(day => { const s = dayStats(day);
-    return `<tr${day === t ? ' class="is-today"' : ""}><td>${esc(fmtDay(day))}</td><td>${s.calls}</td><td>${s.answered}</td><td>${s.noanswer}</td><td>${s.wrong}</td><td>${s.interested}</td><td>${s.samples}</td><td>${s.setups}</td></tr>`; }).join("");
-  return `<details class="week"><summary>This week, day by day</summary><div class="table-scroll"><table class="week-t"><thead><tr><th>Day</th><th>Calls</th><th>Answered</th><th>No answer</th><th>Wrong no.</th><th>Interested</th><th>Samples</th><th>Setup calls</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+    return `<tr${day === t ? ' class="is-today"' : ""}><td>${esc(fmtDay(day))}</td><td>${s.calls}</td><td>${s.answered}</td><td>${s.noanswer}</td><td>${s.wrong}</td><td>${s.dms}</td><td>${s.interested}</td><td>${s.samples}</td><td>${s.setups}</td></tr>`; }).join("");
+  return `<details class="week"><summary>This week, day by day</summary><div class="table-scroll"><table class="week-t"><thead><tr><th>Day</th><th>Calls</th><th>Answered</th><th>No answer</th><th>Wrong no.</th><th>DMs</th><th>Interested</th><th>Samples</th><th>Setup calls</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
 }
 function renderSummary() {
   const t = today(), active = leads.filter(isActive);
@@ -611,6 +622,7 @@ function renderSummary() {
     notInt ? `<button class="chip chip-link" data-act="show-notint" title="See who said no"><b>${notInt}</b> not interested</button>` : "",
     wrongNums ? `<button class="chip chip-link" data-act="show-wrongnum" title="See whose number was wrong"><b>${wrongNums}</b> wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""].join("")}</div>`;
   $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
+  $("#n-dms").textContent = ready ? String(dmLog().filter(x => x.day === t).length || "") : "";
   $("#n-all").textContent = ready ? String(leads.length) : "";
   $("#banner").hidden = true;
   $("#add-lead").hidden = !ready || denied;
@@ -713,7 +725,83 @@ function renderMain() {
   if (denied) { m.innerHTML = `<div class="empty"><p>Sales is only for the Voyce team. If you should have access, ask Rishav to add your account.</p><a class="btn" href="/setup">Back to Voyce</a></div>`; return; }
   if (!ready) { m.innerHTML = `<div class="empty"><p>Loading your leads…</p></div>`; return; }
   if (view === "scripts" && editingScript !== null && m.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   // don't wipe an edit in progress
-  m.innerHTML = view === "today" ? viewToday() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : viewScripts();
+  m.innerHTML = view === "today" ? viewToday() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : view === "dms" ? viewDms() : viewScripts();
+}
+
+/* ── LinkedIn DMs: paste profile links as they're sent; each becomes (or updates) a lead on the DM track ── */
+const DM_RE = /^(Sent the first DM|Added \(first DM already sent\))/, FU_RE = /^Sent follow-up/;
+function dmLog() {   // every first DM a teammate logged, newest first
+  const out = [];
+  for (const l of leads) for (const h of l.history || [])
+    if (h.by && h.at && DM_RE.test(h.text || "")) out.push({ l, at: h.at, day: ymd(new Date(h.at)), by: firstName(h.by_name || ""), note: (h.text || "").split(" · ").slice(1).join(" · ") });
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+// linkedin.com/in/harish-devarajan-5940165 -> "Harish Devarajan"; short parts are initials ("pk-narayanan" -> "PK Narayanan")
+function nameFromLinkedin(u) {
+  const m = String(u || "").match(/linkedin\.com\/in\/([^/?#]+)/i);
+  let slug = ""; try { slug = m ? decodeURIComponent(m[1]) : ""; } catch (_) { slug = m ? m[1] : ""; }
+  const words = slug.split(/[-_]+/).filter(w => w && !/\d/.test(w));
+  return words.length ? words.map(w => w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ") : "LinkedIn contact";
+}
+const liHref = u => /^https?:\/\//i.test(u) ? u : "https://" + u;
+const DM_DONE = new Set(["dm", "fu1", "fu2", "fu3", "replied", "number", "called", "meeting", "won"]);
+function viewDms() {
+  const t = today(), log = dmLog();
+  const weekday = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).getDay(); };
+  const dow = (weekday(t) + 6) % 7;
+  const week = Array.from({ length: dow + 1 }, (_, i) => addDays(t, i - dow));
+  const count = day => log.filter(x => x.day === day).length;
+  const fus = leads.reduce((n, l) => n + (l.history || []).filter(h => h.by && h.at && ymd(new Date(h.at)) === t && FU_RE.test(h.text || "")).length, 0);
+  const strip = week.map(d => `<span class="dm-day${d === t ? " is-today" : ""}"><b>${count(d)}</b>${esc(fmtDay(d).split(" ")[0])}</span>`).join("");
+  const head = `<section class="progress" aria-label="LinkedIn DMs sent"><div class="progress-head"><h2>LinkedIn DMs · ${esc(fmtDay(t))}</h2><div class="goal">This week: <b>${week.reduce((n, d) => n + count(d), 0)}</b> sent</div></div>
+    <div class="stats"><div class="stat"><b>${count(t)}</b><span>sent today</span></div><div class="stat"><b>${fus}</b><span>follow-ups today</span></div><div class="dm-week" aria-label="DMs sent each day this week">${strip}</div></div></section>`;
+  const form = canWrite ? `<form class="dm-form" id="dm-form"><label for="dm-urls">LinkedIn profile links of people you've just messaged <span class="hint">one per line</span></label>
+    <textarea id="dm-urls" rows="3" placeholder="https://www.linkedin.com/in/…" spellcheck="false"></textarea>
+    <input id="dm-note" maxlength="200" placeholder="Short note (optional), e.g. ex-CHRO, met at the NHRD meet" aria-label="Short note">
+    <div class="row-btns"><button class="btn primary" type="submit">Log DMs sent</button><span class="hint">Each one goes on the DM track, with follow-up 1 due in 3 days.</span></div></form>` : "";
+  const days = [...new Set(log.map(x => x.day))].filter(d => d >= addDays(t, -13)).slice(0, 14);
+  const label = d => d === t ? "Sent today" : d === addDays(t, -1) ? "Yesterday" : fmtDay(d);
+  const row = x => `<div class="row"><div class="who" data-act="open" data-id="${esc(x.l.id)}" tabindex="0" role="button"><div class="name">${esc(x.l.name)}</div>
+      <div class="meta">${esc([fmtStamp(x.at).split(", ")[1], x.by && "by " + x.by, x.note].filter(Boolean).join(" · "))}</div>
+      <div class="next">${pill(x.l.stage)}<span>${esc(NEXT_STEP[x.l.stage] || "")}</span></div></div>
+    <div class="acts">${x.l.linkedin ? `<a class="btn quiet" href="${esc(liHref(x.l.linkedin))}" target="_blank" rel="noopener">LinkedIn</a>` : ""}<button class="btn quiet" data-act="open" data-id="${esc(x.l.id)}">Open</button></div></div>`;
+  const lists = days.length ? days.map(d => { const xs = log.filter(x => x.day === d);
+      return `<section class="section"><h3>${esc(label(d))}<span class="num">${xs.length}</span></h3><div class="list">${xs.map(row).join("")}</div></section>`; }).join("")
+    : `<section class="section"><div class="hint">No DMs logged yet. Paste the profile links of the people you message, and they show up here with their follow-ups.</div></section>`;
+  return head + form + lists;
+}
+async function logDms(raw, note) {
+  const t = today(), text = "Sent the first DM" + (note ? " · " + note : "");
+  const links = [...new Set(String(raw || "").split(/[\s,]+/).map(s => s.trim()).filter(s => /linkedin\.com\//i.test(s)).map(liHref))];
+  const skipped = String(raw || "").split(/[\s,]+/).filter(s => s.trim() && !/linkedin\.com\//i.test(s)).length;
+  if (!links.length) { toast("Paste at least one LinkedIn profile link (linkedin.com/in/…)."); return false; }
+  const res = { added: 0, updated: 0, already: [], closed: [], failed: 0 };
+  const seen = new Set();
+  for (const url of links) {
+    const key = normLi(url); if (seen.has(key)) continue; seen.add(key);
+    const hit = leads.find(l => l.linkedin && normLi(l.linkedin) === key);
+    let doc = null;
+    if (!hit) {
+      doc = await safe(() => api("POST", "/sales/leads", { fields: { name: nameFromLinkedin(url), linkedin: url, stage: "dm", dm_at: t, next_due: addDays(t, 3),
+        source: "LinkedIn DM", notes: note }, note: text }));
+      if (doc && doc.id) res.added++;
+    } else if (hit.stage === "lost") {
+      res.closed.push(hit.name); continue;
+    } else if (DM_DONE.has(hit.stage) || hit.dm_at) {
+      res.already.push(hit.name); continue;
+    } else {   // waiting for a first DM: on its way; on the call track: logged alongside the calls
+      const f = hit.stage === "new" ? { stage: "dm", dm_at: t, next_due: addDays(t, 3) } : { dm_at: t };
+      doc = await safe(() => api("PATCH", `/sales/leads/${encodeURIComponent(hit.id)}`, { fields: f, note: text }));
+      if (doc && doc.id) res.updated++;
+    }
+    if (doc && doc.id) putLead(doc); else res.failed++;
+  }
+  renderAll();
+  const parts = [res.added && `${res.added} added`, res.updated && `${res.updated} updated`, res.already.length && `${res.already.length} already DM'd (${res.already.slice(0, 2).join(", ")}${res.already.length > 2 ? "…" : ""})`,
+                 res.closed.length && `${res.closed.length} closed earlier (${res.closed.slice(0, 2).join(", ")}): reopen them first`,
+                 skipped && `${skipped} not a LinkedIn link`, res.failed && `${res.failed} didn't save`].filter(Boolean);
+  toast(parts.join(" · ") || "Nothing new to log");
+  return res.added + res.updated > 0;
 }
 
 /* ── drawer ── */
@@ -889,6 +977,14 @@ document.addEventListener("change", async e => {
 document.addEventListener("submit", async e => {
   e.preventDefault();
   const f = e.target;
+  if (f.id === "dm-form") {
+    if (!canWrite) return;
+    const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+    const ok = await logDms($("#dm-urls").value, $("#dm-note").value.trim());
+    const b2 = $("#dm-form button[type=submit]"); if (b2) b2.disabled = false;
+    if (!ok && $("#dm-urls")) $("#dm-urls").focus();
+    return;
+  }
   if (f.id === "new-form") {
     const v = readDetails(); if (!v.name) { $("#l-name").focus(); return; }
     if (!(dupMatch && dupMatch.forced)) {
