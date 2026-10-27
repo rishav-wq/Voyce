@@ -24,6 +24,8 @@ services:
       # ── Secrets: set these in the Render dashboard (copy from backend/.env) ──
       - key: GEMINI_API_KEY
         sync: false
+      - key: ANTHROPIC_API_KEY      # Claude writes the posts; without it they fall back to Gemini
+        sync: false
       - key: MONGO_URI
         sync: false
       - key: CLERK_PUBLISHABLE_KEY

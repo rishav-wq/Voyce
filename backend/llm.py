@@ -1,5 +1,7 @@
 """
-llm.py — Central LLM client. All generation goes through Gemini.
+llm.py — Central LLM client. Text and JSON go to Claude when ANTHROPIC_API_KEY is set, with
+Gemini as the fallback; reading YouTube, reading images and drawing images stay on Gemini
+(Claude can't watch video or make images).
 
 Usage:
     from llm import generate, generate_json
@@ -13,6 +15,7 @@ import os
 import re
 import time
 
+import anthropic
 import google.generativeai as genai
 from google.api_core import exceptions as _gexc
 from google.api_core import retry as _gretry
@@ -24,6 +27,14 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY
 
 MODEL          = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
+
+# Claude writes: on the same profile and news it followed an author's own rules far better
+# than Gemini (27 Oct 2026 side-by-side). One try, then Gemini, so a Claude outage or a
+# missing key never stops a post. ~$0.12 a post on Opus 5.5 at medium effort.
+CLAUDE_MODEL  = os.getenv("CLAUDE_MODEL", "claude-opus-5-5")
+CLAUDE_EFFORT = os.getenv("CLAUDE_EFFORT", "medium")
+_claude = (anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=90, max_retries=1)
+           if os.getenv("ANTHROPIC_API_KEY") else None)
 
 
 # gemini-2.5/3.x models are "thinking" models: internal reasoning is billed against
@@ -75,6 +86,28 @@ def _call(model_name: str, prompt: str, system: str, max_tokens: int,
     return _safe_text(resp)
 
 
+def _claude_call(prompt: str, system: str, json_mode: bool) -> str:
+    """One Claude call; "" when it declined or ran out of room. Opus 5.5 always thinks (effort
+    sets how much) and takes no temperature, and max_tokens covers the thinking too, so it is
+    headroom, not a target. The pinned SDK predates output_config and fallbacks, so they go in
+    the body as the API documents them; "fallbacks": "default" lets the API hand a declined
+    request to another Claude model within the same call."""
+    if json_mode:
+        system = (system or "") + "\n\nReturn only valid JSON, no other text."
+    kw = dict(model=CLAUDE_MODEL, max_tokens=16000,
+              messages=[{"role": "user", "content": prompt}],
+              extra_body={"output_config": {"effort": CLAUDE_EFFORT}, "fallbacks": "default"},
+              extra_headers={"anthropic-beta": "server-side-fallback-2026-07-01"})
+    if (system or "").strip():
+        kw["system"] = system.strip()
+    resp = _claude.messages.create(**kw)
+    print(f"[claude] {resp.model} in={resp.usage.input_tokens} out={resp.usage.output_tokens} "
+          f"stop={resp.stop_reason}", flush=True)
+    if resp.stop_reason in ("refusal", "max_tokens"):
+        return ""
+    return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
+
+
 _YT_READ_PROMPT = (
     "Write out what this video actually says, in clear English prose. "
     "If the speaker is not speaking English, translate rather than transliterate. "
@@ -122,12 +155,21 @@ def read_youtube(url: str, max_output_tokens: int = 8192) -> str:
 
 def generate(prompt: str, system: str = None, max_tokens: int = 2048,
              temperature: float = 0.8, json_mode: bool = False) -> str:
-    """Robust generation: try primary → fallback → primary, retrying on ANY
-    transient failure (rate limits, 503/timeout on a cold-started instance, or an
-    empty/safety-blocked response) with a short backoff. Raises the last error
-    only after all attempts fail — so the caller surfaces an accurate message,
-    and a single blip no longer shows 'temporarily unavailable'. No long blocking
-    sleep (which used to risk exceeding the request timeout)."""
+    """Robust generation: Claude first when its key is set, then Gemini primary →
+    fallback → primary, retrying on ANY transient failure (rate limits, 503/timeout
+    on a cold-started instance, or an empty/safety-blocked response) with a short
+    backoff. Raises the last error only after all attempts fail — so the caller
+    surfaces an accurate message, and a single blip no longer shows 'temporarily
+    unavailable'. No long blocking sleep (which used to risk exceeding the request
+    timeout). temperature only reaches Gemini: Claude's current models refuse it."""
+    if _claude:
+        try:
+            text = _claude_call(prompt, system, json_mode)
+            if text:
+                return text
+            print("[claude] no answer, using Gemini", flush=True)
+        except Exception as e:
+            print(f"[claude] {type(e).__name__}: {e}; using Gemini", flush=True)
     last_exc = None
     for attempt, model_name in enumerate((MODEL, FALLBACK_MODEL, MODEL)):
         try:
