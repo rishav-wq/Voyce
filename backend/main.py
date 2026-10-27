@@ -1300,7 +1300,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
         profile = _resolve_profile(user["id"], request.profile_id)
-        context_text = _with_profile_context(profile, raw_text, 3000)
+        context_text = _with_profile_context(profile, raw_text, 6000)
         result = generate_content(context_text, company=profile)
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
@@ -1335,7 +1335,7 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         profile = _resolve_profile(user["id"], request.profile_id)
         if request.carousel_theme:
             profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
-        context_text = _with_profile_context(profile, raw_text, 2000)
+        context_text = _with_profile_context(profile, raw_text, 6000)
         content   = generate_carousel_from_text(context_text, company=profile)
         author    = li.author_for_profile(profile, user["id"]) or None   # cover and last slide carry their photo
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"}, author=author)
@@ -1529,7 +1529,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
     try:
         import base64
         profile = _resolve_profile(user["id"], request.profile_id)
-        context_text = _with_profile_context(profile, raw_text, 2000)
+        context_text = _with_profile_context(profile, raw_text, 6000)
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
             content = generate_image_post_from_text(context_text, company=profile)
@@ -1589,7 +1589,7 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
     try:
         from carousel import generate_caption_from_text
         profile = _resolve_profile(user["id"], request.profile_id)
-        context_text = _with_profile_context(profile, raw_text, 2000)
+        context_text = _with_profile_context(profile, raw_text, 6000)
         data = generate_caption_from_text(context_text, company=profile)
         auth_module.increment_gens(user["id"])
         return {"post_text": data.get("post_text", ""), "alt_text": data.get("alt_text", "")}

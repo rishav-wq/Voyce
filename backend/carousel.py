@@ -1,3 +1,4 @@
+import base64
 import colorsys
 import io
 import logging
@@ -630,6 +631,13 @@ def _brand_looks(company: dict | None) -> list:
     if not isinstance(kit, dict) or not isinstance(kit.get("looks"), list):
         return []
     site = str(kit.get("site") or "").strip()[:40]
+    action_label = str(kit.get("action_label") or "").strip()[:24]
+    logos = {}                 # "light"/"dark": the logo made for light / dark backgrounds
+    for key, b64 in ((kit.get("logo") or {}) if isinstance(kit.get("logo"), dict) else {}).items():
+        try:
+            logos[key] = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGBA")
+        except Exception:
+            logging.warning(f"[Carousel] brand kit logo '{key}' could not be read")
     out = []
     for look in kit["looks"][:len(BRAND_LOOKS)]:
         t = {}
@@ -641,9 +649,23 @@ def _brand_looks(company: dict | None) -> list:
             t[key] = rgb
         if t:
             t.update(mark_top=0.04, mark="text" if look.get("mark") == "text" else "",
-                     cover="dark" if look.get("cover") == "dark" else "", site=site)
+                     cover="dark" if look.get("cover") == "dark" else "", site=site,
+                     logo=logos, action_label=action_label)
         out.append(t)
     return out
+
+
+def _ed_logo(img, t: dict, y: int):
+    """A brand kit's logo at the top right, in the version made for this slide's background;
+    none on a slide in the accent colour, where a mark in that colour would vanish."""
+    logos = t.get("logo") or {}
+    logo = logos.get("dark" if _luminance(t["bg"]) < 0.5 else "light")
+    if logo is None or t["bg"] == t["accent"]:
+        return
+    h = 56 * _SCALE
+    w = int(logo.width * h / logo.height)
+    mark = logo.resize((w, h), Image.LANCZOS)
+    img.paste(mark, (_RW - 84 * _SCALE - w, y), mark)
 
 
 def _brand_kit_theme(company: dict | None, look: str) -> dict | None:
@@ -932,9 +954,10 @@ def _finalize_image_post(result: dict, company: dict = None) -> dict:
 
 
 # The from-text writers get the profile's context (up to ~2,600 characters with a full knowledge
-# box) in front of the pasted source, which main.py has already cut to 2,000. Cutting the whole
-# thing at 2,000 here left none of the source for anyone with a long knowledge box.
-_FROM_TEXT_MAX = 5000
+# box) in front of the pasted source, which main.py has already cut to 6,000. Cutting the whole
+# thing at 2,000 here left none of the source for anyone with a long knowledge box, and 2,000 of
+# an article is its opening only: a deck from an author's own article contradicted its second half.
+_FROM_TEXT_MAX = 9000
 
 
 def generate_image_post_from_text(raw_text: str, company: dict = None) -> dict:
@@ -1525,10 +1548,10 @@ something a reader thinks "I need this later." These formats earn the most saves
 DECK STRUCTURE — a five-part narrative, follow it exactly:
 1. hook_slide     — the cover. The single most important slide.
 2. context_slide  — slide 2: answers "why should I keep swiping?" Name the stakes/pain in 1-2 lines.
-3. content_slides — 5 to 8 slides, ONE idea per slide, in a logical progression.
+3. content_slides — 4 to 6 slides, ONE idea per slide, in a logical progression.
 4. recap_slide    — 3 to 5 one-line takeaways the reader can screenshot.
 5. cta_slide      — a single, specific next action.
-Total deck = 9 to 12 slides. Never fewer than 8, never more than 12.
+Total deck = 8 to 10 slides. Never fewer than 7, never more than 10: a tight deck gets swiped to the end.
 
 ONE IDEA PER SLIDE (the rule most people break):
 - Each content slide makes exactly one point. If a slide has two ideas, split it.
@@ -1542,16 +1565,24 @@ HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formul
 - Data authority:     "New data: X. Here's what wins." — ONLY with a real, named source in the
   deck; NEVER first-person research claims ("I analyzed", "I studied", "my data") unless the
   provided content proves the author actually did it.
-Make it specific (use a real number/name where you can). NEVER generic titles like "Tips for X",
+Make it specific (use a real number/name where you can), and pick the formula that fits this
+content best. Don't open with "Stop" when another formula works: it is the most worn cover on
+LinkedIn. NEVER generic titles like "Tips for X",
 "X Is Important", "Why X Matters", "The Future of X". subtext adds a fact or the promise — never
-restates the headline.
+restates the headline. audience = who the deck is for in 2-6 words ("OEM partner leaders", "First-time
+founders"), from the content or the author's profile; empty if it isn't clear. unit = what the content
+slides are, one plural word ("plays", "steps", "mistakes", "rules").
 
 CONTENT SLIDES — each has a "kind":
 - "point" (default): title = the point as a bold claim (max 6 words); body = ONE concrete example,
   company, number, or step (max ~40 words). label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
-  "TRUTH") fitting the arc.
+  "TRUTH") fitting the arc. action = the one move the reader can make this week to apply it (max
+  12 words, starts with a verb); empty when the point isn't something to do.
 - "stat": use when one number IS the story. stat = the number ("43%", "3x", "₹2.4 Cr"); title =
-  what it means; body = one line of context with the source. Use at most one stat slide.
+  what it means; body = one line of context. Use at most one stat slide.
+- source (any content slide) = where its number or study comes from, exactly as the content given
+  names it, in 2-5 words ("Gartner, Oct 2025"); empty when the slide has none. Never the author or
+  their own firm, and never a source the content doesn't name.
 
 RECAP SLIDE: title = a short recap heading; bullets = 3-5 punchy one-liners summarizing the deck.
 
@@ -1566,7 +1597,8 @@ NEVER FABRICATE: do not invent first-person claims ("My conversion jumped", "I b
 grew", "I analyzed") unless that exact claim appears in the provided content or author profile.
 Attribute third-party results to their source ("Razorpay's report found...", "Founders
 interviewed said..."). Any stat anywhere in the deck must name its source on the same slide or
-be cut — an unverifiable number is worse than no number.
+be cut — an unverifiable number is worse than no number. Numbers come only from the content or
+context given, never from memory.
 
 OUTPUT HYGIENE (strict):
 - No markdown (**, ##, backticks), no placeholder tokens like [X] or [Company], no numbered
@@ -1585,12 +1617,12 @@ own line: a caption of one-line sentences reads as a stack of fragments, not a p
 Return ONLY valid JSON."""
 
 _CAROUSEL_SCHEMA = """{
-  "hook_slide": {"headline": "...", "subtext": "..."},
+  "hook_slide": {"headline": "...", "subtext": "...", "audience": "...", "unit": "steps"},
   "context_slide": {"title": "...", "body": "..."},
   "content_slides": [
-    {"kind": "point", "label": "STEP 1", "title": "...", "body": "..."},
-    {"kind": "stat", "label": "THE NUMBER", "stat": "43%", "title": "...", "body": "..."},
-    {"kind": "point", "label": "STEP 2", "title": "...", "body": "..."}
+    {"kind": "point", "label": "STEP 1", "title": "...", "body": "...", "action": "...", "source": ""},
+    {"kind": "stat", "label": "THE NUMBER", "stat": "43%", "title": "...", "body": "...", "source": "..."},
+    {"kind": "point", "label": "STEP 2", "title": "...", "body": "...", "action": "...", "source": ""}
   ],
   "recap_slide": {"title": "The recap", "bullets": ["...", "...", "..."]},
   "cta_slide": {"headline": "...", "cta": "..."},
@@ -1619,6 +1651,10 @@ def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
     hook = result.get("hook_slide") or {}
     hook["headline"] = _clean_slide_text(hook.get("headline", ""))
     hook["subtext"] = _clean_slide_text(hook.get("subtext", ""))
+    aud = _clean_slide_text(hook.get("audience", "")) if hook.get("audience") else ""
+    hook["audience"] = aud if len(aud) <= 36 else ""          # longer is cut mid-word on the cover
+    unit = re.sub(r"[^a-z]", "", str(hook.get("unit") or "").lower())
+    hook["unit"] = unit if 3 <= len(unit) <= 12 else ""
     result["hook_slide"] = hook
 
     ctx = result.get("context_slide") or {}
@@ -1635,6 +1671,9 @@ def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
             "label": _clean_slide_text(s.get("label", ""))[:24] if s.get("label") else "",
             "title": _clean_slide_text(s.get("title", "")) if s.get("title") else "",
             "body":  _clean_slide_text(s.get("body", "")) if s.get("body") else "",
+            "action": _clean_slide_text(s.get("action", ""))[:110] if s.get("action") else "",
+            # one source, short: a long one was cut mid-word on the slide
+            "source": _clean_slide_text(str(s.get("source", "")).split(";")[0])[:48] if s.get("source") else "",
         }
         if cleaned["kind"] == "stat":
             cleaned["stat"] = _clean_slide_text(s.get("stat", ""))[:14] if s.get("stat") else ""
@@ -1692,12 +1731,12 @@ def _caption_paragraphs(text: str) -> str:
 
 
 _SLIDE_CONSTRAINTS = """Slide constraints (follow exactly):
-- hook_slide (cover): headline uses ONE proven formula, max 10 words, specific. subtext: one line, max 14 words.
+- hook_slide (cover): headline uses ONE proven formula, max 6 words (it is set huge), specific. subtext: one line, max 14 words. audience + unit.
 - context_slide: title (max 8 words) + body (max ~35 words) that makes the reader want to keep swiping.
-- content_slides: 5-8 slides, ONE idea each. title max 6 words as a claim; body max ~40 words with a real specific.
+- content_slides: 4-6 slides, ONE idea each. title max 6 words as a claim; body max ~40 words with a real specific; action and source where they fit.
 - recap_slide: title + 3-5 one-line bullets (each max ~12 words).
 - cta_slide: headline (the one takeaway) + a SINGLE specific ask (no engagement bait).
-Aim for 9-12 total slides. Prefer a step-by-step playbook, numbered framework, or checklist."""
+Aim for 8-10 total slides. Prefer a step-by-step playbook, numbered framework, or checklist."""
 
 
 def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
@@ -1751,7 +1790,7 @@ Latest industry context: {news_context or 'Draw from well-known industry example
 Author/company context: {company_brief}
 {rules}
 {_SLIDE_CONSTRAINTS}
-Content-slide bodies must cite real companies, reports, or numbers — nothing that could apply to any industry.
+Content-slide bodies must cite real companies, reports or numbers from the context above (never a number from memory) — nothing that could apply to any industry.
 
 {voice_note}
 {_hook_guidance(company.get("allowed_hooks"))}
@@ -1840,16 +1879,28 @@ def _edc_eyebrow(draw, text: str, x: int, y: int, t: dict) -> int:
     return y + 64 * S
 
 
-def _edc_cover(headline: str, subtext: str, total: int, t: dict, name: str, title: str, avatar) -> Image.Image:
+def _edc_cover(headline: str, subtext: str, total: int, t: dict, name: str, title: str, avatar,
+               audience: str = "", promise: str = "") -> Image.Image:
     S, m = _SCALE, 84 * _SCALE
     img = Image.new("RGB", (_RW, _RH), t["bg"]); draw = ImageDraw.Draw(img)
     max_w = _RW - m * 2
-    top = _edc_eyebrow(draw, f"Swipe through · {total} slides", m, 100 * S, t)
+    # Who it's for, when the writer named them: the reader sees at a glance that it's theirs
+    eyebrow = f"For {audience}" if audience else ("Swipe through" if promise else f"Swipe through · {total} slides")
+    top = _edc_eyebrow(draw, eyebrow, m, 100 * S, t)
+    _ed_logo(img, t, 86 * S)
     base, kicker = _split_hook_pill(headline)
     full = (base + " " + kicker).strip() if kicker else headline
     sig_y = _RH - m - 72 * S
     bottom = sig_y - 70 * S
-    f_head, h_head = _ed_fit(draw, full, max_w, int((bottom - top) * 0.74), (136, 124, 112, 100, 90, 80, 72), 12 * S, 6, _font_black)
+    if promise:                  # "5 plays · 2-minute read · save it", in a pill above the author
+        f_p = _font(28 * S, bold=True)
+        ph = _ed_line_h(draw, f_p) + 26 * S
+        py = sig_y - 44 * S - ph
+        pw = _tw(draw, promise, f_p) + 52 * S
+        draw.rounded_rectangle([m, py, m + pw, py + ph], radius=ph // 2, outline=t["muted"], width=max(2, 2 * S))
+        draw.text((m + 26 * S, py + 13 * S), promise, font=f_p, fill=t["ink"])
+        bottom = py - 52 * S
+    f_head, h_head = _ed_fit(draw, full, max_w, int((bottom - top) * 0.74), (156, 146, 136, 124, 112, 100, 90, 80, 72), 12 * S, 6, _font_black)
     sub = (subtext or "").strip()
     f_sub, h_sub = _ed_fit(draw, sub, max_w, 200 * S, (42, 38, 34), 12 * S, 3, _font) if sub else (None, 0)
     block = h_head + (48 * S + h_sub if sub else 0)
@@ -1868,54 +1919,86 @@ def _edc_cover(headline: str, subtext: str, total: int, t: dict, name: str, titl
 
 
 def _edc_point(title: str, body: str, num: int, total: int, t: dict, name: str, avatar,
-               numeral: str = "", eyebrow: str = "") -> Image.Image:
+               numeral: str = "", eyebrow: str = "", action: str = "", source: str = "") -> Image.Image:
     S, m = _SCALE, 84 * _SCALE
     img = Image.new("RGB", (_RW, _RH), t["bg"]); draw = ImageDraw.Draw(img)
     max_w = _RW - m * 2
     bottom = _edc_footer(img, draw, t, num, total, name, avatar)
+    _ed_logo(img, t, 86 * S)
+    action = (action or "").strip()
+    if action:                   # the reader's move this week, ruled off at the foot of the slide
+        f_al, f_a = _font(22 * S, bold=True), _font(38 * S, bold=True)
+        lines = _wrap(draw, action, f_a, max_w)
+        if len(lines) > 2:
+            lines = [lines[0], _fit_one_line(draw, " ".join(lines[1:]), f_a, max_w)]
+        lh_a = _ed_line_h(draw, f_a) + 8 * S
+        ay = bottom - len(lines) * lh_a - _ed_line_h(draw, f_al) - 18 * S
+        draw.rectangle([m, ay - 34 * S, _RW - m, ay - 32 * S], fill=t["ink"])
+        draw.text((m, ay), (t.get("action_label") or "Try this week").upper(), font=f_al, fill=t["muted"])
+        ly = ay + _ed_line_h(draw, f_al) + 18 * S
+        for ln in lines:
+            draw.text((m, ly), ln, font=f_a, fill=t["ink"])
+            ly += lh_a
+        bottom = ay - 34 * S - 56 * S
     top = 110 * S
     if eyebrow:
         top = _edc_eyebrow(draw, eyebrow, m, top, t)
-    f_num = _font_black(250 * S)
-    h_num = (_ed_line_h(draw, f_num) + 24 * S) if numeral else 0
-    avail = bottom - top - h_num
-    f_t, h_t = _ed_fit(draw, title, max_w, int(avail * 0.48), (112, 104, 96, 88, 80, 72, 64, 56), 14 * S, 3, _font_black)
+    source = (source or "").strip()
+    f_src = _font(24 * S)
+    h_src = (_ed_line_h(draw, f_src) + 12 * S) if source else 0
     body = (body or "").strip()
     gap_tb = 52 * S + 10 * S + 52 * S
-    f_b, h_b = _ed_fit(draw, body, max_w, max(0, avail - h_t - gap_tb), (56, 52, 48, 44, 40, 36, 32), 16 * S, 7, _font) if body else (None, 0)
-    block = h_num + h_t + (gap_tb + h_b if body else 0)
+    # A smaller numeral and title until the body fits: with an action box below, the first
+    # sizes left a long body running into it
+    for num_size, share in ((250, 0.48), (200, 0.40), (160, 0.32)):
+        f_num = _font_black(num_size * S)
+        h_num = (_ed_line_h(draw, f_num) + 24 * S) if numeral else 0
+        avail = bottom - top - h_num - h_src
+        f_t, h_t = _ed_fit(draw, title, max_w, int(avail * share), (112, 104, 96, 88, 80, 72, 64, 56), 14 * S, 3, _font_black)
+        f_b, h_b = _ed_fit(draw, body, max_w, max(0, avail - h_t - gap_tb), (56, 52, 48, 44, 40, 36, 32), 16 * S, 7, _font) if body else (None, 0)
+        if h_t + (gap_tb + h_b if body else 0) <= avail:
+            break
+    block = h_num + h_t + (gap_tb + h_b if body else 0) + h_src
     y = top + max(0, (bottom - top - block) // 2)
     if numeral:
-        draw.text((m - 6 * S, y - 30 * S), numeral, font=f_num, fill=t["accent"])
+        draw.text((m - 6 * S, y - 30 * S * num_size // 250), numeral, font=f_num, fill=t["accent"])
         y += h_num
     y = _ed_draw_marked(draw, title, f_t, m, y, max_w, t, "", 14 * S)
     if body:
         y += 52 * S - 14 * S
         draw.rectangle([m, y, m + 110 * S, y + 12 * S], fill=t["marker"])
         y += 10 * S + 52 * S
-        _ed_draw_marked(draw, body, f_b, m, y, max_w, t, "", 16 * S, color=t["body"])
+        y = _ed_draw_marked(draw, body, f_b, m, y, max_w, t, "", 16 * S, color=t["body"])
+    if source:                   # where the slide's number comes from
+        draw.text((m, y - 4 * S), _fit_one_line(draw, f"Source: {source}", f_src, max_w), font=f_src, fill=t["muted"])
     return img.resize((SLIDE_W, SLIDE_H), Image.LANCZOS)
 
 
-def _edc_stat(stat: str, title: str, body: str, num: int, total: int, t: dict, name: str, avatar) -> Image.Image:
+def _edc_stat(stat: str, title: str, body: str, num: int, total: int, t: dict, name: str, avatar,
+              source: str = "") -> Image.Image:
     S, m = _SCALE, 84 * _SCALE
     tc = _ed_contrast(t)
     img = Image.new("RGB", (_RW, _RH), tc["bg"]); draw = ImageDraw.Draw(img)
     max_w = _RW - m * 2
     bottom = _edc_footer(img, draw, tc, num, total, name, avatar)
-    top = 110 * S
-    f_s = None
-    for s in (330, 290, 250, 210, 180, 150, 120):
-        f_try = _font_black(s * S)
-        if _tw(draw, stat, f_try) <= max_w:
-            f_s = f_try
-            break
-    f_s = f_s or _font_black(120 * S)
-    h_s = _ed_line_h(draw, f_s)
-    f_t, h_t = _ed_fit(draw, title, max_w, 320 * S, (76, 70, 64, 58, 52), 12 * S, 3, lambda z: _font(z, bold=True))
+    _ed_logo(img, tc, 86 * S)
+    source = (source or "").strip()
+    if source:                   # where the number comes from, under everything else
+        f_src = _font(26 * S)
+        bottom -= _ed_line_h(draw, f_src) + 30 * S
+        draw.text((m, bottom + 30 * S), _fit_one_line(draw, f"Source: {source}", f_src, max_w), font=f_src, fill=tc["muted"])
+    top = (176 if tc.get("logo") else 110) * S   # a full-width number ran up under the logo
     body = (body or "").strip()
-    f_b, h_b = _ed_fit(draw, body, max_w, 380 * S, (48, 44, 40, 36, 32), 14 * S, 5, _font) if body else (None, 0)
-    block = h_s + 30 * S + h_t + (36 * S + h_b if body else 0)
+    sizes = [z for z in (330, 290, 250, 210, 180, 150, 120) if _tw(draw, stat, _font_black(z * S)) <= max_w] or [120]
+    for z in sizes:              # the biggest number that still leaves the title and body room
+        f_s = _font_black(z * S)
+        h_s = _ed_line_h(draw, f_s)
+        f_t, h_t = _ed_fit(draw, title, max_w, 320 * S, (76, 70, 64, 58, 52), 12 * S, 3, lambda z: _font(z, bold=True))
+        room = bottom - top - h_s - 30 * S - h_t - 36 * S
+        f_b, h_b = _ed_fit(draw, body, max_w, max(0, min(380 * S, room)), (48, 44, 40, 36, 32), 14 * S, 5, _font) if body else (None, 0)
+        block = h_s + 30 * S + h_t + (36 * S + h_b if body else 0)
+        if block <= bottom - top:
+            break
     y = top + max(0, (bottom - top - block) // 2)
     draw.text((m - 8 * S, y - int(h_s * 0.12)), stat, font=f_s, fill=tc["accent"])
     y += h_s + 30 * S
@@ -1930,6 +2013,7 @@ def _edc_recap(title: str, bullets: list, num: int, total: int, t: dict, name: s
     img = Image.new("RGB", (_RW, _RH), t["bg"]); draw = ImageDraw.Draw(img)
     max_w = _RW - m * 2
     bottom = _edc_footer(img, draw, t, num, total, name, avatar)
+    _ed_logo(img, t, 86 * S)
     top = _edc_eyebrow(draw, "Recap", m, 110 * S, t)
     items = [str(b).strip() for b in (bullets or []) if str(b).strip()][:5]
     f_t, h_t = _ed_fit(draw, title, max_w, 320 * S, (104, 96, 88, 80, 72, 64), 12 * S, 2, _font_black)
@@ -2007,6 +2091,7 @@ def _edc_last(headline: str, cta: str, total: int, t: dict, name: str, title: st
             ty += _ed_line_h(draw, f_tp) + 8 * S
     # the takeaway and the ask
     top = _edc_eyebrow(draw, "The takeaway", m, 110 * S, tc)
+    _ed_logo(img, tc, 86 * S)
     bottom = cy0 - 70 * S
     base, kicker = _split_hook_pill(headline)
     full = (base + " " + kicker).strip() if kicker else headline
@@ -2053,7 +2138,15 @@ def render_carousel_slides(content: dict, company: dict, author: dict | None = N
     name, avatar = _card_author((company or {}).get("name", "") or "Voyce", author)
     title = (company or {}).get("designation", "")
     t_cover = _ed_contrast(t) if t.get("cover") == "dark" else t
-    slides = [_edc_cover(hook.get("headline", ""), hook.get("subtext", ""), total, t_cover, name, title, avatar)]
+    # "5 plays · 2-minute read" on the cover, when the writer named what its slides are
+    unit = (hook.get("unit") or "").strip()
+    points = sum(1 for s in c_slides if not (s.get("kind") == "stat" and s.get("stat")))
+    words = sum(len(str(v).split()) for part in (hook, context or {}, *c_slides, recap or {}, cta)
+                for v in part.values() if isinstance(v, (str, list)) for v in ([v] if isinstance(v, str) else v))
+    count = "" if re.search(r"\d", hook.get("headline", "")) else f"{points} {unit} · "   # "3 trust gaps" over "5 plays" read as a mistake
+    promise = f"{count}{max(1, -(-words // 200))} min read · save it" if unit and points else ""
+    slides = [_edc_cover(hook.get("headline", ""), hook.get("subtext", ""), total, t_cover, name, title, avatar,
+                         audience=hook.get("audience", ""), promise=promise)]
     num = 2
     if context:
         slides.append(_edc_point(context.get("title", ""), context.get("body", ""), num, total, t, name, avatar, eyebrow="Start here"))
@@ -2061,10 +2154,12 @@ def render_carousel_slides(content: dict, company: dict, author: dict | None = N
     step = 0
     for s in c_slides:
         if s.get("kind") == "stat" and s.get("stat"):
-            slides.append(_edc_stat(s["stat"], s.get("title", ""), s.get("body", ""), num, total, t, name, avatar))
+            slides.append(_edc_stat(s["stat"], s.get("title", ""), s.get("body", ""), num, total, t, name, avatar,
+                                    source=s.get("source", "")))
         else:
             step += 1
-            slides.append(_edc_point(s.get("title", ""), s.get("body", ""), num, total, t, name, avatar, numeral=f"{step:02d}"))
+            slides.append(_edc_point(s.get("title", ""), s.get("body", ""), num, total, t, name, avatar, numeral=f"{step:02d}",
+                                     action=s.get("action", ""), source=s.get("source", "")))
         num += 1
     if recap:
         slides.append(_edc_recap(recap.get("title", ""), recap.get("bullets", []), num, total, t, name, avatar))

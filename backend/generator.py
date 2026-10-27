@@ -323,9 +323,9 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
     voice_section = f"\n\nVOICE PROFILE:\n{voice_block}" if voice_block else ""
 
     draft = generate_json(
-        # main.py has cut the source to 3,000 before putting the profile's context (up to ~2,600)
+        # main.py has cut the source to 6,000 before putting the profile's context (up to ~2,600)
         # in front of it, so this cap only guards other callers
-        f"Source content to repurpose:\n\n{raw_text[:6000]}{voice_section}",
+        f"Source content to repurpose:\n\n{raw_text[:9000]}{voice_section}",
         system=SYSTEM_PROMPT,
         max_tokens=2048,
         temperature=0.85,
