@@ -667,7 +667,7 @@ Return ONLY the post text.""",
 }
 
 
-def _build_company_brief(company: dict) -> str:
+def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
     is_personal = company.get("profile_type") == "personal"
     analysis = company.get("analysis", {})
 
@@ -748,7 +748,7 @@ def _build_company_brief(company: dict) -> str:
                      "belong to the posts they write, and a number you add is made up. Don't sign off "
                      "with their name or title.")
 
-    if (company.get("knowledge") or "").strip():
+    if with_knowledge and (company.get("knowledge") or "").strip():
         parts.append(
             "\n--- KNOWLEDGE BASE (ground every claim in these facts/rules; never "
             "contradict them or invent around them) ---\n" + company["knowledge"].strip()[:2000])

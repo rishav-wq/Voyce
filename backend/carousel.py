@@ -616,6 +616,43 @@ def _brand_accent(company: dict | None):
     return None
 
 
+_KIT_COLOURS = ("bg", "ink", "body", "muted", "rule", "accent", "marker", "on_marker")
+BRAND_LOOKS = ("brand", "brand-2", "brand-3")   # carousel_theme values for a brand kit's looks, in order
+
+
+def _brand_looks(company: dict | None) -> list:
+    """A profile's own looks for its decks, set by the team from the author's own designs:
+    brand_kit = {"site": "www.example.com", "looks": [{"name": "Cream", hex colours for every
+    editorial key, "mark": "text" (key words in the accent colour, no highlighter), "cover":
+    "dark" (cover in the reversed colours, like the last slide)}, ...]}. A stored kit is data:
+    a look with any bad colour is None, and its deck falls back to the usual colour sets."""
+    kit = (company or {}).get("brand_kit")
+    if not isinstance(kit, dict) or not isinstance(kit.get("looks"), list):
+        return []
+    site = str(kit.get("site") or "").strip()[:40]
+    out = []
+    for look in kit["looks"][:len(BRAND_LOOKS)]:
+        t = {}
+        for key in _KIT_COLOURS:
+            rgb = _hex_to_rgb(str(look.get(key, ""))) if isinstance(look, dict) else None
+            if not rgb:
+                t = None
+                break
+            t[key] = rgb
+        if t:
+            t.update(mark_top=0.04, mark="text" if look.get("mark") == "text" else "",
+                     cover="dark" if look.get("cover") == "dark" else "", site=site)
+        out.append(t)
+    return out
+
+
+def _brand_kit_theme(company: dict | None, look: str) -> dict | None:
+    """The brand kit look a carousel_theme value names ("brand", "brand-2", "brand-3"), if valid."""
+    looks = _brand_looks(company)
+    i = BRAND_LOOKS.index(look) if look in BRAND_LOOKS else len(looks)
+    return looks[i] if i < len(looks) else None
+
+
 def _ed_theme(theme: str, brand_accent: tuple | None = None) -> dict:
     t = dict(_ED_THEMES.get(theme, _ED_THEMES["light"]))
     if brand_accent:   # a real brand colour, made readable on this background
@@ -650,6 +687,7 @@ def _ed_draw_marked(draw, text: str, font, x: int, y: int, max_w: int, t: dict, 
     marked = _phrase_marks(text, emphasis)
     space, lh = _tw(draw, " ", font), _ed_line_h(draw, font)
     color = color or t["ink"]
+    in_colour = t.get("mark") == "text"        # a brand kit's key words: accent-coloured, no mark
     wi = 0                                     # index of the line's first word in the whole text
     for line in _wrap(draw, text, font, max_w):
         words = line.split()
@@ -658,14 +696,14 @@ def _ed_draw_marked(draw, text: str, font, x: int, y: int, max_w: int, t: dict, 
         wi += len(words)
         cx = x
         for i, ww in enumerate(widths):       # the marks first, joined across marked neighbours
-            if marks[i]:
+            if marks[i] and not in_colour:
                 x1 = cx + ww + (space if i + 1 < len(words) and marks[i + 1] else 0)
                 draw.rectangle([cx - int(8 * _SCALE), y + int(lh * t.get("mark_top", 0.30)), x1 + int(8 * _SCALE), y + int(lh * 1.06)],
                                fill=t["marker"])
             cx += ww + space
         cx = x
         for i, (w, ww) in enumerate(zip(words, widths)):
-            draw.text((cx, y), w, font=font, fill=t["on_marker"] if marks[i] else color)
+            draw.text((cx, y), w, font=font, fill=(t["accent"] if in_colour else t["on_marker"]) if marks[i] else color)
             cx += ww + space
         y += lh + gap
     return y
@@ -893,6 +931,12 @@ def _finalize_image_post(result: dict, company: dict = None) -> dict:
     }
 
 
+# The from-text writers get the profile's context (up to ~2,600 characters with a full knowledge
+# box) in front of the pasted source, which main.py has already cut to 2,000. Cutting the whole
+# thing at 2,000 here left none of the source for anyone with a long knowledge box.
+_FROM_TEXT_MAX = 5000
+
+
 def generate_image_post_from_text(raw_text: str, company: dict = None) -> dict:
     voice_section = ""
     if company:
@@ -902,7 +946,7 @@ def generate_image_post_from_text(raw_text: str, company: dict = None) -> dict:
             voice_section = f"\n\nVOICE PROFILE:\n{vb[:1200]}"
     prompt = f"""Content to turn into a single branded image post:
 
-{raw_text[:2000]}{voice_section}
+{raw_text[:_FROM_TEXT_MAX]}{voice_section}
 
 Build the card around the single most quotable, scroll-stopping idea in the content.
 
@@ -1110,7 +1154,7 @@ def generate_ai_image_post(raw_text: str, company: dict = None, force_format: st
         world += f"\nAUTHOR'S REGION: {region} — the people and places in the photo belong there."
     prompt = f"""Content to turn into ONE realistic editorial photo + caption:
 
-{raw_text[:2000]}{voice_section}{world}
+{raw_text[:_FROM_TEXT_MAX]}{voice_section}{world}
 
 Choose the single strongest idea and design the visual for it (a real scene from the post's
 world if the topic is physical/tangible; a concrete metaphor only if the topic is abstract).
@@ -1666,7 +1710,7 @@ def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
 
     prompt = f"""Content to turn into a LinkedIn carousel:
 
-{raw_text[:2000]}{voice_section}
+{raw_text[:_FROM_TEXT_MAX]}{voice_section}
 
 Build the carousel around the single most surprising or useful insight in the content.
 
@@ -1687,7 +1731,16 @@ def generate_carousel_content(company: dict, news_context: str, post_type: str) 
     is_personal = company.get("profile_type") == "personal"
     voice_note = ("First person (I, my, I've) — write as if the author is speaking directly."
                   if is_personal else "Third person — company voice, authoritative.")
-    company_brief = _build_company_brief(company)[:1400]
+    company_brief = _build_company_brief(company, with_knowledge=False)[:1400]
+    # Their own facts and rules get their own place: inside the brief they came after the voice
+    # examples, so the 1,400-character cut above always dropped them.
+    knowledge = (company.get("knowledge") or "").strip()[:2000]
+    rules = (f"\nThe author's own facts and rules (follow every one that fits a carousel; never "
+             f"contradict them or invent around them):\n{knowledge}\n") if knowledge else ""
+    # The brief's own note on the example posts sits after them, past the cut: decks kept
+    # lifting a coined term from one example ("SELLFIE") into slide after slide.
+    rules += ("\nThe example posts above show the voice only: never reuse their hooks, phrases, "
+              "coined terms or stories.\n") if company.get("linkedin_top_posts") else ""
     from autonomous import _openings_to_avoid, _avoid_block
     avoid = _avoid_block(_openings_to_avoid(company))
 
@@ -1696,7 +1749,7 @@ def generate_carousel_content(company: dict, news_context: str, post_type: str) 
 Post type: {POST_TYPE_LABELS.get(post_type, post_type)} — shape the narrative arc and slide labels to fit this type.
 Latest industry context: {news_context or 'Draw from well-known industry examples and published reports.'}
 Author/company context: {company_brief}
-
+{rules}
 {_SLIDE_CONSTRAINTS}
 Content-slide bodies must cite real companies, reports, or numbers — nothing that could apply to any industry.
 
@@ -1767,7 +1820,12 @@ def _edc_footer(img, draw, t: dict, num: int, total: int, name: str, avatar):
     r, ry = 20 * S, ty - 66 * S
     _ed_mini_avatar(img, draw, avatar, name, m, ry, r, t)
     f = _font(24 * S, bold=True)
-    draw.text((m + r * 2 + 14 * S, ry + r - _ed_line_h(draw, f) // 2), _fit_one_line(draw, name, f, _RW // 2), font=f, fill=t["ink"])
+    nx, ny = m + r * 2 + 14 * S, ry + r - _ed_line_h(draw, f) // 2
+    nm = _fit_one_line(draw, name, f, _RW // 2)
+    draw.text((nx, ny), nm, font=f, fill=t["ink"])
+    if t.get("site"):          # a brand kit's website, after the name
+        fs = _font(24 * S)
+        draw.text((nx + _tw(draw, nm, f) + 9 * S, ny), _fit_one_line(draw, "·  " + t["site"], fs, _RW // 3), font=fs, fill=t["muted"])
     ctr = f"{num} / {total}"
     fc = _font(24 * S, bold=True)
     draw.text((_RW - m - _tw(draw, ctr, fc), ry + r - _ed_line_h(draw, fc) // 2), ctr, font=fc, fill=t["muted"])
@@ -1989,10 +2047,13 @@ def render_carousel_slides(content: dict, company: dict, author: dict | None = N
     hook, context = content["hook_slide"], content.get("context_slide")
     c_slides, recap, cta = content.get("content_slides", []), content.get("recap_slide"), content["cta_slide"]
     total = 1 + (1 if context else 0) + len(c_slides) + (1 if recap else 0) + 1
-    t = _ed_theme(_carousel_theme_for(company, theme), _brand_accent(company))
+    # A brand kit look, when one is asked for here or picked as the profile's carousel look
+    kit = _brand_kit_theme(company, theme or (company or {}).get("carousel_theme", ""))
+    t = kit or _ed_theme(_carousel_theme_for(company, theme), _brand_accent(company))
     name, avatar = _card_author((company or {}).get("name", "") or "Voyce", author)
     title = (company or {}).get("designation", "")
-    slides = [_edc_cover(hook.get("headline", ""), hook.get("subtext", ""), total, t, name, title, avatar)]
+    t_cover = _ed_contrast(t) if t.get("cover") == "dark" else t
+    slides = [_edc_cover(hook.get("headline", ""), hook.get("subtext", ""), total, t_cover, name, title, avatar)]
     num = 2
     if context:
         slides.append(_edc_point(context.get("title", ""), context.get("body", ""), num, total, t, name, avatar, eyebrow="Start here"))

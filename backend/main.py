@@ -326,7 +326,11 @@ def _resolve_profile(user_id: str, profile_id: str = ""):
     return profile
 
 
-def _with_profile_context(profile: dict | None, raw_text: str) -> str:
+def _with_profile_context(profile: dict | None, raw_text: str, limit: int | None = None) -> str:
+    """The pasted source (cut to limit) with the profile's context in front of it. The cut is
+    made here, before the context: the writers used to cut the whole thing, so a long
+    knowledge box left little or none of the source."""
+    raw_text = raw_text[:limit] if limit else raw_text
     if not profile:
         return raw_text
     context = [
@@ -1296,7 +1300,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
         raise HTTPException(status_code=400, detail="No content could be extracted")
     try:
         profile = _resolve_profile(user["id"], request.profile_id)
-        context_text = _with_profile_context(profile, raw_text)
+        context_text = _with_profile_context(profile, raw_text, 3000)
         result = generate_content(context_text, company=profile)
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
@@ -1331,7 +1335,7 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         profile = _resolve_profile(user["id"], request.profile_id)
         if request.carousel_theme:
             profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
-        context_text = _with_profile_context(profile, raw_text)
+        context_text = _with_profile_context(profile, raw_text, 2000)
         content   = generate_carousel_from_text(context_text, company=profile)
         author    = li.author_for_profile(profile, user["id"]) or None   # cover and last slide carry their photo
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"}, author=author)
@@ -1525,7 +1529,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
     try:
         import base64
         profile = _resolve_profile(user["id"], request.profile_id)
-        context_text = _with_profile_context(profile, raw_text)
+        context_text = _with_profile_context(profile, raw_text, 2000)
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
             content = generate_image_post_from_text(context_text, company=profile)
@@ -1585,7 +1589,7 @@ async def generate_caption_manual(request: GenerateRequest, x_token: str = Heade
     try:
         from carousel import generate_caption_from_text
         profile = _resolve_profile(user["id"], request.profile_id)
-        context_text = _with_profile_context(profile, raw_text)
+        context_text = _with_profile_context(profile, raw_text, 2000)
         data = generate_caption_from_text(context_text, company=profile)
         auth_module.increment_gens(user["id"])
         return {"post_text": data.get("post_text", ""), "alt_text": data.get("alt_text", "")}
