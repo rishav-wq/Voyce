@@ -47,6 +47,7 @@ async function loadProfilePicker() {
     if (!res.ok) { updateProgress(); return; }
     _profiles = await res.json();
     updateProgress();
+    _paintLooks();   // a carousel opened before the profiles arrived
     if (!_profiles.length) return;
     let active = getActiveProfileId();
     if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
@@ -1202,7 +1203,7 @@ function openDraft(id) {
   if (d.profileId && d.profileId !== getActiveProfileId() && _profiles.some(p => p.id === d.profileId)) pickProfile(d.profileId);
   if (d.kind === "carousel") {
     _activeCarouselDraftId = d.id;
-    _showCarouselResult({ pdf_base64: d.pdf, post_text: d.text, hook: d.hook });
+    _showCarouselResult({ pdf_base64: d.pdf, post_text: d.text, hook: d.hook, content: d.content, look: d.look });
   } else {
     _activeDraftId = d.id;   // edits from here update this same draft
     const el = document.getElementById("linkedin-content");
@@ -1439,6 +1440,7 @@ setInterval(loadQueue, 15000);
 
 // ── Carousel ──────────────────────────────────────────────────────────────────
 let _carouselPdfBase64 = null;
+let _carouselContent = null, _carouselLook = "", _carouselProfileId = "";   // the slides as written, their look, whose they are
 
 async function generateCarousel() {
   const content = document.getElementById("content-input").value.trim();
@@ -1472,7 +1474,8 @@ async function generateCarousel() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Carousel generation failed.");
     _showCarouselResult(data);
-    _newDraft("carousel", { text: data.post_text || "", pdf: data.pdf_base64, hook: data.hook || "" });
+    _newDraft("carousel", { text: data.post_text || "", pdf: data.pdf_base64, hook: data.hook || "",
+                            content: data.content || null, look: data.look || "" });
     toast("Carousel ready! Download the PDF to preview.", "success");
   } catch (err) {
     showError(err.message);
@@ -1484,9 +1487,13 @@ async function generateCarousel() {
   }
 }
 
-// Shared: drop a {pdf_base64, post_text, hook} result into the carousel preview + post UI.
+// Shared: drop a {pdf_base64, post_text, hook, content, look} result into the carousel preview + post UI.
 function _showCarouselResult(data) {
   _carouselPdfBase64 = data.pdf_base64;
+  _carouselContent = data.content || null;
+  _carouselLook = data.look || "";
+  _carouselProfileId = getActiveProfileId();   // a draft switches "Writing as" back before this
+  _paintLooks();
   document.getElementById("carousel-post-text").textContent = data.post_text || "";
   document.getElementById("carousel-hook-label").textContent = data.hook ? `"${data.hook}"` : "";
   const postBtn = document.getElementById("post-carousel-btn");
@@ -1496,6 +1503,53 @@ function _showCarouselResult(data) {
   _showCarouselSlides();
   markGenerated();
   document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// A brand kit's looks under the slides: the same carousel redrawn in another look. Drawing only,
+// so switching doesn't use a generation.
+function _paintLooks() {
+  const box = document.getElementById("carousel-looks");
+  if (!box) return;
+  const prof = (_profiles || []).find(p => p.id === _carouselProfileId);   // the author's looks, whoever is picked now
+  const looks = (((prof && prof.brand_kit) || {}).looks || []).slice(0, 3);
+  if (!_carouselContent || looks.length < 2) { box.hidden = true; box.replaceChildren(); return; }
+  box.hidden = false;
+  box.replaceChildren(_el("span", "", "Look:"), ...looks.map((l, i) => {
+    const key = i ? `brand-${i + 1}` : "brand";
+    const b = _el("button", key === _carouselLook ? "on" : "");
+    b.type = "button";
+    b.title = key === _carouselLook ? "This look" : "Redraw these slides in this look";
+    const bg = _el("i"), accent = _el("i");
+    bg.style.background = (l && l.bg) || "#fff";
+    accent.style.background = (l && l.accent) || "#999";
+    b.append(bg, accent, document.createTextNode((l && l.name) || `Look ${i + 1}`));
+    b.onclick = () => _redrawCarousel(key);
+    return b;
+  }));
+}
+
+async function _redrawCarousel(look) {
+  if (look === _carouselLook || !_carouselContent) return;
+  const box = document.getElementById("carousel-looks");
+  box.querySelectorAll("button").forEach(x => { x.disabled = true; });
+  try {
+    await _refreshToken();
+    const res = await fetch("/render/carousel", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ profile_id: _carouselProfileId, content: _carouselContent, theme: look })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't redraw the carousel.");
+    _carouselPdfBase64 = data.pdf_base64;
+    _carouselLook = look;
+    const d = _drafts.find(x => x.id === _activeCarouselDraftId);
+    if (d) { d.pdf = data.pdf_base64; d.look = look; _putDraft(d); _renderDrafts(); }
+    _showCarouselSlides();
+  } catch (err) {
+    showError(err.message);
+  }
+  _paintLooks();
 }
 
 function downloadCarousel() {

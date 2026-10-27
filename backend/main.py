@@ -1344,9 +1344,42 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
             "post_text":  content.get("post_text", ""),
             "pdf_base64": base64.b64encode(pdf_bytes).decode(),
             "hook":       content.get("hook_slide", {}).get("headline", ""),
+            "content":    content,                                    # so it can be redrawn in another look
+            "look":       (profile or {}).get("carousel_theme", ""),
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+
+
+class CarouselRedrawRequest(BaseModel):
+    profile_id: str = ""
+    content: dict
+    theme: str
+
+
+@app.post("/render/carousel")
+def redraw_carousel(request: CarouselRedrawRequest, x_token: str = Header(None)):
+    """The carousel just made, drawn again in another look (a brand kit's, or a colour set).
+    Drawing only, nothing is written, so it uses no generation."""
+    user = _require_user(x_token)
+    _rate_limit(f"redraw:{user['id']}", 20)
+    import base64
+    import json
+    from carousel import render_carousel_pdf, _sanitize_carousel_result, _ED_THEMES, BRAND_LOOKS
+    if request.theme not in BRAND_LOOKS and request.theme not in _ED_THEMES:
+        raise HTTPException(status_code=400, detail="Unknown carousel look.")
+    if len(json.dumps(request.content)) > 30000:
+        raise HTTPException(status_code=400, detail="That carousel is too large to redraw.")
+    profile = _resolve_profile(user["id"], request.profile_id)
+    try:
+        # The slides come back from the browser: cleaned the same way as when they were written
+        content = _sanitize_carousel_result({k: v for k, v in request.content.items() if k != "post_text"}, profile)
+        author = li.author_for_profile(profile, user["id"]) or None
+        pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"}, author=author, theme=request.theme)
+    except Exception:
+        logging.exception("carousel redraw failed")
+        raise HTTPException(status_code=400, detail="Couldn't redraw that carousel. Make it again.")
+    return {"pdf_base64": base64.b64encode(pdf_bytes).decode()}
 
 
 @app.post("/generate/variations")

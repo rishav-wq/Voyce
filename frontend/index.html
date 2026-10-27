@@ -592,6 +592,15 @@
     /* The slides in the card, the way LinkedIn shows a carousel: one at a time on the feed grey */
     .carousel-slides { margin-bottom: 8px; }
     .carousel-slides:empty { display: none; }
+    /* A brand kit's looks: the same slides redrawn, no new generation */
+    .carousel-looks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #555; }
+    .carousel-looks[hidden] { display: none; }
+    .carousel-looks button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 8px; border: 1px solid #d3d8e0;
+      border-radius: 999px; background: #fff; color: #333; font: inherit; cursor: pointer; }
+    .carousel-looks button.on { border-color: #24365e; box-shadow: 0 0 0 1px #24365e; font-weight: 600; }
+    .carousel-looks button:disabled { cursor: wait; opacity: .6; }
+    .carousel-looks i { width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
+    .carousel-looks i + i { margin-left: -10px; }
     .slide-viewer { background: #f3f2ef; border-radius: 10px; padding: 14px 14px 12px; }
     .slide-stage { position: relative; max-width: 440px; margin: 0 auto; border-radius: 6px; overflow: hidden;
       box-shadow: 0 1px 4px rgba(0,0,0,.14); touch-action: pan-y; outline: none; }
@@ -1051,6 +1060,7 @@
         </div>
         <div class="carousel-inner">
           <div class="carousel-slides" id="carousel-slides" aria-label="The carousel's slides"></div>
+          <div class="carousel-looks" id="carousel-looks" hidden></div>
           <div class="carousel-hook" id="carousel-hook-label"></div>
           <div class="carousel-meta">Caption posted with the PDF <span>· portrait 1080×1350</span></div>
           <div class="carousel-post-text" id="carousel-post-text"></div>
@@ -1131,7 +1141,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=23"></script>
+  <script src="/static/app.js?v=24"></script>
   <script src="/static/upgrade.js?v=1"></script>
   <script
     async
