@@ -1965,7 +1965,13 @@ def get_companies(x_token: str = Header(None)):
     user = _require_user(x_token)
     companies = list_companies(user["id"])
     from autonomous import get_post_type_info, get_week_plan, get_week_forecast, carousel_mode, POST_TYPE_DESCRIPTIONS
-    for c in companies:
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Each profile needs a few database reads, and the database is a 60 ms round trip away
+    # (Render Singapore to Atlas Mumbai): one after another, 15 profiles took about 5 s on every
+    # load of Write or Settings. They run side by side now, and the LinkedIn account behind them
+    # (usually one, shared) is read once instead of three times per profile.
+    def plan(c: dict) -> None:
         c["carousels_per_week"] = carousel_mode(c)
         try:
             c["week_forecast"] = get_week_forecast(c)
@@ -1983,8 +1989,16 @@ def get_companies(x_token: str = Header(None)):
             c["next_topic"] = _topic_for_today(c)
         except Exception:
             c["next_topic"] = ""
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(plan, companies))   # list() so an error in one surfaces here, as it did in the loop
+    accounts: dict = {}
+    for c in companies:
         # Which LinkedIn this profile publishes to: its own (a client's), or the user's.
-        info = li.connection_info(li.connection_for(c, user["id"]))
+        conn = li.connection_for(c, user["id"])
+        if conn not in accounts:
+            accounts[conn] = li.connection_info(conn)
+        info = accounts[conn]
         c["li"] = {"own_account": bool(c.get("li_conn")), "connected": info["connected"],
                    "name": info["name"] if c.get("li_conn") else "", "expires_at": info["expires_at"]}
         c.pop("li_conn", None)

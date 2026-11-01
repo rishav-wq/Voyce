@@ -15,6 +15,11 @@ async function initClerk() {
   // so also refresh the moment the user comes back to the tab.
   window.addEventListener("focus", _refreshToken);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) _refreshToken(); });
+  // A reload doesn't queue: the profiles and today's ideas start now, beside /auth/me, and the
+  // menu shows last visit's profile until the real one arrives.
+  _companiesP = fetch("/companies", { headers: { "x-token": _clerkToken } }).catch(() => null);
+  if (getActiveProfileId()) loadTodayIdeas();
+  _paintSideFromCache(clerk.user.id);
   try {
     const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
     if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null")); }
@@ -26,6 +31,7 @@ function getToken() { return _clerkToken; }
 
 // ── Writing-as profile picker ────────────────────────────────────────────────
 let _profiles = [];
+let _companiesP = null;   // the /companies request started at sign-in, used once by loadProfilePicker
 // The setup strip waits for both answers, so a set-up account never sees it flash.
 let _profilesKnown = false, _liKnown = false;
 function getActiveProfileId() { return localStorage.getItem("cm_profile_id") || ""; }
@@ -43,9 +49,10 @@ function pickProfile(id) {
 }
 async function loadProfilePicker() {
   try {
-    const res = await fetch("/companies", { headers: { "x-token": getToken() } });
+    const early = _companiesP; _companiesP = null;
+    const res = await (early || fetch("/companies", { headers: { "x-token": getToken() } }));
     _profilesKnown = true;
-    if (!res.ok) { updateProgress(); return; }
+    if (!res || !res.ok) { updateProgress(); return; }
     _profiles = await res.json();
     updateProgress();
     _paintLooks();   // a carousel opened before the profiles arrived
@@ -61,7 +68,7 @@ async function loadProfilePicker() {
       sel.hidden = false;
     }
     _paintSideProfile();
-    loadTodayIdeas();
+    if (_todayStartedFor !== active) loadTodayIdeas();   // already on its way if it started at sign-in
     _syncToolRuns();
     _setPreviewAuthor();
     _syncWhatsAppTarget();
@@ -1832,10 +1839,13 @@ async function _paintSideProfile() {
   const box = document.getElementById("side-prof"), prof = _activeProfile();
   if (!box || !prof) return;
   const av = document.getElementById("side-prof-av");
-  document.getElementById("side-prof-name").textContent = prof.name || "You";
-  document.getElementById("side-prof-sub").textContent = _profiles.length >= 2 ? "Switch profile ▾" : (prof.designation || "Writing as");
-  av.textContent = ((prof.name || "Y").trim()[0] || "Y").toUpperCase();
+  const name = prof.name || "You", sub = _profiles.length >= 2 ? "Switch profile ▾" : (prof.designation || "Writing as");
+  document.getElementById("side-prof-name").textContent = name;
+  document.getElementById("side-prof-sub").textContent = sub;
+  const shown = av.querySelector("img");   // last visit's photo, from _paintSideFromCache, stays until this one's known
+  if (!(shown && shown.dataset.pid === prof.id)) av.textContent = ((prof.name || "Y").trim()[0] || "Y").toUpperCase();
   box.hidden = false;
+  let photo = "";
   try {
     const key = prof.id;
     if (!_authorCache[key]) {
@@ -1843,19 +1853,38 @@ async function _paintSideProfile() {
       if (r.ok) _authorCache[key] = await r.json();
     }
     const a = _authorCache[key];
-    if (a && a.photo && (_activeProfile() || {}).id === key) {
-      const img = new Image(); img.alt = ""; img.src = a.photo; av.replaceChildren(img);
-    }
+    if ((_activeProfile() || {}).id !== key) return;
+    photo = (a && a.photo) || "";
+    if (photo) { const img = new Image(); img.alt = ""; img.src = photo; img.dataset.pid = key; av.replaceChildren(img); }
+    else av.textContent = ((prof.name || "Y").trim()[0] || "Y").toUpperCase();
+  } catch (_) {}
+  try {
+    localStorage.setItem("cm_side", JSON.stringify({ uid: (window.Clerk && Clerk.user && Clerk.user.id) || "", pid: prof.id, name, sub, photo }));
+  } catch (_) {}
+}
+// The menu's profile on a reload, before /companies answers: last visit's name and photo, if it's the same person and profile
+function _paintSideFromCache(uid) {
+  try {
+    const c = JSON.parse(localStorage.getItem("cm_side") || "null");
+    if (!c || c.uid !== uid || c.pid !== getActiveProfileId()) return;
+    const box = document.getElementById("side-prof"), av = document.getElementById("side-prof-av");
+    if (!box || !av) return;
+    document.getElementById("side-prof-name").textContent = c.name;
+    document.getElementById("side-prof-sub").textContent = c.sub;
+    if (c.photo) { const img = new Image(); img.alt = ""; img.src = c.photo; img.dataset.pid = c.pid; av.replaceChildren(img); }
+    else av.textContent = ((c.name || "Y").trim()[0] || "Y").toUpperCase();
+    box.hidden = false;
   } catch (_) {}
 }
 
 // Today's ideas: made by 5-7 AM for people who come back, or now on a first visit (then it checks back)
-let _todayIdeas = [], _todayTimer = null;
+let _todayIdeas = [], _todayTimer = null, _todayStartedFor = "";
 async function loadTodayIdeas(attempt = 0) {
   clearTimeout(_todayTimer);
   const sec = document.getElementById("today-ideas"), grid = document.getElementById("today-grid"), pid = getActiveProfileId();
   if (!sec || !grid) return;
   if (!pid) { sec.hidden = true; return; }
+  if (!attempt) _todayStartedFor = pid;
   try {
     const r = await fetch(`/companies/${encodeURIComponent(pid)}/today-ideas`, { headers: { "x-token": getToken() } });
     if (!r.ok) { sec.hidden = true; return; }
