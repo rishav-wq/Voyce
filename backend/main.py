@@ -2459,8 +2459,8 @@ def _clip_words(text: str, n: int) -> str:
 @app.get("/companies/{company_id}/today-ideas")
 def today_ideas(company_id: str, x_token: str = Header(None)):
     """Today's ideas for the Write page, free to look at: {"status": "ready", "ideas": [...]}, or
-    "making" (started now if the morning job didn't make them: they weren't around lately, or it's
-    before 5 AM there), "failed", or "off" (a free account past its first week)."""
+    "making" (started now if the morning job didn't make them: they weren't around lately), "failed",
+    or "off" (a free account past its first week). Before 5 AM there it is still yesterday's ideas day."""
     user = _require_user(x_token)
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:

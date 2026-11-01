@@ -253,13 +253,19 @@ FREE_TRIAL_DAYS = 7    # a free account gets them for its first week
 STUCK_MINUTES = 15     # a "making" older than this was cut off (a deploy mid-make) and can start again
 
 
+DAY_STARTS = 5          # an ideas day runs from 5 AM to 5 AM there, when the morning job makes them
+
+
 def local_today(company: dict) -> str:
+    """The ideas day: the local date, but before 5 AM it is still yesterday. Rolling over at
+    midnight hid the evening's ideas and made a new set for anyone on Write after 12."""
     from zoneinfo import ZoneInfo
     from company import DEFAULT_TZ, valid_tz
     try:
-        return datetime.now(ZoneInfo(valid_tz(company.get("timezone", "")) or DEFAULT_TZ)).strftime("%Y-%m-%d")
+        now = datetime.now(ZoneInfo(valid_tz(company.get("timezone", "")) or DEFAULT_TZ))
     except Exception:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now = datetime.now(timezone.utc)
+    return (now - timedelta(hours=DAY_STARTS)).strftime("%Y-%m-%d")
 
 
 def eligible(user: dict) -> bool:
