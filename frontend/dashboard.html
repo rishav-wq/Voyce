@@ -506,14 +506,16 @@
     .modal-overlay.open { display: block; }
     .modal-drawer {
       position: fixed; top: 14px; right: 14px; bottom: 14px; width: min(480px, calc(100vw - 28px));
-      background: #ffffff; border-radius: 16px; overflow-y: auto; overscroll-behavior: contain;
-      padding: 0 28px 28px;
+      background: #ffffff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;
       box-shadow: 0 1px 2px rgba(22,24,29,.05), 0 16px 40px rgba(22,24,29,.14);
     }
+    /* The body scrolls, not the card: a scrollbar on the rounded card ran into its right corners */
+    .panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px 28px 28px;
+      scrollbar-width: thin; scrollbar-color: #d3d8e0 transparent; }   /* thin, no arrows to poke into the corner */
     @media (prefers-reduced-motion: no-preference) { .modal-drawer { animation: panelIn .18s ease-out; } }
     @keyframes panelIn { from { transform: translateX(24px); opacity: .6; } }
-    .panel-head { position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
-      margin: 0 -28px 22px; padding: 22px 28px 14px; background: #ffffff; border-bottom: 1px solid #e4e7ec; }
+    .panel-head { flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      padding: 22px 28px 14px; background: #ffffff; border-bottom: 1px solid #e4e7ec; }
     .modal-drawer h2 { font-size: 22px; font-weight: 800; margin: 0 0 2px; }
     .modal-drawer .modal-sub { font-size: 13px; color: #6b7280; margin: 0; }
     .panel-x { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px;
@@ -521,8 +523,9 @@
     .panel-x:hover { background: #f3f5f8; color: #16181d; }
     .panel-x svg { width: 20px; height: 20px; }
     @media (max-width: 860px) {
-      .modal-drawer { top: 8px; right: 8px; bottom: 8px; left: 8px; width: auto; border-radius: 14px; padding: 0 16px 20px; }
-      .panel-head { margin: 0 -16px 18px; padding: 16px 16px 12px; }
+      .modal-drawer { top: 8px; right: 8px; bottom: 8px; left: 8px; width: auto; border-radius: 14px; }
+      .panel-head { padding: 16px 16px 12px; }
+      .panel-body { padding: 18px 16px 20px; }
       .pf-foot { bottom: -20px; margin: 6px -16px -20px; padding: 12px 16px 18px; }
     }
 
@@ -952,6 +955,7 @@
         <p class="modal-sub">Who should Voyce write as? You can change any of this later.</p></div>
         <button type="button" class="panel-x" onclick="closeModal()" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
+      <div class="panel-body">
 
       <div id="modal-success" style="background:#e6f4ea;color:#057642;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;"></div>
 
@@ -1088,6 +1092,7 @@
           }
         </script>
       </div>
+      </div><!-- /panel-body -->
     </div>
   </div>
 
