@@ -39,6 +39,8 @@ function pickProfile(id) {
   _setPreviewAuthor();
   _syncWhatsAppTarget();
   _renderDrafts();
+  _paintSideProfile();
+  loadTodayIdeas();  // and their ideas for today
 }
 async function loadProfilePicker() {
   try {
@@ -52,14 +54,15 @@ async function loadProfilePicker() {
     let active = getActiveProfileId();
     if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
     setActiveProfile(active);
-    const wrap = document.getElementById("writing-as");
     const sel  = document.getElementById("profile-picker");
-    if (wrap && sel && _profiles.length >= 2) {  // only worth a picker with 2+ profiles
+    if (sel && _profiles.length >= 2) {  // only worth a picker with 2+ profiles
       sel.innerHTML = _profiles.map(p =>
         `<option value="${_escHtmlCreate(p.id)}" ${p.id === active ? "selected" : ""}>${_escHtmlCreate(p.name)}${p.profile_type === "personal" ? "" : " · company"}</option>`
       ).join("");
-      wrap.style.display = "flex";
+      sel.hidden = false;
     }
+    _paintSideProfile();
+    loadTodayIdeas();
     // Ideas need a profile to draw a niche from; the tool panel is always visible,
     // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
@@ -199,7 +202,7 @@ let activeType = "text";
 // tab is showing. It used to carry over: a YouTube link showed up under Paste Text.
 const _tabText = { text: "", url: "", youtube: "" };
 const _TAB_PLACEHOLDERS = {
-  text: "Paste your blog post, article, notes, or any content here…",
+  text: "e.g. why most sales follow-ups die at the second email…",
   url: "https://example.com/blog/your-article",
   youtube: "https://www.youtube.com/watch?v=…"
 };
@@ -285,6 +288,8 @@ async function startApp() {
   const plan = ((user || {}).gen_info || {}).plan;
   const up = document.getElementById("side-upsell");
   if (up) up.style.display = plan && plan !== "pro" && plan !== "admin" ? "" : "none";
+  _renderMeter((user || {}).gen_info);
+  _syncFormats();
   applySeedTopic();
   // The composer starts empty on every visit — no stale post is auto-restored.
   // Previously generated posts live in the "Past" tab, loaded on demand.
@@ -404,7 +409,7 @@ function updateProgress() {
     auto.classList.remove("done");                // finishing setup is confirmed on /setup, not here
   }
 }
-function markGenerated() { updateProgress(); }
+function markGenerated() { updateProgress(); refreshMeter(); _syncFormats(); }
 
 async function handleLiClick() {
   if (linkedInConnected) {
@@ -1297,8 +1302,8 @@ function _scopeBtn(scope, label) {
 function _renderDrafts() {
   const sec = document.getElementById("drafts-section"), grid = document.getElementById("drafts-grid");
   if (!sec || !grid) return;
-  sec.style.display = _drafts.length ? "" : "none";
   const list = _scopedDrafts(), prof = _activeProfile(), split = _profiles.length >= 2;
+  _markToolFilled("recent", list.length > 0);   // drafts live in the Recent tab, out of the post's way
   const count = document.getElementById("drafts-count"), filter = document.getElementById("drafts-filter");
   count.textContent = list.length;
   count.hidden = split;   // the filter carries the counts
@@ -1734,10 +1739,13 @@ const _CARD_THEMES = [["light", "Cream", "#f4f0e8", "#24365e"], ["mint", "Mint",
   ["sky", "Sky", "#eaf2fb", "#047857"], ["sage", "Sage", "#ecf1e8", "#1e305c"], ["lavender", "Lavender", "#f1edfb", "#5b21b6"],
   ["peach", "Peach", "#fdefe5", "#0f666b"], ["rose", "Rose", "#fcedf1", "#881337"], ["sand", "Sand", "#f3ede0", "#166534"],
   ["forest", "Forest", "#112b22", "#78e2b2"], ["dark", "Charcoal", "#16181d", "#d6aa48"]];
-const _FORMAT_NAMES = { photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Tweet card", scene: "Photo", source: "Source card" };
-const _DESIGNED = ["illustration", "photo_text", "list", "quote"];   // colours and 3 options apply
-let _imgTheme = "";   // "" = surprise me
-function _themeName(k) { const t = _CARD_THEMES.find(x => x[0] === k); return t ? t[1] : ""; }
+const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Tweet card", scene: "Photo", source: "Source card" };
+const _DESIGNED = ["illustration", "concept", "photo_text", "list", "quote"];   // colours apply
+let _imgTheme = "";   // "" = surprise me (the author's brand look when the profile has one)
+function _themeName(k) {
+  const t = _CARD_THEMES.find(x => x[0] === k);
+  return t ? t[1] : (String(k || "").startsWith("brand") ? "Your brand" : "");
+}
 function _paintSwatches() {
   const box = document.getElementById("img-swatches");
   if (!box) return;
@@ -1758,6 +1766,9 @@ function _syncDesignRow() {
   const style = (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration";
   const line = document.getElementById("img-colour-line");
   if (line) line.style.display = _DESIGNED.includes(style) ? "" : "none";
+  // An idea picture is drawn whole, so each colour would be a new picture: one at a time
+  const three = document.querySelector(".img-three");
+  if (three) three.style.display = style === "concept" ? "none" : "";
 }
 document.querySelectorAll('input[name="img-style"]').forEach(r => r.addEventListener("change", _syncDesignRow));
 _paintSwatches();
@@ -1825,6 +1836,11 @@ async function attachGenerateImage() {
         _attachState(_attachB64 ? "has" : "empty");
         return;
       }
+      if (String(data.detail || "").startsWith("AI_PICTURES_USED:")) {   // the plan's AI pictures, not its generations
+        toast(String(data.detail).slice("AI_PICTURES_USED:".length), "warn");
+        _attachState(_attachB64 ? "has" : "empty");
+        return;
+      }
       throw new Error(data.detail || "Image generation failed.");
     }
     _attachB64  = data.image_base64;
@@ -1835,7 +1851,9 @@ async function attachGenerateImage() {
     _setImageMeta(fmt, data.theme);
     _showImageOptions(data.options, fmt);
     saveDraft();
-    toast(data.options && data.options.length > 1 ? "3 options ready: pick one under the image." : "Image added to your post.", "success");
+    toast((data.options && data.options.length > 1 ? "3 options ready: pick one under the image." : "Image added to your post.")
+      + (data.notice ? " " + data.notice : ""), "success");
+    refreshMeter();
   } catch (err) {
     const msg = /failed to fetch|networkerror|load failed/i.test(err.message || "")
       ? "The image took too long to generate. Your post is ready without it — or hit Regenerate to try again."
@@ -1898,3 +1916,170 @@ async function doAppLogout() {
   if (window.Clerk) { try { await window.Clerk.signOut(); } catch (_) {} }
   window.location.href = "/login";
 }
+
+// ── Write, Layout A (Nov 2026): the menu's profile and plan, today's ideas, the format tiles ────────
+// What's left in the plan, in the menu. Every action on the page says what it uses, and this is the total.
+function _renderMeter(g) {
+  const box = document.getElementById("side-meter");
+  if (!box || !g) return;
+  const row = (id, left, limit, word) => {
+    const n = document.getElementById(id + "-n"), t = document.getElementById(id + "-t"), bar = document.getElementById(id + "-bar");
+    if (limit === -1 || limit == null) {
+      n.textContent = "Unlimited"; t.textContent = word; bar.parentElement.style.display = "none";
+    } else {
+      n.textContent = Math.max(0, left); t.textContent = `of ${limit} ${word} left`;
+      bar.parentElement.style.display = "";
+      bar.style.width = (limit ? Math.max(0, Math.min(1, left / limit)) * 100 : 0) + "%";
+    }
+  };
+  row("sm-gens", (g.limit ?? -1) - (g.used ?? 0), g.limit, "generations");
+  row("sm-ai", (g.ai_limit ?? -1) - (g.ai_used ?? 0), g.ai_limit, "AI pictures");
+  const k = document.getElementById("sm-k");
+  if (k) {
+    const until = g.expires_at ? new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
+    k.textContent = g.plan === "admin" ? "Team account" : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
+  }
+  box.hidden = false;
+}
+async function refreshMeter() {
+  try {
+    const r = await fetch("/auth/me", { headers: { "x-token": getToken() } });
+    if (!r.ok) return;
+    const u = await r.json();
+    localStorage.setItem("cm_user", JSON.stringify(u));
+    _renderMeter(u.gen_info);
+  } catch (_) {}
+}
+
+// Who the post is written as, in the menu; with two or more profiles, clicking it switches
+async function _paintSideProfile() {
+  const box = document.getElementById("side-prof"), prof = _activeProfile();
+  if (!box || !prof) return;
+  const av = document.getElementById("side-prof-av");
+  document.getElementById("side-prof-name").textContent = prof.name || "You";
+  document.getElementById("side-prof-sub").textContent = _profiles.length >= 2 ? "Switch profile ▾" : (prof.designation || "Writing as");
+  av.textContent = ((prof.name || "Y").trim()[0] || "Y").toUpperCase();
+  box.hidden = false;
+  try {
+    const key = prof.id;
+    if (!_authorCache[key]) {
+      const r = await fetch("/author?profile_id=" + encodeURIComponent(prof.id), { headers: { "x-token": getToken() } });
+      if (r.ok) _authorCache[key] = await r.json();
+    }
+    const a = _authorCache[key];
+    if (a && a.photo && (_activeProfile() || {}).id === key) {
+      const img = new Image(); img.alt = ""; img.src = a.photo; av.replaceChildren(img);
+    }
+  } catch (_) {}
+}
+
+// Today's ideas: made by 5-7 AM for people who come back, or now on a first visit (then it checks back)
+let _todayIdeas = [], _todayTimer = null;
+async function loadTodayIdeas(attempt = 0) {
+  clearTimeout(_todayTimer);
+  const sec = document.getElementById("today-ideas"), grid = document.getElementById("today-grid"), pid = getActiveProfileId();
+  if (!sec || !grid) return;
+  if (!pid) { sec.hidden = true; return; }
+  try {
+    const r = await fetch(`/companies/${encodeURIComponent(pid)}/today-ideas`, { headers: { "x-token": getToken() } });
+    if (!r.ok) { sec.hidden = true; return; }
+    const d = await r.json();
+    if (pid !== getActiveProfileId()) return;   // they switched profile while it loaded
+    if (d.status === "making") {
+      sec.hidden = false;
+      grid.innerHTML = '<div class="tday-wait" style="grid-column:1/-1">Picking today’s ideas from this week’s news on your topics. '
+        + 'This takes about a minute; you can type your own above meanwhile.<i style="width:72%"></i><i style="width:54%"></i></div>';
+      if (attempt < 16) _todayTimer = setTimeout(() => loadTodayIdeas(attempt + 1), 15000);
+      return;
+    }
+    if (d.status !== "ready") { sec.hidden = true; return; }
+    _todayIdeas = d.ideas || [];
+    sec.hidden = false;
+    if (!_todayIdeas.length) {
+      grid.innerHTML = '<div class="tday-wait" style="grid-column:1/-1">Nothing this week cleared the bar for an idea worth your name today. '
+        + 'Type your own above; tomorrow’s ideas arrive in the morning.</div>';
+      return;
+    }
+    const day = s => String(s || "").slice(0, 16);
+    grid.style.gridTemplateColumns = `repeat(${Math.min(3, _todayIdeas.length)}, minmax(0, 1fr))`;   // two ideas share the row
+    grid.innerHTML = _todayIdeas.map((it, i) => {
+      const url = /^https?:\/\//.test(it.source_url || "") ? it.source_url : "";
+      const src = url
+        ? `From: <a href="${_escHtmlCreate(url)}" target="_blank" rel="noopener">${_escHtmlCreate(it.source_title || "the article")}</a>`
+          + (it.published ? " · " + _escHtmlCreate(day(it.published)) : "")
+        : "From: your own career";
+      return `<div class="tday">${i === 0 ? '<span class="tday-best">Best pick</span>' : ""}
+        <span class="tday-tag">${_escHtmlCreate(it.topic || "Today")}</span>
+        <h3>${_escHtmlCreate(it.opening)}</h3>
+        <div class="tday-why">${_escHtmlCreate(it.angle)}</div>
+        <div class="tday-src">${src}</div>
+        <div class="tday-use"><button type="button" onclick="useTodayIdea(${i})">Use this →</button><span>Writes the post · uses 1 generation</span></div>
+      </div>`;
+    }).join("");
+  } catch (_) { sec.hidden = true; }
+}
+function useTodayIdea(i) {
+  const it = _todayIdeas[i];
+  if (!it) return;
+  _switchInputTab("text");
+  document.getElementById("content-input").value = it.brief || it.opening;
+  document.querySelectorAll(".tday").forEach((el, j) => el.classList.toggle("chosen", j === i));
+  generate();
+}
+
+// The format tiles: examples until a post is written, then each one is made on click
+let _fmtPostExample = null;
+function _syncFormats() {
+  const f = document.getElementById("formats");
+  if (!f) return;
+  const out = document.getElementById("output-section");
+  const hasPost = !!(out && out.classList.contains("visible")) && !!_postText().trim();
+  f.dataset.mode = hasPost ? "make" : "examples";
+  document.getElementById("formats-k").textContent = hasPost ? "Make it" : "What Voyce makes from your idea";
+  document.getElementById("formats-sub").textContent = hasPost
+    ? "your post is written · click any format to make it from the post"
+    : "examples · each is made only when you click it";
+  const thumb = f.querySelector('[data-fmt="post"] .fmt-thumb'), cost = f.querySelector('[data-fmt="post"] .fmt-cost');
+  if (_fmtPostExample === null && thumb) _fmtPostExample = thumb.innerHTML;
+  if (thumb) {
+    if (hasPost) {
+      const t = _postText().trim(), first = t.split("\n")[0];
+      thumb.innerHTML = `<b>${_escHtmlCreate(first)}</b><br>${_escHtmlCreate(t.slice(first.length).trim().slice(0, 220))}…`;
+    } else thumb.innerHTML = _fmtPostExample;
+  }
+  if (cost) cost.textContent = hasPost ? "Used 1 generation" : "Uses 1 generation";
+  if (!hasPost) f.querySelectorAll(".fmt.made").forEach(el => el.classList.remove("made"));
+}
+async function makeFormat(kind, el) {
+  const f = document.getElementById("formats");
+  if (!f || f.dataset.mode !== "make") {
+    toast("Write the post first: then each format is one click.", "warn");
+    return;
+  }
+  const btn = el && el.tagName === "BUTTON" ? el : null, tile = el && el.closest ? el.closest(".fmt") : null;
+  if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = "Making…"; }
+  try {
+    if (kind === "carousel") {
+      await generateCarousel();
+      const cs = document.getElementById("carousel-section");
+      if (tile && cs && cs.classList.contains("visible")) tile.classList.add("made");
+    } else {
+      const radio = document.querySelector(`input[name="img-style"][value="${kind}"]`);
+      if (radio) { radio.checked = true; _syncDesignRow(); }
+      const before = _attachB64;
+      const wp = document.getElementById("work-preview");
+      if (wp) wp.scrollIntoView({ behavior: "smooth", block: "start" });
+      await attachGenerateImage();
+      if (tile && _attachB64 && _attachB64 !== before) {
+        document.querySelectorAll(".fmt.made:not([data-fmt='carousel'])").forEach(x => x.classList.remove("made"));
+        tile.classList.add("made");   // one picture per post: the one on the post now
+      }
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || "Make it"; }
+  }
+}
+(() => {   // the tiles follow the post: shown, cleared, or opened from a draft
+  const out = document.getElementById("output-section");
+  if (out && window.MutationObserver) new MutationObserver(_syncFormats).observe(out, { attributes: true, attributeFilter: ["class"] });
+})();
