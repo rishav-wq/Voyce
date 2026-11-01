@@ -2366,6 +2366,7 @@ def today_ideas(company_id: str, x_token: str = Header(None)):
     import morning_ideas
     if not morning_ideas.eligible(user):
         return {"status": "off", "ideas": []}
+    morning_ideas.note_opened(company)
     morning_ideas.retry_if_failed(company)
     doc = morning_ideas.stored(company_id, morning_ideas.local_today(company))
     if doc:

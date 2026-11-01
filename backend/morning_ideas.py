@@ -218,8 +218,10 @@ Return ONLY JSON: {{"scores":[{{"id":0,"specific":0,"timely":0,"theirs":0,"hook"
 
 
 # ── Today's ideas: made by 5-7 AM in each profile's own time zone, kept for the day ──────────────
-ACTIVE_DAYS = 3        # made only for people who opened Voyce lately; anyone else gets them on their first visit
+ACTIVE_DAYS = 3        # made only for profiles opened on Write lately; anyone else gets them on their first visit
+PER_USER = 3           # at most this many of one person's profiles a morning (the team keeps up to 200 sample profiles)
 FREE_TRIAL_DAYS = 7    # a free account gets them for its first week
+STUCK_MINUTES = 15     # a "making" older than this was cut off (a deploy mid-make) and can start again
 
 
 def local_today(company: dict) -> str:
@@ -246,6 +248,18 @@ def eligible(user: dict) -> bool:
 def stored(company_id: str, day: str) -> dict | None:
     import db
     return db.daily_ideas.find_one({"_id": f"{company_id}:{day}"})
+
+
+def note_opened(company: dict) -> None:
+    """The profile was opened on Write: the morning job makes its ideas for the next few days.
+    Written at most hourly."""
+    import db
+    now = datetime.now(timezone.utc)
+    seen = company.get("ideas_seen_at")
+    if seen and seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    if not seen or now - seen > timedelta(hours=1):
+        db.companies.update_one({"id": company.get("id", "")}, {"$set": {"ideas_seen_at": now}})
 
 
 def _shown(c: dict) -> dict:
@@ -284,28 +298,38 @@ def make_and_store(company: dict) -> None:
 
 
 def retry_if_failed(company: dict) -> bool:
-    """A failed day can be tried again after half an hour (Claude was down, say). True if cleared."""
+    """A failed day can be tried again after half an hour (Claude was down, say), and a "making"
+    cut off by a restart after STUCK_MINUTES. True if cleared."""
     import db
     doc = stored(company.get("id", ""), local_today(company))
-    failed_at = (doc or {}).get("failed_at")
-    if doc and doc.get("status") == "failed" and failed_at:
-        if failed_at.tzinfo is None:
-            failed_at = failed_at.replace(tzinfo=timezone.utc)
-        if datetime.now(timezone.utc) - failed_at > timedelta(minutes=30):
-            db.daily_ideas.delete_one({"_id": doc["_id"], "status": "failed"})
+    if not doc:
+        return False
+    status = doc.get("status")
+    when, wait = {"failed": (doc.get("failed_at"), timedelta(minutes=30)),
+                  "making": (doc.get("created_at"), timedelta(minutes=STUCK_MINUTES))}.get(status, (None, None))
+    if when:
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - when > wait:
+            db.daily_ideas.delete_one({"_id": doc["_id"], "status": status})
             return True
     return False
 
 
 def morning_sweep() -> None:
-    """Hourly: every profile of someone active in the last few days whose local time is 5-7 AM and
-    whose ideas for today aren't made yet. One at a time: each takes about a minute."""
+    """Hourly: the profiles opened on Write in the last few days (each person's latest PER_USER) whose
+    local time is 5-7 AM and whose ideas for today aren't made yet. One at a time: each takes about a minute."""
     import db
     from zoneinfo import ZoneInfo
     from company import DEFAULT_TZ, valid_tz
     since = datetime.now(timezone.utc) - timedelta(days=ACTIVE_DAYS)
     users = {u["id"]: u for u in db.users.find({"last_seen": {"$gte": since}}, {"_id": 0})}
-    for company in db.companies.find({"user_id": {"$in": list(users)}}, {"_id": 0}):
+    per_user: dict = {}
+    for company in db.companies.find({"user_id": {"$in": list(users)}, "ideas_seen_at": {"$gte": since}},
+                                     {"_id": 0}).sort("ideas_seen_at", -1):
+        per_user[company["user_id"]] = per_user.get(company["user_id"], 0) + 1
+        if per_user[company["user_id"]] > PER_USER:
+            continue
         try:
             hour = datetime.now(ZoneInfo(valid_tz(company.get("timezone", "")) or DEFAULT_TZ)).hour
             if not 5 <= hour < 7 or not eligible(users[company["user_id"]]):
