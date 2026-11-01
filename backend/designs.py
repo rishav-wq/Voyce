@@ -586,6 +586,15 @@ def last(t: dict, headline: str, kicker: str, cta: str, name: str, title: str, a
     return _done(img)
 
 
+def _singular(unit: str) -> str:
+    """'fixes' → 'fix', 'stories' → 'story', 'habits' → 'habit': to find the unit in each slide's label."""
+    if unit.endswith("ies"):
+        return unit[:-3] + "y"
+    if unit.endswith(("xes", "ches", "shes", "sses", "zes")):
+        return unit[:-2]
+    return unit[:-1] if unit.endswith("s") else unit
+
+
 def carousel_slides(content: dict, t: dict, t_cover: dict, name: str, title: str, avatar, promise: str = "") -> list:
     """The whole deck in the v2 design, from the writer's deck (carousel.py's schema)."""
     hook, ctx = content["hook_slide"], content.get("context_slide")
@@ -596,6 +605,12 @@ def carousel_slides(content: dict, t: dict, t_cover: dict, name: str, title: str
     if said and int(said.group(1)) != len(points):
         tiles = []
     show_overview = 3 <= len(points) <= 6 and bool(tiles) and all(tg for _, tg in tiles)
+    # "The 5 fixes" only when every point is one: a deck of 2 traps and 3 fixes was counted as 5 fixes
+    unit = (hook.get("unit") or "").strip()
+    one = _singular(unit)
+    counted = bool(one) and all(one.lower() in (s.get("label") or "").lower() for s in points)
+    if unit and not counted and promise.startswith(f"{len(points)} {unit} · "):
+        promise = promise[len(f"{len(points)} {unit} · "):]
     total = 1 + (1 if ctx else 0) + (1 if show_overview else 0) + len(c_slides) + (1 if rcp else 0) + 1
     base, kicker = C._split_hook_pill(hook.get("headline", ""))
     slides = [cover(t_cover, base or hook.get("headline", ""), kicker, hook.get("subtext", ""), hook.get("audience", ""),
@@ -605,8 +620,7 @@ def carousel_slides(content: dict, t: dict, t_cover: dict, name: str, title: str
         slides.append(_context(t, num, total, name, avatar, ctx.get("title", ""), ctx.get("body", "")))
         num += 1
     if show_overview:
-        unit = (hook.get("unit") or "").strip()
-        heading = f"The {len(points)} {unit}" if unit else f"{len(points)} things to get right"
+        heading = f"The {len(points)} {unit}" if counted else "In this deck"
         slides.append(overview(t, num, total, name, avatar, heading, tiles))
         num += 1
     # one size for every point slide, the size the fullest one fits at: sizes jumping from slide to
@@ -671,11 +685,23 @@ def quote_card(t: dict, line: str, emph: str, sub: str, tag: str, name: str, tit
     top = M + (_lh(d, _body(23, semi=True)) + 40 * S if tag else 0)
     if tag:
         _eyebrow(d, tag, M, M, t["accent"])
-    f = _fit(d, line, (150, 136, 124, 112, 104, 96, 88, 80, 72, 64), lambda z: _display(z, t), mw, 5, emph, even=True)
-    hq = _block_h(d, line, f, mw, 18 * S, emph)
     fs = _fit(d, sub, (36, 33, 30), _body, mw, 3) if sub else None
     hs = (_block_h(d, sub, fs, mw, 10 * S) + 40 * S) if sub else 0
     mark = 150 * S
+    # the largest size that fits the width AND the height above the signature: a nine-word line
+    # set at the widest size ran down into the author's name
+    room = foot - 40 * S - top - mark - 50 * S - hs
+    f = None
+    for z in (150, 136, 124, 112, 104, 96, 88, 80, 72, 64, 58):
+        cand = _display(z, t)
+        lines = _wrap(d, line, cand, mw, emph)
+        if all(_line_w(d, ln, cand) <= mw for ln in lines) and not _ragged(lines) \
+                and _block_h(d, line, cand, mw, 18 * S, emph) <= room:
+            f = cand
+            break
+    if f is None:   # very long: the smallest size, and a smaller quote mark to make room
+        f, mark = _display(58, t), 96 * S
+    hq = _block_h(d, line, f, mw, 18 * S, emph)
     block = mark + 50 * S + hq + hs
     y = top + max(0, (foot - 40 * S - top - block) // 2)
     _quote_mark(d, M, y, mark, t["accent"])

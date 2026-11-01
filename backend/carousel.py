@@ -1879,7 +1879,8 @@ ONE IDEA PER SLIDE (the rule most people break):
 
 HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formulas:
 - Contrarian:         "Stop doing X. Do Y instead."
-- Curiosity + pain:   "X mistakes quietly killing your Y"
+- Curiosity + pain:   "X mistakes costing you Y" (never "quietly killing": every deck that saw it as
+  the example used it, and it is one of LinkedIn's most worn covers)
 - Result + timeframe: "How I did X in Y days/weeks"
 - Framework promise:  "The X framework that got Y"
 - Data authority:     "New data: X. Here's what wins." — ONLY with a real, named source in the
@@ -1928,7 +1929,7 @@ OUTPUT HYGIENE (strict):
   prefixes in titles.
 - Banned: game-changer, landscape, unlock, dive deep, revolutionize, leverage, synergy,
   in today's world, the future is here, are you ready, I'm excited, at the end of the day,
-  paradigm shift, move the needle, let that sink in.
+  paradigm shift, move the needle, let that sink in, quietly killing.
 
 post_text: the LinkedIn caption. Hook first (max 60 characters, self-contained, open loop),
 no warm-up. 60-120 words total, plain words a 15-year-old uses daily, most sentences under
