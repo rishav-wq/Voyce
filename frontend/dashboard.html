@@ -728,7 +728,7 @@
     <div class="side-spacer"></div>
     <div class="side-upsell" id="side-upsell" style="display:none;">
       <h4>Upgrade to Pro</h4>
-      <p>Unlimited posts and daily auto-posting.</p>
+      <p>A post every morning, ready to approve, and room to write more.</p>
       <button onclick="openUpgradeModal()">⚡ Upgrade</button>
     </div>
     <!-- What's left in the plan, the same as on Write (index.html) -->
@@ -777,9 +777,10 @@
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-gens"><strong>Unlimited</strong> generations</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-ai"><strong>40 AI pictures</strong> per pass · image cards unlimited</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>A post every morning</strong>, ready for you to approve</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousels in your daily posts</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>Unlimited</strong> previews and idea lists</span></li>
           <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Every daily post logged with its source</span></li>
         </ul>
@@ -1794,7 +1795,7 @@
           confirmText: "Turn on",
           options: [
             { value: "ask", title: "Ask me before each post (recommended)",
-              desc: "We email you each post to approve. Nothing goes out until you tap Approve, and unapproved posts expire after 48 hours." },
+              desc: "We email you each post to approve. Nothing goes out until you tap Approve, and tomorrow's post replaces one you didn't approve." },
             { value: "auto", title: "Post automatically",
               desc: `Publishes as "${who}" without asking you first. You can switch to approvals any time.`,
               check: _AUTO_CHECK(who) },
@@ -3069,6 +3070,8 @@
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"
           : "<strong>Unlimited</strong> generations";
+        const ai = document.getElementById("upgrade-ai");
+        if (ai) ai.innerHTML = "<strong>" + (_payConfig.pass_ai_pictures || (inIndia ? 10 : 40)) + " AI pictures</strong> per pass · image cards unlimited";
         }
       } catch (_) {}
       return _payConfig;
@@ -3121,7 +3124,7 @@
                 }),
               });
               if (!vres.ok) throw new Error("verification failed");
-              toast("🎉 Welcome to Voyce Pro! Unlimited generations unlocked.", "success");
+              toast("🎉 Welcome to Voyce Pro! Your 30-day pass is on.", "success");
               closeUpgradeModal();
               loadPlanBanner();
             } catch (_) {
@@ -3305,6 +3308,7 @@
             document.getElementById("p-industry").value = p.industry || "";
             _renderTopicRows(_splitTopics(p.industry || ""));
             document.getElementById("p-tone").value     = p.tone || "conversational";
+            document.getElementById("p-tone-shift").checked = !!p.tone_shift;
             document.getElementById("p-time").value     = p.post_time || "09:00";
             const wtVal = p.website_type || "own";
             const wtRadio = document.querySelector(`input[name="p-website-type"][value="${wtVal}"]`);
@@ -3444,7 +3448,9 @@
           const gensLine = capped
             ? `<strong>${Math.max(0, info.limit - info.used)} of ${info.limit} generations left</strong> this pass`
             : "<strong>Unlimited generations</strong>";
-          text.innerHTML = gensLine + " — all features unlocked";
+          const aiLine = info.ai_limit > 0
+            ? ` · ${Math.max(0, info.ai_limit - (info.ai_used || 0))} of ${info.ai_limit} AI pictures left` : "";
+          text.innerHTML = gensLine + aiLine;
           barWrap.style.display = "none";
           btn.style.display = "none";
           banner.style.borderColor = "#a5d6a7";
@@ -3460,7 +3466,7 @@
               banner.style.borderColor = "#f6d68a";
               banner.style.background = "#fffbf0";
             } else {
-              text.innerHTML = `${gensLine} — Pro active until ${dateStr}`;
+              text.innerHTML = `${gensLine}${aiLine} — Pro active until ${dateStr}`;
             }
           }
         } else {
@@ -3472,7 +3478,7 @@
           fill.style.width = pct + "%";
           fill.style.background = left === 0 ? "#c0392b" : "#24365e";
           if (left === 0) {
-            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; <a href="#" onclick="openUpgradeModal();return false;" style="color:#24365e;font-weight:700;">Upgrade to Pro</a> for unlimited generations`;
+            text.innerHTML = `<strong style="color:#c0392b">Limit reached</strong> &nbsp;·&nbsp; <a href="#" onclick="openUpgradeModal();return false;" style="color:#24365e;font-weight:700;">Upgrade to Pro</a> to keep writing`;
             banner.style.borderColor = "#fdecea";
             banner.style.background = "#fffafa";
           }

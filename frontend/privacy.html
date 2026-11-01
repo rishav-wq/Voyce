@@ -48,7 +48,7 @@
   </nav>
   <main class="content">
     <h1>Privacy Policy</h1>
-    <p class="date">Last updated: October 18, 2026</p>
+    <p class="date">Last updated: November 1, 2026</p>
     <p>This policy explains what personal data Voyce collects, how it is used, who processes it, and the choices you have. Voyce (voyce.co.in) is operated by <strong>Rishav Raj</strong>, an individual based in Bengaluru, Karnataka, India ("Voyce", "we", "us"). For the purposes of India's Digital Personal Data Protection Act, 2023, we are the data fiduciary for your personal data.</p>
 
     <h2>1. What we collect</h2>
@@ -58,6 +58,7 @@
       <li><strong>Voice samples:</strong> posts you paste, LinkedIn data exports, profile PDFs and screenshots you upload, and the writing-style summary we generate from them.</li>
       <li><strong>LinkedIn connection:</strong> the access token LinkedIn issues when you connect, your LinkedIn member ID and name, and when the connection expires. If someone connects their LinkedIn to a profile you manage, through an invite link, we hold the same details for their account.</li>
       <li><strong>Content:</strong> the posts, carousels and images we generate for you, your edits and approvals, and your post history — including the news articles each post was based on.</li>
+      <li><strong>Write history and post ideas:</strong> the text of what you write and make on the Write page, kept so the post ideas we prepare for you each morning don't repeat a recent post, and those ideas with the articles they came from.</li>
       <li><strong>Payments:</strong> order and payment IDs, amount, status and dates. Your card, UPI or bank details go directly to Razorpay; we never receive them.</li>
       <li><strong>Free tools:</strong> for the Voice Check, the posts you paste, your first name if given, an optional email address, and your IP address; and the email address if you join a waitlist.</li>
       <li><strong>Technical data:</strong> IP address and request details, used for security, abuse prevention and rate limits, and error logs.</li>
@@ -84,8 +85,9 @@
       <tr><td>MongoDB</td><td>Database</td><td>The data described in section 1</td></tr>
       <tr><td>Render</td><td>Application hosting (Singapore region)</td><td>Everything the app processes</td></tr>
       <tr><td>Cloudflare</td><td>DNS and network security</td><td>Request data, IP address</td></tr>
-      <tr><td>Google (Gemini API)</td><td>AI writing</td><td>Profile details, voice samples, your inputs, and news snippets — the text needed to write each post</td></tr>
-      <tr><td>Tavily</td><td>News search</td><td>Your niche keywords, not your personal content</td></tr>
+      <tr><td>Anthropic (Claude API)</td><td>AI writing and checking (United States)</td><td>Profile details, voice samples, your inputs, and news snippets — the text needed to write each post and your post ideas, and each AI picture so it can be checked before you see it</td></tr>
+      <tr><td>Google (Gemini API)</td><td>AI pictures, YouTube videos, and backup writing</td><td>A description of each AI picture, the YouTube videos you paste, and, only when Claude is unavailable, the text needed to write a post</td></tr>
+      <tr><td>Tavily</td><td>News search and article text</td><td>Your niche keywords and the web addresses of news articles, not your personal content</td></tr>
       <tr><td>Microlink</td><td>Images of news articles for source cards</td><td>The article's web address</td></tr>
       <tr><td>YouTube</td><td>Transcripts of videos you paste</td><td>The video's web address</td></tr>
       <tr><td>Razorpay</td><td>Payments and refunds</td><td>Payment details you enter at checkout</td></tr>
@@ -97,7 +99,7 @@
     <p>We may also disclose data if Indian law requires it, or to protect the rights and safety of users and the service.</p>
 
     <h2>4. AI-generated content</h2>
-    <p>To write a post, Voyce sends the relevant text to Google's Gemini API, which processes it under Google's Gemini API terms. AI-written content can contain mistakes. Voyce checks each post against its sources and holds back posts that fail, but you should still review what goes out under your name.</p>
+    <p>To write a post, Voyce sends the relevant text to Anthropic's Claude API, and to Google's Gemini API for AI pictures, YouTube videos, and as a backup when Claude is unavailable. Each processes it under its own API terms. AI-written content can contain mistakes. Voyce checks each post against its sources and holds back posts that fail, but you should still review what goes out under your name.</p>
 
     <h2>5. Where your data is processed</h2>
     <p>Several of the providers above store or process data outside India, including in Singapore and the United States. We only use providers that protect data under their own security and privacy commitments.</p>
@@ -115,7 +117,8 @@
     <h2>7. How long we keep it</h2>
     <ul>
       <li>Account, profile and content data: while your account exists, and deleted within 30 days of a deletion request.</li>
-      <li>Posts waiting for approval: they expire after 48 hours.</li>
+      <li>Posts waiting for approval: until the next day's post replaces them, and 48 hours at most.</li>
+      <li>Write history: 90 days, then deleted automatically. Morning post ideas: 14 days.</li>
       <li>LinkedIn connection: until you disconnect or it expires (LinkedIn connections last about 60 days).</li>
       <li>Payment records: as long as Indian tax and accounting law requires.</li>
       <li>Voice Check and waitlist entries: up to 12 months, or until you ask us to delete them.</li>

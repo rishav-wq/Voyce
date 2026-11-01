@@ -149,45 +149,77 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
             ask = f"One question this week (optional): {q['text']} Answer on the approve page.\n\n"
     except Exception:
         pass
+    # With daily posting on, tomorrow's post replaces this one (_save_pending), well before the 48 hours.
+    expiry = ("If you don't approve it, it never goes out, and tomorrow's post replaces it, so stale news never goes out."
+              if company.get("active") else "Posts you don't approve expire after 48 hours, so stale news never goes out.")
     text = (f"{html.unescape(intro)}\n\n{preview}\n\n"
             + (f"{src_text}\n\n" if src_text else "") + ask
-            + f"Review and approve (no login needed): {url}\n\nPosts you don't approve expire after 48 hours.")
+            + f"Review and approve (no login needed): {url}\n\n{expiry}")
     body = _layout("Ready for your OK" if not held_reason else "Held for your review",
-                   paras, button=("Review and approve", url), quote=preview,
-                   footer="Posts you don't approve expire after 48 hours, so stale news never goes out.")
+                   paras, button=("Review and approve", url), quote=preview, footer=expiry)
     return send(company.get("user_id", ""), f"ready:{pending_id}", "post_ready", subject, text, body)
 
 
+REMIND_AFTER_HOURS = (10, 22)   # one nudge in this window, before tomorrow's post replaces it at about 24
+
+
 def approval_reminders() -> int:
-    """One nudge per held post, about 12 hours before it expires unseen."""
+    """One nudge per held post, 10-22 hours after the email: a daily profile's next post replaces it
+    at about 24 hours, and anything else expires at 48."""
     from autonomous import PENDING_TTL_HOURS
     now = datetime.now()
-    newest = (now - timedelta(hours=PENDING_TTL_HOURS - 12)).isoformat()
-    oldest = (now - timedelta(hours=PENDING_TTL_HOURS - 1)).isoformat()
+    newest = (now - timedelta(hours=REMIND_AFTER_HOURS[0])).isoformat()
+    oldest = (now - timedelta(hours=REMIND_AFTER_HOURS[1])).isoformat()
     sent = 0
     try:
         items = list(db.pending_posts.find({"status": "pending", "created_at": {"$lt": newest, "$gt": oldest}},
-                                           {"_id": 0, "id": 1, "user_id": 1, "company_name": 1, "post_type": 1,
-                                            "post_text": 1, "created_at": 1}))
+                                           {"_id": 0, "id": 1, "user_id": 1, "company_id": 1, "company_name": 1,
+                                            "post_type": 1, "post_text": 1, "created_at": 1}))
     except Exception:
         logger.exception("[notify] reminder sweep failed")
         return 0
     for p in items:
         name = p.get("company_name") or "your profile"
-        hours = max(1, int((datetime.fromisoformat(p["created_at"]) + timedelta(hours=PENDING_TTL_HOURS) - now)
-                           .total_seconds() // 3600))
+        daily = bool((db.companies.find_one({"id": p.get("company_id", "")}, {"_id": 0, "active": 1}) or {}).get("active"))
+        left = timedelta(hours=24 if daily else PENDING_TTL_HOURS) - (now - datetime.fromisoformat(p["created_at"]))
+        hours = max(1, int(left.total_seconds() // 3600))
         preview = (p.get("post_text") or "").strip()
         preview = preview[:400].rstrip() + ("…" if len(preview) > 400 else "")
         url = _approve_url(p["id"])
-        subject = f"Your post for {name} expires in {hours} hours"
-        intro = (f"Voyce's {html.escape(p.get('post_type') or 'post')} for {html.escape(name)} is still waiting. "
-                 f"If you don't approve it in the next {hours} hours, it won't go out.")
+        kind = html.escape(p.get("post_type") or "post")
+        if daily:
+            subject = f"Your post for {name} is still waiting"
+            intro = (f"Voyce's {kind} for {html.escape(name)} is still waiting for your OK. Tomorrow's post replaces "
+                     f"it in about {hours} hours, so approve it before then if you want it on LinkedIn.")
+        else:
+            subject = f"Your post for {name} expires in {hours} hours"
+            intro = (f"Voyce's {kind} for {html.escape(name)} is still waiting. "
+                     f"If you don't approve it in the next {hours} hours, it won't go out.")
         text = f"{html.unescape(intro)}\n\n{preview}\n\nReview and approve (no login needed): {url}"
         body = _layout("Still waiting for your OK", [intro], button=("Review and approve", url), quote=preview,
                        footer="This is the only reminder for this post.")
         if send(p.get("user_id", ""), f"remind:{p['id']}", "approval_reminder", subject, text, body):
             sent += 1
     return sent
+
+
+# Errors already written for people: LinkedIn's (linkedin.describe_api_failure) and our own.
+_PLAIN_ERRORS = ("LinkedIn", "Carousel", "Image", "Person ID")
+
+
+def _plain_reason(error: str) -> str:
+    """Why a run failed, in words the customer can use. Raw API errors (a Claude 529 with its JSON,
+    a timeout) are logged, not emailed."""
+    reason = (error or "").strip()
+    if reason.startswith(_PLAIN_ERRORS):
+        return reason[:240] + ("…" if len(reason) > 240 else "")
+    logger.warning(f"[notify] run failed: {reason[:500]}")
+    low = reason.lower()
+    if any(k in low for k in ("overloaded", "529", "429", "503", "rate limit", "quota", "resource_exhausted", "busy")):
+        return "the AI that writes your posts was overloaded at that moment. Nothing was published."
+    if "timed out" in low or "timeout" in low:
+        return "writing it took too long and was stopped. Nothing was published."
+    return "something went wrong on our side while writing it. Nothing was published, and we've logged the details."
 
 
 def post_failed(company: dict, error: str, local_day: str) -> bool:
@@ -218,12 +250,12 @@ def post_failed(company: dict, error: str, local_day: str) -> bool:
                        button=("Reconnect LinkedIn", _QUEUE_URL))
         return send(uid, f"li_reconnect:{uid}:{bucket}", "li_reconnect", subject, text, body)
     subject = f"Today's post for {name} didn't go out"
-    reason = (error or "an unexpected error").strip()
-    if len(reason) > 240:
-        reason = reason[:240] + "…"
-    intro = (f"Voyce tried to write and publish today's post for {html.escape(name)}, but it failed: "
+    reason = _plain_reason(error)
+    intro = (f"Voyce tried to write today's post for {html.escape(name)}, but it failed: "
              f"<em>{html.escape(reason)}</em>")
-    nxt = "You can try again with <strong>Post now</strong> on the profile, or it will run again at the next scheduled time."
+    button = "✎ Write now" if company.get("approval_mode") else "▶ Post now"
+    nxt = (f"You can try again with <strong>{button}</strong> on the profile in Settings, "
+           "or it will run again at the next scheduled time.")
     text = f"{html.unescape(intro)}\n\n{html.unescape(nxt)}\n\nOpen Voyce: {_QUEUE_URL}"
     body = _layout("A post didn't go out", [intro, nxt], button=("Open Voyce", _QUEUE_URL))
     return send(uid, f"failed:{company.get('id')}:{local_day}", "post_failed", subject, text, body)

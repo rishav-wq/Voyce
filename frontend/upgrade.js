@@ -13,9 +13,10 @@
       </div>
       <ul style="list-style:none;margin:0 0 28px;padding:0;">
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-gens"><strong>Unlimited</strong> generations</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>Daily posting</strong> on your schedule</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-ai"><strong>40 AI pictures</strong> per pass · image cards unlimited</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>A post every morning</strong>, ready for you to approve</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
-        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousel PDFs (automated)</span></li>
+        <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousels in your daily posts</span></li>
         <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-drafts"><strong>Unlimited</strong> previews and idea lists</span></li>
         <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Every daily post logged with its source</span></li>
       </ul>
@@ -96,6 +97,8 @@
         if (gens) gens.innerHTML = inIndia
           ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"
           : "<strong>Unlimited</strong> generations";
+        const ai = document.getElementById("upgrade-ai");
+        if (ai) ai.innerHTML = "<strong>" + (_payConfig.pass_ai_pictures || (inIndia ? 10 : 40)) + " AI pictures</strong> per pass · image cards unlimited";
       }
     } catch (_) {}
     return _payConfig;
@@ -147,7 +150,7 @@
               }),
             });
             if (!vres.ok) throw new Error("verification failed");
-            _toast("🎉 Welcome to Voyce Pro! Unlimited generations unlocked.", "success");
+            _toast("🎉 Welcome to Voyce Pro! Your 30-day pass is on.", "success");
             window.closeUpgradeModal();
             _refreshPlan();
           } catch (_) {

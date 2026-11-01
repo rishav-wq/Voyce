@@ -63,6 +63,8 @@ def get_config(region: str = REGION_INTL) -> dict:
         "region": region,
         "autopilot_profiles": INDIA_AUTOPILOT_PROFILES if region == REGION_IN else None,
         "pass_generations": INDIA_PASS_GENERATIONS if region == REGION_IN else None,
+        "pass_ai_pictures": INDIA_PASS_AI_PICTURES if region == REGION_IN else INTL_PASS_AI_PICTURES,
+        "free_ai_pictures": FREE_AI_PICTURES,
         "max_profiles": MAX_PROFILES,
     }
 

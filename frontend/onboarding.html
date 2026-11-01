@@ -134,7 +134,7 @@
           </div>
           <div class="form-group">
             <label>Paste 1–3 of your LinkedIn posts <span class="optional-tag">(optional, makes it sound like you)</span></label>
-            <textarea id="ob-posts" placeholder="Paste a few recent posts, with a blank line between them."></textarea>
+            <textarea id="ob-posts" placeholder="Paste a few recent posts, with a line of --- (three dashes) between them."></textarea>
             <p class="form-hint">Skip it and Voyce writes in a clear, conversational voice. You can add posts later in Settings.</p>
           </div>
           <div id="ob-error" class="error-msg"></div>
@@ -144,7 +144,7 @@
         <div class="ob-foot">
           <span class="ob-skip" onclick="skipOnboarding()">Skip — just let me start writing →</span>
         </div>
-        <p class="ob-company-note">Posting for a client? <a href="/setup#profiles">Add a profile for them</a> in Settings, then send them a link to connect their LinkedIn.</p>
+        <p class="ob-company-note">Posting for a client? <a href="/setup#profiles" onclick="skipOnboarding('/setup#profiles');return false;">Add a profile for them</a> in Settings, then send them a link to connect their LinkedIn.</p>
       </div>
 
       <!-- Loading -->
@@ -406,11 +406,13 @@
     }
 
     // Skip sticks: Write and Queue would otherwise send a profile-less account back here.
-    async function skipOnboarding() {
+    // Settings sends an account that hasn't finished onboarding back here, so the
+    // client link marks it done first, the same as Skip.
+    async function skipOnboarding(dest = "/tool") {
       if (window.vTrack) vTrack("onboarding_skipped");
       try { await fetch("/auth/onboarding-done", { method: "POST", headers: { "x-token": getToken() } }); } catch (_) {}
       try { const u = getUser(); if (u) { u.needs_onboarding = false; localStorage.setItem("cm_user", JSON.stringify(u)); } } catch (_) {}
-      window.location.href = "/tool";
+      window.location.href = dest;
     }
 
     // The real daily pipeline (this week's news + the voice), without posting.
