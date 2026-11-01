@@ -35,7 +35,6 @@ function pickProfile(id) {
   setActiveProfile(id);
   const sel = document.getElementById("profile-picker");
   if (sel) sel.value = id;
-  _restoreIdeas();   // that person's ideas, not the last person's
   _setPreviewAuthor();
   _syncWhatsAppTarget();
   _renderDrafts();
@@ -63,13 +62,10 @@ async function loadProfilePicker() {
     }
     _paintSideProfile();
     loadTodayIdeas();
-    // Ideas need a profile to draw a niche from; the tool panel is always visible,
-    // so it is the run button that waits rather than the whole row.
     _syncToolRuns();
     _setPreviewAuthor();
     _syncWhatsAppTarget();
-    _renderDrafts();   // now it knows whose drafts and ideas to show
-    _restoreIdeas();
+    _renderDrafts();   // now it knows whose drafts to show
   } catch (_) { _profilesKnown = true; updateProgress(); }
 }
 
@@ -78,122 +74,6 @@ function _escHtmlCreate(s) {
     c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-// ── Post ideas on Create: pillar-spanning, grounded in live news ──────────────
-let _createIdeas = [];
-// Ideas stay put: saved per profile (this browser and account), so a trip to Queue or Settings,
-// a reload, or switching "Writing as" no longer throws a list away. They lapse after a week,
-// since they react to that week's news.
-const _IDEAS_TTL = 7 * 864e5;
-function _ideasKey(pid) { return `cm_ideas:${_uid()}:${pid}`; }
-function _ideasPid() { return getActiveProfileId() || (_profiles[0] && _profiles[0].id) || ""; }
-function _saveIdeas(pid, ideas) {
-  try { localStorage.setItem(_ideasKey(pid), JSON.stringify({ at: Date.now(), ideas })); } catch (_) {}
-}
-function _savedIdeas(pid) {
-  try {
-    const s = JSON.parse(localStorage.getItem(_ideasKey(pid)) || "null");
-    return s && Date.now() - s.at < _IDEAS_TTL && (s.ideas || []).length ? s : null;
-  } catch (_) { return null; }
-}
-function _renderIdeas(ideas, at) {
-  _createIdeas = ideas;
-  _markToolFilled("ideas", true);
-  document.getElementById("ideas-out").innerHTML =
-    (at ? `<div class="ideas-when">Suggested ${_escHtmlCreate(_ago(at))} · run it again for fresh ones</div>` : "") +
-    ideas.map((it, i) => `
-      <div class="idea-card">
-        <div class="idea-hook">${_escHtmlCreate(it.hook)}</div>
-        <div class="idea-meta">
-          <span class="idea-type">${_escHtmlCreate(it.post_type_label || "Post")}</span>${it.why ? " · " + _escHtmlCreate(it.why) : ""}${it.source ? " · 📰 " + _escHtmlCreate(it.source) : " · evergreen"}
-        </div>
-        ${it.based_on && it.based_on !== it.source ? `<div class="idea-basis">Based on: ${_escHtmlCreate(it.based_on)}</div>` : ""}
-        <button type="button" class="idea-use" onclick="useIdea(${i})">Use this idea →</button>
-      </div>`).join("");
-}
-// The "Writing as" profile's saved ideas, or an empty panel
-function _restoreIdeas() {
-  const out = document.getElementById("ideas-out");
-  if (!out) return;
-  const pid = _ideasPid(), s = pid ? _savedIdeas(pid) : null;
-  if (s) { _renderIdeas(s.ideas, s.at); return; }
-  out.innerHTML = "";
-  _createIdeas = [];
-  _markToolFilled("ideas", false);
-}
-async function suggestIdeasCreate() {
-  const out = document.getElementById("ideas-out");
-  const pid = _ideasPid();
-  if (!pid) { toast("Create a profile first, then I can suggest ideas.", "warn"); return; }
-  showTool("ideas");
-  // Only Paste Text is a brief. A link in the URL or YouTube tab used to steer the
-  // ideas too, as if "https://youtube.com/…" were the topic.
-  const seed = activeType === "text" ? ((document.getElementById("content-input") || {}).value || "") : "";
-  const seeded = !!seed.trim();
-  out.innerHTML = `<div class="tool-empty">${seeded
-    ? "Drafting ideas from what you typed, plus the latest news…"
-    : "Reading the latest news and drafting ideas…"} about 10 seconds, and nothing gets posted.</div>`;
-  try {
-    // What's typed in Paste Text steers the ideas. Without it they could only
-    // ever be "your niche + today's news", which is why they came back generic.
-    const res = await fetch(`/companies/${pid}/ideas`, {
-      method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ context: seed.trim().slice(0, 1200) }),
-    });
-    const data = await res.json();
-    if (data.detail === "LIMIT_REACHED") {
-      // Free accounts: idea lists come out of the 5 generations.
-      out.innerHTML = `<div class="tool-empty">You've used your 5 free generations, and idea lists use them too.</div>`;
-      showError("LIMIT_REACHED");
-      return;
-    }
-    if (String(data.detail || "").startsWith("PASS_LIMIT_REACHED:")) {
-      // India pass: idea lists come out of its 60 generations.
-      out.innerHTML = `<div class="tool-empty">${_escHtmlCreate(String(data.detail).slice("PASS_LIMIT_REACHED:".length))}</div>`;
-      showError(data.detail);
-      return;
-    }
-    if (!res.ok) throw new Error(data.detail || "Couldn't get ideas right now.");
-    const ideas = data.ideas || [];
-    if (ideas.length) _saveIdeas(pid, ideas);
-    if (_ideasPid() !== pid) return;   // switched "Writing as" meanwhile: they're saved for later
-    if (!ideas.length) { out.innerHTML = `<div class="tool-empty">No ideas came back — try again in a moment.</div>`; return; }
-    _renderIdeas(ideas, 0);
-  } catch (e) {
-    out.innerHTML = `<div style="font-size:12.5px;color:#c0392b;line-height:1.5;">${_escHtmlCreate(e.message)}</div>`;
-  }
-}
-
-function useIdea(i) {
-  const it = _createIdeas[i];
-  if (!it) return;
-  const ta = document.getElementById("content-input");
-  if (!ta) return;
-  // Switch to Paste Text mode so the seed generates correctly (mirrors applySeedTopic)
-  _switchInputTab("text");   // keeps whatever was in the other tab there
-  const parts = [`Write a ${it.post_type_label || "LinkedIn"} post about: ${it.hook}.`];
-  if (it.why) parts.push(it.why);
-  if (it.based_on && it.based_on !== it.source) parts.push(`Build it on this real fact about them: "${it.based_on}".`);
-  if (it.source) parts.push(`It should react to this from the news: "${it.source}".`);
-  ta.value = parts.join(" ");
-  ta.scrollIntoView({ behavior: "smooth", block: "center" });
-  ta.focus();
-  // Don't auto-generate — the idea has no format of its own, so let the user pick
-  // Generate Content (text post) or Carousel PDF (respects the Brand/Format above).
-  _flashGenButtons();
-  toast("Idea loaded — pick Generate Content or Carousel PDF.", "success");
-}
-
-// Briefly highlight the two generate buttons so it's obvious what to do next.
-function _flashGenButtons() {
-  ["generate-btn", "carousel-btn"].forEach(id => {
-    const b = document.getElementById(id);
-    if (!b) return;
-    const prev = b.style.boxShadow;
-    b.style.transition = "box-shadow .2s";
-    b.style.boxShadow = "0 0 0 3px rgba(108,71,255,.55)";
-    setTimeout(() => { b.style.boxShadow = prev; }, 1600);
-  });
-}
 function getUser()  { try { return JSON.parse(localStorage.getItem("cm_user") || "null"); } catch { return null; } }
 function authHeaders(extra) { return { "Content-Type": "application/json", "x-token": getToken(), ...(extra||{}) }; }
 
@@ -965,11 +845,6 @@ function showTool(name) {
   document.querySelectorAll(".tool-pane").forEach(p =>
     p.classList.toggle("active", p.id === `tool-${name}`));
   _syncToolRuns();
-  // Only matters on narrow screens, where the panel sits below the work column.
-  if (window.innerWidth < 1200) {
-    const t = document.getElementById("work-tools");
-    if (t) t.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
 }
 
 // A green dot on a tab means that tool has something in it right now.
@@ -989,8 +864,6 @@ function _syncToolRuns() {
     b.disabled = !hasPost;
     b.textContent = hasPost ? label : "Generate a post first";
   });
-  const ideas = document.getElementById("ideas-run");
-  if (ideas) ideas.disabled = !(_profiles && _profiles.length);
 }
 
 // ── Hashtags ──────────────────────────────────────────────────────────────────
@@ -1305,7 +1178,8 @@ function _renderDrafts() {
   const sec = document.getElementById("drafts-section"), grid = document.getElementById("drafts-grid");
   if (!sec || !grid) return;
   const list = _scopedDrafts(), prof = _activeProfile(), split = _profiles.length >= 2;
-  _markToolFilled("recent", list.length > 0);   // drafts live in the Recent tab, out of the post's way
+  const n = document.getElementById("recent-n");   // the Recent button by the box says how many there are
+  if (n) { n.textContent = list.length; n.hidden = !list.length; }
   const count = document.getElementById("drafts-count"), filter = document.getElementById("drafts-filter");
   count.textContent = list.length;
   count.hidden = split;   // the filter carries the counts
@@ -2086,7 +1960,7 @@ async function makeFormat(kind, el) {
 (() => {   // the tiles and the ready bar follow the post: shown, cleared, edited, or opened from a draft
   // The slide-out and its scrim move to the page's top level, so the scrim covers the menu too
   // instead of stacking inside the page's column.
-  ["work-preview", "wp-scrim"].forEach(id => { const el = document.getElementById(id); if (el) document.body.appendChild(el); });
+  ["work-preview", "recent-panel", "wp-scrim"].forEach(id => { const el = document.getElementById(id); if (el) document.body.appendChild(el); });
   const out = document.getElementById("output-section");
   if (out && window.MutationObserver) new MutationObserver(_syncFormats).observe(out, { attributes: true, attributeFilter: ["class"] });
   if (!window.MutationObserver) return;
@@ -2109,20 +1983,32 @@ function _hasCarousel() {
   const cs = document.getElementById("carousel-section");
   return !!(cs && cs.classList.contains("visible"));
 }
-function openPreview() {
-  const wp = document.getElementById("work-preview");
-  if (!wp || wp.classList.contains("open")) return;
-  _previewReturn = document.activeElement;
-  document.getElementById("wp-title").textContent = _hasPost() || !_hasCarousel() ? "Your post" : "Your carousel";
-  wp.classList.add("open");
+// One slide-out at a time: the post (#work-preview) or Recent (#recent-panel), over one scrim
+function _openPanel(id) {
+  const panel = document.getElementById(id);
+  if (!panel || panel.classList.contains("open")) return;
+  const other = document.querySelector(".work-preview.open");
+  if (other) other.classList.remove("open");   // a draft opened from Recent: the post takes its place
+  else _previewReturn = document.activeElement;
+  panel.classList.add("open");
   document.getElementById("wp-scrim").classList.add("on");
-  setTimeout(() => { const c = document.getElementById("wp-close"); if (c) c.focus({ preventScroll: true }); }, 60);
+  document.documentElement.classList.add("panel-open");
+  setTimeout(() => { const c = panel.querySelector(".wp-close"); if (c) c.focus({ preventScroll: true }); }, 60);
+}
+function openPreview() {
+  document.getElementById("wp-title").textContent = _hasPost() || !_hasCarousel() ? "Your post" : "Your carousel";
+  _openPanel("work-preview");
+}
+function openRecent() {
+  _renderDrafts();
+  _openPanel("recent-panel");
 }
 function closePreview() {
-  const wp = document.getElementById("work-preview");
-  if (!wp || !wp.classList.contains("open")) return;
-  wp.classList.remove("open");
+  const open = document.querySelector(".work-preview.open");
+  if (!open) return;
+  open.classList.remove("open");
   document.getElementById("wp-scrim").classList.remove("on");
+  document.documentElement.classList.remove("panel-open");
   if (_previewReturn && _previewReturn.focus) _previewReturn.focus({ preventScroll: true });
 }
 function _syncReadyBar() {

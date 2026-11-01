@@ -182,43 +182,40 @@
     .tool-run:hover { background: #e7ebf4; border-color: #24365e; }
     .tool-run:disabled { opacity: .55; cursor: not-allowed; }
     .tool-empty { font-size: 12.5px; color: #98a0ae; line-height: 1.55; padding: 10px 0 0; }
-    #ideas-out { margin-top: 12px; }
 
-    /* Idea and history cards, sized for a 356px column rather than full width */
-    .idea-card { border: 1.5px solid #e4e7ec; border-radius: 11px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
-    .idea-card:hover { border-color: #c9d2e2; }
-    .idea-hook { font-size: 13.5px; font-weight: 600; color: #16181d; line-height: 1.4; }
-    .idea-meta { font-size: 11.5px; color: #98a0ae; margin-top: 5px; line-height: 1.5; }
-    .idea-type { color: #24365e; font-weight: 700; }
-    .idea-use {
-      margin-top: 10px; width: 100%; background: #fff; border: 1.5px solid #dbe2ee; border-radius: 9px;
-      padding: 7px 10px; font-family: inherit; font-size: 12.5px; font-weight: 700; color: #24365e; cursor: pointer;
-      transition: background .14s, border-color .14s;
-    }
-    .idea-use:hover { background: #f4f6fb; border-color: #24365e; }
+    /* History cards, sized for the tools column rather than full width */
     .hist-item { border: 1px solid #e4e7ec; border-radius: 10px; padding: 10px 12px; margin-bottom: 7px; }
     .hist-text { font-size: 12.5px; color: #3c3832; line-height: 1.5; max-height: 3em; overflow: hidden; }
     .hist-foot { margin-top: 8px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
     .hist-foot span { font-size: 11px; color: #98a0ae; }
 
-    /* The post opens in a slide-out from the right, at LinkedIn's own feed width (about 555px of
-       text), so its "…see more" fold stays true. The page keeps the box, the ideas and the formats;
-       the bar under the box opens it again. */
-    .work-preview { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); z-index: 900;
-      background: #f4f6fa; box-shadow: -24px 0 60px rgba(22,24,29,.18); overflow-y: auto; overscroll-behavior: contain;
-      padding: 0 18px 28px; transform: translateX(104%); visibility: hidden;
-      transition: transform .28s cubic-bezier(.2,.8,.2,1), visibility 0s linear .28s; }
-    .work-preview.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2,.8,.2,1), visibility 0s; }
-    .wp-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
-      padding: 16px 0 12px; background: #f4f6fa; }
-    .wp-head b { font-size: 16px; color: #16181d; }
-    .wp-head span { font-size: 12.5px; color: #8a909c; flex: 1; }
-    .wp-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid #dde2ea; background: #fff;
-      font-size: 16px; color: #3c4250; cursor: pointer; flex: none; }
-    .wp-close:hover { border-color: #24365e; }
-    .wp-scrim { position: fixed; inset: 0; z-index: 899; background: rgba(15,20,30,.32); opacity: 0;
-      pointer-events: none; transition: opacity .25s; }
+    /* The post opens in a slide-out: the same floating card as a lead on the Sales page, at LinkedIn's
+       own feed width (about 555px of text), so its "…see more" fold stays true. The page keeps the box,
+       the ideas and the formats; the bar under the box opens it again. */
+    .work-preview { position: fixed; top: 14px; right: 14px; bottom: 14px; width: min(620px, calc(100vw - 28px)); z-index: 900;
+      background: #fff; border-radius: 16px; box-shadow: 0 1px 2px rgba(22,24,29,.05), 0 16px 40px rgba(22,24,29,.14);
+      overflow-y: auto; overscroll-behavior: contain; padding: 0 28px 28px;
+      visibility: hidden; opacity: 0; transform: translateX(24px); pointer-events: none;
+      transition: opacity .18s ease-out, transform .18s ease-out, visibility 0s linear .18s; }
+    .work-preview.open { visibility: visible; opacity: 1; transform: none; pointer-events: auto;
+      transition: opacity .18s ease-out, transform .18s ease-out, visibility 0s; }
+    .wp-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      margin: 0 -28px 18px; padding: 22px 28px 14px; background: #fff; border-bottom: 1px solid #e4e7ec; }
+    .wp-head b { display: block; font-size: 22px; font-weight: 800; color: #16181d; line-height: 1.2; }
+    .wp-head span { display: block; font-size: 13px; color: #6b7280; margin-top: 2px; }
+    .wp-close { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px;
+      background: transparent; color: #6b7280; cursor: pointer; }
+    .wp-close:hover { background: #f3f5f8; color: #16181d; }
+    .wp-close svg { width: 20px; height: 20px; }
+    .wp-scrim { position: fixed; inset: 0; z-index: 899; background: rgba(22,24,29,.32); opacity: 0;
+      pointer-events: none; transition: opacity .18s; overscroll-behavior: contain; }
+    @media (min-width: 861px) { .wp-scrim { left: 248px; } }   /* the menu stays bright, as on the Sales page */
     .wp-scrim.on { opacity: 1; pointer-events: auto; }
+    html.panel-open { overflow: hidden; }   /* the page behind holds still while the post is open */
+    @media (max-width: 860px) {
+      .work-preview { top: 8px; right: 8px; bottom: 8px; left: 8px; width: auto; border-radius: 14px; padding: 0 16px 24px; }
+      .wp-head { margin: 0 -16px 16px; padding: 16px 16px 12px; }
+    }
     .work-preview .output-section.visible { margin: 0 0 18px; }
     .work-preview .output-grid { grid-template-columns: 1fr; }
     .work-preview .output-section-title { display: none; }   /* each card's badge says what it is */
@@ -574,8 +571,6 @@
     .wa-shot .li-react svg { width: 18px; height: 18px; stroke: rgba(0,0,0,.6); }
     .wa-shot-foot { padding-top: 9px; text-align: center; font-size: 11px; color: rgba(0,0,0,.45); }
     .wa-shot-foot b { font-family: 'Space Grotesk', sans-serif; color: #24365e; }
-    .ideas-when { font-size: 11.5px; color: #98a0ae; margin-bottom: 8px; }
-    .idea-basis { font-size: 11.5px; color: #5b6270; margin: 4px 0 2px; line-height: 1.45; border-left: 2px solid #d3d8e0; padding-left: 7px; }
     .li-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
     .li-preview-head > div { min-width: 0; }   /* lets a long title end in "…" instead of running past the card */
     .li-grow { display: none; }
@@ -812,10 +807,19 @@
        is one), centred under the formats at every width */
     .workspace { margin-top: 26px; grid-template-columns: minmax(0, 760px); justify-content: center; }
     .work-main { display: contents; }   /* its slide-out and scrim are fixed; only the schedule card takes a row */
-    #tool-recent .drafts-section { margin: 0; }
-    #tool-recent .drafts-head { margin-bottom: 10px; }
-    #tool-recent .drafts-note { display: block; font-size: 12.5px; color: #98a0ae; line-height: 1.5; }
-    #tool-recent .drafts-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    #recent-panel .drafts-section { margin: 0; }
+    #recent-panel .drafts-head { margin-bottom: 12px; }
+    #recent-panel .drafts-note, #recent-panel .drafts-count { display: none; }   /* the heading and the Recent button say it */
+    #recent-panel .drafts-head:not(:has(.drafts-filter:not([hidden]))) { display: none; }
+    /* Rewrites and hashtags sit under the post in its slide-out */
+    .work-preview .work-tools { position: static; max-height: none; margin-top: 16px; box-shadow: none; }
+    .work-preview .tool-body { max-height: none; overflow: visible; }
+    /* Recent, beside "Write my post" */
+    .box-acts { display: flex; gap: 8px; align-items: center; }
+    .recent-btn { display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid #dbe2ee; background: #fff; color: #24365e;
+      font: inherit; font-size: 14px; font-weight: 700; border-radius: 10px; padding: 11px 14px; cursor: pointer; white-space: nowrap; }
+    .recent-btn:hover { border-color: #24365e; }
+    .recent-n { background: #eef1f8; color: #24365e; border-radius: 99px; font-size: 11.5px; padding: 1px 7px; }
     .tool-tab { padding-left: 2px; padding-right: 2px; }
     /* Who it's written as, and what's left in the plan, in the menu */
     .side-prof { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
@@ -840,6 +844,7 @@
       .tday { scroll-snap-align: start; }
       .fmt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .box-row .generate-btn { width: 100%; }
+      .box-acts { width: 100%; } .box-acts .generate-btn { flex: 1; width: auto; }
     }
   </style>
   <script src="/analytics.js" async></script>
@@ -939,10 +944,13 @@
       <textarea id="content-input" placeholder="e.g. why most sales follow-ups die at the second email…" rows="3"></textarea>
       <div class="box-row">
         <span class="box-cost">Writing the post uses <b>1 generation</b> · in your voice, from your topics and this week's news</span>
-        <button class="generate-btn" id="generate-btn" onclick="generate()">
-          <span id="btn-text">Write my post →</span>
-          <span id="btn-loader" style="display:none;">Writing…</span>
-        </button>
+        <div class="box-acts">
+          <button type="button" class="recent-btn" id="recent-btn" onclick="openRecent()">🕘 Recent<span class="recent-n" id="recent-n" hidden></span></button>
+          <button class="generate-btn" id="generate-btn" onclick="generate()">
+            <span id="btn-text">Write my post →</span>
+            <span id="btn-loader" style="display:none;">Writing…</span>
+          </button>
+        </div>
       </div>
       <!-- The image toggle, design picker and carousel button the page had before: the format tiles
            below drive them now (makeFormat), so they stay in the page, out of sight. -->
@@ -1139,8 +1147,8 @@
 
     <!-- The post and the carousel: under the formats, or their own column on a wide screen -->
     <div class="work-preview" id="work-preview" role="dialog" aria-modal="true" aria-labelledby="wp-title">
-    <div class="wp-head"><b id="wp-title">Your post</b><span>Click the text to edit it</span>
-      <button type="button" class="wp-close" id="wp-close" onclick="closePreview()" aria-label="Close the preview">✕</button></div>
+    <div class="wp-head"><div><b id="wp-title">Your post</b><span>Click the text to edit it</span></div>
+      <button type="button" class="wp-close" id="wp-close" onclick="closePreview()" aria-label="Close the preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 
     <!-- Output -->
     <div class="output-section" id="output-section">
@@ -1201,6 +1209,26 @@
           </div>
         </div>
       </div>
+      <!-- What you can do to the post: another version or hashtags, right under it -->
+      <div class="work-tools" id="work-tools">
+        <div class="tool-tabs" role="tablist" aria-label="Improve this post">
+          <button class="tool-tab active" role="tab" data-tool="rewrites" onclick="showTool('rewrites')">⟳ Rewrites<span class="tool-dot"></span></button>
+          <button class="tool-tab"        role="tab" data-tool="hashtags" onclick="showTool('hashtags')"># Hashtags<span class="tool-dot"></span></button>
+        </div>
+        <div class="tool-body">
+          <div class="tool-pane active" id="tool-rewrites" role="tabpanel">
+            <p class="tool-intro">Two more versions of the post you have — same facts and voice, different hook.</p>
+            <button type="button" class="tool-run" id="rewrites-run" onclick="generateVariations()">⟳ Rewrite this post</button>
+            <div id="variants-row" style="display:none;margin-top:12px;"></div>
+          </div>
+
+          <div class="tool-pane" id="tool-hashtags" role="tabpanel">
+            <p class="tool-intro">Tags that fit this post, mixed between broad reach and your niche.</p>
+            <button type="button" class="tool-run" id="hashtags-run" onclick="suggestHashtags()"># Suggest hashtags</button>
+            <div id="hashtags-row" style="display:none;margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Carousel Output -->
@@ -1231,6 +1259,21 @@
     </div><!-- /work-preview -->
     <div class="wp-scrim" id="wp-scrim" onclick="closePreview()"></div>
 
+    <!-- Recent: everything made here, in the same slide-out as the post; a card opens it there -->
+    <div class="work-preview" id="recent-panel" role="dialog" aria-modal="true" aria-labelledby="recent-title">
+      <div class="wp-head"><div><b id="recent-title">Recent</b><span>Your posts, pictures and carousels, saved in this browser. Click one to open it.</span></div>
+        <button type="button" class="wp-close" onclick="closePreview()" aria-label="Close recent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="drafts-section" id="drafts-section">
+        <div class="drafts-head">
+          <span class="drafts-note">Your recent posts, pictures and carousels · saved in this browser · click one to open it</span>
+          <span class="drafts-count" id="drafts-count" hidden>0</span>
+          <div class="drafts-filter" id="drafts-filter" hidden role="group" aria-label="Whose drafts"></div>
+        </div>
+        <div class="drafts-grid" id="drafts-grid"></div>
+        <button type="button" class="action-btn drafts-more" id="drafts-more" style="display:none;" onclick="toggleAllDrafts()">Show all</button>
+      </div>
+    </div>
+
     <!-- Queue -->
     <div class="queue-card" id="queue-section">
       <h3>Scheduled Posts</h3>
@@ -1241,51 +1284,6 @@
 
     <!-- ── Tools. One panel, four tabs, each with its own run button, so nothing
          has to sit in the preview card's header any more. ── -->
-    <aside class="work-tools" id="work-tools">
-      <div class="tool-tabs" role="tablist" aria-label="Post tools">
-        <button class="tool-tab active" role="tab" data-tool="ideas"    onclick="showTool('ideas')">💡 Ideas<span class="tool-dot"></span></button>
-        <button class="tool-tab"        role="tab" data-tool="rewrites" onclick="showTool('rewrites')">⟳ Rewrites<span class="tool-dot"></span></button>
-        <button class="tool-tab"        role="tab" data-tool="hashtags" onclick="showTool('hashtags')"># Tags<span class="tool-dot"></span></button>
-        <button class="tool-tab"        role="tab" data-tool="recent"   onclick="showTool('recent')">🕘 Recent<span class="tool-dot"></span></button>
-      </div>
-      <div class="tool-body">
-
-        <div class="tool-pane active" id="tool-ideas" role="tabpanel">
-          <p class="tool-intro">What to post about, from your profile's topics and this week's news.
-            <strong style="color:#5b6270;font-weight:600;">Type a topic or rough notes under Idea or notes</strong>
-            and the ideas follow that instead. Nothing gets posted.</p>
-          <button type="button" class="tool-run" id="ideas-run" onclick="suggestIdeasCreate()">💡 Suggest post ideas</button>
-          <div id="ideas-out"></div>
-        </div>
-
-        <div class="tool-pane" id="tool-rewrites" role="tabpanel">
-          <p class="tool-intro">Two more versions of the post you have — same facts and voice, different hook.</p>
-          <button type="button" class="tool-run" id="rewrites-run" onclick="generateVariations()">⟳ Rewrite this post</button>
-          <div id="variants-row" style="display:none;margin-top:12px;"></div>
-        </div>
-
-        <div class="tool-pane" id="tool-hashtags" role="tabpanel">
-          <p class="tool-intro">Tags that fit this post, mixed between broad reach and your niche.</p>
-          <button type="button" class="tool-run" id="hashtags-run" onclick="suggestHashtags()"># Suggest hashtags</button>
-          <div id="hashtags-row" style="display:none;margin-top:12px;"></div>
-        </div>
-
-        <!-- Recent: everything made here, as small cards, out of the way of the post until asked for.
-             Click a card to open it in the preview. -->
-        <div class="tool-pane" id="tool-recent" role="tabpanel">
-          <div class="drafts-section" id="drafts-section">
-            <div class="drafts-head">
-              <span class="drafts-note">Your recent posts, pictures and carousels · saved in this browser · click one to open it</span>
-              <span class="drafts-count" id="drafts-count" hidden>0</span>
-              <div class="drafts-filter" id="drafts-filter" hidden role="group" aria-label="Whose drafts"></div>
-            </div>
-            <div class="drafts-grid" id="drafts-grid"></div>
-            <button type="button" class="action-btn drafts-more" id="drafts-more" style="display:none;" onclick="toggleAllDrafts()">Show all</button>
-          </div>
-        </div>
-
-      </div>
-    </aside>
     </div><!-- /workspace -->
   </main>
   </div>
@@ -1304,7 +1302,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=27"></script>
+  <script src="/static/app.js?v=30"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async
