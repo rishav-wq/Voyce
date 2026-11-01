@@ -306,8 +306,37 @@
     .seg-hint { font-size: 11.5px; color: #98a0ae; margin: 4px 0 8px 0; }
     /* One look for the dropdowns that remain */
     .dash-body select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6270' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; padding-right: 28px !important; }
+    /* No page titles (Nov 2026): Queue opens on one status line, Settings on its tabs */
+    .q-status { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e4e7ec; border-radius: 12px;
+      padding: 11px 14px; margin: 0 0 18px; }
+    .view-head.q-status p { margin: 0; font-size: 14px; color: #3f4554; line-height: 1.45; max-width: none; }
+    .q-dot { width: 9px; height: 9px; border-radius: 50%; background: #18a07a; flex: none; box-shadow: 0 0 0 4px rgba(24,160,122,.14); }
+    .q-status.waiting { background: #fff8e6; border-color: #f0d58a; } .q-status.waiting .q-dot { background: #d18b00; box-shadow: 0 0 0 4px rgba(209,139,0,.15); }
+    /* The plan's counters in the menu, as on Write */
+    .side-meter { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 11px 12px; margin-bottom: 10px; }
+    .sm-k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-bottom: 4px; }
+    .sm-row { font-size: 12.5px; color: rgba(255,255,255,.75); margin-top: 7px; } .sm-row b { color: #fff; }
+    .sm-bar { display: block; height: 5px; border-radius: 99px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 5px; }
+    .sm-bar i { display: block; height: 100%; width: 0; background: #8fb4ff; border-radius: 99px; } .sm-bar.ai i { background: #f2a46b; }
+    @media (max-width: 860px) { .side-meter { order: 6; width: 100%; display: flex; gap: 14px; align-items: center; padding: 8px 10px; margin: 0; }
+      .side-meter .sm-k { display: none; } .side-meter .sm-row { margin: 0; flex: 1; } }
+    /* The week as one list: a row per day, its posts beside the date (each day was its own box) */
+    #upcoming-list { background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; overflow: hidden; }
+    #upcoming-list .up-day { display: grid; grid-template-columns: 215px minmax(0, 1fr); margin: 0; border-top: 1px solid #eef0f4; }
+    #upcoming-list .up-day:first-child { border-top: none; }
+    #upcoming-list .up-day-h { margin: 0; padding: 14px 16px; align-self: center; }
+    #upcoming-list .up-row { border: none; border-radius: 0; margin: 0; padding: 9px 16px 9px 0; background: none; }
+    #upcoming-list .up-row + .up-row { border-top: 1px dashed #eef0f4; }
+    #upcoming-list .up-day:has(.up-row.past) { background: #fafbfc; }
+    #upcoming-list .up-day:has(.up-day-h.today) { background: #f6f8fc; }
+    #upcoming-list .up-change { padding: 4px 10px; font-size: 12px; }
+    @media (max-width: 640px) {
+      #upcoming-list .up-day { grid-template-columns: 1fr; }
+      #upcoming-list .up-day-h { padding: 10px 14px 0; }
+      #upcoming-list .up-row { padding: 8px 14px; }
+    }
     /* Settings tabs */
-    .set-tabs { display: flex; gap: 2px; margin: 14px 0 0; border-bottom: 1px solid #e4e7ec; overflow-x: auto; }
+    .set-tabs { display: flex; gap: 2px; margin: 0; border-bottom: 1px solid #e4e7ec; overflow-x: auto; }
     .set-tabs button { background: none; border: none; border-bottom: 2px solid transparent; padding: 9px 14px; font-family: inherit; font-size: 14px; font-weight: 600; color: #6b7280; cursor: pointer; margin-bottom: -1px; white-space: nowrap; }
     .set-tabs button.on { color: #16181d; border-bottom-color: #24365e; }
     /* Queue: the next 7 days */
@@ -702,6 +731,12 @@
       <p>Unlimited posts and daily auto-posting.</p>
       <button onclick="openUpgradeModal()">⚡ Upgrade</button>
     </div>
+    <!-- What's left in the plan, the same as on Write (index.html) -->
+    <div class="side-meter" id="side-meter" hidden>
+      <div class="sm-k" id="sm-k">Your plan</div>
+      <div class="sm-row"><span><b id="sm-gens-n">0</b> <span id="sm-gens-t">generations left</span></span><i class="sm-bar"><i id="sm-gens-bar"></i></i></div>
+      <div class="sm-row"><span><b id="sm-ai-n">0</b> <span id="sm-ai-t">AI pictures left</span></span><i class="sm-bar ai"><i id="sm-ai-bar"></i></i></div>
+    </div>
     <div class="side-foot">
       <button class="li-status-pill" id="li-pill" onclick="handleLiClick()" style="width:100%;justify-content:center;margin-bottom:6px;visibility:hidden;">
         <span class="dot"></span>
@@ -770,23 +805,24 @@
     <!-- ── Views. buildViews() (below) reparents the existing sections into these,
          so every section keeps its id and all existing functions keep working. ── -->
     <div class="view" id="view-today">
-      <div class="view-head">
-        <h1>Queue</h1>
+      <!-- No page title: the menu says where you are. One line says what's happening. -->
+      <div class="view-head q-status">
+        <span class="q-dot" aria-hidden="true"></span>
         <p id="today-sub"><span class="skeleton-line" style="width:280px;max-width:100%;margin:4px 0 0;"></span></p>
       </div>
       <!-- the posts waiting for you + the next 7 days get moved in here -->
     </div>
 
     <div class="view" id="view-profiles">
-      <div class="view-head"><h1>Settings</h1><div class="set-tabs" data-on="profiles"></div></div>
+      <div class="view-head"><div class="set-tabs" data-on="profiles"></div></div>
     </div>
 
     <div class="view" id="view-analytics">
-      <div class="view-head"><h1>Settings</h1><div class="set-tabs" data-on="analytics"></div></div>
+      <div class="view-head"><div class="set-tabs" data-on="analytics"></div></div>
     </div>
 
     <div class="view" id="view-account">
-      <div class="view-head"><h1>Settings</h1><div class="set-tabs" data-on="account"></div></div>
+      <div class="view-head"><div class="set-tabs" data-on="account"></div></div>
       <div class="acct-card">
         <h3>LinkedIn</h3>
         <p id="acct-li-text">Checking your connection…</p>
@@ -2132,6 +2168,8 @@
       window._pendingCount = items.length;
       if (changed && window._lastLog) renderGlance(window._lastLog);
       const sub = document.getElementById("today-sub");
+      const status = document.querySelector(".q-status");
+      if (status) status.classList.toggle("waiting", items.length > 0);
       if (sub) sub.textContent = items.length
         ? `${items.length} post${items.length === 1 ? "" : "s"} waiting for your approval. Nothing publishes until you say so.`
         : _todayIdleText();
@@ -2187,6 +2225,27 @@
     }
 
     // What to say when nothing is waiting — true to whether anything will be.
+    // What's left in the plan, in the menu: the same counters as on Write (app.js _renderMeter)
+    function _renderSideMeter(g) {
+      const box = document.getElementById("side-meter");
+      if (!box || !g) return;
+      const row = (id, left, limit, word) => {
+        const n = document.getElementById(id + "-n"), t = document.getElementById(id + "-t"), bar = document.getElementById(id + "-bar");
+        if (limit === -1 || limit == null) {
+          n.textContent = "Unlimited"; t.textContent = word; bar.parentElement.style.display = "none";
+        } else {
+          n.textContent = Math.max(0, left); t.textContent = `of ${limit} ${word} left`;
+          bar.parentElement.style.display = "";
+          bar.style.width = (limit ? Math.max(0, Math.min(1, left / limit)) * 100 : 0) + "%";
+        }
+      };
+      row("sm-gens", (g.limit ?? -1) - (g.used ?? 0), g.limit, "generations");
+      row("sm-ai", (g.ai_limit ?? -1) - (g.ai_used ?? 0), g.ai_limit, "AI pictures");
+      const until = g.expires_at ? new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
+      document.getElementById("sm-k").textContent = g.plan === "admin" ? "Team account"
+        : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
+      box.hidden = false;
+    }
     function _todayIdleText() {
       if (!window._profilesLoaded) return "Nothing waiting on you.";
       const active = (currentProfiles || []).filter(p => p.active);
@@ -3374,6 +3433,7 @@
         banner.style.display = "flex";
 
         window._planInfo = info;
+        _renderSideMeter(info);
         const sideUpsell = document.getElementById("side-upsell");
         if (info.plan === "admin" || info.plan === "pro") {
           if (sideUpsell) sideUpsell.style.display = "none";
