@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 DRAFT_EFFORT = os.getenv("IDEAS_DRAFT_EFFORT", "low")
 CANDIDATES = 8      # at 6, a strict editor left Sam two ideas and Harish one
 BAR = 4.0           # the editor's average score an idea needs to be shown
+MIN_SHOWN = 2       # a morning shows at least this many when near misses allow (1 Nov: a run near the bar showed none)
+NEAR = 3.6          # a near miss's average to fill the row; it is fact-checked like the rest and marked near
 _SCORES = ("specific", "timely", "theirs", "hook", "useful")
 
 
@@ -84,6 +86,45 @@ def recent_made(company: dict, days: int = 30) -> list[str]:
     except Exception:
         logger.exception("[Ideas] could not read what they made lately")
         return []
+
+
+def _pick(passed: list[dict], judge: dict, recheck) -> list[dict]:
+    """The editor's picks that clear the bar, best first. If fewer than MIN_SHOWN, the best near misses
+    fill the row: every candidate here already passed the fact check, so a near miss is only less sharp,
+    never less true. One the editor vetoed (keep=false) is never used; one under NEAR isn't either.
+    recheck(c, opening) lists the problems with a sharper opening; none means it can replace the old one."""
+    for s in judge.get("scores") or []:
+        if isinstance(s, dict) and isinstance(s.get("id"), int) and 0 <= s["id"] < len(passed):
+            passed[s["id"]]["scores"] = s
+
+    def ready(c: dict) -> bool:
+        """The editor's sharper opening if it checks out, the average score, and whether the opening fits."""
+        s = c.setdefault("scores", {})
+        better = (s.get("sharper_opening") or "").strip()
+        if better and better != c.get("opening") and len(better) <= 75 and not recheck(c, better):
+            c["opening_was"], c["opening"] = c.get("opening", ""), better
+            s["hook"] = max(s.get("hook", 0), 4)
+        c["score"] = round(sum(s.get(k, 0) for k in _SCORES) / len(_SCORES), 1)
+        return len(c.get("opening", "")) <= 75   # a long opening the editor didn't shorten can't be shown
+
+    ideas, chosen = [], set()
+    for i in judge.get("best") or []:
+        if not (isinstance(i, int) and 0 <= i < len(passed)) or id(passed[i]) in chosen:
+            continue
+        c = passed[i]
+        if ready(c) and c["scores"].get("keep") is not False and c["score"] >= BAR and c["scores"].get("specific", 0) >= 4:
+            ideas.append(c)
+            chosen.add(id(c))
+    if len(ideas) < MIN_SHOWN:
+        near = [c for c in passed if id(c) not in chosen and c.get("scores") and c["scores"].get("keep") is not False
+                and ready(c) and c["score"] >= NEAR and c["scores"].get("specific", 0) >= 3]
+        near.sort(key=lambda c: c["score"], reverse=True)
+        shown_topics = {c.get("topic") for c in ideas}
+        near.sort(key=lambda c: c.get("topic") in shown_topics)   # a topic not shown yet first, each by score
+        for c in near[:MIN_SHOWN - len(ideas)]:
+            c["near"] = True
+            ideas.append(c)
+    return ideas
 
 
 def make_ideas(company: dict, recent: list[str] | None = None) -> dict:
@@ -191,22 +232,10 @@ CANDIDATES:
 
 Return ONLY JSON: {{"scores":[{{"id":0,"specific":0,"timely":0,"theirs":0,"hook":0,"useful":0,"keep":true,"sharper_opening":"","note":""}}],"best":[0,1,2]}}""",
                                 model=llm.CLAUDE_CHECK_MODEL, effort="medium", timeout=300)
-        for s in judge.get("scores") or []:
-            if isinstance(s, dict) and isinstance(s.get("id"), int) and 0 <= s["id"] < len(passed):
-                passed[s["id"]]["scores"] = s
-        for i in judge.get("best") or []:
-            if not (isinstance(i, int) and 0 <= i < len(passed)):
-                continue
-            c, s = passed[i], passed[i].get("scores") or {}
-            better = (s.get("sharper_opening") or "").strip()
-            if better and len(better) <= 75 and not _problems({**c, "opening": better}, " ".join(
-                    (c.get("source_title", ""), c.get("proof", ""), facts, text.get(c.get("source_url", ""), "")))):
-                c["opening_was"], c["opening"] = c["opening"], better
-                s["hook"] = max(s.get("hook", 0), 4)
-            c["score"] = round(sum(s.get(k, 0) for k in _SCORES) / len(_SCORES), 1)
-            fits = len(c.get("opening", "")) <= 75   # a long opening the editor didn't shorten can't be shown
-            if s.get("keep") is not False and fits and c["score"] >= BAR and s.get("specific", 0) >= 4:
-                ideas.append(c)
+        def recheck(c, opening):   # a sharper opening stands on the same facts, or it isn't used
+            return _problems({**c, "opening": opening}, " ".join(
+                (c.get("source_title", ""), c.get("proof", ""), facts, text.get(c.get("source_url", ""), ""))))
+        ideas = _pick(passed, judge, recheck)
         kept = {id(c) for c in ideas}
         dropped += [{**c, "why": (c.get("scores") or {}).get("note") or "below the bar"} for c in passed if id(c) not in kept]
 
@@ -269,7 +298,8 @@ def _shown(c: dict) -> dict:
     brief = (f"Write the post around this idea.\nOpening line: {c.get('opening', '')}\nAngle: {c.get('angle', '')}\n"
              f"The fact it stands on: {c.get('proof', '')}\nSource: {src}\nThe reader's move: {c.get('move', '')}")
     return {k: c.get(k, "") for k in ("topic", "opening", "angle", "proof", "move", "post_type", "source_title",
-                                       "source_url", "published")} | {"score": c.get("score"), "brief": brief}
+                                       "source_url", "published")} | {"score": c.get("score"), "near": bool(c.get("near")),
+                                                                       "brief": brief}
 
 
 def make_and_store(company: dict) -> None:
@@ -289,7 +319,10 @@ def make_and_store(company: dict) -> None:
         out = make_ideas(company)
         db.daily_ideas.update_one({"_id": key}, {"$set": {
             "status": "ready", "ideas": [_shown(c) for c in out["ideas"]], "made_at": out["made_at"],
-            "cost_usd": out["cost_usd"], "secs": out["secs"], "news_found": out["news_found"]}})
+            "cost_usd": out["cost_usd"], "secs": out["secs"], "news_found": out["news_found"],
+            # why the rest didn't make it, so a thin morning can be read here instead of re-run
+            "dropped": [{"opening": str(d.get("opening", ""))[:120], "why": str(d.get("why", ""))[:200],
+                         "score": d.get("score")} for d in out["dropped"][:10]]}})
         logger.info(f"[Ideas] {company.get('id')}: {len(out['ideas'])} ideas, ${out['cost_usd']}, {out['secs']}s")
     except Exception as e:
         logger.exception(f"[Ideas] {company.get('id')} failed")

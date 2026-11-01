@@ -2010,7 +2010,10 @@ async function loadTodayIdeas(attempt = 0) {
         ? `From: <a href="${_escHtmlCreate(url)}" target="_blank" rel="noopener">${_escHtmlCreate(it.source_title || "the article")}</a>`
           + (it.published ? " · " + _escHtmlCreate(day(it.published)) : "")
         : "From: your own career";
-      return `<div class="tday">${i === 0 ? '<span class="tday-best">Best pick</span>' : ""}
+      // "Best pick" only for an idea that cleared the editor's full bar; a near miss filling the row says so
+      const badge = it.near ? '<span class="tday-best tday-near">Also worth a look</span>'
+                  : i === 0 ? '<span class="tday-best">Best pick</span>' : "";
+      return `<div class="tday${it.near ? " near" : ""}">${badge}
         <span class="tday-tag">${_escHtmlCreate(it.topic || "Today")}</span>
         <h3>${_escHtmlCreate(it.opening)}</h3>
         <div class="tday-why">${_escHtmlCreate(it.angle)}</div>
