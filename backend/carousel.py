@@ -605,6 +605,22 @@ _ED_THEMES = {
 }
 
 
+# Nov 2026: cards and decks are drawn by designs.py (one idea per slide, an icon per point, the
+# author's face on the cover); CARD_DESIGN=v1 goes back to the editorial design below, and so
+# does any card or deck the new design fails to draw.
+CARD_DESIGN = os.getenv("CARD_DESIGN", "v2").strip().lower()
+# The icons designs.py draws; a writer names one per point, or none
+CARD_ICONS = ("pulse", "alert", "network", "link", "growth", "decline", "money", "clock", "people",
+              "target", "check", "shield", "idea", "gear", "calendar", "chat", "search", "doc")
+
+
+def _v2_look(theme, company: dict | None) -> dict:
+    """A card's colours for designs.py, with the brand kit's headline font."""
+    t = _ed_theme(theme, _brand_accent(company))
+    t["font"] = str(((company or {}).get("brand_kit") or {}).get("font") or "")
+    return t
+
+
 def _pick_card_theme(theme: str = "", company: dict | None = None) -> str:
     """The colour set asked for; else the author's own brand look when the profile has a brand kit
     (their deck's look first); else a different look from post to post: any of them, at random."""
@@ -1032,7 +1048,16 @@ def render_image_post_png(content: dict, company: dict, author: dict | None = No
     sub = content.get("card_subtext", "")
     if name and name.split()[0].lower() in sub.lower():   # the signature under it already names them
         sub = ""
-    img = _ed_quote_card(
+    img = None
+    if CARD_DESIGN == "v2":
+        try:
+            import designs
+            img = designs.quote_card(_v2_look(_card_look(theme, company), company), content.get("card_headline", ""),
+                                     content.get("card_emphasis", ""), sub, content.get("card_tag", ""), name,
+                                     (company or {}).get("designation", ""), avatar)
+        except Exception:
+            logging.exception("[Carousel] quote card v2 failed; drawing the editorial one")
+    img = img or _ed_quote_card(
         content.get("card_headline", ""), sub, content.get("card_emphasis", ""),
         content.get("card_tag", ""), name, (company or {}).get("designation", ""), avatar,
         theme=_card_look(theme, company), brand_accent=_brand_accent(company),
@@ -1065,7 +1090,9 @@ FORMAT — decide this FIRST. The image must never repeat the caption — keep a
 - "scene": the same kind of photo with no text, when the picture alone says it.
 - "list_card": ONLY when the list itself is the value (steps, rules, a framework) → a headline
   (max 9 words) + 3-4 SHORT points in card_points, each a 2-6 word label with NO explanation
-  (the caption explains them).
+  (the caption explains them), and card_icons: for each point, the icon that fits it from pulse,
+  alert, network, link, growth, decline, money, clock, people, target, check, shield, idea, gear,
+  calendar, chat, search, doc ("" when none fits).
 - "quote_card": ONE sharp quotable claim and nothing to show as a photo (card_headline max 12 words).
 - "tweet_card": a HOT TAKE — contrarian, a little confrontational → a social-screenshot style card
   of that line (card_headline, max ~30 words). Use for the boldest, most argument-starting claims.
@@ -1470,7 +1497,7 @@ Return ONLY valid JSON:
 {{"format": "concept|photo_card|scene|list_card|quote_card|tweet_card",
 "image_concept": "... (concept, photo_card and scene)", "image_words": ["... (concept)"],
 "card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...",
-"card_points": ["...", "..."], "alt_text": "...", "key_line": "...", "post_text": "..."}}"""
+"card_points": ["...", "..."], "card_icons": ["...", "..."], "alt_text": "...", "key_line": "...", "post_text": "..."}}"""
     result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1600, temperature=0.85)
 
     # ENFORCE the caption rule: the card carries the claim, the caption makes the case.
@@ -1511,6 +1538,8 @@ Return ONLY JSON: {{"post_text": "..."}}""",
         "card_emphasis": (result.get("card_emphasis") or "").strip(),
         "card_subtext":  (result.get("card_subtext") or "").strip(),
         "card_points":   [str(x).strip() for x in (result.get("card_points") or []) if str(x).strip()][:4],
+        "card_icons":    [(str(x).strip().lower() if str(x).strip().lower() in CARD_ICONS else "")
+                          for x in (result.get("card_icons") or [])][:4],
         "alt_text":      (result.get("alt_text") or "").strip(),
         "key_line":      (result.get("key_line") or "").strip(),
         "post_text":     drop_author_furniture(_strip_markdown(result.get("post_text", "") or ""), company),
@@ -1612,7 +1641,18 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         name, avatar_img = _card_author(brand, author)
         theme = _pick_card_theme(theme, company)
         meta.update(format="list_card", theme=theme)
-        img = _ed_list_card(
+        img = None
+        if CARD_DESIGN == "v2":
+            try:
+                import designs
+                img = designs.list_card(_v2_look(_card_look(theme, company), company), content.get("card_tag", ""),
+                                        content.get("card_headline") or content.get("key_line", ""),
+                                        content.get("card_emphasis", ""), designs.points_from(content.get("card_points")),
+                                        content.get("card_icons") or [], name, (company or {}).get("designation", ""),
+                                        avatar_img)
+            except Exception:
+                logging.exception("[Carousel] list card v2 failed; drawing the editorial one")
+        img = img or _ed_list_card(
             content.get("card_tag", ""), content.get("card_headline") or content.get("key_line", ""),
             content.get("card_emphasis", ""), content.get("card_points"), name,
             (company or {}).get("designation", ""), avatar_img,
@@ -1834,7 +1874,8 @@ Total deck = 8 to 10 slides. Never fewer than 7, never more than 10: a tight dec
 
 ONE IDEA PER SLIDE (the rule most people break):
 - Each content slide makes exactly one point. If a slide has two ideas, split it.
-- Keep every slide's body under ~40 words. Short, high-contrast, skimmable on a phone.
+- Keep every slide's body under ~25 words: a phone shows the slide at a third of its size, so
+  the words are set large and few. Short, high-contrast, skimmable.
 
 HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formulas:
 - Contrarian:         "Stop doing X. Do Y instead."
@@ -1854,9 +1895,12 @@ slides are, one plural word ("plays", "steps", "mistakes", "rules").
 
 CONTENT SLIDES — each has a "kind":
 - "point" (default): title = the point as a bold claim (max 6 words); body = ONE concrete example,
-  company, number, or step (max ~40 words). label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
+  company, number, or step (max ~25 words). label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
   "TRUTH") fitting the arc. action = the one move the reader can make this week to apply it (max
-  12 words, starts with a verb); empty when the point isn't something to do.
+  10 words, starts with a verb); empty when the point isn't something to do. tag = the point's
+  name in 2-4 words, for the deck's at-a-glance slide ("Who monitors", "Price after scope").
+  icon = the one that fits the point from: pulse, alert, network, link, growth, decline, money,
+  clock, people, target, check, shield, idea, gear, calendar, chat, search, doc ("" when none fits).
 - "stat": use when one number IS the story. stat = the number ("43%", "3x", "₹2.4 Cr"); title =
   what it means; body = one line of context. Use at most one stat slide.
 - source (any content slide) = where its number or study comes from, exactly as the content given
@@ -1899,9 +1943,9 @@ _CAROUSEL_SCHEMA = """{
   "hook_slide": {"headline": "...", "subtext": "...", "audience": "...", "unit": "steps"},
   "context_slide": {"title": "...", "body": "..."},
   "content_slides": [
-    {"kind": "point", "label": "STEP 1", "title": "...", "body": "...", "action": "...", "source": ""},
+    {"kind": "point", "label": "STEP 1", "title": "...", "body": "...", "action": "...", "tag": "...", "icon": "...", "source": ""},
     {"kind": "stat", "label": "THE NUMBER", "stat": "43%", "title": "...", "body": "...", "source": "..."},
-    {"kind": "point", "label": "STEP 2", "title": "...", "body": "...", "action": "...", "source": ""}
+    {"kind": "point", "label": "STEP 2", "title": "...", "body": "...", "action": "...", "tag": "...", "icon": "...", "source": ""}
   ],
   "recap_slide": {"title": "The recap", "bullets": ["...", "...", "..."]},
   "cta_slide": {"headline": "...", "cta": "..."},
@@ -1951,6 +1995,9 @@ def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
             "title": _clean_slide_text(s.get("title", "")) if s.get("title") else "",
             "body":  _clean_slide_text(s.get("body", "")) if s.get("body") else "",
             "action": _clean_slide_text(s.get("action", ""))[:110] if s.get("action") else "",
+            # the at-a-glance slide's name for the point, and its icon (designs.py)
+            "tag":   " ".join(_clean_slide_text(s.get("tag", "")).split()[:4])[:28] if s.get("tag") else "",
+            "icon":  str(s.get("icon") or "").strip().lower() if str(s.get("icon") or "").strip().lower() in CARD_ICONS else "",
             # one source, short: a long one was cut mid-word on the slide
             "source": _clean_slide_text(str(s.get("source", "")).split(";")[0])[:48] if s.get("source") else "",
         }
@@ -2010,9 +2057,9 @@ def _caption_paragraphs(text: str) -> str:
 
 
 _SLIDE_CONSTRAINTS = """Slide constraints (follow exactly):
-- hook_slide (cover): headline uses ONE proven formula, max 6 words (it is set huge), specific. subtext: one line, max 14 words. audience + unit.
+- hook_slide (cover): headline uses ONE proven formula, max 6 words (it is set huge), specific. subtext: one line, max 14 words. audience + unit. A number of things on the cover ("4 gaps") means exactly that many point slides: count them before you answer.
 - context_slide: title (max 8 words) + body (max ~35 words) that makes the reader want to keep swiping.
-- content_slides: 4-6 slides, ONE idea each. title max 6 words as a claim; body max ~40 words with a real specific; action and source where they fit.
+- content_slides: 4-6 slides, ONE idea each. title max 6 words as a claim; body max ~25 words with a real specific; action (max 10 words) and source where they fit; every point slide gets a tag (2-4 words) and an icon.
 - recap_slide: title + 3-5 one-line bullets (each max ~12 words).
 - cta_slide: headline (the one takeaway) + a SINGLE specific ask (no engagement bait).
 Aim for 8-10 total slides. Prefer a step-by-step playbook, numbered framework, or checklist."""
@@ -2424,6 +2471,14 @@ def render_carousel_slides(content: dict, company: dict, author: dict | None = N
                 for v in part.values() if isinstance(v, (str, list)) for v in ([v] if isinstance(v, str) else v))
     count = "" if re.search(r"\d", hook.get("headline", "")) else f"{points} {unit} · "   # "3 trust gaps" over "5 plays" read as a mistake
     promise = f"{count}{max(1, -(-words // 200))} min read · save it" if unit and points else ""
+    if CARD_DESIGN == "v2":
+        try:
+            import designs
+            font = str(((company or {}).get("brand_kit") or {}).get("font") or "")
+            return designs.carousel_slides(content, {**t, "font": font}, {**t_cover, "font": font},
+                                           name, title, avatar, promise)
+        except Exception:
+            logging.exception("[Carousel] deck v2 failed; drawing the editorial one")
     slides = [_edc_cover(hook.get("headline", ""), hook.get("subtext", ""), total, t_cover, name, title, avatar,
                          audience=hook.get("audience", ""), promise=promise)]
     num = 2
