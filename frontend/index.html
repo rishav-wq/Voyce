@@ -77,6 +77,8 @@
     .pstep.done { color: #18a07a; }
     .pstep.done .pnum { background: #18a07a; color: #fff; }
     .parrow { color: #d8cfbf; font-size: 13px; }
+    .pclose { margin-left: 2px; border: none; background: none; color: #98a0ae; font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 8px; }
+    .pclose:hover { color: #16181d; background: #f3f5f8; }
 
     /* ── Navy sidebar, matched to /setup so both pages are one product ── */
     .sidebar { background: #172440 !important; border-right: none !important; }
@@ -930,6 +932,7 @@
       <a class="pstep" id="pstep-linkedin" href="#" onclick="handleLiClick();return false;"><span class="pnum">2</span> Connect LinkedIn</a>
       <span class="parrow">→</span>
       <a class="pstep" id="pstep-automate" href="/setup"><span class="pnum">3</span> Set up daily posting</a>
+      <button type="button" class="pclose" onclick="hideProgress()" aria-label="Hide these steps" title="Hide these steps">×</button>
     </div>
 
     <div id="error-banner" class="error-banner" style="display:none;"></div>
@@ -1312,7 +1315,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=33"></script>
+  <script src="/static/app.js?v=34"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async

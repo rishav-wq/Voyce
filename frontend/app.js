@@ -268,6 +268,16 @@ function updateLiPill(connected) {
 // post made on this visit), or while a post or carousel is on screen. Counting only what was on
 // screen told people with dozens of posts to "Generate a post" on every visit.
 let _everGenerated = false;
+// Someone who only writes (never daily posting) would see step 3 for good; the × hides the strip
+// for this account on this browser.
+function _stepsHidden() {
+  try { return localStorage.getItem("cm_steps_hidden:" + _uid()) === "1"; } catch (_) { return false; }
+}
+function hideProgress() {
+  try { localStorage.setItem("cm_steps_hidden:" + _uid(), "1"); } catch (_) {}
+  const strip = document.getElementById("progress-strip");
+  if (strip) strip.style.display = "none";
+}
 function updateProgress() {
   const gen  = document.getElementById("pstep-generate");
   const li   = document.getElementById("pstep-linkedin");
@@ -277,7 +287,7 @@ function updateProgress() {
   // Until both answers are in, it stays hidden rather than flashing.
   const strip = document.getElementById("progress-strip");
   const setUp = linkedInConnected && (_profiles || []).some(p => p.active);
-  if (strip) strip.style.display = (!_profilesKnown || !_liKnown || setUp) ? "none" : "";
+  if (strip) strip.style.display = (!_profilesKnown || !_liKnown || setUp || _stepsHidden()) ? "none" : "";
   const liText = document.getElementById("linkedin-content");
   const carSec = document.getElementById("carousel-section");
   const hasGen = _everGenerated || !!(liText && liText.textContent.trim()) ||
