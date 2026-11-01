@@ -5,7 +5,8 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voyce — LinkedIn posts in your voice, ready each morning</title>
-  <meta name="description" content="Voyce writes LinkedIn posts in your voice from this week's news in your niche, ready each morning for you to approve in a tap. Built for consultants and coaches who never have time to post." />
+  <meta name="description" content="Voyce writes LinkedIn posts in your voice from this week's news in your field. One is ready each morning for you to approve in a tap." />
+  <link rel="canonical" href="https://voyce.co.in/" />
   <!-- Open Graph / social sharing.
        og:image was never set, so LinkedIn fell back to scraping the page and used
        the first <img> it found — proof-avatar.png, which is a photo of Rishav.
@@ -40,7 +41,10 @@
         "url": "https://voyce.co.in/",
         "logo": "https://voyce.co.in/static/favicon.svg",
         "description": "AI LinkedIn ghostwriter that finds this week's news in your niche, writes in your own voice, and has posts ready on your schedule, via the official LinkedIn API.",
-        "founder": { "@type": "Person", "name": "Rishav", "jobTitle": "Founder of Voyce" }
+        "email": "hello@voyce.co.in",
+        "foundingDate": "2026",
+        "address": { "@type": "PostalAddress", "addressLocality": "Bengaluru", "addressRegion": "Karnataka", "addressCountry": "IN" },
+        "founder": { "@type": "Person", "name": "Rishav Raj", "jobTitle": "Founder of Voyce" }
       },
       {
         "@type": "WebSite",
@@ -55,7 +59,7 @@
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Web",
         "url": "https://voyce.co.in/",
-        "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready on your schedule to approve with one tap or post automatically, through the official LinkedIn API.",
+        "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready each morning for you to approve in one tap, through the official LinkedIn API.",
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 free tries (posts, carousels, image cards, previews or idea lists) including 1 AI picture, manual posting to LinkedIn, no credit card." },
           { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited posts, carousels, image cards, previews and idea lists, 40 AI pictures, a daily post to approve, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
@@ -68,11 +72,13 @@
         "mainEntity": [
           { "@type": "Question", "name": "What is Voyce?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready each morning for you to read and approve with one tap. It connects through LinkedIn's official API." } },
           { "@type": "Question", "name": "Will the posts actually sound like me?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the core of it. Add a few of your past LinkedIn posts and Voyce writes in your rhythm, vocabulary, and tone, so it reads like you wrote it, not generic AI." } },
-          { "@type": "Question", "name": "Does it post automatically, or do I approve first?", "acceptedAnswer": { "@type": "Answer", "text": "You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it is based on, and nothing goes out until you tap Approve. If you would rather not check, switch to automatic posting. A post that fails Voyce's fact and quality check is always held for you." } },
+          { "@type": "Question", "name": "Do I have to approve every post?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, by default: Voyce emails you each post with the news it is based on, and nothing goes out until you tap Approve, from your phone, with no login. Skip a post and nothing happens; the next morning's post replaces it, so old news never goes out. A post that fails Voyce's fact check is always held for you. Automatic posting exists as a setting, and it is off unless you turn it on." } },
           { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration, and by default you approve every post." } },
           { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 free tries: each post, carousel, image card, preview or list of post ideas uses one, and one of them can be an AI picture. You can post them to LinkedIn yourself. No credit card required." } },
           { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI providers: Anthropic (Claude) writes and checks them, and Google Gemini draws AI pictures and reads YouTube videos. The Privacy Policy has the details." } },
           { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
+          { "@type": "Question", "name": "How much does Voyce cost?", "acceptedAnswer": { "@type": "Answer", "text": "Free for 5 posts, with no card. Pro is a 30-day pass: ₹1,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel." } },
+          { "@type": "Question", "name": "What is an AI LinkedIn ghostwriter?", "acceptedAnswer": { "@type": "Answer", "text": "Software that writes LinkedIn posts for you in your own voice, the way a human ghostwriter would. A human LinkedIn ghostwriter typically charges $1,000–$5,000 a month and needs a weekly call. Voyce learns your style from your past posts, finds this week's news in your field, and has a post ready each morning for you to approve." } },
           { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them." } }
         ]
       }
@@ -466,7 +472,7 @@
           <div class="post-av"><img src="/static/proof-avatar.png" alt="Rishav Raj"></div>
           <div>
             <div class="post-name">Rishav Raj</div>
-            <div class="post-meta">AI/ML Engineer · Building Voyce in public</div>
+            <div class="post-meta">Founder, Voyce</div>
           </div>
         </div>
         <div class="post-body">
@@ -522,7 +528,7 @@
     <span class="eyebrow">What Voyce does</span>
     <h2 class="sec-title" style="margin-top:18px;">Everything LinkedIn needs.<br>Nothing else.</h2>
     <div class="feat-grid">
-      <div class="feat"><div class="feat-k">Daily posting</div><h3>On your schedule, with your OK</h3><p>Set a time once. Voyce finds this week's news in your niche, writes your take, and emails you a preview to approve — or posts it for you, if you'd rather not check.</p></div>
+      <div class="feat"><div class="feat-k">Daily posting</div><h3>On your schedule, with your OK</h3><p>Set a time once. Voyce finds this week's news in your niche, writes your take, and emails it to you to approve in one tap.</p></div>
       <div class="feat"><div class="feat-k">Carousels</div><h3>Slide posts, no Canva</h3><p>Turn any idea into a designed carousel: the swipeable slide posts you see on LinkedIn. On Pro, add them to your daily posts.</p></div>
       <div class="feat"><div class="feat-k">Your voice</div><h3>Sounds like <em class="you">you</em></h3><p>Add a few of your past posts and Voyce matches your tone and phrasing — not generic AI.</p></div>
       <div class="feat"><div class="feat-k">Anywhere</div><h3>Paste &amp; go</h3><p>Drop in text, a URL, or a YouTube link — get ready-to-post content in seconds.</p></div>
@@ -662,8 +668,8 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
             <td class="no">No — you hunt for it</td>
           </tr>
           <tr>
-            <th scope="row">Publishes on your schedule</th>
-            <td class="col-voyce"><span class="yes">Yes</span> — one tap, or on its own</td>
+            <th scope="row">Ready on your schedule</th>
+            <td class="col-voyce"><span class="yes">Yes</span> — you approve each one in a tap</td>
             <td><span class="yes">Yes</span></td>
             <td class="mid">Some do</td>
             <td class="no">No</td>
@@ -746,11 +752,13 @@ If demand isn't already filling your inbox, putting a price tag on your calls wo
     <div class="faq">
       <details open><summary>What is Voyce?</summary><p>Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready each morning for you to read and approve with one tap. It connects through LinkedIn's official API.</p></details>
       <details><summary>Will the posts actually sound like me?</summary><p>Yes — that's the core of it. Add a few of your past LinkedIn posts and Voyce writes in your rhythm, vocabulary, and tone, so it reads like you wrote it, not generic AI.</p></details>
-      <details><summary>Does it post automatically, or do I approve first?</summary><p>You choose when you turn it on. By default Voyce asks first: it emails you each post with the news it's based on, and nothing goes out until you tap Approve (an unapproved post never goes out, and the next day's post replaces it, so stale news never ships). If you'd rather not check, switch to automatic posting. A post that fails Voyce's fact and quality check is always held for you, either way.</p></details>
+      <details><summary>Do I have to approve every post?</summary><p>Yes, by default: Voyce emails you each post with the news it is based on, and nothing goes out until you tap Approve, from your phone, with no login. Skip a post and nothing happens; the next morning's post replaces it, so old news never goes out. A post that fails Voyce's fact check is always held for you. Automatic posting exists as a setting, and it is off unless you turn it on.</p></details>
       <details><summary>Won't LinkedIn ban my account?</summary><p>Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration — and by default, you approve every post.</p></details>
       <details><summary>What do I get for free?</summary><p>5 free tries: each post, carousel, image card, preview or list of post ideas uses one, and one of them can be an AI picture. You can post them to LinkedIn yourself. No credit card required.</p></details>
       <details><summary>Is my content private?</summary><p>Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI providers: Anthropic (Claude) writes and checks them, and Google Gemini draws AI pictures and reads YouTube videos. The <a href="/privacy">Privacy Policy</a> has the details.</p></details>
       <details><summary>Can I cancel anytime?</summary><p>There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to.</p></details>
+      <details><summary>How much does Voyce cost?</summary><p>Free for 5 posts, with no card. Pro is a 30-day pass: ₹1,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel.</p></details>
+      <details><summary>What is an AI LinkedIn ghostwriter?</summary><p>Software that writes LinkedIn posts for you in your own voice, the way a human ghostwriter would. A human LinkedIn ghostwriter typically charges $1,000–$5,000 a month and needs a weekly call. Voyce learns your style from your past posts, finds this week's news in your field, and has a post ready each morning for you to approve.</p></details>
       <details><summary>Does it work for a company page too?</summary><p>Not yet — company pages need a separate LinkedIn approval. On Pro, though, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them.</p></details>
     </div>
   </div>

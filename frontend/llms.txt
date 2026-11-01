@@ -1,0 +1,43 @@
+# Voyce
+
+> Voyce is an AI LinkedIn ghostwriter for consultants, executive coaches, fractional executives and founders. It learns how you write from your past LinkedIn posts, finds this week's news in your field, writes your take in your voice, and has a post ready each morning for you to approve in one tap. It publishes through LinkedIn's official API. Voyce is run by Rishav Raj in Bengaluru, India, and serves customers in India and internationally.
+
+## What Voyce does
+
+- **Learns your voice** from posts you paste, your LinkedIn data export, your LinkedIn profile PDF, or screenshots of your posts.
+- **Finds this week's news in your field**, on the topics you choose, and writes a post with your take on it. Each post names the article it is based on.
+- **Checks facts before you see them**: each post is checked against the article it is based on, and a post that fails the check is held back for you to review.
+- **A post each morning, approved in a tap**: on Pro, Voyce emails you the day's post. Nothing goes out until you tap Approve (no login needed). An unapproved post never goes out, and the next day's post replaces it. A profile can be switched to automatic posting.
+- **Post ideas each morning**: up to three ideas based on this week's news and your own career, ready when you open Voyce.
+- **Formats**: text posts, carousels (swipeable PDF slides), AI pictures that illustrate a post's idea, and quote, list and tweet-style image cards.
+- **Write from anything**: an idea or rough notes, a link to an article, or a YouTube video.
+- **Several profiles**: up to 3 profiles per account, each with its own voice and schedule, each able to post to its own LinkedIn account (for example a client who connects their LinkedIn through an invite link).
+
+## What Voyce does not do
+
+- It never asks for your LinkedIn password, uses no browser extension, and does not scrape LinkedIn.
+- It never sends DMs, connection requests, comments or engagement-pod activity.
+- It does not post to LinkedIn company pages yet; it posts to personal profiles.
+
+## Pricing (as of November 2026)
+
+- **Free**: 5 tries, no credit card. Each post, carousel, image card, preview or list of ideas uses one; one of them can be an AI picture. You post to LinkedIn yourself.
+- **Pro (international)**: $49 (billed as ₹4,699) for a 30-day pass that does not renew automatically. Unlimited posts, carousels and image cards within a fair-use daily limit, 40 AI pictures per pass, a post each morning to approve, and 3 profiles each on its own LinkedIn.
+- **Pro (India)**: ₹1,999 for a 30-day pass that does not renew automatically. 60 posts, carousels or images per pass (the daily post uses about 30), 10 of which can be AI pictures, and 3 profiles with one on daily posting.
+
+## Who it is for
+
+Consultants, executive coaches, fractional executives and founders who win clients on LinkedIn but don't have time to write every day, and who want posts that sound like them rather than like generic AI.
+
+## Pages
+
+- [Home](https://voyce.co.in/): what Voyce does, sample posts, comparison with other options, pricing and FAQ
+- [Voice Check](https://voyce.co.in/voice-check): free tool that scores whether your LinkedIn posts sound like you or like AI, and writes one post in your voice
+- [How to not sound like AI on LinkedIn](https://voyce.co.in/how-to-not-sound-like-ai-on-linkedin): the 7 tells of AI-written posts and how to fix them
+- [About](https://voyce.co.in/about): who runs Voyce
+- [Privacy Policy](https://voyce.co.in/privacy): what data Voyce collects and which providers process it
+- [Terms](https://voyce.co.in/terms), [Refund policy](https://voyce.co.in/refund), [Contact](https://voyce.co.in/contact)
+
+## Contact
+
+hello@voyce.co.in

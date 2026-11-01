@@ -8,6 +8,8 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Requ
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exception_handlers import http_exception_handler
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, field_validator
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -69,6 +71,59 @@ async def _security_headers(request: Request, call_next):
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
+
+
+# ── Search engines ────────────────────────────────────────────────────────────
+# The public pages, with the date each last changed in a way a reader would notice
+# (for sitemap.xml: Google and Bing trust lastmod only while it stays accurate).
+SITE_URL = "https://voyce.co.in"
+PUBLIC_PAGES = {
+    "/": "2026-11-01",
+    "/voice-check": "2026-11-01",
+    "/how-to-not-sound-like-ai-on-linkedin": "2026-11-01",
+    "/about": "2026-11-01",
+    "/contact": "2026-10-18",
+    "/privacy": "2026-11-01",
+    "/terms": "2026-10-18",
+    "/refund": "2026-10-18",
+    "/shipping": "2026-10-18",
+}
+# Signed-in screens and one-time links: reachable, never listed in search results.
+_NOINDEX = ("/tool", "/setup", "/onboarding", "/login", "/signup", "/sales", "/approve/", "/connect/", "/auth/")
+
+
+@app.middleware("http")
+async def _search_engines(request: Request, call_next):
+    """The site has one address: a public page asked for on voyce-1.onrender.com moves to
+    voyce.co.in, and anything else there is kept out of search results, as are the app's own
+    screens. HEAD (link checkers, some preview bots) gets a page's headers instead of a 405."""
+    host = (request.headers.get("host") or "").split(":")[0].lower()
+    path = request.url.path
+    other_host = host.endswith(".onrender.com")
+    if other_host and request.method in ("GET", "HEAD") and path in PUBLIC_PAGES:
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"{SITE_URL}{path}{query}", status_code=301)
+    head = request.method == "HEAD" and not path.startswith("/static/")
+    if head:
+        request.scope["method"] = "GET"
+    response = await call_next(request)
+    if other_host or path.startswith(_NOINDEX):
+        response.headers["X-Robots-Tag"] = "noindex"
+    if head:
+        async for _ in response.body_iterator:   # drained, not sent: HEAD has no body
+            pass
+        return Response(status_code=response.status_code, headers=dict(response.headers))
+    return response
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _not_found_page(request: Request, exc: StarletteHTTPException):
+    """A browser that lands on a page that doesn't exist gets a page, not {"detail": "Not Found"};
+    the app's own fetches (which don't ask for HTML) keep the JSON they read."""
+    if exc.status_code == 404 and "text/html" in request.headers.get("accept", ""):
+        return FileResponse(os.path.join(frontend_path, "404.html"), status_code=404,
+                            headers={"Cache-Control": "no-cache", "X-Robots-Tag": "noindex"})
+    return await http_exception_handler(request, exc)
 
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
@@ -778,6 +833,39 @@ def serve_shipping():
 @app.get("/pricing")
 def serve_pricing():
     return RedirectResponse("/#pricing", status_code=302)
+
+
+# AI crawlers are named so it's plain they're welcome: search answers in ChatGPT, Claude,
+# Perplexity and Gemini are where people now ask for tools like this.
+_AI_CRAWLERS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User",
+                "PerplexityBot", "Perplexity-User", "Google-Extended", "Applebot-Extended", "CCBot")
+# One group: a crawler named in a group of its own would skip the rules of "*".
+_ROBOTS = "\n".join(
+    ["User-agent: *", *[f"User-agent: {bot}" for bot in _AI_CRAWLERS], "Allow: /",
+     # API routes; the app's screens stay crawlable so their noindex header is seen.
+     *[f"Disallow: {p}" for p in ("/companies", "/generate", "/payments", "/pending", "/schedule",
+                                   "/author", "/topics", "/waitlist")],
+     "", f"Sitemap: {SITE_URL}/sitemap.xml", ""])
+
+
+@app.get("/robots.txt")
+def robots_txt():
+    return Response(_ROBOTS, media_type="text/plain", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    urls = "".join(f"  <url><loc>{SITE_URL}{path}</loc><lastmod>{day}</lastmod></url>\n"
+                   for path, day in PUBLIC_PAGES.items())
+    body = f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}</urlset>\n'
+    return Response(body, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/llms.txt")
+def llms_txt():
+    # What AI assistants read to describe Voyce: facts only, kept in step with the site.
+    return FileResponse(os.path.join(frontend_path, "llms.txt"), media_type="text/plain; charset=utf-8",
+                        headers={"Cache-Control": "public, max-age=3600"})
 
 
 # ── Waitlist ──────────────────────────────────────────────────────────────────
