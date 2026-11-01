@@ -1,5 +1,7 @@
 # Voyce Manifesto
 
+> **REVISED 2026-11-01 (founder decision): the primary message is now approval-first** — "a post in your voice, in your inbox every morning; approve it in one tap." "The AI ghostwriter that actually posts" and "it hits publish" are retired from headlines: LinkedIn's API terms ban automating posting, and the site had already moved to "read it, tap Approve" (Oct 2026). Automatic posting stays an in-app setting, never the promise. Pricing has also moved on: ₹1,999 per 30-day pass in India, $49 (₹4,699) elsewhere. Everything else below still stands.
+
 > **STATUS: RATIFIED 2026-07-22.** All 10 §6 decisions ratified by the founder as drafted (see the ratification note at the top of §6). Pricing decided: **$49/mo (billed as ₹4,699) for all customers** — revised 2026-07-22 from the initial ₹2,499/$29 call, positioned as a founding price that rises once the approval queue + first testimonials land; regional India pricing deferred until geo-detected checkout exists. This copy is cleared for outreach, the site, and Voyce's own posts. §6.10 still applies: revisit exact narrative phrasing after the first 10 customer interviews.
 >
 > **Sources:** `marketing/gtm/01-icp.md` (the spec — every stat and quote below traces to it) · `PITCH.md` (product truth). **Winning angle:** enemy (habit failure / the blank composer), with grafts from the customer-hero and category drafts.
