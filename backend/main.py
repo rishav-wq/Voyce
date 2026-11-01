@@ -78,7 +78,7 @@ async def _security_headers(request: Request, call_next):
 # (for sitemap.xml: Google and Bing trust lastmod only while it stays accurate).
 SITE_URL = "https://voyce.co.in"
 PUBLIC_PAGES = {
-    "/": "2026-11-01",
+    "/": "2026-11-02",
     "/voice-check": "2026-11-01",
     "/how-to-not-sound-like-ai-on-linkedin": "2026-11-01",
     "/about": "2026-11-01",
