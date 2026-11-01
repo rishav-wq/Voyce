@@ -168,6 +168,7 @@ async function startApp() {
   }
   checkLinkedInStatus();
   loadQueue();
+  _everGenerated = (((user || {}).gen_info || {}).used || 0) > 0;
   updateProgress();
   loadWaiting();
   // The upsell starts hidden and shows only for a known free plan: people who
@@ -263,8 +264,10 @@ function updateLiPill(connected) {
 }
 
 // ── Onboarding progress strip ───────────────────────────────────────────────
-// Step 1 reflects the ACTUAL on-screen output (a LinkedIn post draft or a carousel),
-// not a persistent flag — so it stays truthful across generate / clear / refresh.
+// Step 1 is done once the account has written anything (this pass's count from /auth/me, or a
+// post made on this visit), or while a post or carousel is on screen. Counting only what was on
+// screen told people with dozens of posts to "Generate a post" on every visit.
+let _everGenerated = false;
 function updateProgress() {
   const gen  = document.getElementById("pstep-generate");
   const li   = document.getElementById("pstep-linkedin");
@@ -277,7 +280,7 @@ function updateProgress() {
   if (strip) strip.style.display = (!_profilesKnown || !_liKnown || setUp) ? "none" : "";
   const liText = document.getElementById("linkedin-content");
   const carSec = document.getElementById("carousel-section");
-  const hasGen = !!(liText && liText.textContent.trim()) ||
+  const hasGen = _everGenerated || !!(liText && liText.textContent.trim()) ||
                  !!(carSec && carSec.classList.contains("visible"));
 
   // Linear onboarding: a step turns "done" only once it AND every step before it is
@@ -297,7 +300,7 @@ function updateProgress() {
     auto.classList.remove("done");                // finishing setup is confirmed on /setup, not here
   }
 }
-function markGenerated() { updateProgress(); refreshMeter(); _syncFormats(); _syncReadyBar(); }
+function markGenerated() { _everGenerated = true; updateProgress(); refreshMeter(); _syncFormats(); _syncReadyBar(); }
 
 async function handleLiClick() {
   if (linkedInConnected) {

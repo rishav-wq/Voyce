@@ -60,14 +60,16 @@
     .side-item.active { background: #e7ebf4; color: #24365e; }
     .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
     .side-spacer { flex: 1; }
-    .side-upsell { background: linear-gradient(150deg, #24365e, #35507f); border-radius: 14px; padding: 16px; color: #fff; text-decoration: none; display: block; }
+    .side-upsell { background: #24365e; border-radius: 14px; padding: 16px; color: #fff; text-decoration: none; display: block; }
     .side-upsell h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px; }
     .side-upsell p { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.82); margin: 0; }
     .side-foot { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e4e7ec; padding-top: 12px; }
     .side-user { font-size: 12px; color: #98a0ae; padding: 0 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── Progress strip ── */
-    .progress-strip { display: flex; align-items: center; gap: 6px 14px; background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; flex-wrap: wrap; }
+    /* centred over the question, as wide as its steps: full width and left-aligned, it sat off
+       to one side of everything under it */
+    .progress-strip { display: flex; align-items: center; justify-content: center; gap: 6px 14px; width: fit-content; max-width: 100%; margin: 0 auto 22px; background: #fff; border: 1px solid #e4e7ec; border-radius: 999px; padding: 10px 20px; flex-wrap: wrap; }
     .pstep { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: #98a0ae; text-decoration: none; }
     .pstep .pnum { width: 24px; height: 24px; border-radius: 50%; background: #efe9e0; color: #98a0ae; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
     .pstep.active { color: #16181d; }
@@ -1113,17 +1115,17 @@
         </div>
         <div class="fmt" data-fmt="carousel">
           <div class="fmt-hd"><b>Carousel</b></div>
-          <div class="fmt-thumb"><span class="fmt-stack"><img src="/static/write-examples/carousel-1.jpg" alt="" loading="lazy"><img src="/static/write-examples/carousel-2.jpg" alt="" loading="lazy"><img src="/static/write-examples/carousel-3.jpg" alt="" loading="lazy"></span><button type="button" class="fmt-make" onclick="makeFormat('carousel', this)">Make it</button></div>
+          <div class="fmt-thumb"><span class="fmt-stack"><img src="/static/write-examples/carousel-1.jpg?v=2" alt="" loading="lazy"><img src="/static/write-examples/carousel-2.jpg?v=2" alt="" loading="lazy"><img src="/static/write-examples/carousel-3.jpg?v=2" alt="" loading="lazy"></span><button type="button" class="fmt-make" onclick="makeFormat('carousel', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="quote">
           <div class="fmt-hd"><b>Quote card</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/quote-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('quote', this)">Make it</button></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/quote-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('quote', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="list">
           <div class="fmt-hd"><b>List card</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/list-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('list', this)">Make it</button></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/list-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('list', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="tweet">
@@ -1310,7 +1312,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=32"></script>
+  <script src="/static/app.js?v=33"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async
