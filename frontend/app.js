@@ -321,6 +321,7 @@ function applySeedTopic() {
     renderOutputs({ linkedin_post: seedPost });
     document.getElementById("output-section").classList.add("visible");
     markGenerated();
+    openPreview();
     setTimeout(() => toast("Your first post. Edit anything, then post it.", "success"), 400);
     return;
   }
@@ -409,7 +410,7 @@ function updateProgress() {
     auto.classList.remove("done");                // finishing setup is confirmed on /setup, not here
   }
 }
-function markGenerated() { updateProgress(); refreshMeter(); _syncFormats(); }
+function markGenerated() { updateProgress(); refreshMeter(); _syncFormats(); _syncReadyBar(); }
 
 async function handleLiClick() {
   if (linkedInConnected) {
@@ -499,6 +500,7 @@ async function generate() {
 
   document.getElementById("error-banner").style.display = "none";
   document.getElementById("output-section").classList.remove("visible");
+  closePreview();   // the new post opens it again when it's written
 
   const fetchStage = { text: "Reading your content…", url: "Fetching the article…", youtube: "Reading the video transcript…" }[activeType];
   startGenProgress([
@@ -522,7 +524,7 @@ async function generate() {
     renderOutputs(data);
     document.getElementById("output-section").classList.add("visible");
     markGenerated();
-    document.getElementById("output-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    openPreview();
     textOk = true;
   } catch (err) {
     showError(err.message);
@@ -1220,7 +1222,7 @@ function openDraft(id) {
     hideVariants(); window._tagPool = null; hideHashtags();   // they belonged to the other post
     document.getElementById("output-section").classList.add("visible");
     _syncToolRuns();
-    document.getElementById("output-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    openPreview();
   }
   _renderDrafts();
 }
@@ -1507,7 +1509,7 @@ function _showCarouselResult(data) {
   document.getElementById("carousel-section").classList.add("visible");
   _showCarouselSlides();
   markGenerated();
-  document.getElementById("carousel-section").scrollIntoView({ behavior: "smooth", block: "start" });
+  openPreview();
 }
 
 // A brand kit's looks under the slides: the same carousel redrawn in another look. Drawing only,
@@ -2067,8 +2069,7 @@ async function makeFormat(kind, el) {
       const radio = document.querySelector(`input[name="img-style"][value="${kind}"]`);
       if (radio) { radio.checked = true; _syncDesignRow(); }
       const before = _attachB64;
-      const wp = document.getElementById("work-preview");
-      if (wp) wp.scrollIntoView({ behavior: "smooth", block: "start" });
+      openPreview();   // the picture is drawn inside the post, so the post is open while it's made
       await attachGenerateImage();
       if (tile && _attachB64 && _attachB64 !== before) {
         document.querySelectorAll(".fmt.made:not([data-fmt='carousel'])").forEach(x => x.classList.remove("made"));
@@ -2079,7 +2080,65 @@ async function makeFormat(kind, el) {
     if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || "Make it"; }
   }
 }
-(() => {   // the tiles follow the post: shown, cleared, or opened from a draft
+(() => {   // the tiles and the ready bar follow the post: shown, cleared, edited, or opened from a draft
+  // The slide-out and its scrim move to the page's top level, so the scrim covers the menu too
+  // instead of stacking inside the page's column.
+  ["work-preview", "wp-scrim"].forEach(id => { const el = document.getElementById(id); if (el) document.body.appendChild(el); });
   const out = document.getElementById("output-section");
   if (out && window.MutationObserver) new MutationObserver(_syncFormats).observe(out, { attributes: true, attributeFilter: ["class"] });
+  if (!window.MutationObserver) return;
+  const watch = new MutationObserver(_syncReadyBar);
+  ["output-section", "carousel-section"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) watch.observe(el, { attributes: true, attributeFilter: ["class"] });
+  });
+  const text = document.getElementById("linkedin-content");
+  if (text) watch.observe(text, { childList: true, characterData: true, subtree: true });
 })();
+
+// The post and the carousel open in a slide-out; the bar under the box brings them back
+let _previewReturn = null;
+function _hasPost() {
+  const out = document.getElementById("output-section");
+  return !!(out && out.classList.contains("visible")) && !!_postText().trim();
+}
+function _hasCarousel() {
+  const cs = document.getElementById("carousel-section");
+  return !!(cs && cs.classList.contains("visible"));
+}
+function openPreview() {
+  const wp = document.getElementById("work-preview");
+  if (!wp || wp.classList.contains("open")) return;
+  _previewReturn = document.activeElement;
+  document.getElementById("wp-title").textContent = _hasPost() || !_hasCarousel() ? "Your post" : "Your carousel";
+  wp.classList.add("open");
+  document.getElementById("wp-scrim").classList.add("on");
+  setTimeout(() => { const c = document.getElementById("wp-close"); if (c) c.focus({ preventScroll: true }); }, 60);
+}
+function closePreview() {
+  const wp = document.getElementById("work-preview");
+  if (!wp || !wp.classList.contains("open")) return;
+  wp.classList.remove("open");
+  document.getElementById("wp-scrim").classList.remove("on");
+  if (_previewReturn && _previewReturn.focus) _previewReturn.focus({ preventScroll: true });
+}
+function _syncReadyBar() {
+  const bar = document.getElementById("ready-bar");
+  if (!bar) return;
+  const post = _hasPost(), car = _hasCarousel();
+  bar.classList.toggle("on", post || car);
+  if (!post && !car) return;
+  const first = post ? _postText().trim().split("\n")[0] : (document.getElementById("carousel-hook-label").textContent || "").replace(/^"|"$/g, "");
+  document.getElementById("rb-k").textContent = post && car ? "Your post and carousel are ready" : post ? "Your post is ready" : "Your carousel is ready";
+  document.getElementById("rb-first").textContent = first;
+  document.getElementById("rb-open").textContent = post ? "Preview post →" : "Preview carousel →";
+}
+// Esc closes the top layer only: the schedule pop-up or the upgrade box over the slide-out first
+// (the confirm dialog catches its own Esc before this sees it).
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  const sched = document.getElementById("schedule-modal"), up = document.getElementById("upgrade-modal");
+  if (sched && sched.style.display === "flex") { closeSchedule(); return; }
+  if (up && up.style.display === "flex") return;
+  closePreview();
+});

@@ -201,45 +201,44 @@
     .hist-foot { margin-top: 8px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
     .hist-foot span { font-size: 11px; color: #98a0ae; }
 
-    /* Wide screens: three columns. Compose and the drafts | the post as LinkedIn shows it | tools.
-       The preview keeps LinkedIn's own feed width (about 555px), so its "…see more" fold stays
-       true instead of showing twice the text a real feed would. */
-    .preview-empty { display: none; }
-    @media (min-width: 1800px) {
-      .work-main { display: grid; grid-template-columns: minmax(0, 1fr) 556px; grid-template-rows: auto auto auto 1fr;
-        column-gap: 24px; align-items: start; }
-      .work-main > .input-card { grid-area: 1 / 1; }
-      .work-main > .gen-progress { grid-area: 2 / 1; margin: 16px 0 0; }
-      .work-main > .drafts-section { grid-area: 3 / 1; }
-      .work-main > .queue-card { grid-area: 4 / 1; }
-      .work-preview { grid-column: 2; grid-row: 1 / span 4; min-width: 0; }
-      .work-preview .output-section.visible { margin: 0 0 24px; }
-      .work-preview .output-grid { grid-template-columns: 1fr; }
-      /* The card's own badge says what it is, so the cards' tops line up with Compose and the tools */
-      .work-preview .output-section-title { display: none; }
-      /* A fresh (folded) post's card is as tall as Compose too; the extra room goes above the
-         Like/Comment row, which stays at the card's foot. A longer post just makes it taller. */
-      #card-linkedin { display: flex; flex-direction: column; min-height: var(--compose-h, 0px); }
-      #card-linkedin .li-grow { display: block; flex: 1; }
-      .work-preview .card-header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
-      .work-preview .card-actions { flex-wrap: wrap; gap: 5px; margin-left: auto; justify-content: flex-end; }
-      .work-preview .card-header .action-btn { padding: 6px 9px; }
-      .work-preview .card-header .platform-badge { font-size: 11px; padding: 3px 8px; letter-spacing: .02em; }
-      .work-preview .card-header .action-btn, .work-preview .platform-badge { white-space: nowrap; }
-      .preview-empty { display: flex; flex-direction: column; min-height: var(--compose-h, 0px);
-        background: #fff; border: 1.5px dashed #d8dde6; border-radius: 16px; padding: 22px 22px 20px; }
-      .work-preview:has(.output-section.visible) .preview-empty { display: none; }
-    }
-    .pe-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-    .pe-av { width: 44px; height: 44px; border-radius: 50%; background: #eef1f5; flex: 0 0 auto; }
-    .pe-lines { flex: 1; }
-    .preview-empty i { display: block; height: 10px; border-radius: 6px; background: #eef1f5; margin-bottom: 10px; }
-    .preview-empty .pe-img { flex: 1; min-height: 60px; margin: 8px 0 14px; border-radius: 10px; background: #f3f5f8; }
-    .pe-bar { display: flex; justify-content: space-around; padding-top: 12px; border-top: 1px solid #f0f2f5; }
-    .preview-empty .pe-bar i { width: 52px; margin: 0; }
-    .preview-empty p { margin: 14px 0 0; font-size: 13px; color: #8a909c; line-height: 1.5; text-align: center; }
-    /* Side by side with Compose, the tools panel starts and ends with it: one clean row of boxes */
-    @media (min-width: 1200px) { .work-tools { min-height: var(--compose-h, 0px); } }
+    /* The post opens in a slide-out from the right, at LinkedIn's own feed width (about 555px of
+       text), so its "…see more" fold stays true. The page keeps the box, the ideas and the formats;
+       the bar under the box opens it again. */
+    .work-preview { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); z-index: 900;
+      background: #f4f6fa; box-shadow: -24px 0 60px rgba(22,24,29,.18); overflow-y: auto; overscroll-behavior: contain;
+      padding: 0 18px 28px; transform: translateX(104%); visibility: hidden;
+      transition: transform .28s cubic-bezier(.2,.8,.2,1), visibility 0s linear .28s; }
+    .work-preview.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+    .wp-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
+      padding: 16px 0 12px; background: #f4f6fa; }
+    .wp-head b { font-size: 16px; color: #16181d; }
+    .wp-head span { font-size: 12.5px; color: #8a909c; flex: 1; }
+    .wp-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid #dde2ea; background: #fff;
+      font-size: 16px; color: #3c4250; cursor: pointer; flex: none; }
+    .wp-close:hover { border-color: #24365e; }
+    .wp-scrim { position: fixed; inset: 0; z-index: 899; background: rgba(15,20,30,.32); opacity: 0;
+      pointer-events: none; transition: opacity .25s; }
+    .wp-scrim.on { opacity: 1; pointer-events: auto; }
+    .work-preview .output-section.visible { margin: 0 0 18px; }
+    .work-preview .output-grid { grid-template-columns: 1fr; }
+    .work-preview .output-section-title { display: none; }   /* each card's badge says what it is */
+    .work-preview .card-header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+    .work-preview .card-actions { flex-wrap: wrap; gap: 5px; margin-left: auto; justify-content: flex-end; }
+    .work-preview .card-header .action-btn { padding: 6px 9px; white-space: nowrap; }
+    .work-preview .card-header .platform-badge { font-size: 11px; padding: 3px 8px; letter-spacing: .02em; white-space: nowrap; }
+    @media (prefers-reduced-motion: reduce) { .work-preview, .work-preview.open, .wp-scrim { transition: none; } }
+    /* Once a post exists: its first line, under the box, with the button that opens it */
+    .ready-bar { display: none; align-items: center; gap: 14px; max-width: 980px; margin: 14px auto 0; text-align: left;
+      background: #fff; border: 1px solid #cfe5d8; border-left: 4px solid #1aa07a; border-radius: 14px; padding: 12px 14px 12px 16px; }
+    .ready-bar.on { display: flex; }
+    .rb-tick { width: 30px; height: 30px; border-radius: 50%; background: #e6f5ee; color: #1a8a63; display: grid; place-items: center; font-weight: 800; flex: none; }
+    .rb-text { flex: 1; min-width: 0; }
+    .rb-k { font-size: 13.5px; font-weight: 800; color: #1a7a57; }
+    .rb-first { font-size: 14px; color: #3c4250; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-open { border: 0; border-radius: 10px; background: #24365e; color: #fff; font: 700 14px inherit; font-family: inherit;
+      padding: 11px 16px; cursor: pointer; white-space: nowrap; flex: none; }
+    .rb-open:hover { background: #1c2b4d; }
+    @media (max-width: 560px) { .ready-bar { flex-wrap: wrap; } .rb-open { width: 100%; } }
 
     @media (max-width: 1199px) {
       .workspace { grid-template-columns: 1fr; }
@@ -685,7 +684,7 @@
     .modal-backdrop {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.35);
-      z-index: 200;
+      z-index: 1000;   /* above the post's slide-out, which opens it */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -808,13 +807,10 @@
     .fmt-more { display: flex; justify-content: space-between; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: #6d7482; }
     .fmt-more a { color: #24365e; font-weight: 600; } .fmt-note { color: #98a0ae; }
     .fmt-more .img-design-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .workspace { margin-top: 26px; }
-    /* The compose card moved up and the drafts into the Recent tab, so on a wide screen the work column
-       is the post itself, at LinkedIn's feed width, with the tools beside it */
-    @media (min-width: 1800px) {
-      .workspace { grid-template-columns: minmax(0, 660px) 380px; justify-content: center; }
-      .work-main { display: block; }
-    }
+    /* The post lives in the slide-out, so this row is the tools panel (and the schedule when there
+       is one), centred under the formats at every width */
+    .workspace { margin-top: 26px; grid-template-columns: minmax(0, 760px); justify-content: center; }
+    .work-main { display: contents; }   /* its slide-out and scrim are fixed; only the schedule card takes a row */
     #tool-recent .drafts-section { margin: 0; }
     #tool-recent .drafts-head { margin-bottom: 10px; }
     #tool-recent .drafts-note { display: block; font-size: 12.5px; color: #98a0ae; line-height: 1.5; }
@@ -1073,6 +1069,13 @@
       </div>
     </div>
 
+    <!-- Once a post exists: its first line, and the button that opens it in the slide-out -->
+    <div class="ready-bar" id="ready-bar" role="status">
+      <span class="rb-tick" aria-hidden="true">✓</span>
+      <div class="rb-text"><div class="rb-k" id="rb-k">Your post is ready</div><div class="rb-first" id="rb-first"></div></div>
+      <button type="button" class="rb-open" id="rb-open" onclick="openPreview()">Preview post →</button>
+    </div>
+
     </section><!-- /write-hero -->
 
     <!-- Today's ideas: made before they wake (morning_ideas.py), free to look at; filled by loadTodayIdeas() -->
@@ -1134,14 +1137,9 @@
     <div class="work-main">
 
     <!-- The post and the carousel: under the formats, or their own column on a wide screen -->
-    <div class="work-preview" id="work-preview">
-    <div class="preview-empty" aria-hidden="true">
-      <div class="pe-head"><span class="pe-av"></span><span class="pe-lines"><i style="width:42%"></i><i style="width:64%;margin:0"></i></span></div>
-      <i style="width:94%"></i><i style="width:88%"></i><i style="width:58%"></i>
-      <div class="pe-img"></div>
-      <div class="pe-bar"><i></i><i></i><i></i><i></i></div>
-      <p>Your post shows up here, the way it will look on LinkedIn. Generate one, or click a draft.</p>
-    </div>
+    <div class="work-preview" id="work-preview" role="dialog" aria-modal="true" aria-labelledby="wp-title">
+    <div class="wp-head"><b id="wp-title">Your post</b><span>Click the text to edit it</span>
+      <button type="button" class="wp-close" id="wp-close" onclick="closePreview()" aria-label="Close the preview">✕</button></div>
 
     <!-- Output -->
     <div class="output-section" id="output-section">
@@ -1230,6 +1228,7 @@
     </div>
 
     </div><!-- /work-preview -->
+    <div class="wp-scrim" id="wp-scrim" onclick="closePreview()"></div>
 
     <!-- Queue -->
     <div class="queue-card" id="queue-section">
@@ -1304,7 +1303,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=25"></script>
+  <script src="/static/app.js?v=26"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async
