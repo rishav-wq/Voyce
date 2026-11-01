@@ -128,7 +128,7 @@ def update_account_type(user_id: str, account_type: str):
 def get_gen_info(user_id: str) -> dict:
     user = db.users.find_one({"id": user_id}, {"_id": 0}) or {}
     if user.get("email", "").lower() in _ADMIN_EMAILS:
-        return {"used": 0, "limit": -1, "plan": "admin"}
+        return {"used": 0, "limit": -1, "plan": "admin", "ai_used": 0, "ai_limit": -1}
     plan       = user.get("plan", "free")
     expires_at = user.get("plan_expires_at")
     if plan == "pro" and expires_at and expires_at < datetime.now().isoformat():
@@ -151,8 +151,23 @@ def get_gen_info(user_id: str) -> dict:
         info["expires_at"] = expires_at
     if plan == "pro":
         info["plan_region"] = region   # "IN": 1 daily-posting profile, capped generations
+    # AI pictures: a pass counts them from its purchase (a pass bought before they were counted
+    # starts from none used); a free account counts them for good
+    from payments import INDIA_PASS_AI_PICTURES, INTL_PASS_AI_PICTURES, FREE_AI_PICTURES
+    pics = int(user.get("ai_pics_used", 0) or 0)
+    if plan == "pro":
+        info["ai_used"] = max(0, pics - int(user.get("pass_ai_start", 0) or 0))
+        allowance = user.get("pass_ai_allowance")
+        info["ai_limit"] = int(allowance) if allowance is not None else (
+            INDIA_PASS_AI_PICTURES if region == "IN" else INTL_PASS_AI_PICTURES)
+    else:
+        info["ai_used"], info["ai_limit"] = pics, FREE_AI_PICTURES
     return info
 
 
 def increment_gens(user_id: str):
     db.users.update_one({"id": user_id}, {"$inc": {"gens_used": 1}})
+
+
+def increment_ai_pics(user_id: str):
+    db.users.update_one({"id": user_id}, {"$inc": {"ai_pics_used": 1}})

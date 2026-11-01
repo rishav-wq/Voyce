@@ -824,6 +824,65 @@ def profile_topics(company: dict) -> list[str]:
     return out[:5] or ([raw.strip()] if raw.strip() else [])
 
 
+def topic_queries(company: dict, topic: str, save: bool = True) -> list[str]:
+    """Search phrases for one of a profile's topics, worded the way news headlines are ("AWS partner
+    program changes", not "Hyperscaler and marketplace co-sell"). Claude writes them for all the
+    profile's topics at once, the first time they're needed, and they're kept on the profile until
+    the topics change. [] when they can't be made: the search then falls back to its templates."""
+    topic = (topic or "").strip()
+    if not topic:
+        return []
+    saved = company.get("topic_queries")
+    if isinstance(saved, dict) and isinstance(saved.get(topic), list) and saved[topic]:
+        return [q for q in saved[topic] if isinstance(q, str) and q.strip()][:5]
+    topics = profile_topics(company) or [topic]
+    if topic not in topics:
+        topics.append(topic)
+    try:
+        made = _write_topic_queries(company, topics)
+    except Exception:
+        logger.exception("[Topics] could not write search phrases")
+        return []
+    if not made:
+        return []
+    company["topic_queries"] = made          # the rest of this run reuses them
+    if save and company.get("id"):
+        try:
+            db.companies.update_one({"id": company["id"], "user_id": company.get("user_id")},
+                                    {"$set": {"topic_queries": made}})
+        except Exception:
+            logger.exception("[Topics] could not save search phrases")
+    return made.get(topic, [])[:5]
+
+
+def _write_topic_queries(company: dict, topics: list[str]) -> dict:
+    from llm import generate_json
+    from carousel import _region_for
+    region = _region_for(company)
+    data = generate_json(f"""{company.get('name', '')} ({company.get('designation') or company.get('profile_type', '')}) posts on
+LinkedIn about these topics{(', for readers in ' + region + ' and beyond') if region else ''}:
+{chr(10).join('- ' + t for t in topics)}
+
+What they know and who they write for:
+{(company.get('knowledge') or '')[:900] or '(not given)'}
+
+For each topic, write 4 web-search phrases that would find this week's news about it: 2-6 words each,
+worded the way business and trade-press headlines put it, naming the programmes, companies, roles or
+terms that news on this topic actually mentions (for example "AWS Partner Network changes" or
+"family business succession India"). {('Two phrases per topic name ' + region + ' (or a city or company there), two are global, so their readers get news from their own market and not only from elsewhere.') if region else 'Keep them global.'}
+Never use filler words such as trends, insights, latest, news or strategy alone.
+
+Return ONLY JSON: {{"topics": {{"<topic exactly as given>": ["phrase", "phrase", "phrase", "phrase"]}}}}""",
+                         max_tokens=2000)
+    out = {}
+    for t in topics:
+        phrases = (data.get("topics") or {}).get(t) or []
+        good = [str(q).strip() for q in phrases if 2 <= len(str(q).split()) <= 8 and len(str(q)) <= 70]
+        if good:
+            out[t] = good[:5]
+    return out
+
+
 def news_search_args(company: dict) -> dict:
     """How to search the news for this profile: a person's region (from their time zone) and a
     business context, so an Indian coach's "top team effectiveness" finds workplace stories."""
@@ -1505,12 +1564,12 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         news_results = search_industry_news(
             subject["industry"], subject["name"], num_results, post_type=post_type,
             extra_angles=subject.get("search_angles") or [], **news_search_args(company),
+            queries=topic_queries(company, subject["industry"]),
         )
         news_context = format_news_context(news_results)
         # What the post was built from, kept with it so the user can check it. The
-        # fact check only accepts real articles as evidence — Tavily's own
-        # AI-written summary (the entry with no URL) is useful context for writing,
-        # but treating it as proof let its mistakes pass as "verified".
+        # fact check only accepts real articles as evidence (the search no longer
+        # returns Tavily's own AI-written summary, whose mistakes used to pass as "verified").
         articles = [r for r in news_results if r.get("url")]
         sources = [{"title": r.get("title", ""), "url": r["url"]} for r in articles][:3]
         gate_context = format_news_context(articles)

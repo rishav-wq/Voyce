@@ -35,6 +35,7 @@ CLAUDE_MODEL  = os.getenv("CLAUDE_MODEL", "claude-opus-5-5")
 CLAUDE_EFFORT = os.getenv("CLAUDE_EFFORT", "medium")
 _claude = (anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=90, max_retries=1)
            if os.getenv("ANTHROPIC_API_KEY") else None)
+usage_log: list = []   # (model, input tokens, output tokens) of recent Claude calls, so a job can report its cost
 
 
 # gemini-2.5/3.x models are "thinking" models: internal reasoning is billed against
@@ -86,23 +87,42 @@ def _call(model_name: str, prompt: str, system: str, max_tokens: int,
     return _safe_text(resp)
 
 
-def _claude_call(prompt: str, system: str, json_mode: bool) -> str:
+def _mime(b: bytes) -> str:
+    if b[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if b[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/png"
+
+
+def _claude_call(prompt: str, system: str, json_mode: bool, image: bytes = None,
+                 model: str = None, effort: str = None, timeout: float = None) -> str:
     """One Claude call; "" when it declined or ran out of room. Opus 5.5 always thinks (effort
     sets how much) and takes no temperature, and max_tokens covers the thinking too, so it is
     headroom, not a target. The pinned SDK predates output_config and fallbacks, so they go in
     the body as the API documents them; "fallbacks": "default" lets the API hand a declined
-    request to another Claude model within the same call."""
+    request to another Claude model within the same call. image, when given, is shown first."""
     if json_mode:
         system = (system or "") + "\n\nReturn only valid JSON, no other text."
-    kw = dict(model=CLAUDE_MODEL, max_tokens=16000,
-              messages=[{"role": "user", "content": prompt}],
-              extra_body={"output_config": {"effort": CLAUDE_EFFORT}, "fallbacks": "default"},
+    content = prompt
+    if image:
+        content = [{"type": "image", "source": {"type": "base64", "media_type": _mime(image),
+                                                "data": base64.b64encode(image).decode()}},
+                   {"type": "text", "text": prompt}]
+    kw = dict(model=model or CLAUDE_MODEL, max_tokens=16000,
+              messages=[{"role": "user", "content": content}],
+              extra_body={"output_config": {"effort": effort or CLAUDE_EFFORT}, "fallbacks": "default"},
               extra_headers={"anthropic-beta": "server-side-fallback-2026-07-01"})
     if (system or "").strip():
         kw["system"] = system.strip()
-    resp = _claude.messages.create(**kw)
+    # A background job may think for minutes; a page request keeps the client's 90 seconds
+    resp = (_claude.with_options(timeout=timeout) if timeout else _claude).messages.create(**kw)
     print(f"[claude] {resp.model} in={resp.usage.input_tokens} out={resp.usage.output_tokens} "
           f"stop={resp.stop_reason}", flush=True)
+    usage_log.append((resp.model, resp.usage.input_tokens, resp.usage.output_tokens))
+    del usage_log[:-200]
     if resp.stop_reason in ("refusal", "max_tokens"):
         return ""
     return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
@@ -229,15 +249,7 @@ def generate_vision(prompt: str, images: list[bytes], system: str = None,
                     json_mode: bool = False) -> str:
     """Run a multimodal prompt over one or more images (e.g. screenshots).
     Same primary→fallback handling as generate()."""
-    def _sniff(b: bytes) -> str:
-        if b[:8] == b"\x89PNG\r\n\x1a\n":
-            return "image/png"
-        if b[:3] == b"\xff\xd8\xff":
-            return "image/jpeg"
-        if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
-            return "image/webp"
-        return "image/png"
-    parts = [{"mime_type": _sniff(b), "data": b} for b in images]
+    parts = [{"mime_type": _mime(b), "data": b} for b in images]
 
     def _vcall(model_name: str) -> str:
         model = genai.GenerativeModel(model_name, system_instruction=system or None)
@@ -256,7 +268,62 @@ def generate_vision(prompt: str, images: list[bytes], system: str = None,
         return _vcall(FALLBACK_MODEL)
 
 
-IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+# Claude checks every drawn picture. On 12 finished pictures (4 with real faults) Sonnet 5.5 at low
+# effort caught every fault with no false alarm, like Opus, at about 40% of the cost and twice the
+# speed; Haiku 5.5 failed one good picture (1 Nov 2026).
+CLAUDE_CHECK_MODEL  = os.getenv("CLAUDE_CHECK_MODEL", "claude-sonnet-5-5")
+CLAUDE_CHECK_EFFORT = os.getenv("CLAUDE_CHECK_EFFORT", "low")
+
+
+def claude_json(prompt: str, system: str = None, model: str = None, effort: str = None,
+                timeout: float = 300) -> dict:
+    """JSON from Claude and only Claude, with time to think: for background work where a weaker
+    model's answer is worse than trying again later (the morning ideas). Raises on failure."""
+    if not _claude:
+        raise RuntimeError("Claude isn't set up (ANTHROPIC_API_KEY)")
+    text = _claude_call(prompt, system, True, model=model, effort=effort, timeout=timeout)
+    if not text:
+        raise RuntimeError("Claude returned nothing")
+    return _extract_json(text)
+
+
+def quick_json(prompt: str, system: str = None) -> dict | None:
+    """A small judging call on the checker model (Sonnet, low effort): sorting search results and the
+    like. Claude only, None on any failure, so callers keep what they had."""
+    if not _claude:
+        return None
+    try:
+        return _extract_json(_claude_call(prompt, system, True, model=CLAUDE_CHECK_MODEL, effort=CLAUDE_CHECK_EFFORT))
+    except Exception as e:
+        print(f"[claude] quick: {type(e).__name__}: {e}", flush=True)
+        return None
+
+
+def look_json(prompt: str, image: bytes, system: str = None) -> dict | None:
+    """Claude looks at one image and answers in JSON (Gemini when Claude isn't set up or fails);
+    None when neither answers, so a check can never stop the thing it checks."""
+    text = ""
+    if _claude:
+        try:
+            text = _claude_call(prompt, system, True, image=image,
+                                model=CLAUDE_CHECK_MODEL, effort=CLAUDE_CHECK_EFFORT)
+        except Exception as e:
+            print(f"[claude] look: {type(e).__name__}: {e}; using Gemini", flush=True)
+    if not text:
+        try:
+            text = generate_vision(prompt, [image], system=system, json_mode=True)
+        except Exception as e:
+            print(f"[gemini] look: {type(e).__name__}: {e}", flush=True)
+            return None
+    try:
+        return _extract_json(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+# 3.1 Flash Image spells the words it draws, which 2.5 Flash Image could not, and takes an
+# aspect ratio, so a 4:5 post image is drawn 4:5 instead of cropped from a square.
+IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 
 
 def pick_image_region(image_bytes: bytes, post_text: str = "", model_name: str = None) -> dict | None:
@@ -298,23 +365,37 @@ Return ONLY JSON: {{"top": 0.0, "bottom": 0.35, "left": 0.0, "right": 1.0}}"""
     return None
 
 
-def generate_image(prompt: str, model_name: str = None) -> bytes:
-    """Generate a single image from a text prompt using a Gemini image model.
-    Returns raw image bytes (PNG/JPEG), or None if generation fails or is unavailable
-    (callers should fall back to a rendered card so the feature degrades gracefully)."""
+def generate_image(prompt: str, model_name: str = None, aspect_ratio: str = "4:5",
+                   size: str = "1K", edit: bytes = None) -> bytes:
+    """Generate a single image from a text prompt using a Gemini image model, or, with edit,
+    change that image as the prompt says. size is "1K" or "2K" (2K for words that must stay
+    crisp). Returns raw image bytes (PNG/JPEG), or None if generation fails or is unavailable
+    (callers should fall back to a rendered card so the feature degrades gracefully).
+    Over REST: the pinned SDK has no way to ask for an aspect ratio or a size."""
+    import requests
     name = model_name or IMAGE_MODEL
+    parts = [{"text": prompt}]
+    if edit:
+        parts.insert(0, {"inlineData": {"mimeType": _mime(edit), "data": base64.b64encode(edit).decode()}})
     try:
-        model = genai.GenerativeModel(name)
-        # Hard timeout: a hung image call must never hold the HTTP request open past the
-        # proxy's limit — callers fall back to a rendered card, which beats a dead connection.
-        resp = model.generate_content(prompt, request_options={"timeout": 30})
-        for cand in (resp.candidates or []):
-            parts = getattr(getattr(cand, "content", None), "parts", None) or []
-            for part in parts:
-                inline = getattr(part, "inline_data", None)
-                data = getattr(inline, "data", None) if inline else None
+        # Hard timeout: a hung image call must never hold the HTTP request open for good —
+        # callers fall back to a rendered card, which beats a dead connection.
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{name}:generateContent",
+            headers={"x-goog-api-key": os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""},
+            json={"contents": [{"parts": parts}],
+                  "generationConfig": {"responseModalities": ["IMAGE"],
+                                       "imageConfig": {"aspectRatio": aspect_ratio, "imageSize": size}}},
+            timeout=75)
+        if r.status_code != 200:
+            print(f"[image] {name} {r.status_code}: {r.text[:200]}", flush=True)
+            return None
+        for cand in r.json().get("candidates") or []:
+            for part in (cand.get("content") or {}).get("parts") or []:
+                data = (part.get("inlineData") or {}).get("data")
                 if data:
-                    return base64.b64decode(data) if isinstance(data, str) else data
-    except Exception:
+                    return base64.b64decode(data)
+    except Exception as e:
+        print(f"[image] {name} {type(e).__name__}: {e}", flush=True)
         return None
     return None

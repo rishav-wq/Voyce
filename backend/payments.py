@@ -29,6 +29,12 @@ INDIA_AUTOPILOT_PROFILES = 1
 # Each India pass also includes a fixed number of generations (daily posting
 # uses ~30 of them); the international pass is unlimited.
 INDIA_PASS_GENERATIONS   = int(os.getenv("INDIA_PASS_GENERATIONS", "60"))
+# AI pictures (drawn by the image model: idea pictures, photos) cost ~₹8 each to draw and
+# check, on top of the writing, against next to nothing for the cards we draw, so each pass
+# includes a number of them inside its generations. Free accounts get one to see what they are.
+INDIA_PASS_AI_PICTURES   = int(os.getenv("INDIA_PASS_AI_PICTURES", "10"))
+INTL_PASS_AI_PICTURES    = int(os.getenv("INTL_PASS_AI_PICTURES", "40"))
+FREE_AI_PICTURES         = int(os.getenv("FREE_AI_PICTURES", "1"))
 MAX_PROFILES             = 3   # per account, on every plan
 
 _API_BASE = "https://api.razorpay.com/v1"
@@ -149,7 +155,8 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
     start = datetime.now()
     user = db.users.find_one({"id": user_id}, {"plan": 1, "plan_expires_at": 1, "plan_region": 1,
                                                "gens_used": 1, "pass_gens_start": 1,
-                                               "pass_gens_allowance": 1}) or {}
+                                               "pass_gens_allowance": 1, "ai_pics_used": 1,
+                                               "pass_ai_start": 1, "pass_ai_allowance": 1}) or {}
     still_active = False
     if user.get("plan") == "pro" and user.get("plan_expires_at"):
         try:
@@ -180,6 +187,14 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
             used_this_pass = used_total - int(user.get("pass_gens_start", used_total) or 0)
             carry = max(0, int(user.get("pass_gens_allowance", INDIA_PASS_GENERATIONS) or 0) - used_this_pass)
         fields.update({"pass_gens_start": used_total, "pass_gens_allowance": INDIA_PASS_GENERATIONS + carry})
+    # AI pictures are counted per pass on both regions, unused ones carried over the same way
+    pics_total = int(user.get("ai_pics_used", 0) or 0)
+    pics_carry = 0
+    if still_active and user.get("plan_region") == region and user.get("pass_ai_allowance") is not None:
+        pics_used = pics_total - int(user.get("pass_ai_start", pics_total) or 0)
+        pics_carry = max(0, int(user["pass_ai_allowance"]) - pics_used)
+    pics = INDIA_PASS_AI_PICTURES if region == REGION_IN else INTL_PASS_AI_PICTURES
+    fields.update({"pass_ai_start": pics_total, "pass_ai_allowance": pics + pics_carry})
     db.users.update_one({"id": user_id}, {"$set": fields})
     import analytics
     analytics.capture(user_id, "payment_succeeded", {"region": region, "source": source, "renewal": still_active})

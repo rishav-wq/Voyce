@@ -1,6 +1,7 @@
 import base64
 import colorsys
 import io
+import json
 import logging
 import os
 import re
@@ -280,7 +281,21 @@ def _font(size: int, bold: bool = False, semi: bool = False) -> ImageFont.FreeTy
 
 
 def _wrap(draw, text, font, max_w):
-    words, lines, cur = text.split(), [], []
+    words, lines, cur = [], [], []
+    for word in text.split():
+        # A word wider than the line (a long hyphenated term) breaks after its hyphens; it used to
+        # run off the slide ("time-to-first-sourced-deal" cut at the right edge)
+        if "-" in word.strip("-") and draw.textbbox((0, 0), word, font=font)[2] > max_w:
+            chunk = ""
+            for piece in re.findall(r"[^-]*-|[^-]+$", word):
+                if chunk and draw.textbbox((0, 0), chunk + piece, font=font)[2] > max_w:
+                    words.append(chunk)
+                    chunk = piece
+                else:
+                    chunk += piece
+            words.append(chunk)
+        else:
+            words.append(word)
     for word in words:
         test = " ".join(cur + [word])
         if draw.textbbox((0, 0), test, font=font)[2] > max_w and cur:
@@ -590,18 +605,36 @@ _ED_THEMES = {
 }
 
 
-def _pick_card_theme(theme: str = "") -> str:
-    """The colour set asked for, else a different look from post to post: any of them, at random."""
+def _pick_card_theme(theme: str = "", company: dict | None = None) -> str:
+    """The colour set asked for; else the author's own brand look when the profile has a brand kit
+    (their deck's look first); else a different look from post to post: any of them, at random."""
     import random
-    return theme if theme in _ED_THEMES else random.choice(list(_ED_THEMES))
+    if theme in _ED_THEMES or (theme in BRAND_LOOKS and _brand_kit_theme(company, theme)):
+        return theme
+    looks = _valid_brand_looks(company)
+    if looks:
+        own = (company or {}).get("carousel_theme", "")
+        return own if own in looks else looks[0]
+    return random.choice(list(_ED_THEMES))
 
 
-def _option_themes(theme: str, n: int) -> list[str]:
-    """n different colour sets for side-by-side options, the one asked for first."""
+def _option_themes(theme: str, n: int, company: dict | None = None) -> list[str]:
+    """n different colour sets for side-by-side options, the one asked for first; an author with
+    a brand kit gets their other brand looks next."""
     import random
-    first = _pick_card_theme(theme)
-    rest = [t for t in _ED_THEMES if t != first]
-    return [first] + random.sample(rest, max(0, min(n, len(_ED_THEMES)) - 1))
+    first = _pick_card_theme(theme, company)
+    own = [k for k in _valid_brand_looks(company) if k != first] if first in BRAND_LOOKS else []
+    rest = own + random.sample([t for t in _ED_THEMES if t != first], len(_ED_THEMES) - (first in _ED_THEMES))
+    return [first] + rest[:max(0, n - 1)]
+
+
+def _valid_brand_looks(company: dict | None) -> list[str]:
+    return [k for k, t in zip(BRAND_LOOKS, _brand_looks(company)) if t]
+
+
+def _card_look(theme: str, company: dict | None):
+    """What a card is drawn in: the brand kit look a brand key names, else the colour set's name."""
+    return (_brand_kit_theme(company, theme) or "light") if theme in BRAND_LOOKS else theme
 
 
 def _brand_accent(company: dict | None):
@@ -675,7 +708,9 @@ def _brand_kit_theme(company: dict | None, look: str) -> dict | None:
     return looks[i] if i < len(looks) else None
 
 
-def _ed_theme(theme: str, brand_accent: tuple | None = None) -> dict:
+def _ed_theme(theme, brand_accent: tuple | None = None) -> dict:
+    if isinstance(theme, dict):   # a brand kit look: the author's own colours as they are
+        return dict(theme)
     t = dict(_ED_THEMES.get(theme, _ED_THEMES["light"]))
     if brand_accent:   # a real brand colour, made readable on this background
         a = tuple(brand_accent)
@@ -805,7 +840,8 @@ def _ed_list_card(tag: str, headline: str, emphasis: str, points: list, name: st
     after_head = 60 * S
     # Points: just their short labels, as large as fits; the spare room spread between them.
     # (Explanations under each point made the card a second copy of the caption.)
-    pts = [lab or desc for lab, desc in _ed_points(points)]
+    # A one-word label is no label ("First: time-to-first-sourced-deal" showed as "First"): the whole point
+    pts = [(lab if len(lab.split()) > 1 else f"{lab}: {desc}") if lab else desc for lab, desc in _ed_points(points)]
     f_num = _font_black(64 * S)
     num_w = _tw(draw, "00", f_num) + 34 * S
     text_w = max_w - num_w
@@ -990,13 +1026,16 @@ def render_image_post_png(content: dict, company: dict, author: dict | None = No
     (else a random one). meta, when given, gets what was drawn: format and colour set."""
     brand = (company or {}).get("name", "Voyce")
     name, avatar = _card_author(brand, author)
-    theme = _pick_card_theme(theme)
+    theme = _pick_card_theme(theme, company)
     if meta is not None:
         meta.update(format="quote_card", theme=theme)
+    sub = content.get("card_subtext", "")
+    if name and name.split()[0].lower() in sub.lower():   # the signature under it already names them
+        sub = ""
     img = _ed_quote_card(
-        content.get("card_headline", ""), content.get("card_subtext", ""), content.get("card_emphasis", ""),
+        content.get("card_headline", ""), sub, content.get("card_emphasis", ""),
         content.get("card_tag", ""), name, (company or {}).get("designation", ""), avatar,
-        theme=theme, brand_accent=_brand_accent(company),
+        theme=_card_look(theme, company), brand_accent=_brand_accent(company),
         rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE,
     )
     buf = io.BytesIO()
@@ -1004,21 +1043,25 @@ def render_image_post_png(content: dict, company: dict, author: dict | None = No
     return buf.getvalue()
 
 
-# ── AI photo image post (research-grounded) ──────────────────────────────────
+# ── AI image post (research-grounded) ────────────────────────────────────────
 # Research (deep-research, 2026): AI human faces/hands are the #1 credibility killer and
-# "AI slop" tell, and model-rendered text garbles. Until Oct 2026 that meant flat illustrations
-# only; owners' own posts are photographic, so scenes are now realistic editorial photos that
-# keep the guardrails: no visible faces (people from behind / over the shoulder / out of focus),
-# no readable text, no AI clichés. Any text is still added by us, never by the model.
+# "AI slop" tell. Until Oct 2026 that meant flat illustrations only; owners' own posts are
+# photographic, so scenes are realistic editorial photos with no visible faces and no text.
+# Nov 2026: a meeting-room photo fits any post, so it said nothing (three runs on one post gave
+# the same two people and a blank sheet). The image model now spells what it draws, so a post
+# that argues a point gets a concept picture: one metaphor in real objects that makes the
+# argument, with its headline drawn on, the way authors make theirs in ChatGPT. Claude checks
+# every drawn image and the image model repairs what it finds (_checked_image).
 
 _AI_IMAGE_SYSTEM = """You design the VISUAL for a founder's LinkedIn post, plus the caption.
 
-FORMAT — decide this FIRST. On LinkedIn a real, relevant photo beats a designed graphic, and the
-image must never repeat the caption — keep any text on it SHORT:
-- "photo_card": DEFAULT. A realistic PHOTOGRAPH of a real moment from the post's world (fill
-  image_concept) with ONE short line under it: card_headline = the post's point in max 9 words,
-  card_emphasis = 1-3 words of it. Use whenever the point can be shown as a moment — a
-  conversation, a meeting, a site visit, a desk, a decision, a team at work.
+FORMAT — decide this FIRST. The image must never repeat the caption — keep any text on it SHORT:
+- "concept": DEFAULT for a post that argues a point, gives advice, names a mistake or makes a
+  contrast. ONE visual metaphor built from ordinary physical things that makes the post's argument
+  at a glance, with a two-part headline drawn on the image (see CONCEPT below).
+- "photo_card": for a post about a real moment — a story the author lived, a visit, an event, a
+  meeting that happened. A realistic PHOTOGRAPH of that moment (fill image_concept) with ONE short
+  line under it: card_headline = the post's point in max 9 words, card_emphasis = 1-3 words of it.
 - "scene": the same kind of photo with no text, when the picture alone says it.
 - "list_card": ONLY when the list itself is the value (steps, rules, a framework) → a headline
   (max 9 words) + 3-4 SHORT points in card_points, each a 2-6 word label with NO explanation
@@ -1026,9 +1069,36 @@ image must never repeat the caption — keep any text on it SHORT:
 - "quote_card": ONE sharp quotable claim and nothing to show as a photo (card_headline max 12 words).
 - "tweet_card": a HOT TAKE — contrarian, a little confrontational → a social-screenshot style card
   of that line (card_headline, max ~30 words). Use for the boldest, most argument-starting claims.
-A decorative metaphor is NOT a photo; for photo_card and scene, describe a real moment.
 
-Return JSON:
+CONCEPT (format "concept") — it has to make a stranger stop scrolling and get the point in two
+seconds on a phone, so it is as good as anything the author would make by hand:
+card_headline: two short sentences, the setup then the turn, max 12 words in all, in the author's
+  plain words. The setup names the reader or their situation; the turn is the surprise, the
+  reframe or the cost, and it lands hard (e.g. "Your CXO isn't reading the menu. They're ordering
+  one number."). No question marks, no "Here's why", no colon labels, no hashtags.
+card_emphasis: the turn, exactly as it appears at the end of card_headline (drawn in the accent colour).
+image_concept: 2-4 sentences telling an illustrator exactly what to draw: the objects, how they
+  sit, which one wins the eye, and where each piece of text goes on them. ONLY the objects: never
+  the headline (we set it), and never a desk, table, wall or other surface: the objects rest on a
+  plain flat background with a soft shadow.
+image_words: every word written on the objects, as a list of short strings, max 12 words in all
+  (every extra word is one more the image model can misspell). Each string sits whole on one
+  object: never one word spread across two objects.
+How good concept pictures work:
+- Before answering, think of three different metaphors and keep the one a stranger would get
+  fastest. If it would fit any post on the topic, it is not sharp enough.
+- One metaphor built from ordinary physical things everyone recognises: a menu and an order slip,
+  a receipt, a boarding pass, a to-do list with one line circled, a thick proposal next to a sticky
+  note, a breaker panel, name badges, a report card, a price tag, a luggage label.
+- It carries the contrast or tension in THIS post: what people do vs what works, the many vs the
+  one, the cost vs the price. The headline and the picture say the same thing.
+- Things carry SHORT, real words that make the metaphor readable (a few list items, a circled
+  line, a handwritten note). Numbers come from the post; never invent a statistic for the picture.
+- A hand is fine (if an AUTHOR'S REGION is given, from there); no people, no faces.
+- Never: robots, brains, circuits, lightbulbs, rockets, chess pieces, puzzle pieces, handshakes,
+  arrows, ladders, targets, mountains, globes, screens showing apps.
+
+PHOTO (photo_card and scene) — a decorative metaphor is NOT a photo; describe a real moment.
 image_concept: FIRST boil the post down to its ONE core message in a short phrase (e.g. "prepare for
   the buyer's pushback before the meeting", "talk to users instead of just coding"). THEN describe, in
   2-3 sentences for a PHOTOGRAPHER, a real, candid moment that shows THAT message — the kind of frame a
@@ -1076,7 +1146,7 @@ in the content ("Last week a CEO handed me..." when the content says no such thi
 with what the content and the author profile actually say.
 NEVER USE: "It's not X. It's Y.", "Let that sink in", game-changer, unlock, leverage, synergy.
 
-Return ONLY JSON: {"image_concept": "...", "alt_text": "...", "post_text": "..."}"""
+Return ONLY JSON, with the keys the request lists."""
 
 
 _HUE_NAMES = [
@@ -1091,6 +1161,8 @@ def _describe_color(rgb) -> str:
     """A human colour name for an RGB tuple, so the image model uses the real palette."""
     r, g, b = (c / 255 for c in rgb)
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    if v < 0.16:  # charcoal (22, 24, 29) is near-black, not the "deep blue" its tint made it
+        return "near-black"
     if s < 0.16:  # near-neutral
         if v > 0.90: return "off-white"
         if v > 0.72: return "warm cream"
@@ -1123,9 +1195,10 @@ def _region_for(company: dict | None) -> str:
     return _TZ_REGION.get(((company or {}).get("timezone") or "").strip(), "")
 
 
-def _build_ai_image_prompt(concept: str, p: dict, region: str = "") -> str:
+def _build_ai_image_prompt(concept: str, p: dict, region: str = "", ratio: str = "4:5") -> str:
     # Realistic editorial photography (was a flat illustration until Oct 2026: owners' own posts are
     # photographic, and a cartoon beside a B2B post read as clip art).
+    shape = "Vertical 4:5 composition." if ratio == "4:5" else f"Landscape {ratio} composition."
     return (
         f"A realistic editorial photograph for a business magazine feature. Scene: {concept}. "
         "Shot on a full-frame camera with a 35mm or 50mm lens, natural or practical light, shallow depth "
@@ -1140,8 +1213,211 @@ def _build_ai_image_prompt(concept: str, p: dict, region: str = "") -> str:
         "CRITICAL: absolutely NO text, NO words, NO letters, NO numbers, NO gibberish writing, NO labels, "
         "NO signs, NO logos, NO watermark, NO charts — screens off or turned away, papers face down or blurred. "
         "NO illustration, NO cartoon, NO 3D render, NO CGI sheen, NO robots, holograms or glowing AI imagery, "
-        "NO grinning stock models. Vertical 4:5 composition."
+        "NO grinning stock models. " + shape
     )
+
+
+def _split_turn(headline: str, emphasis: str) -> tuple[str, str]:
+    """A concept headline as (setup, turn): the turn is the emphasis when the headline ends with it,
+    else the last sentence."""
+    head = (headline or "").strip()
+    turn = (emphasis or "").strip()
+    i = head.lower().rfind(turn.lower()) if turn else -1
+    if i > 0:
+        return head[:i].strip(), head[i:].strip()
+    parts = re.split(r"(?<=[.!?])\s+", head)
+    return (" ".join(parts[:-1]), parts[-1]) if len(parts) > 1 else (head, "")
+
+
+def _build_concept_prompt(content: dict, t: dict, region: str = "") -> str:
+    """The image model's brief for a concept picture: the metaphor in the lower part of the frame,
+    on a flat background in the card's colours, with the top left empty for the headline we set."""
+    bg = "#%02X%02X%02X" % tuple(int(x) for x in t["bg"][:3])
+    words = "; ".join(f'"{w}"' for w in content.get("image_words") or [])
+    return (
+        f"A vertical 4:5 editorial concept image for a LinkedIn post. Flat solid background colour {bg} "
+        f"filling the whole frame, no gradient, no texture, no vignette. The TOP 42% of the frame is "
+        f"completely EMPTY background: no objects, no hands, no shadows, no text, nothing (a headline is "
+        f"added there later; do not draw any headline or title). LOWER 58%: {content.get('image_concept', '')} "
+        f"The objects look like real printed paper, card, plastic and ink, photographed as a still life "
+        f"with a soft natural shadow, slightly tilted, crisp and premium, large and close enough to read on "
+        f"a phone. The objects sit DIRECTLY on the flat {_describe_color(t['bg'])} background, which runs "
+        f"edge to edge behind them: no white or light sweep under them, no desk, no table, no wall, no "
+        f"frame, no inset photo, no panel, no box, no border, no second background colour. "
+        + (f"Any hand belongs to a person from {region}. " if region else "")
+        + (f"The only words in the image are these, written on the objects: {words}. Spell every word "
+           f"exactly as given; each one sits whole on a single object, never split across two, never "
+           f"repeated. " if words else "There are no words anywhere in the image. ")
+        + f"No other text, no logos, no watermark, no people, no faces. A restrained palette: the "
+        f"background colour, {_describe_color(t['ink'])} and {_describe_color(t['accent'])} accents, and "
+        f"natural paper and material tones. (Colour codes in this brief are values, never words to draw.)"
+    )
+
+
+_DISPLAY_FONTS = {"poppins": "Poppins-ExtraBold.ttf"}   # brand_kit["font"] → the display weight we hold
+_CONCEPT_TURN = {"light": (190, 72, 32), "sage": (38, 112, 66)}   # concept turn colour where the accent is near the ink
+
+
+def _display_font(size: int, key: str = ""):
+    """The headline face: the author's brand font when we hold it, else Inter Black."""
+    name = _DISPLAY_FONTS.get((key or "").strip().lower())
+    if name:
+        try:
+            return ImageFont.truetype(os.path.join(_FONTS_DIR, name), int(size))
+        except Exception:
+            pass
+    return _font_black(size)
+
+
+def _free_top(img: Image.Image) -> tuple[float, bool, tuple]:
+    """How far down (0..1) the picture's top stays plain background (the first row, scanning down,
+    where more than 2% of the pixels differ clearly from the colour at the very top), and whether
+    the objects sit in a box of another colour: near both side edges, down the lower half, the
+    background colour mostly gone (the model likes a white sweep under objects on a dark colour),
+    and the background colour as drawn."""
+    small = img.convert("RGB").resize((108, 135), Image.BILINEAR)
+    px = small.load()
+    far = lambda c, bg: sum(abs(c[i] - bg[i]) for i in range(3)) > 60
+    top = [px[x, y] for y in range(2) for x in range(108)]
+    bg = tuple(sorted(c[i] for c in top)[len(top) // 2] for i in range(3))
+    free = next((y / 135 for y in range(135) if sum(1 for x in range(108) if far(px[x, y], bg)) > 2), 1.0)
+    edges = [px[x, y] for y in range(74, 128, 6) for x in (6, 9, 98, 101)]
+    boxed = sum(1 for c in edges if far(c, bg)) >= 0.75 * len(edges)
+    return free, boxed, bg
+
+
+def _letter_concept(pic: Image.Image, content: dict, t: dict, footer: str, font_key: str = "") -> Image.Image:
+    """Voyce sets the concept picture's type, so it is the same on every post: the headline in the
+    space the picture left at the top, as large as fits in up to 5 lines (the setup in the ink, the
+    turn on its own line in the look's mark), the author's site or name small at the bottom right."""
+    S = _SCALE
+    rw, rh = IMG_POST_W * S, IMG_POST_H * S
+    img = _cover_crop(pic, rw, rh)
+    free, boxed, bg = _free_top(img)
+    if free < 0.27:   # the drawing reached into the headline's space: type on it would collide
+        raise ValueError(f"the picture starts {free:.0%} down, no room for the headline")
+    if boxed:
+        raise ValueError("the objects sit in a box of another colour, not on the background")
+    draw = ImageDraw.Draw(img)
+    pad, top, gap = 84 * S, 92 * S, 10 * S
+    max_w = rw - pad * 2
+    bottom = min(int(rh * free) - 36 * S, int(rh * 0.46))
+    setup, turn = _split_turn(content.get("card_headline", ""), content.get("card_emphasis", ""))
+    font = None
+    for s in (108, 100, 92, 84, 76, 70, 64, 58, 52):
+        font = _display_font(s * S, font_key)
+        h = sum(_ed_block_h(draw, part, font, max_w, gap) + gap for part in (setup, turn) if part)
+        if h <= bottom - top and sum(len(_wrap(draw, part, font, max_w)) for part in (setup, turn) if part) <= 5:
+            break
+    y = top
+    if setup:
+        y = _ed_draw_marked(draw, setup, font, pad, y, max_w, t, "", gap) + gap
+    if turn:
+        _ed_draw_marked(draw, turn, font, pad, y, max_w, t, turn, gap)
+    if footer:   # on a strip of the background, so it reads where the picture reaches the corner
+        f_foot = _font(26 * S, semi=True)
+        fw, fh = draw.textlength(footer, font=f_foot), _ed_line_h(draw, f_foot)
+        fx, fy = rw - pad - fw, rh - 64 * S - fh
+        draw.rounded_rectangle([fx - 18 * S, fy - 12 * S, fx + fw + 18 * S, fy + fh + 14 * S], radius=10 * S, fill=bg)
+        draw.text((fx, fy), footer, font=f_foot, fill=t["muted"])
+    return img.resize((IMG_POST_W, IMG_POST_H), Image.LANCZOS)
+
+
+_IMAGE_CHECK_SYSTEM = """You are the art director who signs off an AI-made image before it goes on
+someone's LinkedIn post. Judge it as a person scrolling the feed on a phone would see it, and be
+strict: the author should never need to make the image somewhere else.
+
+Report only BLOCKERS, the faults a viewer would notice in two seconds or that make the image wrong:
+1. WORDS: a word misspelt, garbled, doubled or unreadable, gibberish lettering, or text that was
+   not asked for (a stray code, a second copy of the headline or footer).
+2. MEANING: a stranger would get the post's point wrong, or not at all.
+3. READING: the main words can't be read on a phone, or something sits on top of the headline.
+4. MISTAKES: hands or fingers that look wrong, melted or impossible objects, brand logos,
+   watermarks, a frame, inset photo or desk behind the objects when a plain background was asked for.
+Not blockers: one object partly covering another the way real things do, a word partly hidden
+behind a hand or a note when it still reads, small details, and anything that is a matter of taste.
+
+Return JSON: {"ok": true|false, "problems": ["..."], "fix": "..."}
+ok is true when there is no blocker. When it is false, "fix" is ONE short instruction an image
+editor can carry out on this same image to repair exactly those blockers (e.g. "Change the word
+'Intergrations' on the green tab to 'Integrations'." or "Remove the second copy of the headline."),
+never a new idea."""
+
+
+def _small_jpeg(im: Image.Image, edge: int = 1500) -> bytes:
+    """The image at a size the checker reads well, without paying for every pixel."""
+    im = im.convert("RGB")
+    im.thumbnail((edge, edge), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG", quality=88)
+    return buf.getvalue()
+
+
+def _checked_image(prompt: str, check: str, ratio: str = "4:5", size: str = "1K", compose=None):
+    """Draw an image (a second drawing if the first fails or can't be finished), finish it
+    (compose: our type on top), and have Claude look at the finished image against what was
+    asked. When it finds a problem the image model repairs that one thing on the same drawing and
+    Claude looks again. The PIL image, or None when no drawing passes, so the caller shows a card
+    instead of a picture known to be wrong. A check that can't run lets the drawing through."""
+    from llm import generate_image, look_json
+
+    def _finish(b: bytes | None):
+        if not b:
+            return None
+        try:
+            im = Image.open(io.BytesIO(b))
+            im.load()
+            return compose(im) if compose else im
+        except Exception as e:   # unreadable, or the drawing left no room for our type
+            logging.info(f"[Image] drawing not used: {e}")
+            return None
+
+    def _verdict(im) -> dict:
+        try:
+            return look_json(check, _small_jpeg(im.copy()), system=_IMAGE_CHECK_SYSTEM) or {}
+        except Exception:
+            return {}
+
+    b = final = None
+    for _ in range(2):
+        b = generate_image(prompt, aspect_ratio=ratio, size=size)
+        final = _finish(b)
+        if final is not None:
+            break
+    if final is None:
+        return None
+    verdict = _verdict(final)
+    if verdict.get("ok") is not False:
+        return final
+    fix = (verdict.get("fix") or "").strip()
+    logging.info(f"[Image] check: {verdict.get('problems')} -> repair: {fix}")
+    fixed = _finish(generate_image(
+        f"Edit this image. {fix} Keep everything else exactly as it is: the same layout, colours, words "
+        "and style, and empty space empty.", aspect_ratio=ratio, size=size, edit=b)) if fix else None
+    if fixed is None:
+        return None
+    again = _verdict(fixed)
+    logging.info(f"[Image] after repair: {'ok' if again.get('ok') is not False else again.get('problems')}")
+    return fixed if again.get("ok") is not False else None
+
+
+def _concept_image(content: dict, company: dict, look: dict, footer: str):
+    """The concept picture for a post: drawn, our type set on it, then checked. Drawn at 1K: side
+    by side with 2K at post size the writing on the objects read the same, at two thirds of the
+    price and half the time (1 Nov 2026)."""
+    words = content.get("image_words") or []
+    check = (f"This concept image was made for a LinkedIn post. The headline at the top and the small "
+             f"footer are set by Voyce in the author's brand font, so never ask to change their words "
+             f"or font; every fix must be to the picture below them.\n"
+             f"HEADLINE: \"{content.get('card_headline', '')}\"\n"
+             f"BACKGROUND: one flat {_describe_color(look['bg'])} colour edge to edge, the objects on it "
+             f"directly (a lighter box, sweep or photo behind them is a blocker)\n"
+             f"WORDS ON THE OBJECTS (exactly these, nothing else): {json.dumps(words, ensure_ascii=False)}\n"
+             f"WHAT THE PICTURE SHOULD SHOW: {content.get('image_concept', '')}\n"
+             f"THE POST IT GOES WITH (start): {(content.get('post_text') or '')[:500]}")
+    font_key = str(((company or {}).get("brand_kit") or {}).get("font") or "")
+    return _checked_image(_build_concept_prompt(content, look, _region_for(company)), check, ratio="4:5",
+                          size="1K", compose=lambda pic: _letter_concept(pic, content, look, footer, font_key))
 
 
 def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
@@ -1155,13 +1431,13 @@ def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
     return resized.crop((left, top, left + w, top + h))
 
 
-_IMAGE_FORMATS = ("photo_card", "scene", "quote_card", "list_card", "tweet_card")
+_IMAGE_FORMATS = ("concept", "photo_card", "scene", "quote_card", "list_card", "tweet_card")
 
 
 def generate_ai_image_post(raw_text: str, company: dict = None, force_format: str = None) -> dict:
-    """LLM: pick the strongest idea → a concrete visual concept + caption for an AI photo.
-    force_format pins the output to one of scene|quote_card|list_card|tweet_card when the
-    user chose the format explicitly instead of letting the model pick."""
+    """LLM: pick the strongest idea → a concrete visual concept + caption for the post image.
+    force_format pins the output to one of _IMAGE_FORMATS when the user chose the format
+    explicitly instead of letting the model pick."""
     from generator import _strip_markdown, drop_author_furniture
     voice_section = ""
     if company:
@@ -1175,16 +1451,15 @@ def generate_ai_image_post(raw_text: str, company: dict = None, force_format: st
     region = _region_for(company)
     if region:
         world += f"\nAUTHOR'S REGION: {region} — the people and places in the photo belong there."
-    prompt = f"""Content to turn into ONE realistic editorial photo + caption:
+    prompt = f"""Content to turn into ONE post image + caption:
 
 {raw_text[:_FROM_TEXT_MAX]}{voice_section}{world}
 
-Choose the single strongest idea and design the visual for it (a real scene from the post's
-world if the topic is physical/tangible; a concrete metaphor only if the topic is abstract).
+Choose the single strongest idea and design the visual for it.
 
 RELEVANCE GATE: before answering, check your concept against the post's core claim. A reader
 scrolling past must connect the image to the post's point INSTANTLY, with zero explanation.
-If the connection needs a caption to make sense, discard the concept and pick a more literal one.
+If the connection needs a caption to make sense, discard the concept and pick a clearer one.
 
 Also return "key_line": the single most quotable line from the post itself (max 12 words,
 verbatim or lightly trimmed) — punchy enough to stand alone on a typographic card.
@@ -1192,7 +1467,8 @@ verbatim or lightly trimmed) — punchy enough to stand alone on a typographic c
 REQUIRED FORMAT: "{force_format}" — the user chose this format explicitly. Design for exactly
 this format and set "format" to this value.''' if force_format in _IMAGE_FORMATS else ""}
 Return ONLY valid JSON:
-{{"format": "photo_card|scene|list_card|quote_card|tweet_card", "image_concept": "... (photo_card and scene)",
+{{"format": "concept|photo_card|scene|list_card|quote_card|tweet_card",
+"image_concept": "... (concept, photo_card and scene)", "image_words": ["... (concept)"],
 "card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...",
 "card_points": ["...", "..."], "alt_text": "...", "key_line": "...", "post_text": "..."}}"""
     result = generate_json(prompt, system=_AI_IMAGE_SYSTEM, max_tokens=1600, temperature=0.85)
@@ -1229,6 +1505,7 @@ Return ONLY JSON: {{"post_text": "..."}}""",
     return {
         "format":        fmt,
         "image_concept": (result.get("image_concept") or "").strip(),
+        "image_words":   [str(x).strip() for x in (result.get("image_words") or []) if str(x).strip()][:12],
         "card_tag":      drop_author_furniture((result.get("card_tag") or "").strip(), company),
         "card_headline": (result.get("card_headline") or "").strip(),
         "card_emphasis": (result.get("card_emphasis") or "").strip(),
@@ -1265,8 +1542,9 @@ def _card_author(brand: str, author: dict | None):
 def render_ai_image_options(content: dict, company: dict, author: dict | None = None,
                             theme: str = "", n: int = 1) -> list[dict]:
     """The image for a post, and for the designed cards (list, quote) up to 3 colour versions of
-    it to choose from. Those are drawn here, so the extra versions cost nothing; photos and tweet
-    cards come one at a time. [{"png": bytes, "format": ..., "theme": ...}], the asked-for one first."""
+    it to choose from. Those are drawn here, so the extra versions cost nothing; concept pictures,
+    photos and tweet cards come one at a time. [{"png": bytes, "format": ..., "theme": ...}], the
+    asked-for one first."""
     fmt = (content.get("format") or "scene").strip().lower()
     n = max(1, min(3, int(n or 1)))
     photo = None
@@ -1278,7 +1556,7 @@ def render_ai_image_options(content: dict, company: dict, author: dict | None = 
                 or (fmt == "quote_card" and (content.get("card_headline") or content.get("key_line")))
                 or (fmt == "photo_card" and photo is not None))
     out = []
-    for th in (_option_themes(theme, n) if designed else [theme]):
+    for th in (_option_themes(theme, n, company) if designed else [theme]):
         meta: dict = {}
         png = render_ai_image_png(content, company, author=author, theme=th, meta=meta,
                                   photo=(photo if photo is not None else False) if fmt == "photo_card" else None)
@@ -1286,47 +1564,59 @@ def render_ai_image_options(content: dict, company: dict, author: dict | None = 
     return out
 
 
-def _ai_photo(content: dict, company: dict):
-    """The realistic photo for a post's concept (one retry), or None when the image model fails."""
-    from llm import generate_image
+def _ai_photo(content: dict, company: dict, ratio: str = "5:4"):
+    """The realistic photo for a post's concept, checked, or None when the image model fails.
+    5:4 for the photo card's top part, 4:5 for a photo on its own."""
     concept = (content.get("image_concept") or "").strip()
     if not concept:
         return None
-    prompt = _build_ai_image_prompt(concept, _get_palette(company), _region_for(company))
-    for _ in range(2):
-        b = generate_image(prompt)
-        if b:
-            try:
-                im = Image.open(io.BytesIO(b))
-                im.load()
-                return im
-            except Exception:
-                return None
-    return None
+    check = (f"This photo was made for a LinkedIn post. WHAT IT SHOULD SHOW: {concept}\n"
+             "It must carry no readable words at all. People's faces are allowed.")
+    return _checked_image(_build_ai_image_prompt(concept, _get_palette(company), _region_for(company), ratio),
+                          check, ratio=ratio, size="1K")
 
 
 def render_ai_image_png(content: dict, company: dict, author: dict | None = None,
                         theme: str = "", meta: dict | None = None, photo=None) -> bytes:
-    """Generate a realistic editorial photo for the concept, composed to 4:5. Falls back to the
-    branded insight card if image generation is unavailable. theme picks the designed cards'
-    colour set (else random); meta, when given, gets what was drawn (format, colour set)."""
+    """The post's image at 4:5: a concept picture, a photo (with or without its line) or one of
+    the designed cards. Falls back to the branded insight card if image generation is unavailable.
+    theme picks the colour set (else the author's brand look, else random); meta, when given, gets
+    what was drawn (format, colour set)."""
     meta = {} if meta is None else meta
-    from llm import generate_image
     p = _get_palette(company)
     brand = (company or {}).get("name", "Voyce")
     concept = (content.get("image_concept") or "").strip()
     fmt = (content.get("format") or "scene").strip().lower()
 
+    if fmt == "concept" and concept and content.get("card_headline"):
+        theme = _pick_card_theme(theme, company)
+        site = str(((company or {}).get("brand_kit") or {}).get("site") or "").strip()[:40]
+        # The turn in colour, no highlighter: a mark across a picture's headline reads as a sticker.
+        # Two sets have a dark accent next to near-black words; they take a warmer one.
+        look = {**_ed_theme(_card_look(theme, company), _brand_accent(company)), "mark": "text"}
+        if theme in _CONCEPT_TURN and not _brand_accent(company):
+            look["accent"] = _CONCEPT_TURN[theme]
+        img = _concept_image(content, company, look, site or _card_author(brand, author)[0])
+        if img is not None:
+            meta.update(format="concept", theme=theme)
+            buf = io.BytesIO()
+            _cover_crop(img, IMG_POST_W, IMG_POST_H).save(buf, format="PNG")
+            return buf.getvalue()
+        # the picture didn't come: its headline, on a card
+        card = {"card_headline": content["card_headline"], "card_emphasis": content.get("card_emphasis", ""),
+                "card_subtext": "", "card_tag": ""}
+        return render_image_post_png(card, company, author=author, theme=theme, meta=meta)
+
     # Designed value cards: information over decoration. Rendered by us — always crisp, always relevant.
     if fmt == "list_card" and content.get("card_points"):
         name, avatar_img = _card_author(brand, author)
-        theme = _pick_card_theme(theme)
+        theme = _pick_card_theme(theme, company)
         meta.update(format="list_card", theme=theme)
         img = _ed_list_card(
             content.get("card_tag", ""), content.get("card_headline") or content.get("key_line", ""),
             content.get("card_emphasis", ""), content.get("card_points"), name,
             (company or {}).get("designation", ""), avatar_img,
-            theme=theme, brand_accent=_brand_accent(company),
+            theme=_card_look(theme, company), brand_accent=_brand_accent(company),
             rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -1353,11 +1643,11 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         photo = _ai_photo(content, company) if photo is None else photo
         if photo is not False and photo is not None:
             name, avatar_img = _card_author(brand, author)
-            theme = _pick_card_theme(theme)
+            theme = _pick_card_theme(theme, company)
             meta.update(format="photo_card", theme=theme)
             img = _ed_photo_card(photo, content.get("card_headline") or content.get("key_line", ""),
                                  content.get("card_emphasis", ""), name, (company or {}).get("designation", ""),
-                                 avatar_img, theme=theme, brand_accent=_brand_accent(company),
+                                 avatar_img, theme=_card_look(theme, company), brand_accent=_brand_accent(company),
                                  rw=IMG_POST_W * _SCALE, rh=IMG_POST_H * _SCALE)
             buf = io.BytesIO()
             img.save(buf, format="PNG")
@@ -1372,23 +1662,12 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         }
         return render_image_post_png(card, company, author=author, theme=theme, meta=meta)
 
-    # Transient API failures are common enough to deserve one retry before falling back.
-    img_bytes = None
-    if concept:
-        rendered_prompt = _build_ai_image_prompt(concept, p, _region_for(company))
-        for _ in range(2):
-            img_bytes = generate_image(rendered_prompt)
-            if img_bytes:
-                break
-    if img_bytes:
-        try:
-            canvas = _cover_crop(Image.open(io.BytesIO(img_bytes)), IMG_POST_W, IMG_POST_H)
-            meta.update(format="scene", theme="")
-            buf = io.BytesIO()
-            canvas.save(buf, format="PNG")
-            return buf.getvalue()
-        except Exception:
-            pass
+    scene = _ai_photo(content, company, ratio="4:5") if concept else None
+    if scene is not None:
+        meta.update(format="scene", theme="")
+        buf = io.BytesIO()
+        _cover_crop(scene, IMG_POST_W, IMG_POST_H).save(buf, format="PNG")
+        return buf.getvalue()
 
     # Graceful fallback: the branded insight card. Its headline must be a line FROM THE POST
     # (key_line), never alt_text — alt_text is a scene description and reads as nonsense on a card.

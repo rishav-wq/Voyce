@@ -116,8 +116,57 @@ _SPORTS = re.compile(r"\b(nba|nfl|mlb|nhl|ipl|bcci|ecb|cricket|wicket|football|s
                      r"grand slam|formula 1|f1|athletes?|sports?)\b", re.I)
 
 
+# Job ads, careers pages and job boards. A partner-ecosystem search came back as CGI, NetApp and
+# Neo4j openings and a LinkedIn "Chief AI Officer" listing, and the writer treated them as news.
+_LISTING = re.compile(r"\b(jobs?|careers?|hiring|vacanc\w*|apply now|job boards?|job application|we're looking for)\b"
+                      r"|/jobs?/|/careers?/|careers\.|jobs\.|njoyn|greenhouse\.io|ashbyhq|lever\.co|workday|"
+                      r"linkedin\.com/jobs|naukri|indeed\.|glassdoor|remoterocketship|builtin\w*\.com/job", re.I)
+
+
+# Words in a search phrase that say nothing about what the story is about (see search_industry_news)
+_GENERIC = {"india", "indian", "inc", "global", "new", "the", "and", "for", "with", "launch", "launches", "changes",
+            "change", "growth", "announced", "announcement", "companies", "company", "results", "planning", "leadership",
+            "business", "businesses", "india's", "plan", "plans", "program", "programme", "programs", "update"}
+
+# Social media posts are someone's post, not news (a LinkedIn "post" that was a job ad, an Instagram reel)
+_SOCIAL = re.compile(r"linkedin\.com/(posts|pulse|feed)|instagram\.com|facebook\.com|//(www\.)?(x|twitter)\.com/|"
+                     r"youtube\.com|youtu\.be|tiktok\.com|reddit\.com|quora\.com|threads\.(net|com)", re.I)
+
+
+def _screen(topic: str, query: str, items: list) -> list:
+    """Claude keeps only the results that are real news or reports on the topic. Words alone can't
+    tell a story from a help page, a course advert or an unrelated local story that shares a word.
+    The checker model at low effort, well under ₹1 a search; on any failure the results stay as they are."""
+    if not items:
+        return items
+    from llm import quick_json
+    lines = "\n".join(f"{i}. {r.get('title', '')} — {(r.get('content') or r.get('snippet') or '')[:220]}"
+                      for i, r in enumerate(items))
+    v = quick_json(f"""Topic: {topic}
+Search: {query}
+Which of these are real news, announcements, data or reports about the topic, that someone who writes
+on LinkedIn about it could react to? Not: product documentation, help pages, courses or adverts,
+generic how-to guides, stories that only share a word with the topic.
+{lines}
+Return ONLY JSON: {{"keep": [the numbers of the ones to keep]}}""")
+    keep = (v or {}).get("keep")
+    if not isinstance(keep, list):
+        return items
+    return [items[i] for i in keep if isinstance(i, int) and 0 <= i < len(items)]
+
+
+# Paid press-release wires for market-research reports ("Coaching Platform Market to Reach USD 12.22
+# Billion by 2036"): numbers no one can check, written to sell a report
+_PR_SPAM = re.compile(r"openpr\.com|einpresswire\.com|einnews\.com/pr_news|market\.us/|marketresearch\.com|"
+                      r"\bmarket (size|to (reach|witness|grow|hit))\b|\bCAGR\b", re.I)
+
+
 def _off_topic(r: dict, topic: str) -> bool:
-    """A sports story, unless the topic itself is about sport."""
+    """A sports story, unless the topic itself is about sport; any job ad, social media post or
+    market-research press release."""
+    where = " ".join((r.get("title", ""), r.get("url", "")))
+    if _LISTING.search(where) or _SOCIAL.search(r.get("url", "")) or _PR_SPAM.search(where):
+        return True
     if _SPORTS.search(topic or ""):
         return False
     return bool(_SPORTS.search(" ".join((r.get("title", ""), r.get("url", ""), (r.get("content") or "")[:200]))))
@@ -135,7 +184,7 @@ def _tavily(query: str, depth: str, num_results: int, **filters) -> dict:
             "query": query,
             "search_depth": depth,
             "max_results": num_results,
-            "include_answer": True,
+            "include_answer": False,   # Tavily's own summary isn't a source; see search_industry_news
             "include_raw_content": False,
             **filters,
         },
@@ -153,22 +202,30 @@ def search_industry_news(
     extra_angles: list[str] | None = None,
     region: str = "",
     context: str = "",
+    queries: list[str] | None = None,
 ) -> list[dict]:
     """region: where the author works ("India"), so the news is theirs; context: words that keep
-    an ambiguous topic in the business world ("business workplace" for a person)."""
+    an ambiguous topic in the business world ("business workplace" for a person). queries: search
+    phrases written for this topic the way headlines word it (autonomous.topic_queries); one is
+    used as it is, without the templates, region or context, which turned a topic like "Hyperscaler
+    and marketplace co-sell" into job ads and workplace reports."""
     if not TAVILY_API_KEY:
         return []
 
-    # Pick a query template based on post type
-    templates = _QUERY_TEMPLATES.get(post_type, _DEFAULT_QUERIES)
-    template = random.choice(templates)
-
-    # Add a random diversity angle to break repetition. Product-level angles
-    # (e.g. "LinkedIn algorithm change", "creator monetization" for a content product)
-    # join the generic pool so each product's news stays niche-appropriate.
-    angle = random.choice((_PRO_ANGLES if context else _DIVERSITY_ANGLES) + [a for a in (extra_angles or []) if a])
     year = datetime.now(timezone.utc).year
-    query = " ".join(x for x in (template.format(industry=industry, year=year), context, region, angle) if x).strip()
+    phrases = [q.strip() for q in (queries or []) if isinstance(q, str) and q.strip()]
+    if phrases:
+        query = random.choice(phrases)
+    else:
+        # Pick a query template based on post type
+        templates = _QUERY_TEMPLATES.get(post_type, _DEFAULT_QUERIES)
+        template = random.choice(templates)
+
+        # Add a random diversity angle to break repetition. Product-level angles
+        # (e.g. "LinkedIn algorithm change", "creator monetization" for a content product)
+        # join the generic pool so each product's news stays niche-appropriate.
+        angle = random.choice((_PRO_ANGLES if context else _DIVERSITY_ANGLES) + [a for a in (extra_angles or []) if a])
+        query = " ".join(x for x in (template.format(industry=industry, year=year), context, region, angle) if x).strip()
 
     # A post that reacts to news must not treat an old story as new: those
     # types search news only, from the past week. Stats may come from this
@@ -181,42 +238,65 @@ def search_industry_news(
     else:
         window = {}
 
-    try:
-        data = _tavily(query, "advanced", num_results, **window)
-        if window.get("topic") == "news" and len(data.get("results", [])) < 2:
-            # A quiet week in a small niche: widen to the month rather than
-            # drop the date limit.
-            data = _tavily(query, "advanced", num_results, topic="news", time_range="month")
-    except Exception:
-        # Fallback: a simpler query, still recent
+    # A few more than asked for: job ads, sports, social posts and repeats are dropped after the search
+    fetch = num_results + 4
+    news_only = window.get("topic") == "news"
+
+    def usable(d: dict, q: str) -> list:
+        # A phrase's own words keep a story on it: "partner program overhaul OEM" brought back a
+        # theme-park maintenance feature and an aero-engine earnings call
+        anchors = {w for w in re.findall(r"[a-z0-9][a-z0-9-]{2,}", q.lower()) if w not in _GENERIC} if phrases else set()
+        out, seen = [], set()
+        for r in d.get("results", []):
+            if _off_topic(r, industry):
+                continue
+            title = (r.get("title") or "").lower()
+            body = (r.get("content") or r.get("snippet") or "")[:700].lower()
+            if anchors and not (any(a in title for a in anchors) or sum(a in body for a in anchors) >= 2):
+                continue
+            if news_only and not r.get("published_date"):   # a "this week" search: an undated page isn't this week's news
+                continue
+            key = " ".join(re.findall(r"[a-z0-9]+", title)[:7])
+            if key in seen:                                   # one story, syndicated to several sites
+                continue
+            seen.add(key)
+            out.append(r)
+        return out
+
+    def gather(q: str) -> list:
         try:
-            data = _tavily(f"{industry} latest news {year}", "basic", num_results, time_range="month")
+            data = _tavily(q, "advanced", fetch, **window)
+            if news_only and len(usable(data, q)) < 2:
+                # A quiet week in a small niche: widen to the month rather than
+                # drop the date limit.
+                data = _tavily(q, "advanced", fetch, topic="news", time_range="month")
         except Exception:
-            return []
+            # Fallback: a simpler query, still recent
+            try:
+                data = _tavily(f"{industry} latest news {year}", "basic", fetch, time_range="month")
+            except Exception:
+                return []
+        return _screen(industry, q, usable(data, q))
 
+    found = gather(query)
+    others = [q for q in phrases if q != query]
+    if len(found) < 2 and others:   # too little real news for this phrase: try another of the topic's phrases
+        urls = {r.get("url") for r in found}
+        found += [r for r in gather(random.choice(others)) if r.get("url") not in urls]
+
+    # Only real articles. Tavily's own AI-written summary used to lead the list as a source with no
+    # link, and writers took facts from it that no page says.
     results = []
-
-    # Include Tavily's synthesised answer as the first "result" if present
-    answer = data.get("answer", "").strip()
-    if answer:
-        results.append({
-            "title": f"Tavily synthesis — {query}",
-            "snippet": answer[:500],
-            "url": "",
-        })
-
-    for r in data.get("results", []):
-        if _off_topic(r, industry):
-            continue
+    for r in found:
         snippet = r.get("content", "") or r.get("snippet", "")
         results.append({
-            "title": r.get("title", ""),
+            "title": re.sub(r"<!--.*?-->|\s+", " ", r.get("title") or "").strip(),   # Storyboard18 titles carry "<!-- -->"
             "snippet": snippet[:600],   # more context for LLM specificity
             "url": r.get("url", ""),
             "published": (r.get("published_date") or "")[:16],
         })
 
-    return results[:num_results + 1]   # +1 for the answer entry
+    return results[:num_results]
 
 
 def format_news_context(results: list[dict]) -> str:

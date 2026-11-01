@@ -138,6 +138,16 @@ def _check_gen_limit(user: dict):
         raise HTTPException(status_code=402, detail="LIMIT_REACHED")
 
 
+_AI_PICTURE_FORMATS = ("concept", "photo_card", "scene")   # drawn by the image model, counted per plan
+
+
+def _ai_pictures_used_message(info: dict) -> str:
+    n = info.get("ai_limit", 0)
+    if info.get("plan") == "pro":
+        return f"You've used the {n} AI picture{'' if n == 1 else 's'} in this pass."
+    return f"Free accounts include {n} AI picture{'' if n == 1 else 's'}, and it's been used."
+
+
 def _rate_limit(key: str, limit: int, window: float = 60.0):
     """Coarse per-key throttle for cost-incurring / abuse-prone endpoints.
     Raises 429 when exceeded. Complements _check_gen_limit (which caps free
@@ -409,8 +419,23 @@ def _ensure_indexes():
         db.run_claims.create_index("created", expireAfterSeconds=3 * 86400)
         db.li_invites.create_index("created_at", expireAfterSeconds=8 * 86400)
         db.usage.create_index("started_at", expireAfterSeconds=2 * 86400)
+        db.write_history.create_index("created_at", expireAfterSeconds=90 * 86400)
+        db.write_history.create_index([("profile_id", 1), ("created_at", -1)])
+        db.daily_ideas.create_index("created_at", expireAfterSeconds=14 * 86400)
     except Exception:
         logging.exception("could not create TTL indexes")
+
+
+def _remember_write(user_id: str, profile_id: str | None, kind: str, request, text: str, fmt: str = ""):
+    """Keep what was made on Write, text only, for 90 days: the morning ideas read it so no idea
+    repeats a post made last week, and it shows what people actually make. Never stops a generation."""
+    try:
+        db.write_history.insert_one({
+            "user_id": user_id, "profile_id": profile_id or "", "kind": kind, "format": fmt,
+            "input_type": getattr(request, "input_type", ""), "source": (getattr(request, "content", "") or "")[:400],
+            "text": (text or "")[:3000], "created_at": datetime.now(timezone.utc)})
+    except Exception:
+        logging.exception("[Write] could not keep the history entry")
 
 
 @app.on_event("startup")
@@ -428,6 +453,14 @@ def startup():
         trigger="date",
         run_date=datetime.now() + timedelta(seconds=15),
         id="catchup_startup",
+        replace_existing=True,
+    )
+    # Today's ideas: each hour, the profiles whose local time is 5-7 AM (morning_ideas.morning_sweep)
+    import morning_ideas
+    scheduler.add_job(
+        morning_ideas.morning_sweep,
+        trigger=CronTrigger(minute=20, timezone="UTC"),
+        id="morning_ideas",
         replace_existing=True,
     )
     # Expiry warnings (LinkedIn connection, Pro pass) once a day — 13:00 UTC is
@@ -902,6 +935,13 @@ def me(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    try:   # when they were last here, at most once an hour: the morning ideas are made for people who come back
+        now = datetime.now(timezone.utc)
+        db.users.update_one({"id": user["id"], "$or": [{"last_seen": {"$exists": False}},
+                                                      {"last_seen": {"$lt": now - timedelta(hours=1)}}]},
+                            {"$set": {"last_seen": now}})
+    except Exception:
+        logging.exception("[Auth] could not note the visit")
     return {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user),
             "needs_onboarding": _needs_onboarding(user)}
 
@@ -1310,6 +1350,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
         logging.info(f"[Gen] incremented for user {user['id']}")
     except Exception as e:
         logging.error(f"[Gen] increment_gens failed: {e}")
+    _remember_write(user["id"], (profile or {}).get("id"), "post", request, (result or {}).get("linkedin_post", ""))
     return result
 
 
@@ -1340,6 +1381,8 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         author    = li.author_for_profile(profile, user["id"]) or None   # cover and last slide carry their photo
         pdf_bytes = render_carousel_pdf(content, profile or {"name": "Voyce"}, author=author)
         auth_module.increment_gens(user["id"])
+        _remember_write(user["id"], (profile or {}).get("id"), "carousel", request,
+                        (content.get("hook_slide", {}).get("headline", "") + "\n\n" + content.get("post_text", "")).strip())
         return {
             "post_text":  content.get("post_text", ""),
             "pdf_base64": base64.b64encode(pdf_bytes).decode(),
@@ -1559,6 +1602,14 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=_friendly_fetch_error(e, request.input_type))
+    # AI pictures have their own allowance inside the plan; asking for one by name past it is
+    # refused before anything is spent
+    gen_info = auth_module.get_gen_info(user["id"])
+    ai_left = gen_info["ai_limit"] == -1 or gen_info["ai_used"] < gen_info["ai_limit"]
+    if request.style in ("concept", "scene", "photo_text") and not ai_left:
+        raise HTTPException(status_code=402, detail="AI_PICTURES_USED:" + _ai_pictures_used_message(gen_info)
+                            + " List, quote and tweet cards are still included.")
+    notice = ""
     try:
         import base64
         profile = _resolve_profile(user["id"], request.profile_id)
@@ -1576,9 +1627,14 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             # server-side, never touches the image API); "scene" — forced AI illustration
             from carousel import generate_ai_image_post, render_ai_image_options
             # The design picked on Write; "illustration" (Auto) lets the writer choose
-            force = {"tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
+            force = {"concept": "concept", "tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
                      "list": "list_card", "quote": "quote_card"}.get(request.style)
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
+            # With the plan's AI pictures used up, Auto makes the card its writer would
+            # otherwise have drawn (asking for a drawing by name was refused above)
+            if content["format"] in _AI_PICTURE_FORMATS and not ai_left:
+                content["format"] = "list_card" if content.get("card_points") else "quote_card"
+                notice = _ai_pictures_used_message(gen_info) + " This one is a card."
             # Tweet, list and quote cards (and the card a failed photo falls back to) carry the
             # author's name and photo
             author = li.author_for_profile(profile, user["id"]) or None
@@ -1587,8 +1643,17 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
                                            theme=request.theme, n=request.options)
             png_bytes = opts[0]["png"]
             headline = content.get("alt_text", "")
+            if opts[0].get("format") in _AI_PICTURE_FORMATS:   # a drawing that fell back to a card isn't one
+                auth_module.increment_ai_pics(user["id"])
+                if gen_info["ai_limit"] != -1:
+                    ai_after = max(0, gen_info["ai_limit"] - gen_info["ai_used"] - 1)
+                    notice = f"{ai_after} AI picture{'' if ai_after == 1 else 's'} left in your plan."
         auth_module.increment_gens(user["id"])   # one write-up, however many colour versions
+        _remember_write(user["id"], (profile or {}).get("id"), "image", request,
+                        (content.get("card_headline") or headline or "") + "\n\n" + content.get("post_text", ""),
+                        fmt=opts[0].get("format", ""))
         return {
+            "notice":       notice,
             "post_text":    content.get("post_text", ""),
             "image_base64": base64.b64encode(png_bytes).decode(),
             "headline":     headline,
@@ -1874,6 +1939,10 @@ def remove_company(company_id: str, x_token: str = Header(None)):
     if company.get("li_conn"):
         li.logout(company["li_conn"])
     delete_company(company_id)
+    try:   # what they made on Write goes with the profile
+        db.write_history.delete_many({"profile_id": company_id, "user_id": user["id"]})
+    except Exception:
+        logging.exception("[Write] could not delete the profile's history")
     return {"deleted": company_id}
 
 
@@ -2244,7 +2313,7 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
         from autonomous import (generate_autonomous_post, _get_post_type, POST_TYPE_LABELS,
                                 COMPANY_ROTATION, PERSONAL_ROTATION)
         from search import search_industry_news, format_news_context
-        from autonomous import _topic_for_today, news_search_args
+        from autonomous import _topic_for_today, news_search_args, topic_queries
         subject = company   # the profile is the subject (voice + niche + knowledge)
         today_topic = _topic_for_today(company)   # several topics: the one the next daily post is about
         if today_topic:
@@ -2254,7 +2323,8 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
         pt = post_type if post_type in valid else _get_post_type(company)
         news_results = search_industry_news(
             subject["industry"], subject["name"], 3, post_type=pt,
-            extra_angles=subject.get("search_angles") or [], **news_search_args(company))
+            extra_angles=subject.get("search_angles") or [], **news_search_args(company),
+            queries=topic_queries(company, subject["industry"]))
         news_context = format_news_context(news_results)
         if seed.strip():
             # A chosen idea: make the generator build the post around this angle.
@@ -2282,6 +2352,27 @@ def _clip_words(text: str, n: int) -> str:
         return text
     cut = text[:n].rsplit(" ", 1)[0].rstrip(" ,;:-(")
     return cut + "…"
+
+
+@app.get("/companies/{company_id}/today-ideas")
+def today_ideas(company_id: str, x_token: str = Header(None)):
+    """Today's ideas for the Write page, free to look at: {"status": "ready", "ideas": [...]}, or
+    "making" (started now if the morning job didn't make them: they weren't around lately, or it's
+    before 5 AM there), "failed", or "off" (a free account past its first week)."""
+    user = _require_user(x_token)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    import morning_ideas
+    if not morning_ideas.eligible(user):
+        return {"status": "off", "ideas": []}
+    morning_ideas.retry_if_failed(company)
+    doc = morning_ideas.stored(company_id, morning_ideas.local_today(company))
+    if doc:
+        return {"status": doc.get("status", "making"), "ideas": doc.get("ideas") or [], "made_at": doc.get("made_at", "")}
+    scheduler.add_job(morning_ideas.make_and_store, trigger="date", run_date=datetime.now() + timedelta(seconds=1),
+                      args=[company], id=f"ideas_{company_id}", replace_existing=True)
+    return {"status": "making", "ideas": []}
 
 
 @app.post("/companies/{company_id}/ideas")
@@ -2314,16 +2405,18 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
             f"- {t}: {POST_TYPE_LABELS.get(t, t)}"
             f"{' — ' + POST_TYPE_DESCRIPTIONS[POST_TYPE_LABELS[t]] if POST_TYPE_LABELS.get(t) in POST_TYPE_DESCRIPTIONS else ''}"
             for t in types)
-        from autonomous import profile_topics, news_search_args
+        from autonomous import profile_topics, news_search_args, topic_queries
         topics = profile_topics(subject)
         nargs = news_search_args(subject)
         if len(topics) > 1:   # news for each topic, so every side of their work gets ideas
             news = []
             for t in topics:
-                news += search_industry_news(t, subject["name"], 2, extra_angles=subject.get("search_angles") or [], **nargs)
+                news += search_industry_news(t, subject["name"], 2, extra_angles=subject.get("search_angles") or [],
+                                             queries=topic_queries(subject, t), **nargs)
         else:
             news = search_industry_news(subject["industry"], subject["name"], 6,
-                                        extra_angles=subject.get("search_angles") or [], **nargs)
+                                        extra_angles=subject.get("search_angles") or [],
+                                        queries=topic_queries(subject, subject["industry"]), **nargs)
         news_ctx = format_news_context(news)
         topics_block = (f"\nTHEIR TOPICS: {'; '.join(topics)}. Spread the 5 ideas across these: at least one idea for each topic.\n"
                         if len(topics) > 1 else "")
