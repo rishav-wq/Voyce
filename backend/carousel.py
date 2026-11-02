@@ -9,7 +9,7 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 from dotenv import load_dotenv
 
-from llm import generate_json
+from llm import generate_json, CLAUDE_CAROUSEL_MODEL, CLAUDE_CAROUSEL_EFFORT
 
 load_dotenv()
 
@@ -2085,7 +2085,8 @@ Build the carousel around the single most surprising or useful insight in the co
 Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""
 
-    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85)
+    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85,
+                           model=CLAUDE_CAROUSEL_MODEL, effort=CLAUDE_CAROUSEL_EFFORT)   # Sonnet: better and a third of the cost (llm.py)
     return _sanitize_carousel_result(result, company)
 
 
@@ -2127,7 +2128,8 @@ The cover slide's title and the caption's first line count as openings.
 Return ONLY valid JSON in this shape:
 {_CAROUSEL_SCHEMA}"""
 
-    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85)
+    result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85,
+                           model=CLAUDE_CAROUSEL_MODEL, effort=CLAUDE_CAROUSEL_EFFORT)   # Sonnet: better and a third of the cost (llm.py)
     return _sanitize_carousel_result(result, company)
 
 

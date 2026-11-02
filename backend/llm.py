@@ -174,7 +174,8 @@ def read_youtube(url: str, max_output_tokens: int = 8192) -> str:
 
 
 def generate(prompt: str, system: str = None, max_tokens: int = 2048,
-             temperature: float = 0.8, json_mode: bool = False) -> str:
+             temperature: float = 0.8, json_mode: bool = False,
+             model: str = None, effort: str = None) -> str:
     """Robust generation: Claude first when its key is set, then Gemini primary →
     fallback → primary, retrying on ANY transient failure (rate limits, 503/timeout
     on a cold-started instance, or an empty/safety-blocked response) with a short
@@ -184,7 +185,7 @@ def generate(prompt: str, system: str = None, max_tokens: int = 2048,
     timeout). temperature only reaches Gemini: Claude's current models refuse it."""
     if _claude:
         try:
-            text = _claude_call(prompt, system, json_mode)
+            text = _claude_call(prompt, system, json_mode, model=model, effort=effort)
             if text:
                 return text
             print("[claude] no answer, using Gemini", flush=True)
@@ -230,9 +231,9 @@ def _extract_json(text: str) -> dict:
 
 
 def generate_json(prompt: str, system: str = None, max_tokens: int = 2048,
-                  temperature: float = 0.8) -> dict:
+                  temperature: float = 0.8, model: str = None, effort: str = None) -> dict:
     text = generate(prompt, system=system, max_tokens=max_tokens,
-                    temperature=temperature, json_mode=True)
+                    temperature=temperature, json_mode=True, model=model, effort=effort)
     try:
         return _extract_json(text)
     except json.JSONDecodeError:
@@ -240,6 +241,7 @@ def generate_json(prompt: str, system: str = None, max_tokens: int = 2048,
         text = generate(
             prompt + "\n\nReturn ONLY the JSON object, complete and valid.",
             system=system, max_tokens=max_tokens, temperature=0.4, json_mode=True,
+            model=model, effort=effort,
         )
         return _extract_json(text)
 
@@ -273,6 +275,16 @@ def generate_vision(prompt: str, images: list[bytes], system: str = None,
 # speed; Haiku 5.5 failed one good picture (1 Nov 2026).
 CLAUDE_CHECK_MODEL  = os.getenv("CLAUDE_CHECK_MODEL", "claude-sonnet-5-5")
 CLAUDE_CHECK_EFFORT = os.getenv("CLAUDE_CHECK_EFFORT", "low")
+
+# Cost vs quality on MB Sam's profile (2 Nov 2026; 3 briefs, blind Opus judge on his 4 I's and voice):
+# the humanize pass on Sonnet at low effort scored best on all three posts (7.6 vs 6.9 for Opus doing both,
+# and it kept his closing question, which Opus's edit dropped), at $0.070 a post instead of $0.089.
+# Carousels on Sonnet at medium scored best on both decks (6.5 vs 5.8) at $0.021 instead of $0.066.
+# The writer's first draft stays on Opus: Opus at low effort, or Sonnet drafting, scored lower.
+CLAUDE_EDIT_MODEL      = os.getenv("CLAUDE_EDIT_MODEL", "claude-sonnet-5-5")
+CLAUDE_EDIT_EFFORT     = os.getenv("CLAUDE_EDIT_EFFORT", "low")
+CLAUDE_CAROUSEL_MODEL  = os.getenv("CLAUDE_CAROUSEL_MODEL", "claude-sonnet-5-5")
+CLAUDE_CAROUSEL_EFFORT = os.getenv("CLAUDE_CAROUSEL_EFFORT", "medium")
 
 
 def claude_json(prompt: str, system: str = None, model: str = None, effort: str = None,

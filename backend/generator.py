@@ -1,6 +1,6 @@
 import re
 
-from llm import generate, generate_json
+from llm import generate, generate_json, CLAUDE_EDIT_MODEL, CLAUDE_EDIT_EFFORT
 
 
 def _strip_markdown(text: str) -> str:
@@ -340,6 +340,7 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
                 system=HUMANIZE_PROMPT,
                 max_tokens=1024,
                 temperature=0.6,
+                model=CLAUDE_EDIT_MODEL, effort=CLAUDE_EDIT_EFFORT,   # better and cheaper than Opus here (llm.py)
             )
             if edited:
                 draft["linkedin_post"] = edited
