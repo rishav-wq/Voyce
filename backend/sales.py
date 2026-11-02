@@ -13,7 +13,7 @@ email & firm phone", and the person's own number only on an explicit "Get their 
 import os
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from fastapi import APIRouter, Header, HTTPException
@@ -60,6 +60,32 @@ def _team_user(x_token: str | None) -> dict:
     return user
 
 
+def _is_admin(user: dict | None) -> bool:
+    return (((user or {}).get("email")) or "").lower() in auth_module._ADMIN_EMAILS
+
+
+def _seen(user: dict | None) -> dict:
+    """Which leads a teammate may see: the admin sees every lead; anyone else, all but the admin's private ones and
+    the customers (Rishav, 3 Nov 2026: the warm leads he works himself, and who pays, are his only; the team gets the
+    customer counts from /sales/me). Every read and write goes through it."""
+    return {} if _is_admin(user) else {"private": {"$ne": True}, "stage": {"$ne": "won"}}
+
+
+def _customer_counts() -> dict:
+    """How many customers this week (from Monday, IST), this month and in all: numbers only, for the whole team."""
+    ist = timezone(timedelta(hours=5, minutes=30))
+    today = datetime.now(ist).date()
+    monday, month1 = (today - timedelta(days=today.weekday())).isoformat(), today.replace(day=1).isoformat()
+    week = month = total = 0
+    for lead in db.sales_leads.find({"stage": "won"}, {"_id": 0, "history": 1}):
+        total += 1
+        won = [h for h in (lead.get("history") or []) if h.get("stage") == "won" and h.get("at")]
+        if won:
+            day = datetime.fromisoformat(won[-1]["at"].replace("Z", "+00:00")).astimezone(ist).date().isoformat()
+            week += day >= monday; month += day >= month1
+    return {"week": week, "month": month, "total": total}
+
+
 def _who(user: dict) -> str:
     return (user.get("name") or (user.get("email") or "").split("@")[0] or "Teammate").strip()[:80]
 
@@ -83,6 +109,8 @@ def _clean(fields: dict, user: dict) -> dict:
         elif k == "stage":
             if v not in STAGES:
                 raise HTTPException(status_code=400, detail="Unknown stage")
+            if v == "won" and not _is_admin(user):
+                raise HTTPException(status_code=403, detail="Only Rishav marks someone a customer.")
             out[k] = v
         elif k == "owner":
             # Only "me" (assign to yourself) or "" (unassign): owners are always real teammates.
@@ -90,6 +118,8 @@ def _clean(fields: dict, user: dict) -> dict:
                 out["owner"], out["owner_name"] = user["id"], _who(user)
             elif not v:
                 out["owner"], out["owner_name"] = "", ""
+        elif k == "private" and _is_admin(user):   # only the admin can hide a lead from the team
+            out["private"] = bool(v)
     return out
 
 
@@ -113,13 +143,15 @@ class LeadIn(BaseModel):
 @router.get("/sales/me")
 def sales_me(x_token: str = Header(None)):
     user = _team_user(x_token)
-    return {"id": user["id"], "name": _who(user), "email": user.get("email", "")}
+    # admin: Rishav's team view shows everyone's week; a sales rep's shows only their own
+    return {"id": user["id"], "name": _who(user), "email": user.get("email", ""), "admin": _is_admin(user),
+            "customers": _customer_counts()}
 
 
 @router.get("/sales/leads")
 def list_leads(x_token: str = Header(None)):
-    _team_user(x_token)
-    return [_public(d) for d in db.sales_leads.find({}, {"_id": 0}).sort("created_at", 1)]
+    user = _team_user(x_token)
+    return [_public(d) for d in db.sales_leads.find(_seen(user), {"_id": 0}).sort("created_at", 1)]
 
 
 @router.post("/sales/leads")
@@ -129,6 +161,10 @@ def create_lead(body: LeadIn, x_token: str = Header(None)):
     f = _clean(body.fields, user)
     if not f.get("name"):
         raise HTTPException(status_code=400, detail="A lead needs a name")
+    if not _is_admin(user):   # someone Rishav is already talking to privately isn't added again behind his back
+        same = [{"name": re.compile("^" + re.escape(f["name"]) + "$", re.I)}] + ([{"linkedin": f["linkedin"]}] if f.get("linkedin") else [])
+        if db.sales_leads.find_one({"private": True, "$or": same}, {"_id": 1}):
+            raise HTTPException(status_code=409, detail="Rishav is already in touch with this person, so they stay off the team list.")
     f.setdefault("stage", "new")
     now = _now()
     doc = {**{k: "" for k in TEXT_FIELDS}, "next_due": "", "dm_at": "", "meeting_at": "",
@@ -144,7 +180,7 @@ def create_lead(body: LeadIn, x_token: str = Header(None)):
 def update_lead(lead_id: str, body: LeadIn, x_token: str = Header(None)):
     user = _team_user(x_token)
     ratelimit.allow(f"sales:{user['id']}", 120, 60) or _too_fast()
-    cur = db.sales_leads.find_one({"id": lead_id}, {"_id": 0, "stage": 1, "phone": 1})
+    cur = db.sales_leads.find_one({"id": lead_id, **_seen(user)}, {"_id": 0, "stage": 1, "phone": 1})
     if not cur:
         raise HTTPException(status_code=404, detail="That lead was deleted")
     f = _clean(body.fields, user)
@@ -163,8 +199,8 @@ def update_lead(lead_id: str, body: LeadIn, x_token: str = Header(None)):
 
 @router.delete("/sales/leads/{lead_id}")
 def delete_lead(lead_id: str, x_token: str = Header(None)):
-    _team_user(x_token)
-    db.sales_leads.delete_one({"id": lead_id})
+    user = _team_user(x_token)
+    db.sales_leads.delete_one({"id": lead_id, **_seen(user)})
     return {"ok": True}
 
 
@@ -263,8 +299,8 @@ def _fill_blanks(lead: dict, found: dict) -> dict:
     return {k: str(v)[:TEXT_FIELDS[k]] for k, v in found.items() if k in LABELS and v and not str(lead.get(k) or "").strip()}
 
 
-def _lead_or_404(lead_id: str) -> dict:
-    lead = db.sales_leads.find_one({"id": lead_id}, {"_id": 0})
+def _lead_or_404(lead_id: str, user: dict | None) -> dict:
+    lead = db.sales_leads.find_one({"id": lead_id, **_seen(user)}, {"_id": 0})
     if not lead:
         raise HTTPException(status_code=404, detail="That lead was deleted")
     return lead
@@ -284,7 +320,7 @@ def lookup_lead(lead_id: str, x_token: str = Header(None)):
     """Work email and the firm's published line (1 credit at most)."""
     user = _team_user(x_token)
     ratelimit.allow(f"sales-lookup:{user['id']}", 20, 60) or _too_fast()
-    lead = _lead_or_404(lead_id)
+    lead = _lead_or_404(lead_id, user)
     if not (lead.get("linkedin") or (lead.get("name") and lead.get("company"))):
         raise HTTPException(status_code=400, detail="Add their LinkedIn link or company first.")
     found, err, _ = _apollo_match(lead)
@@ -365,11 +401,11 @@ def lead_for(name: str = "", x_token: str = Header(None)):
     """For the Write page's WhatsApp button: the Sales lead the team is writing as (same person by
     name), with a mobile number to open their chat. Their own number first, then the firm's."""
     import linkedin as li
-    _team_user(x_token)
+    user = _team_user(x_token)
     name = (name or "").strip()[:120]
     if not name:
         return {}
-    for lead in db.sales_leads.find({}, {"_id": 0, "id": 1, "name": 1, "phone": 1, "firm_phone": 1}):
+    for lead in db.sales_leads.find(_seen(user), {"_id": 0, "id": 1, "name": 1, "phone": 1, "firm_phone": 1}):
         if li._same_person(name, lead.get("name", "")):
             num = whatsapp_number(lead.get("phone", "")) or whatsapp_number(lead.get("firm_phone", ""))
             return {"lead_id": lead["id"], "name": lead.get("name", ""), "whatsapp": num}
@@ -404,7 +440,7 @@ def request_phone(lead_id: str, x_token: str = Header(None)):
     It arrives within minutes; /phone-check collects it."""
     user = _team_user(x_token)
     ratelimit.allow(f"sales-lookup:{user['id']}", 20, 60) or _too_fast()
-    lead = _lead_or_404(lead_id)
+    lead = _lead_or_404(lead_id, user)
     if (lead.get("phone") or "").strip():
         raise HTTPException(status_code=400, detail="They already have a number on file.")
     if lead.get("phone_reveal") == "pending":
@@ -436,8 +472,8 @@ def _best_number(result: dict) -> tuple[str, str]:
 @router.post("/sales/leads/{lead_id}/phone-check")
 def check_phone(lead_id: str, x_token: str = Header(None)):
     """Collect a requested number (free). The page calls this while a request is pending."""
-    _team_user(x_token)
-    lead = _lead_or_404(lead_id)
+    user = _team_user(x_token)
+    lead = _lead_or_404(lead_id, user)
     if lead.get("phone_reveal") != "pending" or not lead.get("phone_request_id"):
         return lead
     try:

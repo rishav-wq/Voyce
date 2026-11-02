@@ -92,7 +92,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .meter .split { margin-top: 7px; }
 .meter .split b { font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
 .progress-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title meters" "stats meters" "goal meters"; gap: 10px 24px; align-items: start; }
-.progress-grid > h2 { grid-area: title; }
+.progress-grid > .ptitle { grid-area: title; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ptitle .scope .btn { padding: 5px 11px; font-size: 12.5px; }
 .progress-grid > .meters { grid-area: meters; }
 .progress-grid > .stats { grid-area: stats; margin-top: 4px; gap: 12px 32px; }
 .progress-grid .stat { min-width: 0; }
@@ -139,8 +140,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chip.alert { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: var(--bad-soft); }
 .chip.alert b { color: var(--bad); }
 /* stage cards: one per step of the work; a click opens that step's list */
-.stage-cards { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
-@media (max-width: 1280px) { .stage-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stage-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-top: 14px; }
 @media (max-width: 640px) { .stage-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .scard { display: grid; align-content: start; gap: 1px; min-width: 0; padding: 11px 13px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; text-align: left; }
 .scard:hover { border-color: var(--accent); }
@@ -155,6 +155,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 10px; }
 .stage-head h3 { font-size: 17px; margin-right: auto; }
 .stage-head h3 .num { margin-left: 8px; color: var(--faint); font-weight: 600; }
+.only-you { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
+/* Team tab: each person's week */
+.person { margin-top: 18px; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.person h3 { font-size: 16px; margin-bottom: 8px; }
+.person h4 { margin: 16px 0 6px; font-family: var(--f-body); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.team-t { min-width: 900px; }
+.team-t th, .team-t td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.days-t td.hit { background: var(--ok-soft); color: var(--ok); font-weight: 700; }
+.ratios { display: flex; flex-wrap: wrap; gap: 8px; }
+.ratio { padding: 6px 10px; border-radius: 9px; background: var(--surface-2); font-size: 12.5px; color: var(--muted); }
+.ratio b { font-family: var(--f-display); font-size: 14px; color: var(--fg); }
+.flags { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+.flags li.warn { color: var(--bad); }
+.linkbtn { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .stage-head select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font-size: 13px; }
 
 /* tabs */
@@ -311,6 +325,7 @@ html.panel-open { overflow: hidden; }   /* on html only: overflow on body would 
         <button class="tab" role="tab" data-view="pipeline" aria-selected="false">Pipeline</button>
         <button class="tab" role="tab" data-view="all" aria-selected="false">All leads<span class="n" id="n-all"></span></button>
         <button class="tab" role="tab" data-view="dms" aria-selected="false">LinkedIn DMs<span class="n" id="n-dms"></span></button>
+        <button class="tab" role="tab" data-view="team" aria-selected="false">Team</button>
         <button class="tab" role="tab" data-view="scripts" aria-selected="false">Scripts</button>
       </nav>
       <div id="main"><div class="empty"><p>Loading your leads…</p></div></div>
@@ -444,7 +459,7 @@ function _actionsFor(l) {
     case "replied": return [{ id: "number", label: "Got their number", primary: true, needs: "number" }, { id: "meeting", label: "Book meeting", needs: "meeting" }];
     case "number":
     case "called": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "call_noans", label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
-    case "meeting": return [{ id: "won", label: "Mark won", primary: true }, { id: "lost", label: "Mark lost", needs: "lost" }];
+    case "meeting": return [me.admin ? { id: "won", label: "Mark won", primary: true } : null, { id: "lost", label: "Mark lost", needs: "lost" }].filter(Boolean);   // only Rishav marks customers
     default: return [{ id: "reopen", label: "Reopen", primary: true }];
   }
 }
@@ -600,14 +615,21 @@ function callOutcome(text, prev) {
   if (/^(Called about the sample|Called again|Called them)$/.test(text)) return "unknown";   // older taps didn't say
   return "";
 }
-function dayStats(day) {
-  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, dms: 0, prospects: 0, by: {} };
+// One day's work, for everyone (who = null) or one teammate (their account id).
+function dayStats(day, who = null) {
+  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, dms: 0, prospects: 0,
+              replies: 0, won: 0, by: {}, callAt: [], answeredLeads: [], first: null, last: null };
   for (const l of leads) {
-    if (l.created_by && l.created_at && ymd(new Date(l.created_at)) === day) n.prospects++;   // found by a teammate, not loaded by research
+    // found by a teammate, not loaded by research
+    if (l.created_by && (!who || l.created_by === who) && l.created_at && ymd(new Date(l.created_at)) === day) n.prospects++;
     let last = null, unreachable = false;
     (l.history || []).forEach((h, i) => {
       const text = h.text || "", at = h.at ? new Date(h.at) : null;
-      if (!at || ymd(at) !== day || !h.by) return;      // only what a teammate did (not research or data fixes)
+      if (!at || ymd(at) !== day || !h.by || (who && h.by !== who)) return;      // only what a teammate did (not research or data fixes)
+      if (!n.first || at < n.first) n.first = at;
+      if (!n.last || at > n.last) n.last = at;
+      if (h.stage === "replied" && !/^Added/.test(text)) n.replies++;
+      if (h.stage === "won") n.won++;
       if (/^Spoke to them: interested/.test(text)) n.interested++;
       if (/^Sent the sample/.test(text)) n.samples++;
       if (/^Meeting booked/.test(text)) n.setups++;
@@ -620,40 +642,58 @@ function dayStats(day) {
         if (OUTCOME_RANK[o] > OUTCOME_RANK[last.o]) { n[last.o]--; n[o]++; last.o = o; }
         last.at = at; return;
       }
-      last = { at, o }; n.calls++; n[o]++;
-      const who = firstName(h.by_name || "Someone"); n.by[who] = (n.by[who] || 0) + 1;
+      last = { at, o }; n.calls++; n[o]++; n.callAt.push(at);
+      if (o === "answered") n.answeredLeads.push({ id: l.id, at, text });
+      const name = firstName(h.by_name || "Someone"); n.by[name] = (n.by[name] || 0) + 1;
     });
   }
   return n;
 }
+// You, and everyone who logged something in the week from `from` (Monday): the team targets are the per-person
+// ones times this, so someone who has left stops counting the week after their last action.
+const thisMonday = () => addDays(today(), -((new Date().getDay() + 6) % 7));
+function teamPeople(from = thisMonday()) {
+  const to = addDays(from, 6), ppl = new Map();
+  if (me.id) ppl.set(me.id, me.name || "You");
+  for (const l of leads) for (const h of l.history || []) {
+    const d = h.by && h.at ? ymd(new Date(h.at)) : "";
+    if (d && d >= from && d <= to && !ppl.has(h.by)) ppl.set(h.by, h.by_name || "Someone");
+  }
+  return ppl;
+}
 function progressCard() {
-  const t = today(), p = dayStats(t);
-  const paying = leads.filter(l => l.stage === "won").length;
-  // customers won this week (from Monday) and this month, from the day each lead was marked won
+  const t = today(), mine = scope === "me" && !!me.id, p = dayStats(t, mine ? me.id : null), k = mine ? 1 : Math.max(1, teamPeople().size);
+  const toggle = `<div class="row-btns scope" role="group" aria-label="Whose numbers">${[["me", "Me"], ["team", "Team"]].map(([s, label]) =>
+    `<button class="btn ${scope === s ? "primary" : ""}" data-act="scope" data-s="${s}" aria-pressed="${scope === s}">${label}</button>`).join("")}</div>`;
+  // customers won this week (from Monday) and this month, from the day each lead was marked won. Only Rishav sees
+  // the customers themselves; the team gets the counts from /sales/me.
   const weekday = (new Date().getDay() + 6) % 7, monday = addDays(t, -weekday), month1 = t.slice(0, 8) + "01";
   const wonOn = l => { const h = (l.history || []).slice().reverse().find(x => x.stage === "won" && x.at); return h ? ymd(new Date(h.at)) : ""; };
-  const wonWeek = leads.filter(l => l.stage === "won" && wonOn(l) >= monday).length, wonMonth = leads.filter(l => l.stage === "won" && wonOn(l) >= month1).length;
+  const cust = me.admin || !me.customers ? null : me.customers;
+  const paying = cust ? cust.total : leads.filter(l => l.stage === "won").length;
+  const wonWeek = cust ? cust.week : leads.filter(l => l.stage === "won" && wonOn(l) >= monday).length;
+  const wonMonth = cust ? cust.month : leads.filter(l => l.stage === "won" && wonOn(l) >= month1).length;
   const stat = (num, label, extra = "") => `<div class="stat"><b>${num}</b><span>${label}</span>${extra}</div>`;
   const split = [[p.answered, "answered"], [p.noanswer, "no answer"], [p.wrong, p.wrong === 1 ? "wrong number" : "wrong numbers"], [p.unknown, "outcome not marked"]]
     .filter(([v], i) => v || i < 2).map(([v, s]) => `<b>${v}</b> ${s}`).join(" · ");
   const people = Object.entries(p.by);
-  const who = people.length > 1 ? `<div class="split">${people.sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} <b>${v}</b>`).join(" · ")}</div>` : "";
+  const who = !mine && people.length > 1 ? `<div class="split">${people.sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} <b>${v}</b>`).join(" · ")}</div>` : "";
   const goal = `<div class="goal">Goal: <b>${GOAL.week}</b> paying customers a week, <b>${GOAL.month}+</b> a month. This week <b>${wonWeek}</b> · this month <b>${wonMonth}</b>.</div>`;
   // The day's three activity targets, side by side at the top right; results underneath.
   const meter = (n, target, label, extra = "", done = "done for today", shown = target) => `<div class="meter${n >= target ? " done" : ""}"><div class="meter-top"><span>${label}${n >= target ? ": " + done : ""}</span><b>${n}<small> / ${shown}</small></b></div>
     <div class="bar ${n >= target ? "full" : ""}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}"><i style="width:${Math.min(100, Math.round(n / target * 100))}%"></i></div>${extra}</div>`;
   const dials = `<div class="split"><b>${p.calls}</b> dials · ${split}</div>${who}`;
-  return `<section class="progress" aria-label="Today's progress"><div class="progress-grid"><h2>Today · ${esc(fmtDay(t))}</h2>
-    <div class="meters">${meter(p.answered, DAILY.answered, "Answered calls", dials, "minimum reached, keep calling", `${DAILY.answered}+`)}${meter(p.dms, DAILY.dms, "LinkedIn messages", `<div class="split">first messages and follow-ups</div>`, "keep going to 40", `${DAILY.dms}–${DAILY.dmsHigh}`)}${meter(p.prospects, DAILY.prospects, "New prospects added", `<div class="split">found and added by the team</div>`)}</div>
+  return `<section class="progress" aria-label="Today's progress"><div class="progress-grid"><div class="ptitle"><h2>${mine ? "You" : "Team" + (k > 1 ? ` (${k})` : "")} · ${esc(fmtDay(t))}</h2>${toggle}</div>
+    <div class="meters">${meter(p.answered, DAILY.answered * k, "Answered calls", dials, "minimum reached, keep calling", `${DAILY.answered * k}+`)}${meter(p.dms, DAILY.dms * k, "LinkedIn messages", `<div class="split">first messages and follow-ups</div>`, `keep going to ${DAILY.dmsHigh * k}`, `${DAILY.dms * k}–${DAILY.dmsHigh * k}`)}${meter(p.prospects, DAILY.prospects * k, "New prospects added", `<div class="split">${mine ? "found and added by you" : "found and added by the team"}</div>`)}</div>
     <div class="stats">${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
-    ${goal}</div>${weekTable(t)}</section>`;
+    ${goal}</div>${weekTable(t, mine ? me.id : null)}</section>`;
 }
 // This week, Monday to today: the same counts per day, to see how each day really went.
-function weekTable(t) {
+function weekTable(t, who = null) {
   const weekday = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).getDay(); };
   const dow = (weekday(t) + 6) % 7;   // 0 = Monday
-  const days = Array.from({ length: dow + 1 }, (_, i) => addDays(t, i - dow)).filter(day => day === t || weekday(day) !== 0 || dayStats(day).calls);
-  const rows = days.map(day => { const s = dayStats(day);
+  const days = Array.from({ length: dow + 1 }, (_, i) => addDays(t, i - dow)).filter(day => day === t || weekday(day) !== 0 || dayStats(day, who).calls);
+  const rows = days.map(day => { const s = dayStats(day, who);
     return `<tr${day === t ? ' class="is-today"' : ""}><td>${esc(fmtDay(day))}</td><td>${s.calls}</td><td>${s.answered}</td><td>${s.noanswer}</td><td>${s.wrong}</td><td>${s.dms}</td><td>${s.prospects}</td><td>${s.interested}</td><td>${s.samples}</td><td>${s.setups}</td></tr>`; }).join("");
   return `<details class="week"><summary>This week, day by day</summary><div class="table-scroll"><table class="week-t"><thead><tr><th>Day</th><th>Calls</th><th>Answered</th><th>No answer</th><th>Wrong no.</th><th>LinkedIn</th><th>New prospects</th><th>Interested</th><th>Samples</th><th>Setup calls</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
 }
@@ -678,7 +718,7 @@ function leadRow(l, opts = {}) {
   const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage];
   return `<div class="row ${d.cls === "late" ? "late" : ""}">
     <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
-      <div class="name">${prio(l)}${esc(l.name)}</div>
+      <div class="name">${prio(l)}${esc(l.name)}${l.private ? ` <span class="only-you" title="Hidden from the rest of the team">Only you</span>` : ""}</div>
       <div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · ")) || "&nbsp;"}</div>
       <div class="next">${pill(l.stage)}<span>${esc(what)}</span>${d.text ? `<span class="due ${d.cls}">${esc(d.text)}</span>` : ""}${dayChip(l)}</div>
     </div>
@@ -720,9 +760,10 @@ const STAGE_CARDS = [
   { key: "lost", title: "Closed", hint: "", stages: ["lost"] },
 ];
 let stageKey = "contact", stageTrack = "all", stageSort = "due";
+let scope = "me", teamWeek = 0;   // the progress box: your numbers or the team's; the Team tab: this week (0) or last (-1)
 function stageCards(notInt, wrongNums) {
   const t = today();
-  return `<div class="stage-cards" role="group" aria-label="Leads by step">${STAGE_CARDS.map(c => {
+  return `<div class="stage-cards" role="group" aria-label="Leads by step">${STAGE_CARDS.filter(c => me.admin || c.key !== "won").map(c => {
     const list = leads.filter(l => c.stages.includes(l.stage));
     const late = list.filter(l => isActive(l) && l.next_due && l.next_due < t).length, due = list.filter(l => isActive(l) && l.next_due === t).length;
     const calls = list.filter(l => l.stage === "tocall").length;
@@ -747,6 +788,72 @@ function viewStage() {
     <select id="f-stage-sort" aria-label="Order"><option value="due" ${stageSort === "due" ? "selected" : ""}>Due first</option><option value="new" ${stageSort === "new" ? "selected" : ""}>Newest added first</option></select></div>`;
   if (!list.length) return head + `<div class="empty"><p>No one at this step right now.</p></div>`;
   return head + `<div class="list">${list.map(l => leadRow(l)).join("")}</div>`;
+}
+/* ── Team: each person's week, for a weekly review. The admin (Rishav) sees everyone; a rep sees only their own.
+   Counted from what people log here, so it shows patterns, not proof that calls happened. ── */
+const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "–";
+const fmtTime = d => { let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, "0"), ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return `${h}:${m} ${ap}`; };
+const someNames = list => esc(list.slice(0, 3).map(l => l.name).join(", ")) + (list.length > 3 ? ` and ${list.length - 3} more` : "");
+const WEEK_KEYS = ["calls", "answered", "noanswer", "wrong", "unknown", "interested", "samples", "setups", "dms", "prospects", "replies", "won"];
+function viewTeam() {
+  const t = today(), monday = addDays(thisMonday(), 7 * teamWeek);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i)).filter(d => d <= t), workdays = days.slice(0, 5);
+  const ppl = [...teamPeople(monday).entries()].filter(([id]) => me.admin || id === me.id);
+  const weekSwitch = `<div class="row-btns" role="group" aria-label="Week">${[[0, "This week"], [-1, "Last week"]].map(([w, label]) =>
+    `<button class="btn ${teamWeek === w ? "primary" : ""}" data-act="team-week" data-w="${w}" aria-pressed="${teamWeek === w}">${label}</button>`).join("")}</div>`;
+  const head = `<div class="stage-head"><h3>${me.admin ? "The team's week" : "Your week"}<span class="num">${esc(fmtDay(monday))} to ${esc(fmtDay(days[days.length - 1] || monday))}</span></h3>${weekSwitch}</div>
+    <p class="hint" style="margin:-4px 0 14px">Counted from what each person logs on this page: patterns to look at, not proof.${me.admin ? " Proof that a call happened needs a calling app's records or an itemised SIM bill." : ""}</p>`;
+  if (!ppl.length || !days.length) return head + `<div class="empty"><p>Nothing logged this week yet.</p></div>`;
+  const rows = ppl.map(([id, name]) => {
+    const daysS = days.map(d => ({ d, s: dayStats(d, id) }));
+    const w = Object.fromEntries(WEEK_KEYS.map(k => [k, daysS.reduce((a, x) => a + x.s[k], 0)]));
+    return { id, name, daysS, w };
+  });
+  const table = `<div class="table-scroll"><table class="team-t"><thead><tr><th>Person</th><th>Dials</th><th>Answered</th><th>Answer rate</th><th>Interested</th><th>Samples</th><th>Setup calls</th><th>Customers</th><th>LinkedIn messages</th><th>Replies</th><th>New prospects</th></tr></thead><tbody>${rows.map(r =>
+    `<tr><td><b>${esc(r.name)}</b></td><td>${r.w.calls}</td><td>${r.w.answered}</td><td>${pct(r.w.answered, r.w.calls)}</td><td>${r.w.interested}</td><td>${r.w.samples}</td><td>${r.w.setups}</td><td>${r.w.won}</td><td>${r.w.dms}</td><td>${r.w.replies}</td><td>${r.w.prospects}</td></tr>`).join("")}</tbody></table></div>`;
+  return head + table + rows.map(r => personWeek(r, workdays)).join("");
+}
+function personWeek(r, workdays) {
+  const t = today(), wd = r.daysS.filter(x => workdays.includes(x.d)), w = r.w;
+  // targets hit, day by day
+  const line = (label, key, target) => `<tr><td>${label} <span class="hint">${target}</span></td>${wd.map(x => `<td class="${x.s[key] >= target ? "hit" : ""}">${x.s[key]}</td>`).join("")}<td><b>${wd.filter(x => x.s[key] >= target).length} of ${wd.length}</b></td></tr>`;
+  const grid = `<div class="table-scroll"><table class="week-t days-t"><thead><tr><th>Target</th>${wd.map(x => `<th>${esc(fmtDay(x.d).split(" ")[0])}</th>`).join("")}<th>Days hit</th></tr></thead><tbody>
+    ${line("Answered calls", "answered", DAILY.answered)}${line("LinkedIn messages", "dms", DAILY.dms)}${line("New prospects", "prospects", DAILY.prospects)}</tbody></table></div>`;
+  // where the funnel leaks
+  const steps = [["answered of dials", w.answered, w.calls], ["interested of answered", w.interested, w.answered], ["samples of interested", w.samples, w.interested],
+                 ["setup calls of samples", w.setups, w.samples], ["paid of setup calls", w.won, w.setups]];
+  const funnel = `<div class="ratios">${steps.map(([label, a, b]) => `<span class="ratio"><b>${pct(a, b)}</b> ${label}${b ? ` <span class="hint">(${a} of ${b})</span>` : ""}</span>`).join("")}</div>`;
+  // things to look at
+  const calls = r.daysS.flatMap(x => x.s.callAt).sort((a, b) => a - b);
+  let bursts = 0;
+  for (let i = 0; i + 5 < calls.length; i++) if (calls[i + 5] - calls[i] <= 3 * 60e3) { bursts++; i += 5; }   // 6 calls inside 3 minutes
+  const quiet = (l, days) => { const h = (l.history || []).slice(-1)[0]; return !!(h && h.at && daysBetween(ymd(new Date(h.at)), t) >= days); };
+  const theirs = (l, stage) => (l.history || []).some(h => h.by === r.id && h.stage === stage);
+  const noSample = leads.filter(l => l.stage === "spoke" && theirs(l, "spoke") && quiet(l, 1));
+  const noFollow = leads.filter(l => l.stage === "sample" && theirs(l, "sample") && quiet(l, 3));
+  const overdue = leads.filter(l => l.owner === r.id && isActive(l) && l.next_due && l.next_due < t);
+  const s = n => n === 1 ? "" : "s";
+  const flags = [
+    bursts ? `<li class="warn"><b>${bursts}</b> time${s(bursts)} 6 or more calls were logged within 3 minutes. Real calls take longer.</li>` : "",
+    w.unknown ? `<li><b>${w.unknown}</b> call${s(w.unknown)} with no outcome marked.</li>` : "",
+    noSample.length ? `<li><b>${noSample.length}</b> interested with no sample after a day: ${someNames(noSample)}.</li>` : "",
+    noFollow.length ? `<li><b>${noFollow.length}</b> sample${s(noFollow.length)} with no follow-up after 3 days: ${someNames(noFollow)}.</li>` : "",
+    overdue.length ? `<li><b>${overdue.length}</b> overdue lead${s(overdue.length)} in their name.</li>` : ""].filter(Boolean);
+  const hours = r.daysS.filter(x => x.s.first).map(x => `${fmtDay(x.d).split(" ")[0]} ${fmtTime(x.s.first)} to ${fmtTime(x.s.last)}`);
+  const look = `<h4>Things to look at</h4>${flags.length ? `<ul class="flags">${flags.join("")}</ul>` : `<p class="hint">Nothing stands out.</p>`}
+    ${hours.length ? `<p class="hint" style="margin-top:6px">First and last action each day: ${esc(hours.join(" · "))}</p>` : ""}`;
+  // spot check (admin only): 3 people they marked answered, the same 3 all week
+  let spot = "";
+  if (me.admin) {
+    const seen = new Map();
+    r.daysS.flatMap(x => x.s.answeredLeads).forEach(a => { const l = leads.find(x => x.id === a.id); if (l && (l.phone || l.firm_phone) && !seen.has(a.id)) seen.set(a.id, { ...a, l }); });
+    const hash = str => [...str].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+    const pick = [...seen.values()].sort((a, b) => hash(a.id + workdays[0]) - hash(b.id + workdays[0])).slice(0, 3);
+    spot = `<h4>Spot check</h4>${pick.length ? `<p class="hint">Ring these people and ask whether someone from Voyce called them.</p><ul class="flags">${pick.map(a =>
+      `<li><button class="linkbtn" data-act="open" data-id="${esc(a.id)}">${esc(a.l.name)}</button> · ${esc(a.l.phone || a.l.firm_phone)} · ${esc(fmtDay(ymd(a.at)))}: ${esc(a.text)}</li>`).join("")}</ul>`
+      : `<p class="hint">No answered calls with a number yet.</p>`}`;
+  }
+  return `<section class="person"><h3>${esc(r.name)}</h3>${grid}<h4>Where the funnel leaks</h4>${funnel}${look}${spot}</section>`;
 }
 function viewPipeline() {
   if (!leads.length) return emptyState("The pipeline fills in as you add leads and mark each step.");
@@ -805,7 +912,7 @@ function renderMain() {
   if (denied) { m.innerHTML = `<div class="empty"><p>Sales is only for the Voyce team. If you should have access, ask Rishav to add your account.</p><a class="btn" href="/setup">Back to Voyce</a></div>`; return; }
   if (!ready) { m.innerHTML = `<div class="empty"><p>Loading your leads…</p></div>`; return; }
   if (view === "scripts" && editingScript !== null && m.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   // don't wipe an edit in progress
-  m.innerHTML = view === "today" ? viewToday() : view === "stage" ? viewStage() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : view === "dms" ? viewDms() : viewScripts();
+  m.innerHTML = view === "today" ? viewToday() : view === "stage" ? viewStage() : view === "team" ? viewTeam() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : view === "dms" ? viewDms() : viewScripts();
 }
 
 /* ── LinkedIn DMs: paste profile links as they're sent; each becomes (or updates) a lead on the DM track ── */
@@ -967,6 +1074,7 @@ function renderDrawer() {
       ${l.website ? `<dt>Website</dt><dd><a href="${esc(/^https?:\/\//i.test(l.website) ? l.website : "https://" + l.website)}" target="_blank" rel="noopener">${esc(l.website.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, ""))}</a></dd>` : ""}
       <dt>Source</dt><dd>${esc(l.source || "")}</dd>
       <dt>Owner</dt><dd>${esc(ownerName(l))} ${canWrite && me.id && l.owner !== me.id ? `<button class="btn quiet" data-act="take" data-id="${esc(l.id)}">Assign to me</button>` : ""}</dd>
+      ${me.admin ? `<dt>Who sees it</dt><dd>${l.private ? "Only you" : "The whole team"} <button class="btn quiet" data-act="private" data-id="${esc(l.id)}" data-on="${l.private ? "0" : "1"}">${l.private ? "Show to the team" : "Only me"}</button></dd>` : ""}
       ${isActive(l) ? `<dt>Next date</dt><dd><input id="d-due" type="date" value="${esc(l.next_due || "")}" ${canWrite ? "" : "disabled"} style="padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)"></dd>` : ""}
     </dl></div>
     ${l.notes ? `<div class="d-sec"><h3>Why they fit</h3><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;overflow-wrap:anywhere">${esc(l.notes)}</div>${l.research_url ? `<a class="hint" href="${esc(l.research_url)}" target="_blank" rel="noopener">Where this came from</a>` : ""}</div>` : ""}
@@ -1015,12 +1123,15 @@ document.addEventListener("click", async e => {
   else if (act === "set-panel") { panel = el.dataset.panel || null; renderDrawer(); }
   else if (act === "action") { await runAction(id, el.dataset.a); }
   else if (act === "take") { await patchLead(id, { owner: "me" }, "Took over this lead"); }
+  else if (act === "private") { const on = el.dataset.on === "1"; await save(id, { private: on }, on ? "Made private: only Rishav sees this lead" : "Shown to the team again", on ? "Only you see this lead now" : "The team can see this lead again"); }
   else if (act === "delete") { if (await safe(() => api("DELETE", `/sales/leads/${encodeURIComponent(id)}`), "Lead deleted")) { leads = leads.filter(x => x.id !== id); closeDrawer(); renderAll(); } }
   else if (act === "copy-msg") { copy($("#msg")?.textContent || "", "Message copied"); }
   else if (act === "copy-text") { copy(el.dataset.text || "", "Copied"); }
   else if (act === "stage-card") { view = "stage"; stageKey = el.dataset.k; stageTrack = "all"; editingScript = null; renderSummary(); renderMain();
     try { localStorage.setItem("vs-view", "stage"); localStorage.setItem("vs-stage", stageKey); } catch (_) {} }
   else if (act === "stage-track") { stageTrack = el.dataset.t; renderMain(); }
+  else if (act === "scope") { scope = el.dataset.s === "team" ? "team" : "me"; renderSummary(); try { localStorage.setItem("vs-scope", scope); } catch (_) {} }
+  else if (act === "team-week") { teamWeek = Number(el.dataset.w) === -1 ? -1 : 0; renderMain(); }
   else if (act === "track") { pipeTrack = el.dataset.t === "dm" ? "dm" : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
   else if (act === "lookup") { await doLookup(id, el); }
   else if (act === "enrich") { await doEnrich(el); }
@@ -1101,7 +1212,8 @@ document.addEventListener("submit", async e => {
 });
 
 /* ── boot: lay the page out now, fill it once Voyce says who you are ── */
-try { const v = localStorage.getItem("vs-view"); if (["today", "stage", "pipeline", "all", "scripts"].includes(v)) view = v;
+try { const v = localStorage.getItem("vs-view"); if (["today", "stage", "pipeline", "all", "team", "scripts"].includes(v)) view = v;
+  if (localStorage.getItem("vs-scope") === "team") scope = "team";
   const sk = localStorage.getItem("vs-stage"); if (STAGE_CARDS.some(c => c.key === sk)) stageKey = sk;
   const tr = localStorage.getItem("vs-track"); if (tr === "dm" || tr === "call") pipeTrack = tr; } catch (_) {}
 try { const u = JSON.parse(localStorage.getItem("cm_user") || "null"); if (u) $("#nav-user").textContent = u.name || u.email || ""; } catch (_) {}
