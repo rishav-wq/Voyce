@@ -83,7 +83,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .progress { padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .progress-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px 16px; }
 .meters { display: flex; flex-wrap: wrap; gap: 12px; }
-.meter { width: 320px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.meter { width: 262px; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .meter.done { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: var(--ok-soft); }
 .meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .meter-top b { font-family: var(--f-display); font-size: 24px; line-height: 1.1; color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -138,6 +138,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chip b { font-family: var(--f-display); font-size: 16px; color: var(--fg); font-variant-numeric: tabular-nums; }
 .chip.alert { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: var(--bad-soft); }
 .chip.alert b { color: var(--bad); }
+/* stage cards: one per step of the work; a click opens that step's list */
+.stage-cards { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+@media (max-width: 1280px) { .stage-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .stage-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.scard { display: grid; align-content: start; gap: 1px; min-width: 0; padding: 11px 13px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; text-align: left; }
+.scard:hover { border-color: var(--accent); }
+.scard[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.scard .t { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.scard b { font-family: var(--f-display); font-size: 26px; line-height: 1.15; color: var(--fg); font-variant-numeric: tabular-nums; }
+.scard .s { font-size: 12px; color: var(--faint); }
+.scard .due-n { margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.scard .due-n.late { color: var(--bad); }
+.scard .link { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.scard .link:hover { color: var(--accent); }
+.stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 10px; }
+.stage-head h3 { font-size: 17px; margin-right: auto; }
+.stage-head h3 .num { margin-left: 8px; color: var(--faint); font-weight: 600; }
+.stage-head select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font-size: 13px; }
 
 /* tabs */
 .tabs { display: flex; gap: 4px; margin-top: 18px; border-bottom: 1px solid var(--line); overflow-x: auto; }
@@ -562,11 +580,13 @@ async function checkPhones() {
 /* ── render: summary, tabs, views ── */
 // Progress, counted from every lead's history, so it moves with each tap. A call is counted by what
 // happened: answered, no answer or wrong number. Taps on one lead within 5 minutes are one call.
-const DAILY_CALLS = 25, DAILY_DMS = 50;   // Rishav's daily targets (23 Oct 2026)
+// The rep playbook's daily targets (2 Nov 2026): 20 answered calls is a minimum, LinkedIn 30-40 messages
+// (first messages and follow-ups), 40 new prospects found and added
+const DAILY = { answered: 20, dms: 30, dmsHigh: 40, prospects: 40 };
 // "n / target" with a bar that turns green at the target
 const targetStat = (n, target, label, doneLabel, extra = "") => `<div class="stat stat-target"><b>${n}<small> / ${target}</small></b><span>${n >= target ? doneLabel : label}</span>
   <div class="bar ${n >= target ? "full" : ""}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}"><i style="width:${Math.min(100, Math.round(n / target * 100))}%"></i></div>${extra}</div>`;
-const GOAL = { from: "2026-10-23", by: "2026-11-05", setups: 8, paying: 3 };   // the plan: first customers before Diwali
+const GOAL = { week: "2–3", weekMin: 2, month: 10 };   // paying customers: 2-3 a week, 10+ a month (playbook, 2 Nov 2026)
 const CALLISH = new Set(["tocall", "try1", "try2", "try3", "spoke", "sample", "number", "called"]);
 const OUTCOME_RANK = { answered: 3, wrong: 2, noanswer: 1, unknown: 0 };
 // Notes typed in "Log a touch" count too: before these buttons the team logged "forwarded to voice mail" there.
@@ -581,8 +601,9 @@ function callOutcome(text, prev) {
   return "";
 }
 function dayStats(day) {
-  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, dms: 0, by: {} };
+  const n = { calls: 0, answered: 0, noanswer: 0, wrong: 0, unknown: 0, interested: 0, samples: 0, setups: 0, dms: 0, prospects: 0, by: {} };
   for (const l of leads) {
+    if (l.created_by && l.created_at && ymd(new Date(l.created_at)) === day) n.prospects++;   // found by a teammate, not loaded by research
     let last = null, unreachable = false;
     (l.history || []).forEach((h, i) => {
       const text = h.text || "", at = h.at ? new Date(h.at) : null;
@@ -590,7 +611,7 @@ function dayStats(day) {
       if (/^Spoke to them: interested/.test(text)) n.interested++;
       if (/^Sent the sample/.test(text)) n.samples++;
       if (/^Meeting booked/.test(text)) n.setups++;
-      if (DM_RE.test(text)) n.dms++;
+      if (DM_RE.test(text) || FU_RE.test(text)) n.dms++;
       const o = callOutcome(text, (l.history[i - 1] || {}).stage);
       if (!o) return;
       if (o === "noanswer" || o === "wrong") unreachable = true;
@@ -607,19 +628,23 @@ function dayStats(day) {
 }
 function progressCard() {
   const t = today(), p = dayStats(t);
-  const setupsSince = leads.filter(l => (l.history || []).some(h => /^Meeting booked/.test(h.text || "") && h.at && ymd(new Date(h.at)) >= GOAL.from)).length;
   const paying = leads.filter(l => l.stage === "won").length;
+  // customers won this week (from Monday) and this month, from the day each lead was marked won
+  const weekday = (new Date().getDay() + 6) % 7, monday = addDays(t, -weekday), month1 = t.slice(0, 8) + "01";
+  const wonOn = l => { const h = (l.history || []).slice().reverse().find(x => x.stage === "won" && x.at); return h ? ymd(new Date(h.at)) : ""; };
+  const wonWeek = leads.filter(l => l.stage === "won" && wonOn(l) >= monday).length, wonMonth = leads.filter(l => l.stage === "won" && wonOn(l) >= month1).length;
   const stat = (num, label, extra = "") => `<div class="stat"><b>${num}</b><span>${label}</span>${extra}</div>`;
   const split = [[p.answered, "answered"], [p.noanswer, "no answer"], [p.wrong, p.wrong === 1 ? "wrong number" : "wrong numbers"], [p.unknown, "outcome not marked"]]
     .filter(([v], i) => v || i < 2).map(([v, s]) => `<b>${v}</b> ${s}`).join(" · ");
   const people = Object.entries(p.by);
   const who = people.length > 1 ? `<div class="split">${people.sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} <b>${v}</b>`).join(" · ")}</div>` : "";
-  const goal = t <= GOAL.by ? `<div class="goal">Goal by ${esc(fmtDay(GOAL.by))}: <b>${GOAL.setups}</b> setup calls · <b>${GOAL.paying}</b> paying. So far <b>${setupsSince}</b> and <b>${paying}</b>.</div>` : "";
-  // The day's two activity targets, side by side at the top right; results underneath.
-  const meter = (n, target, label, extra = "") => `<div class="meter${n >= target ? " done" : ""}"><div class="meter-top"><span>${label}${n >= target ? ": done for today" : ""}</span><b>${n}<small> / ${target}</small></b></div>
+  const goal = `<div class="goal">Goal: <b>${GOAL.week}</b> paying customers a week, <b>${GOAL.month}+</b> a month. This week <b>${wonWeek}</b> · this month <b>${wonMonth}</b>.</div>`;
+  // The day's three activity targets, side by side at the top right; results underneath.
+  const meter = (n, target, label, extra = "", done = "done for today", shown = target) => `<div class="meter${n >= target ? " done" : ""}"><div class="meter-top"><span>${label}${n >= target ? ": " + done : ""}</span><b>${n}<small> / ${shown}</small></b></div>
     <div class="bar ${n >= target ? "full" : ""}" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}"><i style="width:${Math.min(100, Math.round(n / target * 100))}%"></i></div>${extra}</div>`;
+  const dials = `<div class="split"><b>${p.calls}</b> dials · ${split}</div>${who}`;
   return `<section class="progress" aria-label="Today's progress"><div class="progress-grid"><h2>Today · ${esc(fmtDay(t))}</h2>
-    <div class="meters">${meter(p.calls, DAILY_CALLS, "Calls made", `<div class="split">${split}</div>${who}`)}${meter(p.dms, DAILY_DMS, "LinkedIn DMs")}</div>
+    <div class="meters">${meter(p.answered, DAILY.answered, "Answered calls", dials, "minimum reached, keep calling", `${DAILY.answered}+`)}${meter(p.dms, DAILY.dms, "LinkedIn messages", `<div class="split">first messages and follow-ups</div>`, "keep going to 40", `${DAILY.dms}–${DAILY.dmsHigh}`)}${meter(p.prospects, DAILY.prospects, "New prospects added", `<div class="split">found and added by the team</div>`)}</div>
     <div class="stats">${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
     ${goal}</div>${weekTable(t)}</section>`;
 }
@@ -629,19 +654,14 @@ function weekTable(t) {
   const dow = (weekday(t) + 6) % 7;   // 0 = Monday
   const days = Array.from({ length: dow + 1 }, (_, i) => addDays(t, i - dow)).filter(day => day === t || weekday(day) !== 0 || dayStats(day).calls);
   const rows = days.map(day => { const s = dayStats(day);
-    return `<tr${day === t ? ' class="is-today"' : ""}><td>${esc(fmtDay(day))}</td><td>${s.calls}</td><td>${s.answered}</td><td>${s.noanswer}</td><td>${s.wrong}</td><td>${s.dms}</td><td>${s.interested}</td><td>${s.samples}</td><td>${s.setups}</td></tr>`; }).join("");
-  return `<details class="week"><summary>This week, day by day</summary><div class="table-scroll"><table class="week-t"><thead><tr><th>Day</th><th>Calls</th><th>Answered</th><th>No answer</th><th>Wrong no.</th><th>DMs</th><th>Interested</th><th>Samples</th><th>Setup calls</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+    return `<tr${day === t ? ' class="is-today"' : ""}><td>${esc(fmtDay(day))}</td><td>${s.calls}</td><td>${s.answered}</td><td>${s.noanswer}</td><td>${s.wrong}</td><td>${s.dms}</td><td>${s.prospects}</td><td>${s.interested}</td><td>${s.samples}</td><td>${s.setups}</td></tr>`; }).join("");
+  return `<details class="week"><summary>This week, day by day</summary><div class="table-scroll"><table class="week-t"><thead><tr><th>Day</th><th>Calls</th><th>Answered</th><th>No answer</th><th>Wrong no.</th><th>LinkedIn</th><th>New prospects</th><th>Interested</th><th>Samples</th><th>Setup calls</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
 }
 function renderSummary() {
-  const t = today(), active = leads.filter(isActive);
-  const late = active.filter(l => l.next_due && l.next_due < t).length;
+  const t = today();
   const notInt = leads.filter(isNotInt).length;
   const wrongNums = leads.filter(isWrongNum).length;
-  $("#summary").innerHTML = !ready ? "" : progressCard() + `<div class="chips">${[
-    late ? `<span class="chip alert"><b>${late}</b> overdue</span>` : "",
-    `<span class="chip"><b>${active.length}</b> in progress</span>`,
-    notInt ? `<button class="chip chip-link" data-act="show-notint" title="See who said no"><b>${notInt}</b> not interested</button>` : "",
-    wrongNums ? `<button class="chip chip-link" data-act="show-wrongnum" title="See whose number was wrong"><b>${wrongNums}</b> wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""].join("")}</div>`;
+  $("#summary").innerHTML = !ready ? "" : progressCard() + stageCards(notInt, wrongNums);
   $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
   $("#n-dms").textContent = ready ? String(dmLog().filter(x => x.day === t).length || "") : "";
   $("#n-all").textContent = ready ? String(leads.length) : "";
@@ -655,7 +675,7 @@ function leadRow(l, opts = {}) {
   const all = actionsFor(l), rowActs = all.filter(a => !a.neg).slice(0, 3).concat(all.filter(a => a.neg));
   const acts = canWrite ? rowActs.map(a =>
     `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
-  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
+  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage];
   return `<div class="row ${d.cls === "late" ? "late" : ""}">
     <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
       <div class="name">${prio(l)}${esc(l.name)}</div>
@@ -689,6 +709,45 @@ const TODAY_GROUPS = [
   { key: "new", title: "New calls", hint: "Strongest first. Best answered Tue to Thu, 3 to 5 pm.", stages: ["tocall"] },
   { key: "dm", title: "LinkedIn DMs", hint: "", stages: ["new", "dm", "fu1", "fu2", "fu3"] },
 ];
+// The work in seven steps (Rishav, 2 Nov 2026): each card counts its leads; a click opens that step's whole list
+const STAGE_CARDS = [
+  { key: "contact", title: "To contact", hint: "", stages: ["tocall", "new"] },
+  { key: "retry", title: "Call again", hint: "No answer yet", stages: ["try1", "try2", "try3"] },
+  { key: "follow", title: "LinkedIn follow-up", hint: "Messaged, no reply yet", stages: ["dm", "fu1", "fu2", "fu3"] },
+  { key: "warm", title: "Interested", hint: "Send the sample, book the call", stages: ["spoke", "sample", "replied", "number", "called"] },
+  { key: "meeting", title: "Setup calls", hint: "Booked with Rishav", stages: ["meeting"] },
+  { key: "won", title: "Customers", hint: "Paying", stages: ["won"] },
+  { key: "lost", title: "Closed", hint: "", stages: ["lost"] },
+];
+let stageKey = "contact", stageTrack = "all", stageSort = "due";
+function stageCards(notInt, wrongNums) {
+  const t = today();
+  return `<div class="stage-cards" role="group" aria-label="Leads by step">${STAGE_CARDS.map(c => {
+    const list = leads.filter(l => c.stages.includes(l.stage));
+    const late = list.filter(l => isActive(l) && l.next_due && l.next_due < t).length, due = list.filter(l => isActive(l) && l.next_due === t).length;
+    const calls = list.filter(l => l.stage === "tocall").length;
+    const sub = c.key === "contact" ? `${calls} to call · ${list.length - calls} on LinkedIn` : c.hint;
+    const foot = c.key === "lost" ? `<span class="s">${notInt ? `<button class="link" data-act="show-notint">${notInt} not interested</button>` : ""}${notInt && wrongNums ? " · " : ""}${wrongNums ? `<button class="link" data-act="show-wrongnum">${wrongNums} wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""}</span>`
+      : late ? `<span class="due-n late">${late} overdue</span>` : due ? `<span class="due-n">${due} due today</span>` : "";
+    return `<div class="scard" role="button" tabindex="0" data-act="stage-card" data-k="${c.key}" aria-pressed="${view === "stage" && stageKey === c.key}">
+      <span class="t">${esc(c.title)}</span><b>${list.length}</b>${sub ? `<span class="s">${esc(sub)}</span>` : ""}${foot}</div>`;
+  }).join("")}</div>`;
+}
+function viewStage() {
+  const c = STAGE_CARDS.find(x => x.key === stageKey) || STAGE_CARDS[0];
+  const all = leads.filter(l => c.stages.includes(l.stage)), calls = all.filter(l => l.stage === "tocall").length;
+  const split = c.key === "contact";
+  let list = split && stageTrack !== "all" ? all.filter(l => (l.stage === "tocall") === (stageTrack === "call")) : all.slice();
+  const byDue = (a, b) => (a.next_due || "9").localeCompare(b.next_due || "9");
+  const newest = (a, b) => (b.created_at || "").localeCompare(a.created_at || "");
+  list.sort(stageSort === "new" ? (a, b) => newest(a, b) || byPrio(a, b) : (a, b) => byDue(a, b) || byPrio(a, b));
+  const seg = (k, label, n) => `<button class="btn ${stageTrack === k ? "primary" : ""}" data-act="stage-track" data-t="${k}" aria-pressed="${stageTrack === k}">${label} <span class="num">${n}</span></button>`;
+  const head = `<div class="stage-head"><h3>${esc(c.title)}<span class="num">${list.length}</span></h3>
+    ${split ? `<div class="row-btns" role="group" aria-label="Calls or LinkedIn">${seg("all", "All", all.length)}${seg("call", "Calls", calls)}${seg("dm", "LinkedIn", all.length - calls)}</div>` : ""}
+    <select id="f-stage-sort" aria-label="Order"><option value="due" ${stageSort === "due" ? "selected" : ""}>Due first</option><option value="new" ${stageSort === "new" ? "selected" : ""}>Newest added first</option></select></div>`;
+  if (!list.length) return head + `<div class="empty"><p>No one at this step right now.</p></div>`;
+  return head + `<div class="list">${list.map(l => leadRow(l)).join("")}</div>`;
+}
 function viewPipeline() {
   if (!leads.length) return emptyState("The pipeline fills in as you add leads and mark each step.");
   const switcher = `<div class="row-btns" style="margin-bottom:12px" role="group" aria-label="Track">${[["call", "Cold calls"], ["dm", "LinkedIn DMs"]].map(([k, t]) =>
@@ -746,7 +805,7 @@ function renderMain() {
   if (denied) { m.innerHTML = `<div class="empty"><p>Sales is only for the Voyce team. If you should have access, ask Rishav to add your account.</p><a class="btn" href="/setup">Back to Voyce</a></div>`; return; }
   if (!ready) { m.innerHTML = `<div class="empty"><p>Loading your leads…</p></div>`; return; }
   if (view === "scripts" && editingScript !== null && m.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   // don't wipe an edit in progress
-  m.innerHTML = view === "today" ? viewToday() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : view === "dms" ? viewDms() : viewScripts();
+  m.innerHTML = view === "today" ? viewToday() : view === "stage" ? viewStage() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : view === "dms" ? viewDms() : viewScripts();
 }
 
 /* ── LinkedIn DMs: paste profile links as they're sent; each becomes (or updates) a lead on the DM track ── */
@@ -775,7 +834,7 @@ function viewDms() {
   const fus = leads.reduce((n, l) => n + (l.history || []).filter(h => h.by && h.at && ymd(new Date(h.at)) === t && FU_RE.test(h.text || "")).length, 0);
   const strip = week.map(d => `<span class="dm-day${d === t ? " is-today" : ""}"><b>${count(d)}</b>${esc(fmtDay(d).split(" ")[0])}</span>`).join("");
   const head = `<section class="progress" aria-label="LinkedIn DMs sent"><div class="progress-head"><h2>LinkedIn DMs · ${esc(fmtDay(t))}</h2><div class="goal">This week: <b>${week.reduce((n, d) => n + count(d), 0)}</b> sent</div></div>
-    <div class="stats">${targetStat(count(t), DAILY_DMS, "sent today", "sent today: done for today")}<div class="stat"><b>${fus}</b><span>follow-ups today</span></div><div class="dm-week" aria-label="DMs sent each day this week">${strip}</div></div></section>`;
+    <div class="stats">${targetStat(count(t), DAILY.dms, "sent today", "sent today: done for today")}<div class="stat"><b>${fus}</b><span>follow-ups today</span></div><div class="dm-week" aria-label="DMs sent each day this week">${strip}</div></div></section>`;
   const form = canWrite ? `<form class="dm-form" id="dm-form"><label for="dm-urls">LinkedIn profile links of people you've just messaged <span class="hint">one per line</span></label>
     <textarea id="dm-urls" rows="3" placeholder="https://www.linkedin.com/in/…" spellcheck="false"></textarea>
     <input id="dm-note" maxlength="200" placeholder="Short note (optional), e.g. ex-CHRO, met at the NHRD meet" aria-label="Short note">
@@ -959,6 +1018,9 @@ document.addEventListener("click", async e => {
   else if (act === "delete") { if (await safe(() => api("DELETE", `/sales/leads/${encodeURIComponent(id)}`), "Lead deleted")) { leads = leads.filter(x => x.id !== id); closeDrawer(); renderAll(); } }
   else if (act === "copy-msg") { copy($("#msg")?.textContent || "", "Message copied"); }
   else if (act === "copy-text") { copy(el.dataset.text || "", "Copied"); }
+  else if (act === "stage-card") { view = "stage"; stageKey = el.dataset.k; stageTrack = "all"; editingScript = null; renderSummary(); renderMain();
+    try { localStorage.setItem("vs-view", "stage"); localStorage.setItem("vs-stage", stageKey); } catch (_) {} }
+  else if (act === "stage-track") { stageTrack = el.dataset.t; renderMain(); }
   else if (act === "track") { pipeTrack = el.dataset.t === "dm" ? "dm" : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
   else if (act === "lookup") { await doLookup(id, el); }
   else if (act === "enrich") { await doEnrich(el); }
@@ -992,6 +1054,7 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", async e => {
   if (e.target.id === "f-stage") { filters.stage = e.target.value; renderMain(); }
+  else if (e.target.id === "f-stage-sort") { stageSort = e.target.value; renderMain(); }
   else if (e.target.id === "f-owner") { filters.owner = e.target.value; renderMain(); }
   else if (e.target.id === "d-due" && openId && e.target.value) { await patchLead(openId, { next_due: e.target.value }, `Next date set to ${fmtDay(e.target.value)}`); }
 });
@@ -1038,7 +1101,8 @@ document.addEventListener("submit", async e => {
 });
 
 /* ── boot: lay the page out now, fill it once Voyce says who you are ── */
-try { const v = localStorage.getItem("vs-view"); if (["today", "pipeline", "all", "scripts"].includes(v)) view = v;
+try { const v = localStorage.getItem("vs-view"); if (["today", "stage", "pipeline", "all", "scripts"].includes(v)) view = v;
+  const sk = localStorage.getItem("vs-stage"); if (STAGE_CARDS.some(c => c.key === sk)) stageKey = sk;
   const tr = localStorage.getItem("vs-track"); if (tr === "dm" || tr === "call") pipeTrack = tr; } catch (_) {}
 try { const u = JSON.parse(localStorage.getItem("cm_user") || "null"); if (u) $("#nav-user").textContent = u.name || u.email || ""; } catch (_) {}
 renderSummary(); renderMain();
