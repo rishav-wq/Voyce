@@ -685,7 +685,7 @@ function progressCard() {
   const dials = `<div class="split"><b>${p.calls}</b> dials · ${split}</div>${who}`;
   return `<section class="progress" aria-label="Today's progress"><div class="progress-grid"><div class="ptitle"><h2>${mine ? "You" : "Team" + (k > 1 ? ` (${k})` : "")} · ${esc(fmtDay(t))}</h2>${toggle}</div>
     <div class="meters">${meter(p.answered, DAILY.answered * k, "Answered calls", dials, "minimum reached, keep calling", `${DAILY.answered * k}+`)}${meter(p.dms, DAILY.dms * k, "LinkedIn messages", `<div class="split">first messages and follow-ups</div>`, `keep going to ${DAILY.dmsHigh * k}`, `${DAILY.dms * k}–${DAILY.dmsHigh * k}`)}${meter(p.prospects, DAILY.prospects * k, "New prospects added", `<div class="split">${mine ? "found and added by you" : "found and added by the team"}</div>`)}</div>
-    <div class="stats">${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${stat(paying, "paying")}</div>
+    <div class="stats">${stat(p.interested, "interested")}${stat(p.samples, "samples sent")}${stat(p.setups, "setup calls booked")}${me.admin ? stat(paying, "paying") : ""}</div>
     ${goal}</div>${weekTable(t, mine ? me.id : null)}</section>`;
 }
 // This week, Monday to today: the same counts per day, to see how each day really went.

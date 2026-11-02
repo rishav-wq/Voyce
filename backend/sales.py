@@ -143,9 +143,13 @@ class LeadIn(BaseModel):
 @router.get("/sales/me")
 def sales_me(x_token: str = Header(None)):
     user = _team_user(x_token)
-    # admin: Rishav's team view shows everyone's week; a sales rep's shows only their own
+    # admin: Rishav's team view shows everyone's week; a sales rep's shows only their own.
+    # A rep gets this week's and this month's customer counts (their goal), never the total paying (Rishav, 3 Nov 2026).
+    counts = _customer_counts()
+    if not _is_admin(user):
+        counts.pop("total")
     return {"id": user["id"], "name": _who(user), "email": user.get("email", ""), "admin": _is_admin(user),
-            "customers": _customer_counts()}
+            "customers": counts}
 
 
 @router.get("/sales/leads")
