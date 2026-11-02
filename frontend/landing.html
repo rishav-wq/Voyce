@@ -118,7 +118,7 @@
   .logo .logo-mark { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.85em; line-height: .85; letter-spacing: -.07em; margin: 0 -.02em 0 0; }
   .links { display: flex; gap: 28px; margin-left: auto; font-size: 15px; color: var(--body); }
   .links a { text-decoration: none; }
-  .nav-cta { display: flex; gap: 18px; align-items: center; font-size: 15px; }
+  .nav-cta { display: flex; gap: 18px; align-items: center; font-size: 15px; margin-left: auto; }
   .nav-cta .btn { padding: 13px 18px; font-size: 15px; border-radius: 10px; }
   .nav-login { font-weight: 600; color: var(--ink); text-decoration: none; padding: 10px 4px; }
   .nav-login:hover { color: var(--navy); text-decoration: underline; text-underline-offset: 4px; }
@@ -167,10 +167,11 @@
 
   /* hero: the morning, on a laptop and a phone */
   /* the first screen is the whole window: shorter, the next section's tint showed under it */
-  .hero { padding: 48px 0 64px; min-height: calc(100vh - 73px); min-height: calc(100svh - 73px); display: flex; align-items: center; }
+  .hero { padding: 36px 0 84px; min-height: calc(100vh - 73px); min-height: calc(100svh - 73px); display: flex; align-items: center; }
   .hero > .wrap { width: 100%; }
   .hero .wrap { display: grid; grid-template-columns: .84fr 1.16fr; gap: 0 40px; align-items: center; max-width: 1280px; }
   .hero .wrap > * { min-width: 0; }
+  nav .wrap { max-width: 1280px; }   /* the logo lines up with the headline */
   .hero h1 { font-size: clamp(44px, 4.7vw, 68px); line-height: 1.02; font-weight: 600; margin: 24px 0 26px; }
   .hero .sub { font-size: 19px; margin-bottom: 32px; }
 
@@ -303,6 +304,26 @@
   .L3, .url .u3, .P2, .P3 { opacity: 0; }
   @media (prefers-reduced-motion: no-preference) { .L3, .url .u3, .P2, .P3 { opacity: 0; } }
 
+  /* big screens: at 1895px the hero sat in 300px side margins and 120px gaps above and below */
+  @media (min-width: 1500px) {
+    .hero .wrap { max-width: 1440px; gap: 0 56px; }
+    nav .wrap { max-width: 1440px; }
+    .hero h1 { font-size: clamp(68px, 4.3vw, 82px); }
+    .hero .sub { font-size: 20px; }
+    .rig { width: 770px; }
+    .laptop { --lw: 660; }
+    .phone { --pw: 236; left: 535px; bottom: -75px; }
+    .times3 { margin-bottom: 26px; }
+  }
+  @media (min-width: 2000px) {
+    .hero .wrap { max-width: 1720px; gap: 0 72px; }
+    nav .wrap { max-width: 1720px; }
+    .hero h1 { font-size: 98px; }
+    .hero .sub { font-size: 22px; }
+    .rig { width: 920px; }
+    .laptop { --lw: 790; }
+    .phone { --pw: 282; left: 640px; bottom: -90px; }
+  }
   @media (max-width: 1100px) {
     .hero .wrap { grid-template-columns: 1fr; }
     .rig { margin: 56px auto 0; max-width: 100%; }
