@@ -35,6 +35,10 @@ def _get_jwks(domain: str, force: bool = False) -> dict:
     keys, fetched = _jwks.get(domain, ({}, 0.0))
     if keys and not force and (now - fetched) < _JWKS_TTL:
         return keys
+    if keys and force and (now - fetched) < 60:
+        # A forced refresh (a token with an unknown key id) at most once a minute: made-up tokens used to make
+        # the server fetch Clerk's keys on every request (security review, 3 Nov 2026)
+        return keys
     if not domain:
         return {}
     try:
@@ -113,7 +117,10 @@ def get_user_by_token(token: str) -> dict | None:
     if cu.get("primary_email_address_id") and cu.get("email_addresses"):
         peid = cu["primary_email_address_id"]
         ea = next((e for e in cu["email_addresses"] if e["id"] == peid), None)
-        if ea:
+        # Only an address Clerk proved: the email alone makes someone a partner's team member or a Voyce admin,
+        # so an unverified one (a Clerk setting changed one day) must never count (security review, 3 Nov 2026).
+        status = ((ea or {}).get("verification") or {}).get("status")
+        if ea and status in (None, "verified"):
             email = ea["email_address"].lower()
     name = f"{cu.get('first_name') or ''} {cu.get('last_name') or ''}".strip() or email.split("@")[0] or "User"
 

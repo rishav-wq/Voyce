@@ -1648,7 +1648,11 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
         # DIY video items can never auto-publish (the asset doesn't exist until
         # the user generates it) — they always wait in the queue, approval mode
         # or not, manual run or not.
-        if do_diy_video or held_reason or (respect_approval and company.get("approval_mode")):
+        import partners
+        # A partner seat never publishes without the client's click (LinkedIn API terms 3.1(26)), whatever the
+        # profile's approval flag or the run's caller says: a second lock after the API's (3 Nov 2026 review)
+        partner_lock = not (partners.for_company(company) or {}).get("auto_posting", True)
+        if do_diy_video or held_reason or partner_lock or (respect_approval and company.get("approval_mode")):
             pending_id = _save_pending(company, post_type, payload)
             log_entry["status"] = "pending_approval"
             log_entry["pending_id"] = pending_id
@@ -1860,8 +1864,13 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         })
         logger.info(f"[Approval] DIY video {pending_id} marked as posted manually")
         return {"status": "posted_manually"}
-    # Publish through the profile's own LinkedIn if it has one, else the owner's.
-    company = db.companies.find_one({"id": pend.get("company_id", "")}, {"_id": 0}) or {}
+    # Publish through the profile's own LinkedIn if it has one, else the owner's. The profile must still be
+    # this account's: a deleted profile's id can be given to someone else's new profile, and a draft left
+    # over from the old one published on the new owner's LinkedIn (security review, 3 Nov 2026).
+    company = db.companies.find_one({"id": pend.get("company_id", ""), "user_id": user_id}, {"_id": 0})
+    if not company:
+        db.pending_posts.update_one({"id": pending_id, "status": "publishing"}, {"$set": {"status": "discarded"}})
+        return {"error": "not_found"}
     conn = li.connection_for(company, user_id)
     try:
         result = _publish_payload(conn, pend)

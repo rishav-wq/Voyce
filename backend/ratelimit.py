@@ -37,3 +37,29 @@ def allow(key: str, limit: int, window: float = 60.0) -> bool:
 def _prune(cutoff: float) -> None:
     for k in [k for k, v in _hits.items() if not v or v[-1] <= cutoff]:
         _hits.pop(k, None)
+
+
+# voyce.co.in is behind Cloudflare, which overwrites CF-Connecting-IP with the real visitor. Anything else
+# (a partner's address, Render's own voyce-1.onrender.com) reaches Render directly, where a client can send
+# that header itself, so it is trusted only here (security review, 3 Nov 2026).
+_CLOUDFLARE_HOSTS = {"voyce.co.in", "www.voyce.co.in"}
+
+
+def client_ip(request) -> str:
+    """The visitor's address for per-visitor limits. IPv6 is keyed on its /64: one machine holds a whole
+    /64, so counting single addresses let a script reset its limit by changing one."""
+    import ipaddress
+    host = (request.headers.get("host") or "").split(":")[0].strip().lower()
+    ip = request.headers.get("cf-connecting-ip", "").strip() if host in _CLOUDFLARE_HOSTS else ""
+    if not ip:
+        # Render's proxy appends the address it was connected from, so the LAST entry is real; the first is
+        # whatever the client typed.
+        fwd = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",") if p.strip()]
+        ip = fwd[-1] if fwd else (request.client.host if request.client else "")
+    try:
+        addr = ipaddress.ip_address(ip)
+        if addr.version == 6:
+            return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+        return str(addr)
+    except ValueError:
+        return ip[:64] or "unknown"

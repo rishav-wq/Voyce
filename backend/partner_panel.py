@@ -15,13 +15,15 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pymongo import ReturnDocument
 
 import auth as auth_module
 import db
 import linkedin as li
 import notify
 import partners
+import ratelimit
 from company import list_companies, update_company
 
 router = APIRouter()
@@ -181,7 +183,7 @@ def invite(req: InviteRequest, request: Request, x_token: str = Header(None)):
            "status": "open", "created_at": _now().isoformat(),
            "expires_at": (_now() + timedelta(days=INVITE_DAYS)).isoformat()}
     db.partner_invites.insert_one({**inv})
-    link = f"https://{request.headers.get('host', partners.base_url(partner)[8:])}/signup?invite={inv['token']}"
+    link = f"{partners.url_for_request(partner, request.headers.get('host', ''))}/signup?invite={inv['token']}"
     emailed = notify.partner_invite(partner, inv, link, inviter=user.get("name", ""))
     log(None, "invited", email, by=user.get("email", ""), partner_id=partner["id"])
     # The link comes back too, so the team can send it on WhatsApp as well
@@ -215,6 +217,8 @@ def remove_client(uid: str, x_token: str = Header(None)):
             li.logout(comp["li_conn"])
     li.logout(uid)
     db.companies.update_many({"user_id": uid}, {"$set": {"active": False}, "$unset": {"li_conn": ""}})
+    # drafts still waiting go too, so an old approve link can't publish after they've left (3 Nov 2026 review)
+    db.pending_posts.update_many({"user_id": uid, "status": "pending"}, {"$set": {"status": "discarded"}})
     log(c, "removed", by=user.get("email", ""))
     return {"ok": True}
 
@@ -354,15 +358,26 @@ def join(req: JoinRequest, x_token: str = Header(None)):
 # ── the landing page's waiting list ───────────────────────────────────────────
 
 class WaitlistRequest(BaseModel):
-    name: str = ""
-    title: str = ""
-    company: str = ""
-    email: str = ""
-    phone: str = ""
-    website: str = ""   # hidden on the page: only a bot fills it in
+    name: str = Field("", max_length=300)
+    title: str = Field("", max_length=300)
+    company: str = Field("", max_length=300)
+    email: str = Field("", max_length=300)
+    phone: str = Field("", max_length=60)
+    website: str = Field("", max_length=300)   # hidden on the page: only a bot fills it in
 
 
-_waitlist_hits: dict = {}   # address -> recent request times, so one sender can't flood the partner's inbox
+# Emails to the partner a day, whatever the senders' addresses. Resend's plan sends 100 a day for ALL of Voyce,
+# approval emails included, and a script once could spend them all here (security review, 3 Nov 2026).
+# Past the cap a request is still saved, just not emailed.
+WAITLIST_EMAILS_PER_DAY = 20
+
+
+def _waitlist_email_allowed(partner_id: str) -> bool:
+    day = _now().strftime("%Y-%m-%d")
+    doc = db.usage.find_one_and_update({"_id": f"waitlist-mail:{partner_id}:{day}"},
+                                       {"$inc": {"count": 1}, "$setOnInsert": {"started_at": _now()}},
+                                       upsert=True, return_document=ReturnDocument.AFTER)
+    return (doc or {}).get("count", 0) <= WAITLIST_EMAILS_PER_DAY
 
 
 @router.post("/partner/waitlist")
@@ -375,13 +390,9 @@ def waitlist(req: WaitlistRequest, request: Request):
     if req.website.strip():
         return {"ok": True}   # a bot: looks accepted, nothing saved or sent
     now = _now()
-    ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "") or "?"
-    recent = [t for t in _waitlist_hits.get(ip, []) if t > now - timedelta(hours=1)]
-    if len(recent) >= 5:
+    # 5 an hour per visitor; the address can't be faked here (ratelimit.client_ip: this host has no Cloudflare)
+    if not ratelimit.allow(f"waitlist:{ratelimit.client_ip(request)}", 5, 3600):
         raise HTTPException(status_code=429, detail="Too many requests from here. Please try again in an hour.")
-    if len(_waitlist_hits) > 2000:
-        _waitlist_hits.clear()
-    _waitlist_hits[ip] = recent + [now]
     name, title, company = (" ".join(v.split())[:120] for v in (req.name, req.title, req.company))
     email = req.email.strip().lower()[:200]
     phone = " ".join(re.sub(r"[^\d+()\- ]", "", req.phone).split())[:30]
@@ -396,7 +407,9 @@ def waitlist(req: WaitlistRequest, request: Request):
     entry = {"id": secrets.token_hex(8), "partner_id": partner["id"], "name": name, "title": title,
              "company": company, "email": email, "phone": phone, "at": now.isoformat(), "emailed": False}
     db.partner_waitlist.insert_one(dict(entry))
-    if notify.partner_waitlist(partner, entry):
+    if not _waitlist_email_allowed(partner["id"]):
+        logger.warning(f"[waitlist] {partner['id']}: over {WAITLIST_EMAILS_PER_DAY} today, saved {entry['id']} unemailed")
+    elif notify.partner_waitlist(partner, entry):
         db.partner_waitlist.update_one({"id": entry["id"]}, {"$set": {"emailed": True}})
     else:
         logger.error(f"[waitlist] {partner['id']}: saved {entry['id']} but the email to {partner['waitlist_to']} failed")

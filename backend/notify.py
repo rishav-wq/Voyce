@@ -172,11 +172,13 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
                  "It won't go out until you approve it.")
     paras = [intro] + ([src_html] if src_html else [])
     url = _approve_url(pending_id)
+    # A partner's client approves signed in: their link only shows the post (main._partner_approve_actions)
+    in_partner = bool(partners.for_company(company))
     ask = ""
     try:
         import notes
         q = notes.question_for(company)
-        if not q["status"] and not held_reason:
+        if not q["status"] and not held_reason and not in_partner:
             paras.append(f"<b>One question this week</b> (optional): {html.escape(q['text'])} Answer in a line or two "
                          "on the approve page, and Voyce builds an upcoming post around it.")
             ask = f"One question this week (optional): {q['text']} Answer on the approve page.\n\n"
@@ -187,7 +189,7 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
               if company.get("active") else "Posts you don't approve expire after 48 hours, so stale news never goes out.")
     text = (f"{html.unescape(intro)}\n\n{preview}\n\n"
             + (f"{src_text}\n\n" if src_text else "") + ask
-            + f"Review and approve (no login needed): {url}\n\n{expiry}")
+            + f"Review and approve{'' if in_partner else ' (no login needed)'}: {url}\n\n{expiry}")
     body = _layout("Ready for your OK" if not held_reason else "Held for your review",
                    paras, button=("Review and approve", url), quote=preview, footer=expiry)
     return send(company.get("user_id", ""), f"ready:{pending_id}", "post_ready", subject, text, body)
@@ -228,7 +230,9 @@ def approval_reminders() -> int:
             subject = f"Your post for {name} expires in {hours} hours"
             intro = (f"Voyce's {kind} for {html.escape(name)} is still waiting. "
                      f"If you don't approve it in the next {hours} hours, it won't go out.")
-        text = f"{html.unescape(intro)}\n\n{preview}\n\nReview and approve (no login needed): {url}"
+        no_login = "" if db.users.find_one({"id": p.get("user_id", ""), "partner_id": {"$nin": [None, ""]}},
+                                           {"_id": 1}) else " (no login needed)"   # partner clients approve signed in
+        text = f"{html.unescape(intro)}\n\n{preview}\n\nReview and approve{no_login}: {url}"
         body = _layout("Still waiting for your OK", [intro], button=("Review and approve", url), quote=preview,
                        footer="This is the only reminder for this post.")
         if send(p.get("user_id", ""), f"remind:{p['id']}", "approval_reminder", subject, text, body):

@@ -131,7 +131,9 @@ def update_company(company_id: str, data: dict) -> dict | None:
     if tz:
         c["timezone"] = tz
 
-    new_url =data.get("website_url", "").strip()
+    # An edit that doesn't send the website at all (a partner team's setup edit) leaves it alone; only an
+    # empty website_url clears it. It used to read a missing one as cleared and wipe what the site said.
+    new_url = (data.get("website_url") or "").strip() if "website_url" in data else c.get("website_url", "")
     old_url = c.get("website_url", "")
     if not new_url and old_url:
         c["website_url"]     = ""

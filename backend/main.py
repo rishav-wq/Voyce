@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSON
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -73,19 +73,6 @@ _PARTNER_HIDDEN = ("/voice-check", "/how-to-not-sound-like-ai-on-linkedin", "/ab
                    "/waitlist", "/analytics")
 # The partner's own files (frontend/<partner assets>/): its landing page and its Terms and Privacy
 _PARTNER_OWN = {"/": "landing.html", "/terms": "terms.html", "/privacy": "privacy.html"}
-
-
-@app.middleware("http")
-async def _security_headers(request: Request, call_next):
-    """Baseline browser protections on every response, static files included.
-    No CSP yet: Clerk and Razorpay load scripts and frames from their own
-    domains, so a policy needs tuning against the live pages first."""
-    response = await call_next(request)
-    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    return response
 
 
 # ── Search engines ────────────────────────────────────────────────────────────
@@ -160,6 +147,33 @@ async def _partner_context(request: Request, call_next):
         partners.reset_current(token)
 
 
+# The forms anyone can post to, and the most each may send: a few huge bodies used to be read whole into the
+# small server's memory, and stored (security review, 3 Nov 2026)
+_PUBLIC_POSTS = ("/waitlist", "/partner/waitlist", "/voice-check", "/approve/")
+_PUBLIC_MAX_BYTES = 256 * 1024
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    """Baseline browser protections on every response, static files included. Registered after the other
+    middleware so it wraps them all: a partner's landing page, robots and 404s return from _partner_context
+    early, and used to go out without these. No CSP yet: Clerk and Razorpay load scripts and frames from their
+    own domains, so a policy needs tuning against the live pages first."""
+    if request.method == "POST" and request.url.path.startswith(_PUBLIC_POSTS):
+        try:
+            too_big = int(request.headers.get("content-length") or 0) > _PUBLIC_MAX_BYTES
+        except ValueError:
+            too_big = True
+        if too_big:
+            return JSONResponse({"detail": "That's too much text to send at once."}, status_code=413)
+    response = await call_next(request)
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
+
+
 def _partner_not_found(request: Request, partner: dict):
     if "text/html" in request.headers.get("accept", ""):
         return HTMLResponse(branding.file("404.html", partner), status_code=404,
@@ -195,8 +209,9 @@ class _RevalidatingStatic(StaticFiles):
     async def get_response(self, path, scope):
         partner = partners.current()
         path = path.replace("\\", "/")   # Starlette joins with the OS separator
-        if path.startswith("partners/") and (not partner or not path.startswith(partner["assets"] + "/")
-                                             or path.endswith(".html")):
+        low = path.lower().rstrip(". ")   # "Partners/…", "landing.HTML", "landing.html." name the same file on Windows
+        if low.startswith("partners/") and (not partner or not low.startswith(partner["assets"] + "/")
+                                            or ".htm" in low.rsplit("/", 1)[-1]):
             # a partner's files only on its own address, and its pages only at /, /terms and /privacy
             raise HTTPException(status_code=404)
         if partner and path.endswith((".js", ".css")) and not path.startswith("partners/"):
@@ -246,6 +261,12 @@ def _require_user(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    partner = partners.seat_missing(user)
+    if partner:
+        # Invite-only, on the server: an uninvited sign-up or a removed client can't write, connect LinkedIn or
+        # publish through any route (only /generate checked this before the 3 Nov 2026 security review).
+        # /auth/me and the invite join (partner_panel) look the user up themselves, so joining still works.
+        raise HTTPException(status_code=402, detail=partners.seat_needed_detail(partner))
     llm.usage_owner.set((user["id"], user.get("partner_id")))   # what this request's AI calls cost, and for whom
     return user
 
@@ -307,8 +328,14 @@ DAILY_LIMITS = {
     "drafts":    (None, None, FAIR_USE_DAILY),   # Free and India spend generations instead
     "rewrites":  (10,   30, FAIR_USE_DAILY),
     "hashtags":  (10,   30, FAIR_USE_DAILY),
+    # Each of these runs a paid Claude (and for screenshots, Gemini) call with no generation spent; they were
+    # unmetered until the 3 Nov 2026 security review (a loop on one free account could cost hundreds a day)
+    "profile_ai": (5,   20, 40),       # reading pasted posts, a new website, a LinkedIn PDF or post screenshots
+    "topics":    (15,   40, 80),       # topic suggestions for a job title
+    "profiles":  (5,    10, 20),       # new profiles a day: each one reads a website and starts an ideas run
 }
-_DAILY_LABELS = {"drafts": "previews and idea lists", "rewrites": "rewrites", "hashtags": "hashtag suggestions"}
+_DAILY_LABELS = {"drafts": "previews and idea lists", "rewrites": "rewrites", "hashtags": "hashtag suggestions",
+                 "profile_ai": "profile analyses", "topics": "topic suggestions", "profiles": "new profiles"}
 
 
 def _plan_tier(user: dict) -> str:
@@ -318,7 +345,8 @@ def _plan_tier(user: dict) -> str:
     if plan == "admin":
         return "admin"
     if plan == "partner":
-        return "india"   # a seat's drafts are counted, like an India pass's
+        # a seat's drafts are counted, like an India pass's; an account without a seat gets a free account's
+        return "india" if info.get("seat") == "active" else "free"
     if plan == "pro":
         return "india" if info.get("plan_region") == payments.REGION_IN else "pro"
     return "free"
@@ -403,13 +431,9 @@ def _spend_free_generation(user: dict, tier: str):
 
 
 def _client_ip(request: Request) -> str:
-    # Traffic arrives through Cloudflare, which sets CF-Connecting-IP to the real
-    # visitor. The first X-Forwarded-For entry is whatever the client typed, so
-    # keying rate limits on it let anyone reset their limit with a fake header.
-    cf_ip = request.headers.get("cf-connecting-ip", "").strip()
-    if cf_ip:
-        return cf_ip
-    return request.client.host if request.client else "unknown"
+    # CF-Connecting-IP only where Cloudflare really is in front (voyce.co.in): on a partner's address or
+    # voyce-1.onrender.com anyone could send it, and reset their limits with it (ratelimit.client_ip).
+    return ratelimit.client_ip(request)
 
 
 def _conn_for(user: dict, profile_id: str = "") -> str:
@@ -964,9 +988,10 @@ def llms_txt():
 
 # ── Waitlist ──────────────────────────────────────────────────────────────────
 class WaitlistRequest(BaseModel):
-    name: str
-    email: str
-    plan: str = "pro"
+    # bounded: one request once stored a 10 MB name (security review, 3 Nov 2026)
+    name: str = Field(..., max_length=200)
+    email: str = Field(..., max_length=254)
+    plan: str = Field("pro", max_length=20)
 
 @app.post("/waitlist")
 def join_waitlist(req: WaitlistRequest, request: Request):
@@ -1183,6 +1208,7 @@ def suggest_topics(req: TopicSuggestRequest, x_token: str = Header(None)):
     key = designation.lower()
     if key in _topic_cache:
         return {"topics": _topic_cache[key]}
+    _daily_cap(user, "topics")   # a new job title each time used to skip the cache and call Claude forever
     import llm
     try:
         data = llm.generate_json(
@@ -1316,7 +1342,7 @@ def linkedin_start(response: Response, request: Request, x_token: str = Header(N
             db.users.update_one({"id": user["id"]}, {"$set": {"li_consent_at": datetime.now().isoformat(),
                                                               "li_consent_version": LI_CONSENT_VERSION}})
         # Back to the partner's own address: the same LinkedIn app, with this address registered on it
-        redirect = f"https://{request.headers.get('host', partners.base_url(partner)[8:])}/auth/linkedin/callback"
+        redirect = f"{partners.url_for_request(partner, request.headers.get('host', ''))}/auth/linkedin/callback"
     state = secrets.token_urlsafe(16)
     nonce = secrets.token_urlsafe(24)
     li.register_state(state, {"conn": user["id"], "owner_id": user["id"], **({"redirect_uri": redirect} if redirect else {})},
@@ -1994,18 +2020,37 @@ def cancel_scheduled(job_id: str, x_token: str = Header(None)):
 
 
 # ── Company / Profile Management ───────────────────────────────────────────────
+def _voice_sha(voice_posts: str) -> str:
+    import hashlib
+    return hashlib.sha256(" ".join((voice_posts or "").split()).encode()).hexdigest()[:16]
+
+
 def _apply_voice_posts(company_id: str, voice_posts: str) -> dict | None:
-    """Parse pasted recent posts into voice examples + a style analysis and store them."""
+    """Parse pasted recent posts into voice examples + a style analysis and store them. The same posts
+    again (a save that resends the box unchanged) are not read twice: each reading is a paid Claude call."""
     if not (voice_posts or "").strip():
+        return None
+    sha = _voice_sha(voice_posts)
+    if (get_company(company_id) or {}).get("voice_posts_sha") == sha:
         return None
     try:
         result = parse_pasted_posts(voice_posts)
         if result.get("top_posts"):
             save_linkedin_data(company_id, result)
+            db.companies.update_one({"id": company_id}, {"$set": {"voice_posts_sha": sha}})
             return result
     except Exception:
         pass
     return None
+
+
+def _profile_ai_cap(user: dict, company: dict | None, voice_posts: str, website_url: str):
+    """Count a profile save against the day's profile analyses only when it makes the AI read something
+    new: posts it hasn't read, or a website that changed."""
+    new_posts = bool((voice_posts or "").strip()) and _voice_sha(voice_posts) != (company or {}).get("voice_posts_sha")
+    new_site = bool((website_url or "").strip()) and website_url.strip() != (company or {}).get("website_url", "")
+    if new_posts or new_site:
+        _daily_cap(user, "profile_ai")
 
 
 def _clean_li_photo(data: dict) -> dict:
@@ -2050,6 +2095,10 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     if len(existing) >= max_profiles:
         raise HTTPException(status_code=400, detail=(
             f"You've reached the limit of {max_profiles} profiles. Delete one to add another."))
+    if not sales.is_member(user):   # the team makes a profile per prospect sample
+        # delete-and-recreate started a fresh website read and ideas run each time (3 Nov 2026 review)
+        _daily_cap(user, "profiles")
+    _profile_ai_cap(user, None, request.voice_posts, request.website_url)
     try:
         data = _clean_li_photo(request.model_dump())
         data["user_id"] = user["id"]
@@ -2143,6 +2192,8 @@ def edit_company(company_id: str, request: CompanyRequest, x_token: str = Header
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
+    _rate_limit(f"profile-edit:{user['id']}", 30, 3600)
+    _profile_ai_cap(user, company, request.voice_posts, request.website_url)
     try:
         data = _clean_li_photo(request.model_dump())
         if not _is_pro(user):
@@ -2177,6 +2228,17 @@ def remove_company(company_id: str, x_token: str = Header(None)):
         db.write_history.delete_many({"profile_id": company_id, "user_id": user["id"]})
     except Exception:
         logging.exception("[Write] could not delete the profile's history")
+    try:
+        # The id can be given to the next profile with the same name, someone else's included, so nothing of
+        # this one may stay attached to it: drafts waiting for approval go, today's ideas (made from its notes)
+        # go, and its post log is kept for the counts under an id no profile can get (3 Nov 2026 review).
+        db.pending_posts.update_many({"company_id": company_id, "user_id": user["id"], "status": "pending"},
+                                     {"$set": {"status": "discarded"}})
+        db.daily_ideas.delete_many({"profile_id": company_id, "user_id": user["id"]})
+        db.post_log.update_many({"company_id": company_id},
+                                {"$set": {"company_id": f"{company_id}~deleted~{datetime.now():%Y%m%d%H%M%S}"}})
+    except Exception:
+        logging.exception("[Profiles] could not detach the deleted profile's drafts and log")
     return {"deleted": company_id}
 
 
@@ -2433,14 +2495,25 @@ def approve_page(token: str, request: Request):
              f'{slides}'
              f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
              f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
-             f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
-             f'{_btn("Approve & post to LinkedIn", primary=True, form_action=f"/approve/{token}")}'
-             f'{_btn("Edit first", "/setup#today")}</div>'
-             f'<div style="margin:14px 0 0;">{_btn("Skip this post", form_action=f"/approve/{token}/skip")}</div>'
-             '<p style="font-size:12.5px;color:#6b7280;margin:18px 0 0;line-height:1.5;">Approving publishes it now to the '
-             'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>'
-             + _question_box(pend, token))
+             + (_partner_approve_actions() if partners.current() else
+                f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
+                f'{_btn("Approve & post to LinkedIn", primary=True, form_action=f"/approve/{token}")}'
+                f'{_btn("Edit first", "/setup#today")}</div>'
+                f'<div style="margin:14px 0 0;">{_btn("Skip this post", form_action=f"/approve/{token}/skip")}</div>'
+                '<p style="font-size:12.5px;color:#6b7280;margin:18px 0 0;line-height:1.5;">Approving publishes it now to the '
+                'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>'
+                + _question_box(pend, token)))
     return _approve_shell("Ready for your OK", inner)
+
+
+def _partner_approve_actions() -> str:
+    """On a partner's address the emailed link only shows the post: approving, skipping and answering happen
+    signed in. A client's reply to the partner quotes the link, and the partner must never be able to publish
+    for a client (LinkedIn User Agreement 2.2, 8.2; security review, 3 Nov 2026)."""
+    return (f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
+            f'{_btn("Review and approve", "/setup#today", primary=True)}</div>'
+            '<p style="font-size:12.5px;color:#6b7280;margin:18px 0 0;line-height:1.5;">You approve it inside Voyce, '
+            'signed in as yourself, so only you can publish to your LinkedIn.</p>')
 
 
 def _question_box(pend: dict, token: str) -> str:
@@ -2476,13 +2549,22 @@ def answer_from_link(token: str, request: Request, text: str = Form("")):
     pend = _pending_by_token(token)
     fresh = False
     try:
-        fresh = pend and datetime.fromisoformat(pend.get("created_at", "")) > datetime.now() - timedelta(days=7)
+        # While the post waits, or in the hour after it was approved here (the "Posted" page asks too): the
+        # times the author is on this page. A forwarded or leaked link used to add notes for a week, which
+        # later posts were written from as the author's own words (security review, 3 Nov 2026).
+        status = (pend or {}).get("status")
+        fresh = bool(pend) and (status == "pending" or (
+            status == "approved" and datetime.fromisoformat(pend.get("approved_at", "")) > datetime.now() - timedelta(hours=1)))
     except ValueError:
         pass
-    if fresh:
+    if fresh and not partners.current():   # on a partner's address the link only shows the post
         company = get_company(pend.get("company_id", ""))
         if company and company.get("user_id") == pend.get("user_id"):
             q = notes.question_for(company)
+            if not q or q.get("status") in ("answered", "skipped"):
+                # One answer per week's question: a forwarded or leaked link used to add up to 80 "notes in the
+                # author's own words" that later posts were built on (security review, 3 Nov 2026).
+                return approve_page(token, request)
             try:
                 notes.add(company, text, q["kind"], "email", q["text"])
                 analytics.capture(pend["user_id"], "note_added", {"source": "email", "kind": q["kind"]})
@@ -2496,8 +2578,8 @@ def approve_from_link(token: str, request: Request):
     _rate_limit(f"approvelink:{_client_ip(request)}", 10)
     from autonomous import approve_pending_post
     pend = _pending_by_token(token)
-    if not pend or pend.get("status") != "pending":
-        return approve_page(token, request)
+    if not pend or pend.get("status") != "pending" or partners.current():
+        return approve_page(token, request)   # a partner's client approves signed in (_partner_approve_actions)
     try:
         result = approve_pending_post(pend["id"], pend["user_id"])
     except Exception as e:
@@ -2524,7 +2606,7 @@ def skip_from_link(token: str, request: Request):
     _rate_limit(f"approvelink:{_client_ip(request)}", 10)
     from autonomous import discard_pending_post
     pend = _pending_by_token(token)
-    if pend and pend.get("status") == "pending":
+    if pend and pend.get("status") == "pending" and not partners.current():   # signed in on a partner's address
         discard_pending_post(pend["id"], pend["user_id"])
         analytics.capture(pend["user_id"], "post_skipped", {"via": "email"})
     return approve_page(token, request)
@@ -2629,6 +2711,13 @@ def today_ideas(company_id: str, x_token: str = Header(None)):
     doc = morning_ideas.stored(company_id, morning_ideas.local_today(company))
     if doc:
         return {"status": doc.get("status", "making"), "ideas": doc.get("ideas") or [], "made_at": doc.get("made_at", "")}
+    import sales
+    if not sales.is_member(user):
+        # A run costs ₹20+ of Claude and news searches and shares the post scheduler's threads: recreating a
+        # profile used to start a new one every time (3 Nov 2026 review). 4 a day covers 3 profiles and a retry.
+        ok, _ = _use_allowance(f"ideas_runs:{user['id']}", 4)
+        if not ok:
+            return {"status": "off", "ideas": []}
     scheduler.add_job(morning_ideas.make_and_store, trigger="date", run_date=datetime.now() + timedelta(seconds=1),
                       args=[company], id=f"ideas_{company_id}", replace_existing=True)
     return {"status": "making", "ideas": []}
@@ -2928,12 +3017,15 @@ async def upload_linkedin_data(company_id: str, file: UploadFile = File(...), x_
     if not (filename.lower().endswith(".pdf") or filename.lower().endswith(".zip")):
         raise HTTPException(status_code=400, detail="Upload a LinkedIn profile PDF or data export ZIP")
 
+    cap_key = _daily_cap(user, "profile_ai")   # each upload is a paid Claude reading
     file_bytes = await file.read()
     try:
         result = parse_linkedin_upload(filename, file_bytes)
     except ValueError as e:
+        _refund_allowance(cap_key)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
+        _refund_allowance(cap_key)
         logging.exception("LinkedIn data parse failed")
         raise HTTPException(status_code=422, detail="Could not read that file. Try a LinkedIn profile PDF or the data-export ZIP, or paste your posts instead.")
 
@@ -2955,6 +3047,7 @@ async def upload_post_screenshots(company_id: str, files: list[UploadFile] = Fil
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
+    _daily_cap(user, "profile_ai")   # up to 8 images through Gemini vision, then Claude
 
     images = []
     for f in files[:8]:  # cap: 8 screenshots is plenty for a voice

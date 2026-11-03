@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 import auth as auth_module
 import db
+import partners
 import ratelimit
 
 router = APIRouter()
@@ -166,6 +167,9 @@ def _user(x_token: str | None) -> dict:
     user = auth_module.get_user_by_token(x_token or "")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    partner = partners.seat_missing(user)   # invite-only, as in main._require_user
+    if partner:
+        raise HTTPException(status_code=402, detail=partners.seat_needed_detail(partner))
     return user
 
 

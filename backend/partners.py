@@ -135,6 +135,20 @@ def is_admin(user: dict | None, partner: dict | None = None) -> bool:
                 and (user.get("email") or "").lower() in admins(partner))
 
 
+def seat_missing(user: dict | None) -> dict | None:
+    """The partner of an account that may not use the app: a partner account with no active seat (never
+    invited, or removed) that isn't one of the partner's team. None for everyone else."""
+    partner = for_user(user)
+    if partner and (user or {}).get("seat") != "active" and not is_admin(user, partner):
+        return partner
+    return None
+
+
+def seat_needed_detail(partner: dict) -> str:
+    return (f"SEAT_NEEDED:Your account doesn't have a {partner['brand']} seat. "
+            f"Ask {partner['company_short']} to invite you.")
+
+
 def sender(partner: dict | None) -> str:
     return os.getenv(partner["sender_env"], "") or partner["sender_default"] if partner else ""
 
@@ -144,6 +158,16 @@ def base_url(partner: dict | None) -> str:
     if not partner:
         return "https://voyce.co.in"
     return f"https://{partner['hosts'][0]}"
+
+
+def url_for_request(partner: dict, host_header: str) -> str:
+    """The partner's address a link should use for this request: the Host it came in on when that is exactly
+    one of the partner's addresses (a test alias included), else its main one. Never the raw header: a Host
+    like "solvai.cusp.services:x@evil.example" still selects the partner but parses as evil.example in a URL."""
+    host = (host_header or "").strip().lower()
+    if host in partner["hosts"] or _aliases().get(host) == partner["id"]:
+        return f"https://{host}"
+    return base_url(partner)
 
 
 def month_key(now: datetime | None = None) -> str:
