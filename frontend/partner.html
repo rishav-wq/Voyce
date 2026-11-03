@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Voyce — Clients</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- On a partner's address: its team's panel (clients, seats, invites). On voyce.co.in: the Voyce team's
+       view of its partners. Colours are Voyce's; branding.py swaps them on a partner's address. -->
+  <style>
+    :root { --ink: #16181d; --soft: #5b6270; --faint: #98a0ae; --line: #e4e7ec; --bg: #f6f7f9; --navy: #24365e;
+            --green: #18794e; --green-bg: #e6f4ea; --amber: #9a5b00; --amber-bg: #fdf3e1; --red: #b42318; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+    a { color: var(--navy); }
+    .top { background: #fff; border-bottom: 1px solid var(--line); }
+    .top .in { max-width: 1240px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 16px; }
+    .logo { display: inline-flex; align-items: baseline; font: 700 21px 'Space Grotesk', sans-serif; letter-spacing: -.02em; color: var(--navy); }
+    .logo .logo-mark { font: italic 500 1.85em/0.85 Georgia, serif; letter-spacing: -.07em; margin-right: -.02em; }
+    .logo .partner-logo { height: 26px; display: block; }
+    .top .where { color: var(--soft); font-size: 14px; border-left: 1px solid var(--line); padding-left: 16px; }
+    .top .right { margin-left: auto; display: flex; gap: 18px; align-items: center; font-size: 14px; }
+    .top .right a { text-decoration: none; font-weight: 600; }
+    main { max-width: 1240px; margin: 0 auto; padding: 28px 24px 60px; }
+    .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+    h1 { font: 700 28px/1.15 'Space Grotesk', sans-serif; letter-spacing: -.02em; margin: 0 0 6px; }
+    .sub { color: var(--soft); margin: 0; max-width: 620px; }
+    .btn { border: 1px solid #d3d8e0; background: #fff; color: var(--ink); font: 600 14px Inter, sans-serif; padding: 10px 16px;
+           border-radius: 10px; cursor: pointer; }
+    .btn:hover { border-color: #b8bfca; }
+    .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .btn.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
+    .btn.danger { color: var(--red); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, .x:focus-visible { outline: 3px solid #7aa2ff; outline-offset: 2px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0 0 12px; }
+    .stat { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+    .stat b { display: block; font: 700 24px 'Space Grotesk', sans-serif; }
+    .stat span { color: var(--soft); font-size: 13px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; margin-bottom: 18px; overflow: hidden; }
+    .card h2 { font-size: 15px; margin: 0; padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .card h2 small { color: var(--soft); font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; font-weight: 600; color: var(--soft); font-size: 12.5px; padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr.off td { color: var(--faint); }
+    .who { min-width: 210px; }
+    .who b { display: block; }
+    .who small, td small.last { color: var(--soft); font-size: 12.5px; }
+    td small.last { display: block; }
+    .tablewrap { overflow-x: auto; }
+    .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #eef0f3; color: var(--soft); white-space: nowrap; }
+    .pill.ok { background: var(--green-bg); color: var(--green); }
+    .pill.warn { background: var(--amber-bg); color: var(--amber); }
+    .bar { height: 6px; border-radius: 3px; background: #eef0f3; width: 90px; margin-top: 5px; overflow: hidden; }
+    .bar i { display: block; height: 100%; background: var(--navy); }
+    .acts { display: flex; gap: 6px; justify-content: flex-end; }
+    .empty { padding: 28px 18px; color: var(--soft); text-align: center; }
+    .feed { list-style: none; margin: 0; padding: 4px 0; }
+    .feed li { padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 14px; display: flex; gap: 12px; }
+    .feed li:last-child { border-bottom: none; }
+    .feed time { color: var(--faint); font-size: 12.5px; white-space: nowrap; min-width: 96px; padding-top: 1px; }
+    .feed .quote { color: var(--soft); }
+    .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+    .note { font-size: 13px; color: var(--soft); margin: 0 0 18px; }
+    /* client drawer and the two dialogs */
+    .scrim { position: fixed; inset: 0; background: rgba(22,24,29,.35); z-index: 50; display: none; }
+    .scrim.open { display: block; }
+    .drawer { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(560px, calc(100% - 24px)); background: #fff; border-radius: 16px;
+              z-index: 60; display: none; flex-direction: column; box-shadow: 0 30px 80px -30px rgba(0,0,0,.4); }
+    .drawer.open { display: flex; }
+    .drawer header { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+    .drawer .body { padding: 18px 20px 24px; overflow-y: auto; scrollbar-width: thin; }
+    .drawer h3 { font-size: 15px; margin: 22px 0 0; }
+    .drawer h3 small { color: var(--soft); font-weight: 500; }
+    .x { border: none; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--soft); padding: 4px 8px; border-radius: 8px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 5px; }
+    input, textarea { width: 100%; border: 1px solid #d3d8e0; border-radius: 10px; padding: 10px 12px; font: 14px Inter, sans-serif; color: var(--ink); }
+    textarea { min-height: 130px; resize: vertical; }
+    .hint { color: var(--soft); font-size: 12.5px; margin: 4px 0 0; }
+    .draft { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0; font-size: 14px; white-space: pre-wrap; }
+    .draft img { max-width: 140px; border-radius: 8px; display: block; margin-top: 8px; }
+    .draft small { display: block; color: var(--soft); margin-bottom: 6px; white-space: normal; }
+    .modal { position: fixed; z-index: 70; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100% - 32px));
+             background: #fff; border-radius: 16px; padding: 22px; display: none; box-shadow: 0 30px 80px -30px rgba(0,0,0,.4); }
+    .modal.open { display: block; }
+    .modal h3 { margin: 0 0 4px; font-size: 18px; }
+    .modal .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+    .linkbox { display: flex; gap: 8px; margin-top: 10px; }
+    .linkbox input { font-size: 12.5px; }
+    #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 16px;
+             border-radius: 10px; font-size: 14px; z-index: 80; display: none; max-width: calc(100% - 32px); }
+    .denied { max-width: 460px; margin: 80px auto; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 28px; text-align: center; }
+    .denied h1 { font-size: 20px; }
+    @media (max-width: 1060px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+    @media (max-width: 720px) {
+      .top .in { padding: 0 16px; }
+      .top .where { display: none; }
+      main { padding: 20px 16px 50px; }
+      h1 { font-size: 24px; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .tablewrap table:not(.clients) { min-width: 560px; }
+      /* each client as a small card: name, then status, waiting, posts and drafts, then the buttons */
+      .clients, .clients tbody { display: block; }
+      .clients thead { display: none; }
+      .clients tr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+      .clients tr:last-child { border-bottom: none; }
+      .clients td { display: block; padding: 0; border: none; font-size: 13.5px; }
+      .clients td.who, .clients td.cell-acts { flex: 1 0 100%; min-width: 0; }
+      .clients td[data-label]::before { content: attr(data-label); display: block; color: var(--faint); font-size: 11.5px; font-weight: 600; }
+      .clients small.last { display: inline; margin-left: 4px; }
+      .clients .acts { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top"><div class="in">
+    <div class="logo"><span class="logo-mark">V</span>oyce</div>
+    <div class="where" id="where">Clients</div>
+    <div class="right"><a href="/setup" id="my-writing" hidden>Your writing</a><a href="#" onclick="signOut();return false;">Sign out</a></div>
+  </div></div>
+
+  <main id="main"><p class="sub">Loading…</p></main>
+
+  <div class="scrim" id="scrim" onclick="closeAll()"></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dr-title">
+    <header><b id="dr-title">Client</b><button class="x" onclick="closeAll()" aria-label="Close">×</button></header>
+    <div class="body" id="dr-body"></div>
+  </aside>
+  <div class="modal" id="m-invite" role="dialog" aria-modal="true" aria-labelledby="mi-h">
+    <h3 id="mi-h">Invite a client</h3>
+    <p class="hint">They get an email with a sign-up link that works for 14 days. The invite holds a seat until it's used or cancelled.</p>
+    <label for="mi-name">Name</label><input id="mi-name" autocomplete="off" placeholder="Priya Nair">
+    <label for="mi-email">Email</label><input id="mi-email" type="email" autocomplete="off" placeholder="priya@company.com">
+    <div id="mi-done" hidden>
+      <p class="hint" id="mi-status" style="margin-top:14px;"></p>
+      <div class="linkbox"><input id="mi-link" readonly aria-label="Invite link"><button class="btn small" onclick="copyLink()">Copy</button></div>
+    </div>
+    <div class="row"><button class="btn" onclick="closeAll()" id="mi-close">Cancel</button><button class="btn primary" id="mi-send" onclick="sendInvite()">Send invite</button></div>
+  </div>
+  <div class="modal" id="m-seats" role="dialog" aria-modal="true" aria-labelledby="ms-h">
+    <h3 id="ms-h">Ask for more seats</h3>
+    <p class="hint">We get your request by email and come back to you about the change to your plan.</p>
+    <label for="ms-n">How many more?</label><input id="ms-n" type="number" min="1" max="100" value="5">
+    <label for="ms-note">Anything we should know (optional)</label><input id="ms-note" placeholder="Three new clients start next month">
+    <div class="row"><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" id="ms-send" onclick="askSeats()">Send request</button></div>
+  </div>
+  <div id="toast" role="status"></div>
+
+  <script>
+    const P = window.PARTNER || null;
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const day = iso => iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
+    const when = iso => iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "";
+    const $ = id => document.getElementById(id);
+    function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3500); }
+    async function api(path, opts = {}) {
+      let token = "";
+      try { token = await window.Clerk.session.getToken(); } catch (_) {}
+      const res = await fetch(path, { ...opts, headers: { "x-token": token || "", "Content-Type": "application/json", ...(opts.headers || {}) } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Something went wrong. Try again.");
+      return data;
+    }
+    async function signOut() { try { localStorage.removeItem("cm_user"); await window.Clerk.signOut(); } catch (_) {} location.href = "/login"; }
+    function show(id) { $("scrim").classList.add("open"); $(id).classList.add("open"); }
+    function closeAll() { ["scrim", "drawer", "m-invite", "m-seats"].forEach(id => $(id).classList.remove("open")); }
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeAll(); });
+
+    async function startApp() {
+      await window.Clerk.load();
+      if (!window.Clerk.user) { location.href = "/login?next=/partner"; return; }
+      let me = null;
+      try { me = await api("/auth/me"); } catch (_) {}
+      if (P) {
+        if (!me || !me.partner || !me.partner.team) return denied(`Only ${P.company}'s team can open this page.`);
+        if (me.gen_info && me.gen_info.seat === "active") $("my-writing").hidden = false;
+        return loadTeam();
+      }
+      if (!me || !me.gen_info || me.gen_info.plan !== "admin") return denied("Only the Voyce team can open this page.");
+      $("where").textContent = "Partners";
+      document.title = "Voyce — Partners";
+      return loadVoyce();
+    }
+    function denied(msg) {
+      $("main").innerHTML = `<div class="denied"><h1>Not available</h1><p class="sub">${esc(msg)}</p><p style="margin-top:16px;"><a href="/setup">Go to your writing</a></p></div>`;
+    }
+
+    // ── a partner's team ──
+    let _data = null;
+    async function loadTeam() {
+      try { _data = await api("/partner/api/overview"); } catch (e) { return denied(e.message); }
+      const d = _data, s = d.seats;
+      const waiting = d.clients.reduce((n, c) => n + (c.seat === "active" ? c.waiting : 0), 0);
+      const posted = d.clients.reduce((n, c) => n + c.posts_this_month, 0);
+      const rows = d.clients.map(c => {
+        const off = c.seat !== "active";
+        const pct = c.drafts_limit ? Math.min(100, Math.round(100 * c.drafts_used / c.drafts_limit)) : 0;
+        const status = off ? '<span class="pill">Removed</span>' : !c.has_profile ? '<span class="pill warn">Setting up</span>'
+          : c.linkedin ? '<span class="pill ok">Connected</span>' : '<span class="pill warn">Not connected</span>';
+        return `<tr class="${off ? "off" : ""}">
+          <td class="who"><b>${esc(c.name || c.email)}</b><small>${esc(c.title || c.email)}${c.is_team ? " · your team" : ""}</small></td>
+          <td>${status}</td>
+          <td data-label="Waiting">${!off && c.waiting ? `<span class="pill warn">${c.waiting} waiting</span>` : "–"}</td>
+          <td data-label="Posts this month">${c.posts_this_month}${c.last_post ? `<small class="last">last ${day(c.last_post)}</small>` : ""}</td>
+          <td data-label="Drafts used">${off ? "–" : `${c.drafts_used} of ${c.drafts_limit}<div class="bar"><i style="width:${pct}%"></i></div>`}</td>
+          <td class="cell-acts"><div class="acts">
+            <button class="btn small" onclick="openClient('${esc(c.id)}')">View</button>
+            ${off ? "" : `<button class="btn small" onclick="remind('${esc(c.id)}', this)">Remind</button>`}
+          </div></td></tr>`;
+      }).join("");
+      const invites = d.invites.map(i => `<tr><td class="who"><b>${esc(i.name || i.email)}</b><small>${esc(i.email)}</small></td>
+          <td>Sent ${day(i.created_at)}</td><td>Link works until ${day(i.expires_at)}</td>
+          <td><div class="acts"><button class="btn small" onclick="cancelInvite('${esc(i.id)}')">Cancel invite</button></div></td></tr>`).join("");
+      $("main").innerHTML = `
+        <div class="head">
+          <div><h1>Your clients</h1><p class="sub">Each client approves and posts their own drafts. You can set up their voice, see what's waiting, and nudge them.</p></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn" onclick="show('m-seats')">Ask for more seats</button>
+            <button class="btn primary" onclick="openInvite()" ${s.free ? "" : 'disabled title="All seats are in use"'}>Invite a client</button>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>${s.active} of ${s.total}</b><span>seats in use${s.invited ? ` · ${s.invited} held by invites` : ""}</span></div>
+          <div class="stat"><b>${s.free}</b><span>seats free</span></div>
+          <div class="stat"><b>${waiting}</b><span>drafts waiting for clients</span></div>
+          <div class="stat"><b>${posted}</b><span>posts this month</span></div>
+        </div>
+        <p class="note">Each seat has ${d.per_seat.drafts} drafts and ${d.per_seat.ai_pictures} AI pictures a month. They refill on ${day(d.refills_at)}.</p>
+        <div class="grid2">
+          <div>
+            <div class="card"><h2>Clients <small>${d.clients.filter(c => c.seat === "active").length} with a seat</small></h2>
+              ${rows ? `<div class="tablewrap"><table class="clients"><thead><tr><th>Client</th><th>LinkedIn</th><th>Waiting</th><th>Posts this month</th><th>Drafts used</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+                     : `<div class="empty">No clients yet. Invite your first client to give them a seat.</div>`}
+            </div>
+            ${invites ? `<div class="card"><h2>Invites not used yet <small>${d.invites.length}</small></h2><div class="tablewrap"><table><tbody>${invites}</tbody></table></div></div>` : ""}
+          </div>
+          <div class="card"><h2>Activity</h2><ul class="feed" id="feed"><li class="empty">Loading…</li></ul></div>
+        </div>`;
+      loadFeed();
+    }
+    const KIND = { posted: "posted", approved: "approved a draft", skipped: "skipped a draft", joined: "joined",
+                   removed: "was removed", reminded: "was reminded", setup_edited: "had their setup changed", invited: "was invited" };
+    function feedItem(a, withName) {
+      const who = a.kind === "invited" ? a.detail : (a.name || "A client");
+      const quote = a.kind === "posted" && a.detail ? `: <span class="quote">${esc(a.detail.slice(0, 90))}${a.detail.length > 90 ? "…" : ""}</span>` : "";
+      const by = a.by ? ` <small style="color:var(--faint)">by ${esc(a.by)}</small>` : "";
+      return `<li><time>${when(a.at)}</time><span>${withName ? `<b>${esc(who)}</b> ` : ""}${esc(KIND[a.kind] || a.kind)}${quote}${by}</span></li>`;
+    }
+    async function loadFeed() {
+      let items = [];
+      try { items = await api("/partner/api/activity"); } catch (_) {}
+      const el = $("feed");
+      if (!el) return;
+      el.innerHTML = items.length ? items.map(a => feedItem(a, true)).join("")
+        : `<li class="empty">Nothing yet. Posts, approvals and invites show up here.</li>`;
+    }
+    function openInvite() {
+      ["mi-name", "mi-email"].forEach(id => { $(id).value = ""; $(id).disabled = false; });
+      $("mi-done").hidden = true; $("mi-send").hidden = false; $("mi-close").textContent = "Cancel";
+      show("m-invite"); $("mi-name").focus();
+    }
+    async function sendInvite() {
+      const b = $("mi-send"); b.disabled = true;
+      try {
+        const r = await api("/partner/api/invites", { method: "POST", body: JSON.stringify({ name: $("mi-name").value, email: $("mi-email").value }) });
+        $("mi-status").textContent = r.emailed ? `Emailed to ${r.email}. You can also send them this link on WhatsApp:`
+          : `The invite is ready but the email didn't go out. Send ${r.email} this link yourself:`;
+        $("mi-link").value = r.link;
+        $("mi-done").hidden = false; b.hidden = true; $("mi-close").textContent = "Done";
+        ["mi-name", "mi-email"].forEach(id => $(id).disabled = true);
+        loadTeam();
+      } catch (e) { toast(e.message); }
+      b.disabled = false;
+    }
+    async function copyLink() {
+      try { await navigator.clipboard.writeText($("mi-link").value); toast("Link copied"); } catch (_) { $("mi-link").select(); }
+    }
+    async function cancelInvite(id) {
+      if (!confirm("Cancel this invite? Its link stops working and the seat is free again.")) return;
+      try { await api(`/partner/api/invites/${id}/cancel`, { method: "POST" }); toast("Invite cancelled"); loadTeam(); } catch (e) { toast(e.message); }
+    }
+    async function remind(id, btn) {
+      btn.disabled = true;
+      try { const r = await api(`/partner/api/clients/${id}/remind`, { method: "POST" }); toast(r.sent ? "Reminder sent" : r.note); }
+      catch (e) { toast(e.message); }
+      btn.disabled = false;
+    }
+    async function removeClient(id, btn) {
+      const name = btn.dataset.name;
+      if (!confirm(`Remove ${name} from their seat?`)) return;
+      try { await api(`/partner/api/clients/${id}/remove`, { method: "POST" }); toast(`${name} removed`); closeAll(); loadTeam(); } catch (e) { toast(e.message); }
+    }
+    async function askSeats() {
+      const b = $("ms-send"); b.disabled = true;
+      try {
+        await api("/partner/api/seats-request", { method: "POST", body: JSON.stringify({ seats: +$("ms-n").value || 1, note: $("ms-note").value }) });
+        toast("Request sent"); closeAll();
+      } catch (e) { toast(e.message); }
+      b.disabled = false;
+    }
+    async function openClient(id) {
+      $("dr-title").textContent = "Loading…"; $("dr-body").innerHTML = "";
+      show("drawer");
+      let d;
+      try { d = await api(`/partner/api/clients/${id}`); } catch (e) { $("dr-body").textContent = e.message; return; }
+      const c = d.client, s = d.setup || {};
+      const first = esc((c.name || "them").split(" ")[0]);
+      $("dr-title").textContent = c.name || c.email;
+      const drafts = d.drafts.map(x => `<div class="draft"><small>${esc(x.post_type || "Draft")} · ${when(x.created_at)}</small>${esc(x.post_text || "")}${
+        x.slide_previews && x.slide_previews[0] ? `<img alt="First slide" src="data:image/jpeg;base64,${x.slide_previews[0]}">` : ""}</div>`).join("");
+      $("dr-body").innerHTML = `
+        <p class="hint" style="margin:0;">${esc(c.email)} · ${c.seat === "active" ? `seat since ${day(c.seat_since)} · ${c.drafts_used} of ${c.drafts_limit} drafts used this month · daily drafts ${c.daily_drafts ? "on" : "off"}` : "seat removed"}</p>
+        <h3>Waiting for ${first} <small>view only: ${first} approves their own</small></h3>
+        ${drafts || '<p class="hint">Nothing waiting.</p>'}
+        <h3>Their setup</h3>
+        ${c.has_profile ? `
+          <label for="su-title">Role line</label><input id="su-title" value="${esc(s.designation || "")}">
+          <label for="su-topics">Topics</label><input id="su-topics" value="${esc(s.industry || "")}">
+          <p class="hint">Separate topics with commas. The writer takes one a day, in turn.</p>
+          <label for="su-tone">Tone</label><input id="su-tone" value="${esc(s.tone || "")}">
+          <label for="su-rules">Facts and writing rules</label><textarea id="su-rules">${esc(s.knowledge || "")}</textarea>
+          <p class="hint">${d.voice_samples ? `${d.voice_samples} of ${first}'s own posts teach the writer their voice. ` : ""}${P ? `${esc(P.company)}'s house rules are added for every client; ${first}'s own rules win where they differ.` : ""}</p>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn primary" onclick="saveSetup('${esc(c.id)}', this)">Save setup</button></div>`
+          : `<p class="hint">${first} hasn't set up their profile yet. It shows here once they do.</p>`}
+        <h3 style="margin-bottom:6px;">Activity</h3>
+        <ul class="feed" style="border:1px solid var(--line);border-radius:12px;">${d.activity.length ? d.activity.map(a => feedItem(a, false)).join("") : '<li class="empty">Nothing yet.</li>'}</ul>
+        ${c.seat === "active" ? `<h3>Their seat</h3><p class="hint">Removing ${first} frees the seat for someone else. ${first} can't write new posts after that, and their LinkedIn is disconnected. What's already on their LinkedIn stays.</p>
+          <button class="btn danger" style="margin-top:10px;" data-name="${esc(c.name || c.email)}" onclick="removeClient('${esc(c.id)}', this)">Remove ${first} from their seat</button>` : ""}`;
+    }
+    async function saveSetup(id, btn) {
+      btn.disabled = true;
+      try {
+        await api(`/partner/api/clients/${id}/setup`, { method: "PUT", body: JSON.stringify({
+          designation: $("su-title").value, industry: $("su-topics").value, tone: $("su-tone").value, knowledge: $("su-rules").value }) });
+        toast("Setup saved");
+      } catch (e) { toast(e.message); }
+      btn.disabled = false;
+    }
+
+    // ── Voyce's view of its partners ──
+    async function loadVoyce() {
+      let rows;
+      try { rows = await api("/admin/api/partners"); } catch (e) { return denied(e.message); }
+      const inr = n => "₹" + Math.round(n).toLocaleString("en-IN");
+      $("main").innerHTML = `<div class="head"><div><h1>Partners</h1><p class="sub">What each partner is billed this month, and what its seats have cost in AI so far.</p></div></div>` +
+        rows.map(p => `
+        <div class="card"><h2>${esc(p.brand)} <small>${esc(p.company)} · ${esc(p.address)}</small></h2>
+          <div class="stats" style="padding:14px 14px 0;">
+            <div class="stat"><b>${p.seats_active} of ${p.seats_plan}</b><span>seats in use${p.invites_open ? ` · ${p.invites_open} invited` : ""}</span></div>
+            <div class="stat"><b>${inr(p.bill_this_month_inr)}</b><span>bill this month: ${p.seats_billed} × ${inr(p.rate_inr)}${p.first_bill_adds_setup ? " + setup" : ""}</span></div>
+            <div class="stat"><b>${inr(p.ai_cost_this_month_inr)}</b><span>AI cost so far this month</span></div>
+            <div class="stat"><b>${inr(p.margin_inr)}</b><span>left after AI cost</span></div>
+          </div>
+          <div class="tablewrap" style="margin-top:14px;border-top:1px solid var(--line);"><table><thead><tr><th>Seat</th><th>Drafts</th><th>AI pictures</th><th>AI cost</th><th></th></tr></thead><tbody>${
+            p.seats.length ? p.seats.map(s => `<tr><td>${esc(s.email)}</td><td>${s.drafts} of ${s.drafts_limit}</td><td>${s.ai_pictures}</td><td>${inr(s.ai_cost_inr)}</td><td>${s.near_limit ? '<span class="pill warn">near the limit</span>' : ""}</td></tr>`).join("")
+                           : '<tr><td colspan="5" class="empty">No seats in use yet.</td></tr>'}</tbody></table></div>
+        </div>`).join("");
+    }
+  </script>
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_live_Y2xlcmsudm95Y2UuY28uaW4k"
+    src="https://clerk.voyce.co.in/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    onload="startApp()"
+  ></script>
+</body>
+</html>

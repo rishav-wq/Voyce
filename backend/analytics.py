@@ -76,8 +76,10 @@ def loader_js() -> str:
 
 
 def capture(distinct_id: str | None, event: str, props: dict | None = None) -> None:
-    """Fire-and-forget server event. Never raises, never blocks the request."""
-    if _off() or not distinct_id:
+    """Fire-and-forget server event. Never raises, never blocks the request.
+    A partner's clients are never tracked: their privacy notice says there is no analytics."""
+    import partners
+    if _off() or not distinct_id or partners.current():
         return
     payload = {"api_key": _token(), "event": event, "distinct_id": str(distinct_id),
                "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -85,6 +87,9 @@ def capture(distinct_id: str | None, event: str, props: dict | None = None) -> N
 
     def _send():
         try:
+            import db   # checked here, off the request: background jobs and email links have no partner address
+            if (db.users.find_one({"id": str(distinct_id)}, {"_id": 0, "partner_id": 1}) or {}).get("partner_id"):
+                return
             requests.post(f"{_host()}/i/v0/e/", json=payload, timeout=6)
         except Exception:
             logging.debug("posthog capture failed for %s", event)

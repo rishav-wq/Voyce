@@ -748,10 +748,12 @@ def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
                      "belong to the posts they write, and a number you add is made up. Don't sign off "
                      "with their name or title.")
 
-    if with_knowledge and (company.get("knowledge") or "").strip():
+    import partners
+    kb = partners.with_house_rules((company.get("knowledge") or "").strip()[:2000], company) if with_knowledge else ""
+    if kb:
         parts.append(
             "\n--- KNOWLEDGE BASE (ground every claim in these facts/rules; never "
-            "contradict them or invent around them) ---\n" + company["knowledge"].strip()[:2000])
+            "contradict them or invent around them) ---\n" + kb)
     if (company.get("profile_facts") or "").strip():
         parts.append(
             "\n--- THEIR CAREER (from their LinkedIn profile; real facts you may draw on when they fit. "
@@ -1479,6 +1481,20 @@ def _held_reason(verdict: dict) -> str:
 def run_for_company(company: dict, allow_free_manual: bool = False,
                     post_type_override: str = "", respect_approval: bool = True,
                     notify_user: bool = True) -> dict:
+    """notify_user=False for a manual "Post now": the result is already on screen. The run's AI calls are
+    counted against the profile's account (llm.usage_owner), so a partner seat's cost is known."""
+    import llm as _llm
+    owner = _llm.usage_owner.set((company.get("user_id", ""), company.get("partner_id")))
+    try:
+        return _run_for_company(company, allow_free_manual=allow_free_manual, post_type_override=post_type_override,
+                                respect_approval=respect_approval, notify_user=notify_user)
+    finally:
+        _llm.usage_owner.reset(owner)
+
+
+def _run_for_company(company: dict, allow_free_manual: bool = False,
+                    post_type_override: str = "", respect_approval: bool = True,
+                    notify_user: bool = True) -> dict:
     """notify_user=False for a manual "Post now": the result is already on screen."""
     company_id = company["id"]
     is_personal = company.get("profile_type") == "personal"
@@ -1543,7 +1559,7 @@ def run_for_company(company: dict, allow_free_manual: bool = False,
         user_id = company.get("user_id", "")
         gen_info = auth_module.get_gen_info(user_id)
         if gen_info["limit"] != -1 and gen_info["used"] >= gen_info["limit"]:
-            pass_used_up = gen_info.get("plan") == "pro"   # an India pass, not a lapsed one
+            pass_used_up = gen_info.get("plan") in ("pro", "partner")   # a pass or a seat's month, not a lapsed plan
             log_entry["status"] = "skipped"
             log_entry["error"] = ("This pass's generations are used up" if pass_used_up
                                   else "Free generation limit reached")
@@ -1882,6 +1898,8 @@ def approve_pending_post(pending_id: str, user_id: str, edited_text: str = "") -
         })
     logger.info(f"[Approval] Pending post {pending_id} approved and published"
                 + (f" as text ({fell_back} failed)" if fell_back else ""))
+    import partner_panel
+    partner_panel.log_for(user_id, "posted", (published["post_text"] or "")[:140])
     return {"status": "posted", "post_urn": result.get("id", ""),
             **({"posted_as": "text", "media_error": result.get("media_error", "")} if fell_back else {})}
 
@@ -1891,6 +1909,8 @@ def discard_pending_post(pending_id: str, user_id: str) -> dict:
         {"id": pending_id, "user_id": user_id, "status": "pending"},
         {"$set": {"status": "discarded"}, "$unset": {"asset_b64": ""}})
     if r.modified_count:
+        import partner_panel
+        partner_panel.log_for(user_id, "skipped", pending_id)
         db.post_log.update_many({"pending_id": pending_id, "status": "pending_approval"},
                                 {"$set": {"status": "discarded"}})
     return {"ok": r.modified_count > 0}

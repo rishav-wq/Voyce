@@ -103,6 +103,7 @@
             localStorage.setItem("cm_user", JSON.stringify(user));
             if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null"));
             if (user.needs_onboarding) dest = "/onboarding";
+            if (window.partnerGate && await partnerGate(user)) return;   // a partner's address: seats by invite
           }
         } catch (_) {}
         window.location.href = dest;

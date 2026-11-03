@@ -1262,6 +1262,7 @@
     async function startApp() {
       const ok = await initClerk();
       if (!ok) return;
+      if (window.partnerGate && await partnerGate(getUser())) return;   // a partner's address: seats by invite
       // A new account goes through onboarding first, however sign-up got it here.
       if ((getUser() || {}).needs_onboarding) { location.replace("/onboarding"); return; }
       buildViews();
@@ -1329,13 +1330,14 @@
     }
 
     async function connectLinkedIn() {
+      if (window.partnerConsentFirst && partnerConsentFirst(connectLinkedIn)) return;   // a partner's client agrees first
       // Open the popup synchronously (preserves the user-gesture context), then
       // navigate it once /auth/linkedin/start returns the URL. The session token
       // is sent in a header, never in the query string.
       const popup = window.open("", "linkedin-auth", "width=600,height=700,scrollbars=yes");
       if (!popup) { toast("Popup blocked — please allow popups for this site.", "warn"); return; }
       try {
-        const res = await fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken() } });
+        const res = await fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken(), "x-li-consent": window.__liConsent ? "1" : "" } });
         if (!res.ok) throw new Error();
         const { auth_url } = await res.json();
         popup.location.href = auth_url;
@@ -2250,7 +2252,8 @@
       row("sm-ai", (g.ai_limit ?? -1) - (g.ai_used ?? 0), g.ai_limit, "AI pictures");
       const until = g.expires_at ? new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
       document.getElementById("sm-k").textContent = g.plan === "admin" ? "Team account"
-        : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
+        : g.plan === "partner" ? `${(window.PARTNER || {}).brand || "Your"} seat · refills ${g.refills_at ? new Date(g.refills_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "monthly"}`
+      : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
       box.hidden = false;
     }
     function _todayIdleText() {
@@ -3445,6 +3448,19 @@
         window._planInfo = info;
         _renderSideMeter(info);
         const sideUpsell = document.getElementById("side-upsell");
+        if (info.plan === "partner") {   // a partner's seat: drafts a month, nothing to buy
+          const refill = info.refills_at ? new Date(info.refills_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
+          badge.textContent = ((window.PARTNER || {}).brand || "Your") + " seat";
+          badge.className = "plan-badge pro-badge";
+          text.innerHTML = `<strong>${Math.max(0, info.limit - info.used)} of ${info.limit} generations left</strong> this month`
+            + (info.ai_limit > 0 ? ` · ${Math.max(0, info.ai_limit - (info.ai_used || 0))} of ${info.ai_limit} AI pictures` : "")
+            + (refill ? ` · refills ${refill}` : "");
+          barWrap.style.display = "none";
+          btn.style.display = "none";
+          banner.style.borderColor = "#e4e7ec";
+          banner.style.background = "#ffffff";
+          return;
+        }
         if (info.plan === "admin" || info.plan === "pro") {
           if (sideUpsell) sideUpsell.style.display = "none";
           badge.textContent = info.plan === "admin" ? "Admin" : "Pro";

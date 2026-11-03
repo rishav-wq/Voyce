@@ -219,6 +219,26 @@ def _eyebrow(d, text: str, x: int, y: int, col, px: float = 23) -> int:
     return y + _lh(d, f)
 
 
+def _eyebrow_w(d, text: str, px: float) -> int:
+    """How wide _eyebrow draws a label: in capitals, letter-spaced."""
+    f = _body(px, semi=True)
+    return sum(C._tw(d, ch, f) + 3 * S for ch in (text or "").upper()[:44])
+
+
+def _fit_eyebrow(d, text: str, max_w: int, sizes: tuple = (30, 27, 24)) -> tuple:
+    """A label that fits max_w as it is drawn: a size smaller first, then cut at a whole word with "…"
+    (a long audience once ran into a wide logo). (text, size)."""
+    for px in sizes:
+        if _eyebrow_w(d, text, px) <= max_w:
+            return text, px
+    px, words = sizes[-1], " ".join((text or "").split()).split()
+    while words and _eyebrow_w(d, " ".join(words) + "…", px) > max_w:
+        words.pop()
+    while words and words[-1].lower() in {"of", "at", "and", "&", "the", "for", "in", "to", "|", "-", "–"}:
+        words.pop()
+    return ((" ".join(words).rstrip(" ,;:-|") + "…") if words else ""), px
+
+
 def _top_bar(img, d, t: dict, num: int, total: int, name: str, avatar):
     """Inner slides: a small name, the page count and a progress line, at the top, out of the dots' way."""
     _photo(img, avatar, name, M, 58 * S, 44 * S, t, ring=False)
@@ -394,7 +414,8 @@ def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise:
     lw = _logo(img, t, W - M, M, 50 * S)
     eb = f"For {audience}" if audience else ""
     if eb:
-        _eyebrow(d, C._fit_one_line(d, eb, _body(30, semi=True), mw - lw - 40 * S), M, M + 8 * S, t["accent"], 30)
+        eb, px = _fit_eyebrow(d, eb, mw - lw - 40 * S)
+        _eyebrow(d, eb, M, M + int((8 + (30 - px) / 2) * S), t["accent"], px)
     # the bottom: author left, swipe right, clear of the dots
     ph = 112 * S
     author_y = SAFE - 16 * S - ph

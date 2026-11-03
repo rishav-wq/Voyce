@@ -157,6 +157,7 @@ function showError(msg) {
 // ── Init (called by Clerk script onload) ─────────────────────────────────────
 async function startApp() {
   if (!(await initClerk())) return;
+  if (window.partnerGate && await partnerGate(getUser())) return;   // a partner's address: seats by invite
   // A new account goes through onboarding first, however sign-up got it here.
   if ((getUser() || {}).needs_onboarding) { location.replace("/onboarding"); return; }
   loadProfilePicker();
@@ -325,13 +326,14 @@ async function handleLiClick() {
 }
 
 async function connectLinkedIn() {
+  if (window.partnerConsentFirst && partnerConsentFirst(connectLinkedIn)) return;   // a partner's client agrees first
   // Open the popup synchronously so the browser keeps the user-gesture context
   // (a popup opened after an awaited fetch would be blocked). The session token
   // goes in a header via /auth/linkedin/start — never in the URL.
   const popup = window.open("", "linkedin-auth", "width=600,height=700,scrollbars=yes");
   if (!popup) { toast("Popup blocked — please allow popups for this site.", "warn"); return; }
   try {
-    const res = await fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken() } });
+    const res = await fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken(), "x-li-consent": window.__liConsent ? "1" : "" } });
     if (!res.ok) throw new Error();
     const { auth_url } = await res.json();
     popup.location.href = auth_url;
@@ -1833,7 +1835,8 @@ function _renderMeter(g) {
   const k = document.getElementById("sm-k");
   if (k) {
     const until = g.expires_at ? new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
-    k.textContent = g.plan === "admin" ? "Team account" : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
+    k.textContent = g.plan === "admin" ? "Team account" : g.plan === "partner" ? `${(window.PARTNER || {}).brand || "Your"} seat · refills ${g.refills_at ? new Date(g.refills_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "monthly"}`
+      : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
   }
   box.hidden = false;
 }

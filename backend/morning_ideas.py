@@ -144,7 +144,8 @@ def make_ideas(company: dict, recent: list[str] | None = None) -> dict:
                 seen.add(n["url"])
                 news.append({**n, "topic": t})
     facts = (company.get("profile_facts") or "").strip()[:8000]
-    rules = (company.get("knowledge") or "").strip()[:4000]
+    import partners
+    rules = partners.with_house_rules((company.get("knowledge") or "").strip()[:4000], company)
     posted = [str(x)[:300] for x in (company.get("linkedin_top_posts") or [])[:8]] + \
              [str(x)[:300] for x in recent_made_list[:15]]
     news_block = "\n".join(f"[N{i}] ({n['topic']}) {n['title']} — {n.get('published', '')[:16]}\n{n['snippet']}"
@@ -271,7 +272,10 @@ def local_today(company: dict) -> str:
 def eligible(user: dict) -> bool:
     """Passes and the team always; a free account in its first week."""
     import auth as auth_module
-    plan = auth_module.get_gen_info(user["id"]).get("plan")
+    info = auth_module.get_gen_info(user["id"])
+    plan = info.get("plan")
+    if plan == "partner":
+        return info.get("seat") == "active"   # a partner seat, while it's theirs
     if plan in ("pro", "admin"):
         return True
     try:
@@ -309,6 +313,16 @@ def _shown(c: dict) -> dict:
 
 
 def make_and_store(company: dict) -> None:
+    """See _make_and_store. Its AI calls are counted against the profile's account (llm.usage_owner)."""
+    import llm as _llm
+    owner = _llm.usage_owner.set((company.get("user_id", ""), company.get("partner_id")))
+    try:
+        return _make_and_store(company)
+    finally:
+        _llm.usage_owner.reset(owner)
+
+
+def _make_and_store(company: dict) -> None:
     """Make one profile's ideas for its today and keep them. A claim on the day's record means two
     workers (the morning sweep and a first visit) never make them twice."""
     import db

@@ -25,3 +25,10 @@ write_history = _db["write_history"]   # what each profile made on Write (text o
 daily_ideas = _db["daily_ideas"]       # each profile's ideas for one day ("<profile>:<date>"), kept 14 days (TTL)
 sales_leads = _db["sales_leads"]       # Voyce team outreach tracker (/sales): one doc per lead
 sales_config = _db["sales_config"]     # its shared message scripts
+# Partners (partners.py, partner_panel.py): firms that offer Voyce to their clients under their own brand
+partner_invites = _db["partner_invites"]         # a seat offered to one email, 14 days
+partner_activity = _db["partner_activity"]       # what a partner's team sees: posted, approved, skipped, joined…
+partner_seat_requests = _db["partner_seat_requests"]
+partner_bills = _db["partner_bills"]             # bills sent, so the first one adds the setup fee once
+partner_waitlist = _db["partner_waitlist"]       # the landing page's form: who asked to join, emailed to the partner
+ai_usage = _db["ai_usage"]                       # each Claude call and drawn picture, with its account and cost

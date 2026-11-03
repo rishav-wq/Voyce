@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Form, Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -31,6 +31,10 @@ from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_
 import linkedin as li
 import auth as auth_module
 import payments
+import partners
+import partner_panel
+import branding
+import llm
 import ratelimit
 import db
 import sales
@@ -44,6 +48,7 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(sales.router)   # the team's outreach tracker, /sales/*
 app.include_router(notes.router)   # what Voyce knows about each author: weekly question, notes, talks
+app.include_router(partner_panel.router)   # a partner's team panel (/partner/api/*) and Voyce's partner view
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
@@ -58,6 +63,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Partners (partners.py): a request on a partner's address runs as that partner. Added last, so it runs first.
+_PARTNER_BLOCKED = ("/payments",)   # a partner's clients never pay Voyce: the partner bills them
+# Voyce's own marketing, legal and team pages: not on a partner's address
+_PARTNER_HIDDEN = ("/voice-check", "/how-to-not-sound-like-ai-on-linkedin", "/about", "/contact", "/refund",
+                   "/refunds", "/cancellation", "/shipping", "/delivery", "/pricing", "/sales", "/llms.txt",
+                   "/waitlist", "/analytics")
+# The partner's own files (frontend/<partner assets>/): its landing page and its Terms and Privacy
+_PARTNER_OWN = {"/": "landing.html", "/terms": "terms.html", "/privacy": "privacy.html"}
 
 
 @app.middleware("http")
@@ -116,10 +131,48 @@ async def _search_engines(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def _partner_context(request: Request, call_next):
+    partner = partners.for_host(request.headers.get("host", ""))
+    token = partners.set_current(partner)
+    try:
+        if partner:
+            path = request.url.path
+            if path.startswith(_PARTNER_BLOCKED) or path.startswith(_PARTNER_HIDDEN):
+                return _partner_not_found(request, partner)
+            if path == "/analytics.js":   # Voyce's analytics never see a partner's visitors
+                return Response("", media_type="application/javascript")
+            if path in _PARTNER_OWN and request.method in ("GET", "HEAD"):
+                page = branding.partner_file(_PARTNER_OWN[path], partner)
+                if page is None:
+                    return _partner_not_found(request, partner)
+                return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
+            if path == "/robots.txt":
+                return PlainTextResponse(
+                    "User-agent: *\nAllow: /$\nAllow: /terms\nAllow: /privacy\nDisallow: /\n\n"
+                    f"Sitemap: {partners.base_url(partner)}/sitemap.xml\n")
+            if path == "/sitemap.xml":
+                urls = "".join(f"<url><loc>{partners.base_url(partner)}{u}</loc></url>" for u in ("/", "/terms", "/privacy"))
+                return Response('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/'
+                                f'schemas/sitemap/0.9">{urls}</urlset>', media_type="application/xml")
+        return await call_next(request)
+    finally:
+        partners.reset_current(token)
+
+
+def _partner_not_found(request: Request, partner: dict):
+    if "text/html" in request.headers.get("accept", ""):
+        return HTMLResponse(branding.file("404.html", partner), status_code=404,
+                            headers={"Cache-Control": "no-cache", "X-Robots-Tag": "noindex"})
+    return JSONResponse({"detail": "Not found"}, status_code=404)
+
+
 @app.exception_handler(StarletteHTTPException)
 async def _not_found_page(request: Request, exc: StarletteHTTPException):
     """A browser that lands on a page that doesn't exist gets a page, not {"detail": "Not Found"};
     the app's own fetches (which don't ask for HTML) keep the JSON they read."""
+    if exc.status_code == 404 and "text/html" in request.headers.get("accept", "") and partners.current():
+        return _partner_not_found(request, partners.current())
     if exc.status_code == 404 and "text/html" in request.headers.get("accept", ""):
         return FileResponse(os.path.join(frontend_path, "404.html"), status_code=404,
                             headers={"Cache-Control": "no-cache", "X-Robots-Tag": "noindex"})
@@ -140,6 +193,17 @@ class _RevalidatingStatic(StaticFiles):
     """
 
     async def get_response(self, path, scope):
+        partner = partners.current()
+        path = path.replace("\\", "/")   # Starlette joins with the OS separator
+        if path.startswith("partners/") and (not partner or not path.startswith(partner["assets"] + "/")
+                                             or path.endswith(".html")):
+            # a partner's files only on its own address, and its pages only at /, /terms and /privacy
+            raise HTTPException(status_code=404)
+        if partner and path.endswith((".js", ".css")) and not path.startswith("partners/"):
+            full = os.path.join(frontend_path, path)
+            if os.path.isfile(full) and os.path.realpath(full).startswith(os.path.realpath(frontend_path)):
+                return Response(branding.file(path, partner), headers={"Cache-Control": "no-cache"},
+                                media_type="application/javascript" if path.endswith(".js") else "text/css")
         response = await super().get_response(path, scope)
         if path.endswith((".js", ".css", ".html", ".svg")):
             response.headers["Cache-Control"] = "no-cache"
@@ -149,9 +213,12 @@ class _RevalidatingStatic(StaticFiles):
 app.mount("/static", _RevalidatingStatic(directory=frontend_path), name="static")
 
 
-def _page(name: str) -> FileResponse:
+def _page(name: str):
     """An app page, served with the same revalidate-don't-trust rule as /static —
-    otherwise a cached shell can outlive the JS it is supposed to load."""
+    otherwise a cached shell can outlive the JS it is supposed to load. On a partner's address, in its look."""
+    partner = partners.current()
+    if partner:
+        return HTMLResponse(branding.file(name, partner), headers={"Cache-Control": "no-cache"})
     return FileResponse(os.path.join(frontend_path, name),
                         headers={"Cache-Control": "no-cache"})
 
@@ -179,12 +246,23 @@ def _require_user(x_token: str = Header(None)):
     user = auth_module.get_user_by_token(x_token or "")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    llm.usage_owner.set((user["id"], user.get("partner_id")))   # what this request's AI calls cost, and for whom
     return user
 
 
 def _check_gen_limit(user: dict):
     info = auth_module.get_gen_info(user["id"])
     if info["limit"] != -1 and info["used"] >= info["limit"]:
+        if info.get("plan") == "partner":
+            p = partners.get(info.get("partner"))
+            if info.get("seat") != "active":
+                raise HTTPException(status_code=402, detail=(
+                    f"SEAT_NEEDED:Your account doesn't have a {p['brand']} seat yet. "
+                    f"Ask {p['company_short']} to invite you."))
+            r = datetime.fromisoformat(info["refills_at"])
+            refill = f"{r.day} {r.strftime('%b')}"
+            raise HTTPException(status_code=402, detail=(
+                f"PASS_LIMIT_REACHED:You've used this month's {info['limit']} drafts. They refill on {refill}."))
         if info.get("plan") == "pro":
             # An India pass with its generations used up — not a free account.
             raise HTTPException(status_code=402, detail=(
@@ -198,6 +276,8 @@ _AI_PICTURE_FORMATS = ("concept", "photo_card", "scene")   # drawn by the image 
 
 def _ai_pictures_used_message(info: dict) -> str:
     n = info.get("ai_limit", 0)
+    if info.get("plan") == "partner":
+        return f"You've used this month's {n} AI picture{'' if n == 1 else 's'}."
     if info.get("plan") == "pro":
         return f"You've used the {n} AI picture{'' if n == 1 else 's'} in this pass."
     return f"Free accounts include {n} AI picture{'' if n == 1 else 's'}, and it's been used."
@@ -237,6 +317,8 @@ def _plan_tier(user: dict) -> str:
     plan = info.get("plan")
     if plan == "admin":
         return "admin"
+    if plan == "partner":
+        return "india"   # a seat's drafts are counted, like an India pass's
     if plan == "pro":
         return "india" if info.get("plan_region") == payments.REGION_IN else "pro"
     return "free"
@@ -344,7 +426,8 @@ def _conn_for(user: dict, profile_id: str = "") -> str:
 def _is_pro(user: dict) -> bool:
     # By plan, not by "unlimited generations": an India pass is Pro with a
     # generation allowance, and must still unlock daily posting.
-    return auth_module.get_gen_info(user["id"])["plan"] in ("pro", "admin")
+    info = auth_module.get_gen_info(user["id"])
+    return info["plan"] in ("pro", "admin") or (info["plan"] == "partner" and info.get("seat") == "active")
 
 
 def _require_pro(user: dict, feature: str):
@@ -409,10 +492,11 @@ def _with_profile_context(profile: dict | None, raw_text: str, limit: int | None
         context.append(f"Designation: {profile.get('designation')}")
     if profile.get("analysis", {}).get("description"):
         context.append(f"Background: {profile['analysis']['description']}")
-    if (profile.get("knowledge") or "").strip():
+    rules = partners.with_house_rules((profile.get("knowledge") or "").strip()[:2000], profile)
+    if rules:
         context.append(
             "\nKNOWLEDGE BASE — ground the post in these facts/rules; never contradict or "
-            "invent around them:\n" + profile["knowledge"].strip()[:2000])
+            "invent around them:\n" + rules)
     return "\n".join(context) + "\n\nContent to repurpose:\n" + raw_text
 
 
@@ -477,6 +561,10 @@ def _ensure_indexes():
         db.write_history.create_index("created_at", expireAfterSeconds=90 * 86400)
         db.write_history.create_index([("profile_id", 1), ("created_at", -1)])
         db.daily_ideas.create_index("created_at", expireAfterSeconds=14 * 86400)
+        db.partner_invites.create_index("token", unique=True)
+        db.partner_activity.create_index([("partner_id", 1), ("at", -1)])
+        db.partner_activity.create_index([("user_id", 1), ("kind", 1), ("at", -1)])
+        db.ai_usage.create_index([("user_id", 1), ("at", -1)])
     except Exception:
         logging.exception("could not create TTL indexes")
 
@@ -745,6 +833,12 @@ def health():
 @app.get("/")
 def serve_landing():
     return _page("landing.html")
+
+
+@app.get("/partner")
+def serve_partner_panel():
+    """A partner team's panel; on voyce.co.in, Voyce's view of its partners (both check who's asking)."""
+    return _page("partner.html")
 
 
 @app.get("/tool")
@@ -1030,8 +1124,14 @@ def me(x_token: str = Header(None)):
                             {"$set": {"last_seen": now}})
     except Exception:
         logging.exception("[Auth] could not note the visit")
-    return {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user),
-            "needs_onboarding": _needs_onboarding(user)}
+    out = {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user),
+           "needs_onboarding": _needs_onboarding(user)}
+    p = partners.for_user(user)
+    if p:
+        out["partner"] = {"id": p["id"], "brand": p["brand"], "team": partners.is_admin(user, p)}
+        if out["partner"]["team"] and user.get("seat") != "active":
+            out["needs_onboarding"] = False   # the team's own panel doesn't need a profile
+    return out
 
 
 def _needs_onboarding(user: dict) -> bool:
@@ -1190,8 +1290,13 @@ async def payments_webhook(request: Request):
 
 
 # ── LinkedIn OAuth ─────────────────────────────────────────────────────────────
+# What a partner's client agrees to before connecting LinkedIn (shown by partner.js, recorded here)
+LI_CONSENT_VERSION = "2026-11-02"
+
+
 @app.post("/auth/linkedin/start")
-def linkedin_start(response: Response, x_token: str = Header(None)):
+def linkedin_start(response: Response, request: Request, x_token: str = Header(None),
+                   x_li_consent: str = Header("")):
     """Begin the LinkedIn OAuth handshake.
 
     The app session token is read from the X-Token header — never a query
@@ -1200,15 +1305,28 @@ def linkedin_start(response: Response, x_token: str = Header(None)):
     to the user and hand the frontend the authorization URL to open in a popup.
     """
     user = _require_user(x_token)
+    partner = partners.current()
+    redirect = ""
+    if partner:
+        # A partner's client says yes to what connecting means (who sees their drafts, what is posted)
+        # before the first connect; the page sends the yes with this request.
+        if not user.get("li_consent_at"):
+            if x_li_consent != "1":
+                raise HTTPException(status_code=403, detail="CONSENT_NEEDED")
+            db.users.update_one({"id": user["id"]}, {"$set": {"li_consent_at": datetime.now().isoformat(),
+                                                              "li_consent_version": LI_CONSENT_VERSION}})
+        # Back to the partner's own address: the same LinkedIn app, with this address registered on it
+        redirect = f"https://{request.headers.get('host', partners.base_url(partner)[8:])}/auth/linkedin/callback"
     state = secrets.token_urlsafe(16)
     nonce = secrets.token_urlsafe(24)
-    li.register_state(state, user["id"], nonce)
+    li.register_state(state, {"conn": user["id"], "owner_id": user["id"], **({"redirect_uri": redirect} if redirect else {})},
+                      nonce)
     # The callback only accepts this state from the browser holding this cookie.
     # SameSite=Lax still sends it on LinkedIn's top-level redirect back to us.
     response.set_cookie(_LI_OAUTH_COOKIE, nonce, max_age=int(li.OAUTH_STATE_TTL.total_seconds()),
                         httponly=True, samesite="lax", path="/auth/linkedin",
                         secure=li.REDIRECT_URI.startswith("https://"))
-    return {"auth_url": li.get_auth_url(state)}
+    return {"auth_url": li.get_auth_url(state, redirect)}
 
 
 _LI_OAUTH_COOKIE = "li_oauth"
@@ -1219,12 +1337,14 @@ def _oauth_result_page(ok: bool, title: str, detail: str) -> HTMLResponse:
     window.opener was missing (a phone handing off to a new tab, the LinkedIn
     app) the person was left on a blank white page."""
     msg = "linkedin_connected" if ok else "linkedin_error"
+    brand = (partners.current() or {}).get("brand", "Voyce")
+    title, detail = title.replace("Voyce", brand), detail.replace("Voyce", brand)
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Voyce · LinkedIn</title></head>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{html_escape(brand)} · LinkedIn</title></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;background:#f6f7f9;color:#16181d;margin:0;padding:56px 20px;text-align:center;">
 <p style="font-size:18px;font-weight:600;margin:0 0 8px;">{html_escape(title)}</p>
 <p style="font-size:15px;color:#5b6270;line-height:1.5;max-width:420px;margin:0 auto 20px;">{html_escape(detail)}</p>
-<p><a href="/setup" style="color:#24365e;font-weight:600;">Back to Voyce</a></p>
+<p><a href="/setup" style="color:#24365e;font-weight:600;">Back to {html_escape(brand)}</a></p>
 <script>try {{ if (window.opener) {{ window.opener.postMessage("{msg}", location.origin); window.close(); }} }} catch (e) {{}}</script>
 </body></html>"""
     resp = HTMLResponse(page)
@@ -1253,7 +1373,7 @@ def linkedin_callback(request: Request, code: str = None, error: str = None, sta
             return _oauth_result_page(False, "This invite link is no longer valid",
                                       "Ask the person who sent it for a new link.")
     try:
-        token_data = li.exchange_code_for_token(code)
+        token_data = li.exchange_code_for_token(code, target.get("redirect_uri", ""))
         li.save_token(target["conn"], token_data)
     except Exception:
         logging.exception("LinkedIn token exchange failed")
@@ -1330,6 +1450,8 @@ def _invite_valid(invite: dict | None) -> bool:
 @app.post("/companies/{company_id}/linkedin-invite")
 def create_linkedin_invite(company_id: str, x_token: str = Header(None)):
     user = _require_user(x_token)
+    if partners.for_user(user):   # a partner's client posts only as themselves
+        raise HTTPException(status_code=403, detail="Each client connects their own LinkedIn.")
     company = get_company(company_id)
     if not company or company.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Not found")
@@ -1797,6 +1919,7 @@ def post_linkedin(request: PostRequest, x_token: str = Header(None)):
     try:
         result = li.post_to_linkedin(conn, text)
         analytics.capture(user["id"], "post_published", {"via": "write", "chars": len(text)})
+        partner_panel.log(user, "posted", text[:140])
         return result
     except ValueError as e:
         # linkedin.py already turned the API status into something actionable;
@@ -1813,6 +1936,9 @@ def post_linkedin(request: PostRequest, x_token: str = Header(None)):
 @app.post("/schedule/linkedin")
 def schedule_linkedin(request: ScheduleRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
+    p = partners.for_user(user)
+    if p and not p["scheduling"]:
+        raise HTTPException(status_code=403, detail=f"Scheduling isn't part of {p['brand']}. Post it when it's ready.")
     conn = _conn_for(user, request.profile_id)
     if not li.is_connected(conn):
         raise HTTPException(status_code=401, detail="LinkedIn not connected.")
@@ -1916,7 +2042,10 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     # account. Accounts that already have more keep them — this only blocks new ones.
     max_profiles = payments.MAX_PROFILES
     import sales
-    if sales.is_member(user):
+    partner = partners.for_user(user)
+    if partner:
+        max_profiles = partner["profiles_per_seat"]   # each client posts as themselves
+    elif sales.is_member(user):
         max_profiles = TEAM_MAX_PROFILES   # the Voyce team makes a profile per prospect sample
     if len(existing) >= max_profiles:
         raise HTTPException(status_code=400, detail=(
@@ -1931,6 +2060,9 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
             # Automated carousels are a Pro feature
             data["carousel_enabled"] = False
         company = save_company(data)
+        if partner:   # save_company keeps only its own fields: the partner's tag goes on here
+            db.companies.update_one({"id": company["id"]}, {"$set": {"partner_id": partner["id"]}})
+            company["partner_id"] = partner["id"]
         vp = _apply_voice_posts(company["id"], request.voice_posts)
         if vp:
             company["linkedin_top_posts"] = vp["top_posts"]
@@ -2068,6 +2200,8 @@ def toggle(company_id: str, request: ToggleRequest, x_token: str = Header(None))
         # Arming chooses the review mode in the same step. Without an explicit
         # choice it asks before every post; publishing unreviewed needs consent.
         approval = True if request.approval_mode is None else request.approval_mode
+        if partners.for_user(user) and not partners.for_user(user)["auto_posting"]:
+            approval = True   # a partner seat's daily post always waits for the client's Approve
         if not approval and not request.auto_consent:
             raise HTTPException(status_code=400, detail=_CONSENT_DETAIL)
         fields = {"approval_mode": approval}
@@ -2136,6 +2270,10 @@ def toggle_approval(company_id: str, request: ApprovalRequest | None = None,
         raise HTTPException(status_code=404, detail="Not found")
     req = request or ApprovalRequest()
     new_val = (not company.get("approval_mode", False)) if req.approval_mode is None else req.approval_mode
+    p = partners.for_user(user)
+    if p and not p["auto_posting"] and not new_val:
+        raise HTTPException(status_code=403, detail=(
+            f"On {p['brand']}, every post waits for your Approve: LinkedIn's rules don't allow posting without it."))
     fields = {"approval_mode": new_val}
     if not new_val:
         if not req.auto_consent:
@@ -2207,7 +2345,17 @@ def _li_post_url(urn: str) -> str:
 
 
 def _approve_shell(title: str, inner: str) -> HTMLResponse:
-    return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+    page = _approve_shell_html(title, inner)
+    partner = partners.current()
+    if partner:   # a partner client's approve page, in the partner's look
+        page = page.replace('<span style="font-family:Georgia,serif;font-style:italic;font-size:26px;">V</span>oyce',
+                            f'<img src="/static/{partner["assets"]}/logo-on-light.png" alt="{partner["brand"]}" style="height:24px;">')
+        page = branding.transform(page, "html", partner, "on-light")
+    return HTMLResponse(page)
+
+
+def _approve_shell_html(title: str, inner: str) -> str:
+    return (f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{html_escape(title)} · Voyce</title>
 <meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;background:#f6f7f9;color:#16181d;margin:0;padding:28px 16px 48px;">
@@ -2229,9 +2377,17 @@ def _btn(label: str, href: str = "", primary: bool = False, form_action: str = "
 
 
 def _pending_by_token(token: str) -> dict | None:
+    """The post an approve link is for, on its own brand's address only: a partner client's link on
+    voyce.co.in (or a Voyce link on a partner's address) is treated as not valid."""
     if not token or len(token) < 20:
         return None
-    return db.pending_posts.find_one({"approve_token": token}, {"_id": 0})
+    pend = db.pending_posts.find_one({"approve_token": token}, {"_id": 0})
+    if pend:
+        owner = db.users.find_one({"id": pend.get("user_id", "")}, {"partner_id": 1}) or {}
+        here = (partners.current() or {}).get("id")
+        if (owner.get("partner_id") or None) != (here or None):
+            return None
+    return pend
 
 
 @app.get("/approve/{token}")
@@ -2524,7 +2680,7 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
         topics_block = (f"\nTHEIR TOPICS: {'; '.join(topics)}. Spread the 5 ideas across these: at least one idea for each topic.\n"
                         if len(topics) > 1 else "")
         who = subject.get("product_name") or subject.get("name", "")
-        kb = (subject.get("knowledge") or "").strip()
+        kb = partners.with_house_rules((subject.get("knowledge") or "").strip()[:2000], subject)
         kb_block = ("\nKNOWLEDGE BASE — draw ideas from these facts/rules and honour any "
                     "'never say' rules; do not contradict or invent around them:\n" + kb[:2000] + "\n") if kb else ""
         # What makes ideas theirs: their career (profile PDF), what they posted lately, what they told us
@@ -2728,7 +2884,9 @@ async def post_linkedin_carousel(
         print(f"\n[DRY RUN] Would post carousel to LinkedIn:\n{text}\n")
         return {"status": "dry_run", "preview": text}
     try:
-        return li.upload_and_post_carousel(conn, pdf_bytes, text)
+        result = li.upload_and_post_carousel(conn, pdf_bytes, text)
+        partner_panel.log(user, "posted", "Carousel: " + text[:120])
+        return result
     except Exception:
         logging.exception("LinkedIn carousel post failed")
         raise HTTPException(status_code=502, detail="Failed to post the carousel to LinkedIn. Please reconnect LinkedIn and try again.")
@@ -2751,7 +2909,9 @@ async def post_linkedin_image(
         print(f"\n[DRY RUN] Would post image to LinkedIn:\n{text}\n")
         return {"status": "dry_run", "preview": text}
     try:
-        return li.upload_and_post_image(conn, image_bytes, text)
+        result = li.upload_and_post_image(conn, image_bytes, text)
+        partner_panel.log(user, "posted", "Image post: " + text[:120])
+        return result
     except Exception:
         logging.exception("LinkedIn image post failed")
         raise HTTPException(status_code=502, detail="Failed to post the image to LinkedIn. Please reconnect LinkedIn and try again.")

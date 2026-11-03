@@ -222,6 +222,7 @@
 
     async function startApp() {
       if (!(await initClerk())) return;
+      if (window.partnerGate && await partnerGate(getUser())) return;   // a partner's address: seats by invite
       const u = getUser();
       if (u) document.getElementById("nav-user").textContent = u.name || u.email || "";
       document.getElementById("ob-role").addEventListener("input", () => {
@@ -454,12 +455,13 @@
       if (!text) { _firstError("The post is empty."); return; }
       _firstError("");
       if (_liConnected) { _doPost(); return; }
+      if (window.partnerConsentFirst && partnerConsentFirst(postFirst)) return;
       // Open the window inside the tap, or the browser blocks it.
       const popup = window.open("", "linkedin-auth", "width=600,height=700,scrollbars=yes");
       if (!popup) { _firstError("Your browser blocked the LinkedIn window. Allow popups for voyce.co.in, then tap Post again."); return; }
       _postBtn(true, "Connect LinkedIn in the new window…");
       _afterConnect = _doPost;
-      fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken() } })
+      fetch("/auth/linkedin/start", { method: "POST", headers: { "x-token": getToken(), "x-li-consent": window.__liConsent ? "1" : "" } })
         .then(r => (r.ok ? r.json() : Promise.reject()))
         .then(({ auth_url }) => { popup.location.href = auth_url; })
         .catch(() => { popup.close(); _afterConnect = null; _postBtn(false); _firstError("Couldn't start the LinkedIn connection. Try again."); });

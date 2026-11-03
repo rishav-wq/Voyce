@@ -1281,7 +1281,8 @@ def _build_concept_prompt(content: dict, t: dict, region: str = "") -> str:
     )
 
 
-_DISPLAY_FONTS = {"poppins": "Poppins-ExtraBold.ttf"}   # brand_kit["font"] → the display weight we hold
+_DISPLAY_FONTS = {"poppins": "Poppins-ExtraBold.ttf",   # brand_kit["font"] → the display weight we hold
+                  "montserrat": "Montserrat-Bold.ttf", "instrument sans": "InstrumentSans-Bold.ttf"}   # OFL, Google Fonts
 _CONCEPT_TURN = {"light": (190, 72, 32), "sage": (38, 112, 66)}   # concept turn colour where the accent is near the ink
 
 
@@ -2101,7 +2102,8 @@ def generate_carousel_content(company: dict, news_context: str, post_type: str) 
     company_brief = _build_company_brief(company, with_knowledge=False)[:1400]
     # Their own facts and rules get their own place: inside the brief they came after the voice
     # examples, so the 1,400-character cut above always dropped them.
-    knowledge = (company.get("knowledge") or "").strip()[:2000]
+    import partners
+    knowledge = partners.with_house_rules((company.get("knowledge") or "").strip()[:2000], company)
     rules = (f"\nThe author's own facts and rules (follow every one that fits a carousel; never "
              f"contradict them or invent around them):\n{knowledge}\n") if knowledge else ""
     # The brief's own note on the example posts sits after them, past the cut: decks kept

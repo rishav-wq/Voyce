@@ -37,6 +37,32 @@ _claude = (anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=9
            if os.getenv("ANTHROPIC_API_KEY") else None)
 usage_log: list = []   # (model, input tokens, output tokens) of recent Claude calls, so a job can report its cost
 
+# Who a call is made for, (user id, partner id): set by main._require_user for a request and by the background
+# jobs for the profile they work on. A partner seat's calls are kept in db.ai_usage, so the partner's bill can be
+# set against what its seats actually cost (partner_panel.admin_partners). Voyce's own accounts are not logged:
+# no extra database write on their calls. Prices are $ per million tokens.
+import contextvars
+usage_owner: contextvars.ContextVar = contextvars.ContextVar("usage_owner", default=None)
+PRICES = {"claude-opus-5-5": (4, 20), "claude-sonnet-5-5": (2, 10), "claude-haiku-5-5": (0.10, 0.50)}
+IMAGE_USD_EST = float(os.getenv("IMAGE_USD_EST", "0.08"))   # a drawn picture, estimated
+
+
+def _record_usage(kind: str, model: str, tokens_in: int = 0, tokens_out: int = 0, usd: float | None = None):
+    owner = usage_owner.get()
+    if not owner or not owner[1]:
+        return
+    if usd is None:
+        p_in, p_out = PRICES.get(model, PRICES["claude-opus-5-5"])
+        usd = tokens_in * p_in / 1e6 + tokens_out * p_out / 1e6
+    try:
+        import db
+        from datetime import datetime, timezone
+        db.ai_usage.insert_one({"user_id": owner[0], "partner_id": owner[1], "kind": kind, "model": model,
+                                "in": tokens_in, "out": tokens_out, "usd": round(usd, 5),
+                                "at": datetime.now(timezone.utc).isoformat()})
+    except Exception:
+        pass   # cost logging never stops a post
+
 
 # gemini-2.5/3.x models are "thinking" models: internal reasoning is billed against
 # max_output_tokens. A small cap can be fully consumed by thinking, leaving zero
@@ -122,6 +148,7 @@ def _claude_call(prompt: str, system: str, json_mode: bool, image: bytes = None,
     print(f"[claude] {resp.model} in={resp.usage.input_tokens} out={resp.usage.output_tokens} "
           f"stop={resp.stop_reason}", flush=True)
     usage_log.append((resp.model, resp.usage.input_tokens, resp.usage.output_tokens))
+    _record_usage("claude", resp.model, resp.usage.input_tokens, resp.usage.output_tokens)
     del usage_log[:-200]
     if resp.stop_reason in ("refusal", "max_tokens"):
         return ""
@@ -406,6 +433,7 @@ def generate_image(prompt: str, model_name: str = None, aspect_ratio: str = "4:5
             for part in (cand.get("content") or {}).get("parts") or []:
                 data = (part.get("inlineData") or {}).get("data")
                 if data:
+                    _record_usage("image", name, usd=IMAGE_USD_EST)
                     return base64.b64decode(data)
     except Exception as e:
         print(f"[image] {name} {type(e).__name__}: {e}", flush=True)

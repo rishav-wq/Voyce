@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import requests
 
 import db
+import partners
 
 logger = logging.getLogger(__name__)
 
@@ -51,22 +52,24 @@ def _user_email(user_id: str) -> str:
 
 
 def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None = None,
-            quote: str = "", footer: str = "") -> str:
+            quote: str = "", footer: str = "", partner: dict | None = None) -> str:
     """Plain on purpose: one heading, a few lines, at most one button. Heavy
-    templates land in Promotions; this should read like a note from a person."""
+    templates land in Promotions; this should read like a note from a person.
+    A partner's email uses the partner's colour for the bar and the button."""
+    accent = (partner or {}).get("theme", {}).get("orange", "#24365e") if partner else "#24365e"
     parts = [f'<p style="font-size:17px;font-weight:600;color:#16181d;margin:0 0 14px;">{html.escape(heading)}</p>']
     for p in paragraphs:
         parts.append(f'<p style="font-size:15px;line-height:1.55;color:#333;margin:0 0 14px;">{p}</p>')
     if quote:
         parts.append(
             '<div style="white-space:pre-wrap;font-size:14px;line-height:1.55;color:#333;'
-            'border-left:3px solid #24365e;background:#f6f7f9;padding:12px 14px;margin:0 0 18px;">'
+            f'border-left:3px solid {accent};background:#f6f7f9;padding:12px 14px;margin:0 0 18px;">'
             f'{html.escape(quote)}</div>')
     if button:
         label, url = button
         parts.append(
             f'<p style="margin:0 0 20px;"><a href="{html.escape(url)}" style="display:inline-block;'
-            'background:#24365e;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;'
+            f'background:{accent};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;'
             f'padding:11px 20px;border-radius:8px;">{html.escape(label)}</a></p>')
     if footer:
         parts.append(f'<p style="font-size:12.5px;line-height:1.5;color:#7a8190;margin:18px 0 0;">{footer}</p>')
@@ -74,18 +77,48 @@ def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None 
             'max-width:560px;margin:0 auto;padding:8px 4px;">' + "".join(parts) + "</div>")
 
 
-def send(user_id: str, key: str, kind: str, subject: str, text: str, html_body: str) -> bool:
-    """Send once per key. Returns True only when an email actually went out."""
+def _partner_of(user_id: str) -> dict | None:
+    try:
+        return partners.for_user(db.users.find_one({"id": user_id}, {"partner_id": 1}))
+    except Exception:
+        return None
+
+
+def _in_partner_name(partner: dict, subject: str, text: str, html_body: str) -> tuple:
+    """The events below are written for Voyce; a partner's client gets them in the partner's name, with
+    links to the partner's address and its colours."""
+    import re
+    import branding
+    base = partners.base_url(partner)
+    word = re.compile(r"\bVoyce\b")
+    swap = lambda t: word.sub(partner["brand"], (t or "").replace(APP_URL, base))
+    return swap(subject), swap(text), branding._colours(swap(html_body), partner)
+
+
+def app_url(partner: dict | None = None) -> str:
+    """Where links in an email point: the partner's address for its clients, voyce.co.in otherwise."""
+    return partners.base_url(partner) if partner else APP_URL
+
+
+def send(user_id: str, key: str, kind: str, subject: str, text: str, html_body: str,
+         to: str = "", partner: dict | None = None, reply_to: str = "") -> bool:
+    """Send once per key. Returns True only when an email actually went out. A partner's client gets it from
+    the partner (its sender and reply-to); to sends to an address that has no account yet (an invite)."""
     try:
         api_key = os.getenv("RESEND_API_KEY", "").strip()
         if not api_key:
             logger.warning(f"[notify] RESEND_API_KEY unset — skipped '{kind}' email")
             return False
-        to = _user_email(user_id)
+        to = to or _user_email(user_id)
         if not to or _already_sent(key):
             return False
+        partner = partner or (_partner_of(user_id) if user_id else None)
+        if partner:
+            subject, text, html_body = _in_partner_name(partner, subject, text, html_body)
+        sender = partners.sender(partner) if partner else _FROM
+        reply_to = reply_to or (partner["support_email"] if partner else _REPLY_TO)
         r = requests.post(_API_URL, timeout=15, headers={"Authorization": f"Bearer {api_key}"}, json={
-            "from": _FROM, "to": [to], "reply_to": _REPLY_TO,
+            "from": sender, "to": [to], "reply_to": reply_to,
             "subject": subject, "text": text, "html": html_body,
         })
         if not r.ok:
@@ -285,6 +318,17 @@ def autopilot_paused(company: dict, reason: str = "") -> bool:
     except Exception:
         u = {}
     marker = (u.get("plan_expires_at") or "free")[:10]
+    p = _partner_of(uid)
+    if p:
+        refill = partners.next_month_start()
+        when = f"{refill.day} {refill.strftime('%b')}"
+        intro = (f"You've used this month's {p['drafts_per_seat']} drafts, so {p['brand']} has paused your daily posts "
+                 f"until {when}. Your profile and voice are all still saved.")
+        nxt = f"They start again on {when} by themselves. Need more before then? Ask {p['company_short']}."
+        url = app_url(p) + "/setup"
+        return send(uid, f"paused:month:{uid}:{partners.month_key()}", "autopilot_paused", f"{p['brand']} is paused until {when}",
+                    f"{intro}\n\n{nxt}\n\n{url}", _layout("Daily posts paused", [intro, nxt], button=(f"Open {p['brand']}", url),
+                                                        partner=p))
     subject = "Voyce autopilot is paused"
     if reason == "pass_limit":
         intro = ("You've used all the generations included in this Pro pass, so Voyce has paused "
@@ -378,3 +422,73 @@ def sweep_expiries():
                              button=("Open Voyce", _QUEUE_URL)))
         except Exception:
             logger.exception(f"[notify] profile connection sweep failed for {c.get('id')}")
+
+
+# ── A partner's own emails (partner_panel.py) ─────────────────────────────────
+
+def partner_invite(partner: dict, invite: dict, link: str, inviter: str = "") -> bool:
+    """A partner's team invited someone to a seat. The link is theirs alone, for 14 days."""
+    brand, firm = partner["brand"], partner["company_short"]
+    first = (invite.get("name") or "").split(" ")[0]
+    hello = f"Hi {html.escape(first)}," if first else "Hello,"
+    intro = (f"{html.escape(inviter or firm)} has invited you to <strong>{html.escape(brand)}</strong>, "
+             f"{html.escape(firm)}'s LinkedIn writing studio. It drafts posts in your own voice from your experience "
+             "and this week's news in your field, and nothing goes out until you approve it.")
+    nxt = (f"Create your account with this email address ({html.escape(invite['email'])}). "
+           "The link is yours alone and works for 14 days.")
+    text = f"{hello}\n\n{html.unescape(intro).replace('<strong>', '').replace('</strong>', '')}\n\n{html.unescape(nxt)}\n\n{link}"
+    body = _layout(f"You're invited to {brand}", [hello, intro, nxt], button=("Accept the invite", link),
+                   footer=f"{html.escape(partner['brand_full'])} · powered by Voyce", partner=partner)
+    return send("", f"partner_invite:{invite['id']}", "partner_invite", f"{inviter or firm} invited you to {brand}",
+                text, body, to=invite["email"], partner=partner)
+
+
+def partner_reminder(partner: dict, user: dict, waiting: int, sent_by: str = "") -> bool:
+    """A partner's team nudged a client about drafts waiting for their Approve. At most one a day."""
+    brand, firm = partner["brand"], partner["company_short"]
+    url = app_url(partner) + "/setup"
+    n = f"{waiting} draft{'s' if waiting != 1 else ''}"
+    intro = (f"You have {n} waiting in {html.escape(brand)}. Read {'them' if waiting != 1 else 'it'}, change anything "
+             "you like, and tap Approve when it sounds like you." if waiting else
+             f"A quick nudge from {html.escape(sent_by or firm)}: your next post in {html.escape(brand)} is a few minutes away.")
+    text = f"{html.unescape(intro)}\n\n{url}"
+    body = _layout(f"{n.capitalize()} waiting for you" if waiting else f"Your {brand} posts", [intro],
+                   button=("Open " + brand, url), partner=partner)
+    return send(user["id"], f"partner_remind:{user['id']}:{datetime.now().strftime('%Y-%m-%d')}", "partner_remind",
+                f"{n.capitalize()} waiting in {brand}" if waiting else f"Your {brand} posts", text, body, partner=partner)
+
+
+def partner_waitlist(partner: dict, entry: dict) -> bool:
+    """Someone joined a partner's waiting list on its landing page: to the partner, with Reply-To set to them,
+    so answering the email writes to the person who asked."""
+    brand = partner["brand"].upper()
+    rows = [("Name", entry["name"]), ("Title", entry["title"]), ("Company", entry["company"]),
+            ("Email", entry["email"]), ("Phone", entry["phone"])]
+    when = (datetime.fromisoformat(entry["at"]) + timedelta(hours=5, minutes=30)).strftime("%d %b %Y, %H:%M")
+    intro = (f"{html.escape(entry['name'])} ({html.escape(entry['title'])}, {html.escape(entry['company'])}) "
+             f"joined the {brand} waiting list on {partners.base_url(partner).split('://')[1]}.")
+    table = "".join(f'<tr><td style="padding:4px 16px 4px 0;color:#7a8190;">{k}</td>'
+                    f'<td style="padding:4px 0;color:#16181d;">{html.escape(v)}</td></tr>' for k, v in rows)
+    body = _layout(f"New request for {brand}",
+                   [intro, f'<table style="font-size:15px;border-collapse:collapse;">{table}</table>',
+                    "Reply to this email to write to them directly."],
+                   footer=f"Received {when} IST", partner=partner)
+    text = (f"{html.unescape(intro)}\n\n" + "\n".join(f"{k}: {v}" for k, v in rows) +
+            f"\n\nReply to this email to write to them directly.\nReceived {when} IST")
+    return send("", f"partner_waitlist:{entry['id']}", "partner_waitlist",
+                f"{brand} waiting list: {entry['name']}, {entry['company']}", text, body,
+                to=partner["waitlist_to"], partner=partner, reply_to=entry["email"])
+
+
+def partner_seat_request(partner: dict, seats: int, note: str, by: str) -> bool:
+    """A partner asked Voyce for more seats: to Voyce's team (ADMIN_EMAILS)."""
+    sent = False
+    for admin in [e.strip() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]:
+        intro = (f"{html.escape(by)} at {html.escape(partner['company'])} asked for "
+                 f"<strong>{seats} more seat{'s' if seats != 1 else ''}</strong> on {html.escape(partner['brand'])}.")
+        paras = [intro] + ([f"Their note: {html.escape(note)}"] if note else [])
+        text = html.unescape(intro).replace("<strong>", "").replace("</strong>", "") + (f"\n\nTheir note: {note}" if note else "")
+        sent |= send("", f"seat_request:{partner['id']}:{datetime.now().isoformat()[:16]}:{admin}", "seat_request",
+                     f"{partner['brand']}: {seats} more seat{'s' if seats != 1 else ''} requested", text,
+                     _layout("More seats requested", paras), to=admin)
+    return sent

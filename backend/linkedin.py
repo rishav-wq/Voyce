@@ -52,12 +52,13 @@ def _save_token_entry(user_id: str, entry: dict):
     db.li_tokens.replace_one({"user_id": user_id}, {"user_id": user_id, **entry}, upsert=True)
 
 
-def get_auth_url(state: str) -> str:
+def get_auth_url(state: str, redirect_uri: str = "") -> str:
+    """redirect_uri: a partner's own address (registered on the same LinkedIn app); Voyce's otherwise."""
     return (
         "https://www.linkedin.com/oauth/v2/authorization"
         f"?response_type=code"
         f"&client_id={CLIENT_ID}"
-        f"&redirect_uri={REDIRECT_URI}"
+        f"&redirect_uri={redirect_uri or REDIRECT_URI}"
         f"&scope={SCOPES.replace(' ', '%20')}"
         f"&state={state}"
     )
@@ -184,13 +185,13 @@ def consume_state(state: str, nonce: str) -> dict | None:
     return target if target.get("conn") else None
 
 
-def exchange_code_for_token(code: str) -> dict:
+def exchange_code_for_token(code: str, redirect_uri: str = "") -> dict:
     response = requests.post(
         "https://www.linkedin.com/oauth/v2/accessToken",
         data={
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": REDIRECT_URI,
+            "redirect_uri": redirect_uri or REDIRECT_URI,
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
         },
