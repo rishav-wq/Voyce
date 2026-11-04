@@ -55,10 +55,12 @@
     } catch (_) { res = null; }
     if (res && res.ok) {
       forget();
-      try {   // the seat is theirs: refresh what the page knows, then carry on (onboarding first for a new account)
+      try {   // the seat is theirs: refresh what the page knows, then carry on (onboarding first for a new account;
+              // a client the team set up already has a profile, so Today, where their first draft will arrive)
         const me = await fetch("/auth/me", { headers: { "x-token": await token() } });
         if (me.ok) { const u = await me.json(); localStorage.setItem("cm_user", JSON.stringify(u));
-                     location.replace(u.needs_onboarding ? "/onboarding" : location.pathname); return; }
+                     location.replace(u.needs_onboarding ? "/onboarding"
+                       : data.set_up || /^\/(signup|login)$/.test(location.pathname) ? "/setup" : location.pathname); return; }
       } catch (_) {}
       location.reload();
       return;

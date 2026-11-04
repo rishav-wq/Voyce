@@ -89,6 +89,18 @@
     .modal { position: fixed; z-index: 70; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100% - 32px));
              background: #fff; border-radius: 16px; padding: 22px; display: none; box-shadow: 0 30px 80px -30px rgba(0,0,0,.4); }
     .modal.open { display: block; }
+    .modal { max-height: calc(100vh - 32px); overflow-y: auto; }
+    .modal.wide { width: min(600px, calc(100% - 32px)); }
+    .modal details { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px 14px; }
+    .modal summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 10px 0 4px; }
+    .modal .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    select { width: 100%; border: 1px solid #d3d8e0; border-radius: 10px; padding: 10px 12px; font-size: 14px; color: var(--ink); background: #fff; }
+    .inv { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .inv:last-child { border-bottom: none; }
+    .inv .who { flex: 1 1 220px; min-width: 0; }
+    .inv .when { color: var(--soft); font-size: 13px; }
+    .inv .acts { margin-left: auto; }
+    @media (max-width: 520px) { .modal .two { grid-template-columns: 1fr; } .inv .acts { margin-left: 0; } }
     .modal h3 { margin: 0 0 4px; font-size: 18px; }
     .modal .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
     .linkbox { display: flex; gap: 8px; margin-top: 10px; }
@@ -132,11 +144,36 @@
     <header><b id="dr-title">Client</b><button class="x" onclick="closeAll()" aria-label="Close">×</button></header>
     <div class="body" id="dr-body"></div>
   </aside>
-  <div class="modal" id="m-invite" role="dialog" aria-modal="true" aria-labelledby="mi-h">
+  <div class="modal wide" id="m-invite" role="dialog" aria-modal="true" aria-labelledby="mi-h">
     <h3 id="mi-h">Invite a client</h3>
     <p class="hint">They get an email with a sign-up link that works for 14 days. The invite holds a seat until it's used or cancelled.</p>
     <label for="mi-name">Name</label><input id="mi-name" autocomplete="off" placeholder="Priya Nair">
     <label for="mi-email">Email</label><input id="mi-email" type="email" autocomplete="off" placeholder="priya@company.com">
+    <details id="mi-setup">
+      <summary>Set up their voice now (recommended)</summary>
+      <p class="hint">Fill this in from your conversation with them, and they skip the setup form: their first morning
+        draft is on its way as soon as they join. Topics are the one field you need.</p>
+      <label for="mi-role">Role line</label><input id="mi-role" autocomplete="off" placeholder="Founder &amp; CEO, Flentas">
+      <label for="mi-topics">Topics</label><input id="mi-topics" autocomplete="off" placeholder="cloud cost, AWS partnerships, security for mid-size firms">
+      <label for="mi-tone">Tone</label><input id="mi-tone" autocomplete="off" placeholder="Plain, direct, a little dry">
+      <label for="mi-rules">Facts and writing rules</label>
+      <textarea id="mi-rules" placeholder="20 years in cloud consulting. Founded Flentas in 2016. Never name clients. No emojis."></textarea>
+      <label for="mi-posts">A few of their LinkedIn posts</label>
+      <textarea id="mi-posts" placeholder="Paste 1 to 3 posts, with a line of --- between them. This is what makes drafts sound like them."></textarea>
+      <div class="two">
+        <div><label for="mi-time">Morning draft at</label><input id="mi-time" type="time" value="09:00"></div>
+        <div><label for="mi-tz">Their time zone</label><select id="mi-tz">
+          <option value="Asia/Kolkata">India (IST)</option>
+          <option value="America/New_York">US Eastern</option>
+          <option value="America/Chicago">US Central</option>
+          <option value="America/Denver">US Mountain</option>
+          <option value="America/Los_Angeles">US Pacific</option>
+          <option value="Europe/London">UK</option>
+          <option value="Asia/Dubai">UAE</option>
+          <option value="Asia/Singapore">Singapore</option>
+        </select></div>
+      </div>
+    </details>
     <div id="mi-done" hidden>
       <p class="hint" id="mi-status" style="margin-top:14px;"></p>
       <div class="linkbox"><input id="mi-link" readonly aria-label="Invite link"><button class="btn small" onclick="copyLink()">Copy</button></div>
@@ -201,12 +238,12 @@
       const rows = d.clients.map(c => {
         const off = c.seat !== "active";
         const pct = c.drafts_limit ? Math.min(100, Math.round(100 * c.drafts_used / c.drafts_limit)) : 0;
-        const status = off ? '<span class="pill">Removed</span>' : !c.has_profile ? '<span class="pill warn">Setting up</span>'
-          : c.linkedin ? '<span class="pill ok">Connected</span>' : '<span class="pill warn">Not connected</span>';
+        // what this client needs next, one thing (partner_panel._next_step): green when nothing is needed
+        const tone = { removed: "", on_track: "ok" }[c.next_step] ?? "warn";
+        const status = `<span class="pill ${tone}">${esc(c.next_step_label)}</span>`;
         return `<tr class="${off ? "off" : ""}">
           <td class="who"><b>${esc(c.name || c.email)}</b><small>${esc(c.title || c.email)}${c.is_team ? " · your team" : ""}</small></td>
-          <td>${status}</td>
-          <td data-label="Waiting">${!off && c.waiting ? `<span class="pill warn">${c.waiting} waiting</span>` : "–"}</td>
+          <td data-label="Next step">${status}</td>
           <td data-label="Posts this month">${c.posts_this_month}${c.last_post ? `<small class="last">last ${day(c.last_post)}</small>` : ""}</td>
           <td data-label="Drafts used">${off ? "–" : `${c.drafts_used} of ${c.drafts_limit}<div class="bar"><i style="width:${pct}%"></i></div>`}</td>
           <td class="cell-acts"><div class="acts">
@@ -214,9 +251,13 @@
             ${off ? "" : `<button class="btn small" onclick="remind('${esc(c.id)}', this)">Remind</button>`}
           </div></td></tr>`;
       }).join("");
-      const invites = d.invites.map(i => `<tr><td class="who"><b>${esc(i.name || i.email)}</b><small>${esc(i.email)}</small></td>
-          <td>Sent ${day(i.created_at)}</td><td>Link works until ${day(i.expires_at)}</td>
-          <td><div class="acts"><button class="btn small" onclick="cancelInvite('${esc(i.id)}')">Cancel invite</button></div></td></tr>`).join("");
+      const invites = d.invites.map(i => `<div class="inv"><div class="who"><b>${esc(i.name || i.email)}</b><small>${esc(i.email)}${i.set_up ? " · voice set up" : ""}</small></div>
+          <span class="when">Sent ${day(i.created_at)}</span>
+          ${i.expired ? `<span class="pill warn">Expired ${day(i.expires_at)}</span>` : `<span class="when">Link works until ${day(i.expires_at)}</span>`}
+          <div class="acts">${i.expired
+            ? `<button class="btn small" onclick="resendInvite('${esc(i.id)}', this)">Send again</button>`
+            : `<button class="btn small" onclick="cancelInvite('${esc(i.id)}')">Cancel invite</button>`}</div></div>`).join("");
+      const openInvites = d.invites.filter(i => !i.expired).length;
       $("main").innerHTML = `
         <div class="head">
           <div><h1>Your clients</h1><p class="sub">Each client approves and posts their own drafts. You can set up their voice, see what's waiting, and nudge them.</p></div>
@@ -235,10 +276,10 @@
         <div class="grid2">
           <div>
             <div class="card"><h2>Clients <small>${d.clients.filter(c => c.seat === "active").length} with a seat</small></h2>
-              ${rows ? `<div class="tablewrap"><table class="clients"><thead><tr><th>Client</th><th>LinkedIn</th><th>Waiting</th><th>Posts this month</th><th>Drafts used</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+              ${rows ? `<div class="tablewrap"><table class="clients"><thead><tr><th>Client</th><th>Next step</th><th>Posts this month</th><th>Drafts used</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
                      : `<div class="empty">No clients yet. Invite your first client to give them a seat.</div>`}
             </div>
-            ${invites ? `<div class="card"><h2>Invites not used yet <small>${d.invites.length}</small></h2><div class="tablewrap"><table><tbody>${invites}</tbody></table></div></div>` : ""}
+            ${invites ? `<div class="card"><h2>Invites not used yet <small>${openInvites} open</small></h2>${invites}</div>` : ""}
           </div>
           <div class="card"><h2>Activity</h2><ul class="feed" id="feed"><li class="empty">Loading…</li></ul></div>
         </div>`;
@@ -260,26 +301,40 @@
       el.innerHTML = items.length ? items.map(a => feedItem(a, true)).join("")
         : `<li class="empty">Nothing yet. Posts, approvals and invites show up here.</li>`;
     }
+    const _MI = ["mi-name", "mi-email", "mi-role", "mi-topics", "mi-tone", "mi-rules", "mi-posts", "mi-time", "mi-tz"];
     function openInvite() {
-      ["mi-name", "mi-email"].forEach(id => { $(id).value = ""; $(id).disabled = false; });
+      _MI.forEach(id => { $(id).value = { "mi-time": "09:00", "mi-tz": "Asia/Kolkata" }[id] || ""; $(id).disabled = false; });
+      $("mi-setup").open = false;
       $("mi-done").hidden = true; $("mi-send").hidden = false; $("mi-close").textContent = "Cancel";
       show("m-invite"); $("mi-name").focus();
     }
     async function sendInvite() {
       const b = $("mi-send"); b.disabled = true;
       try {
-        const r = await api("/partner/api/invites", { method: "POST", body: JSON.stringify({ name: $("mi-name").value, email: $("mi-email").value }) });
+        const topics = $("mi-topics").value.trim();
+        const setup = topics ? { designation: $("mi-role").value, industry: topics, tone: $("mi-tone").value,
+                                 knowledge: $("mi-rules").value, voice_posts: $("mi-posts").value,
+                                 post_time: $("mi-time").value || "09:00", timezone: $("mi-tz").value } : null;
+        const r = await api("/partner/api/invites", { method: "POST", body: JSON.stringify({ name: $("mi-name").value, email: $("mi-email").value, setup }) });
         $("mi-status").textContent = r.emailed ? `Emailed to ${r.email}. You can also send them this link on WhatsApp:`
           : `The invite is ready but the email didn't go out. Send ${r.email} this link yourself:`;
         $("mi-link").value = r.link;
         $("mi-done").hidden = false; b.hidden = true; $("mi-close").textContent = "Done";
-        ["mi-name", "mi-email"].forEach(id => $(id).disabled = true);
+        _MI.forEach(id => $(id).disabled = true);
         loadTeam();
       } catch (e) { toast(e.message); }
       b.disabled = false;
     }
     async function copyLink() {
       try { await navigator.clipboard.writeText($("mi-link").value); toast("Link copied"); } catch (_) { $("mi-link").select(); }
+    }
+    async function resendInvite(id, btn) {
+      btn.disabled = true;
+      try {
+        const r = await api(`/partner/api/invites/${id}/resend`, { method: "POST" });
+        toast(r.emailed ? `Sent again to ${r.email}` : `The new link is ready, but the email didn't go out: ${r.link}`);
+        loadTeam();
+      } catch (e) { toast(e.message); btn.disabled = false; }
     }
     async function cancelInvite(id) {
       if (!confirm("Cancel this invite? Its link stops working and the seat is free again.")) return;

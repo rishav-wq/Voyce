@@ -470,20 +470,41 @@ def partner_invite(partner: dict, invite: dict, link: str, inviter: str = "") ->
                 text, body, to=invite["email"], partner=partner)
 
 
-def partner_reminder(partner: dict, user: dict, waiting: int, sent_by: str = "") -> bool:
-    """A partner's team nudged a client about drafts waiting for their Approve. At most one a day."""
-    brand, firm = partner["brand"], partner["company_short"]
+def partner_reminder(partner: dict, user: dict, waiting: int, sent_by: str = "", step: str = "",
+                     first_line: str = "") -> bool:
+    """A partner's team nudged a client. The email asks for the one thing the client needs next (the panel's
+    "Next step", partner_panel._next_step). At most one a day."""
+    brand, firm = html.escape(partner["brand"]), partner["company_short"]
+    who = html.escape(sent_by or firm)
     url = app_url(partner) + "/setup"
     n = f"{waiting} draft{'s' if waiting != 1 else ''}"
-    intro = (f"You have {n} waiting in {html.escape(brand)}. Read {'them' if waiting != 1 else 'it'}, change anything "
-             "you like, and tap Approve when it sounds like you." if waiting else
-             f"{html.escape(sent_by or firm)} thought you might like to write this week's post. It takes a few minutes "
-             f"in {html.escape(brand)}, and nothing goes out until you approve it.")
+    if step == "setup":
+        subject, heading = f"Finish setting up {partner['brand']}", "One step left"
+        intro = (f"A note from {who}: tell {brand} what you write about, and it drafts your first post in about a "
+                 "minute. Nothing goes out until you approve it.")
+    elif step == "drafts_off":
+        subject, heading = "Turn on your morning drafts", "Your morning drafts are off"
+        intro = (f"A note from {who}: turn on morning drafts in Settings and {brand} emails you one draft each "
+                 "morning to read and approve. Nothing goes out until you do.")
+    elif step == "linkedin":
+        subject, heading = f"Connect LinkedIn to publish your {partner['brand']} posts", "Connect your LinkedIn"
+        intro = (f"A note from {who}: connect your LinkedIn once, so {brand} can publish the posts you approve. "
+                 "It uses LinkedIn's own sign-in, and nothing goes out until you tap Approve.")
+    elif waiting:
+        subject, heading = f"{n.capitalize()} waiting in {partner['brand']}", f"{n.capitalize()} waiting for you"
+        quoted = f' "{html.escape(first_line)}"' if first_line else ""
+        intro = (f"Your post{quoted} is waiting for your OK. Read it, change anything you like, and tap Approve "
+                 "when it sounds like you. It goes out only when you do." if waiting == 1 else
+                 f"You have {n} waiting in {brand}. Read them, change anything you like, and tap Approve when they "
+                 "sound like you.")
+    else:
+        subject, heading = f"Your {partner['brand']} posts", f"Your {partner['brand']} posts"
+        intro = (f"{who} thought you might like to write this week's post. It takes a few minutes in {brand}, and "
+                 "nothing goes out until you approve it.")
     text = f"{html.unescape(intro)}\n\n{url}"
-    body = _layout(f"{n.capitalize()} waiting for you" if waiting else f"Your {brand} posts", [intro],
-                   button=("Open " + brand, url), partner=partner)
+    body = _layout(heading, [intro], button=("Open " + partner["brand"], url), partner=partner)
     return send(user["id"], f"partner_remind:{user['id']}:{datetime.now().strftime('%Y-%m-%d')}", "partner_remind",
-                f"{n.capitalize()} waiting in {brand}" if waiting else f"Your {brand} posts", text, body, partner=partner)
+                subject, text, body, partner=partner)
 
 
 def partner_waitlist(partner: dict, entry: dict) -> bool:

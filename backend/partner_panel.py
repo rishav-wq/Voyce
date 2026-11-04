@@ -133,19 +133,41 @@ def _month_start() -> str:
     return datetime(n.year, n.month, 1, tzinfo=timezone.utc).isoformat()
 
 
+def _next_step(u: dict, c: dict | None, li_on: bool, waiting: int) -> tuple[str, str]:
+    """What this client needs next, one thing, in the order Sam can act on it (launch audit P9). The key picks
+    the reminder email (notify.partner_reminder)."""
+    if u.get("seat") != "active":
+        return "removed", "Removed"
+    if not c:
+        return "setup", "Hasn't set up"
+    if not c.get("active"):
+        return "drafts_off", "Morning drafts off"
+    if not li_on:
+        return "linkedin", "LinkedIn not connected"
+    if waiting:
+        return "waiting", f"{waiting} draft{'s' if waiting != 1 else ''} waiting"
+    week_ago = (_now() - timedelta(days=7)).isoformat()
+    if (u.get("seat_since") or "") < week_ago and not db.partner_activity.find_one(
+            {"user_id": u["id"], "kind": {"$in": ["approved", "posted"]}, "at": {"$gte": week_ago}}, {"_id": 1}):
+        return "quiet", "No approval in 7 days"
+    return "on_track", "On track"
+
+
 def _client_row(u: dict, partner: dict) -> dict:
     comps = list_companies(u["id"])
     c = comps[0] if comps else None
     gi = auth_module.get_gen_info(u["id"])
     li_on = li.connection_info(li.connection_for(c, u["id"])).get("connected", False) if c else False
     last = db.partner_activity.find_one({"user_id": u["id"], "kind": "posted"}, {"_id": 0, "at": 1}, sort=[("at", -1)])
+    waiting = db.pending_posts.count_documents(_waiting(u["id"]))
+    step, step_label = _next_step(u, c, li_on, waiting)
     return {
         "id": u["id"], "email": u.get("email", ""), "seat": u.get("seat", "none"), "seat_since": u.get("seat_since", ""),
         "is_team": partners.is_admin(u, partner),
         "name": (c or {}).get("name") or u.get("name", ""), "title": (c or {}).get("designation", ""),
         "profile_id": (c or {}).get("id", ""), "has_profile": bool(c),
         "daily_drafts": bool((c or {}).get("active")), "linkedin": li_on,
-        "waiting": db.pending_posts.count_documents(_waiting(u["id"])),
+        "waiting": waiting, "next_step": step, "next_step_label": step_label,
         "posts_this_month": db.partner_activity.count_documents({"user_id": u["id"], "kind": "posted",
                                                                  "at": {"$gte": _month_start()}}),
         "last_post": (last or {}).get("at", ""),
@@ -169,19 +191,58 @@ def overview(x_token: str = Header(None)):
             "per_seat": {"drafts": partner["drafts_per_seat"], "ai_pictures": partner["ai_pictures_per_seat"]},
             "refills_at": partners.next_month_start().isoformat(),
             "clients": clients,
-            "invites": [{k: i.get(k) for k in ("id", "email", "name", "created_at", "expires_at", "invited_by")}
-                        for i in _open_invites(partner)]}
+            "invites": [{**{k: i.get(k) for k in ("id", "email", "name", "created_at", "expires_at", "invited_by")},
+                         "expired": i.get("expires_at", "") <= _now().isoformat(), "set_up": bool(i.get("setup"))}
+                        for i in _open_invites(partner) + _expired_invites(partner)]}
+
+
+def _expired_invites(partner: dict) -> list:
+    """Invites that ran out unused in the last 30 days: they used to vanish, and with them the client who
+    never joined (launch audit P9). They hold no seat."""
+    month_ago = (_now() - timedelta(days=30)).isoformat()
+    return list(db.partner_invites.find({"partner_id": partner["id"], "status": "open",
+                                         "expires_at": {"$lte": _now().isoformat(), "$gt": month_ago}},
+                                        {"_id": 0}).sort("expires_at", -1))
+
+
+class InviteSetup(BaseModel):
+    """The client's voice, set up by the partner's team before they join (main.partner_profile_from_invite)."""
+    designation: str = Field("", max_length=160)     # their role line
+    industry: str = Field("", max_length=400)        # their topics; without them the client sets up themselves
+    tone: str = Field("", max_length=80)
+    knowledge: str = Field("", max_length=4000)      # facts and writing rules
+    voice_posts: str = Field("", max_length=15000)   # a few of their LinkedIn posts, with --- between them
+    post_time: str = Field("09:00", max_length=5)
+    timezone: str = Field("", max_length=64)
 
 
 class InviteRequest(BaseModel):
     email: str
     name: str = ""
+    setup: InviteSetup | None = None
 
 
 @router.post("/partner/api/invites")
 def invite(req: InviteRequest, request: Request, x_token: str = Header(None)):
     user, partner = _team(x_token)
-    email = (req.email or "").strip().lower()
+    setup = {k: v.strip() for k, v in (req.setup.model_dump() if req.setup else {}).items() if isinstance(v, str)}
+    return _send_invite(user, partner, req.email, req.name, setup, request)
+
+
+@router.post("/partner/api/invites/{invite_id}/resend")
+def resend_invite(invite_id: str, request: Request, x_token: str = Header(None)):
+    """An invite that ran out unused, sent again: a new link, the same name and voice setup."""
+    user, partner = _team(x_token)
+    old = db.partner_invites.find_one({"id": invite_id, "partner_id": partner["id"], "status": "open"}, {"_id": 0})
+    if not old:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    sent = _send_invite(user, partner, old["email"], old.get("name", ""), old.get("setup") or {}, request)
+    db.partner_invites.update_one({"id": invite_id}, {"$set": {"status": "replaced", "replaced_by": sent["id"]}})
+    return sent
+
+
+def _send_invite(user: dict, partner: dict, email: str, name: str, setup: dict, request: Request) -> dict:
+    email = (email or "").strip().lower()
     if not _EMAIL.match(email):
         raise HTTPException(status_code=400, detail="That doesn't look like an email address.")
     if db.users.find_one({"partner_id": partner["id"], "email": email, "seat": "active"}, {"_id": 1}):
@@ -195,9 +256,11 @@ def invite(req: InviteRequest, request: Request, x_token: str = Header(None)):
             f"All {partner['seats']} seats are in use or held by open invites. Remove a client, cancel an invite, "
             "or ask for more seats."))
     inv = {"id": secrets.token_hex(6), "token": secrets.token_urlsafe(24), "partner_id": partner["id"],
-           "email": email, "name": (req.name or "").strip()[:80], "invited_by": user.get("email", ""),
+           "email": email, "name": (name or "").strip()[:80], "invited_by": user.get("email", ""),
            "status": "open", "created_at": _now().isoformat(),
            "expires_at": (_now() + timedelta(days=INVITE_DAYS)).isoformat()}
+    if (setup or {}).get("industry"):   # topics are the least a profile needs; without them the client sets up themselves
+        inv["setup"] = {**setup, "name": inv["name"]}
     db.partner_invites.insert_one({**inv})
     link = f"{partners.url_for_request(partner, request.headers.get('host', ''))}/signup?invite={inv['token']}"
     emailed = notify.partner_invite(partner, inv, link, inviter=_sender_name(user, partner))
@@ -288,8 +351,14 @@ def remind(uid: str, x_token: str = Header(None)):
     c = _client(partner, uid)
     if c.get("seat") != "active":
         raise HTTPException(status_code=400, detail="This client doesn't have a seat.")
-    waiting = db.pending_posts.count_documents(_waiting(uid))
-    sent = notify.partner_reminder(partner, c, waiting, sent_by=_sender_name(user, partner))
+    row = _client_row(c, partner)
+    waiting = row["waiting"]
+    first_line = ""
+    if row["next_step"] == "waiting":
+        d = db.pending_posts.find_one(_waiting(uid), {"_id": 0, "post_text": 1}, sort=[("created_at", -1)]) or {}
+        first_line = (d.get("post_text") or "").strip().split("\n")[0][:120]
+    sent = notify.partner_reminder(partner, c, waiting, sent_by=_sender_name(user, partner), step=row["next_step"],
+                                   first_line=first_line)
     if sent:
         log(c, "reminded", f"{waiting} waiting", by=user.get("email", ""))
     return {"sent": sent, "waiting": waiting,
@@ -369,7 +438,14 @@ def join(req: JoinRequest, x_token: str = Header(None)):
     db.users.update_one({"id": user["id"]}, {"$set": {"seat": "active", "seat_since": _now().isoformat(),
                                                       "seat_invite": inv["id"]}})
     log({**user, "partner_id": partner["id"]}, "joined", inv["email"])
-    return {"ok": True}
+    set_up = False
+    if inv.get("setup"):   # the team set up their voice: the profile is ready, and onboarding is skipped
+        try:
+            import main
+            set_up = bool(main.partner_profile_from_invite({**user, "seat": "active"}, partner, inv["setup"]))
+        except Exception:
+            logger.exception(f"[partner] {partner['id']}: profile from invite {inv['id']} failed")
+    return {"ok": True, "set_up": set_up}
 
 
 # ── the landing page's waiting list ───────────────────────────────────────────

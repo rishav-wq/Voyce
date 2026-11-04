@@ -104,3 +104,9 @@ html body .cl-footerActionLink { color: var(--sv-orange-700) !important; }
   }
   #upcoming-list .up-change { width: auto !important; justify-self: start; min-height: 40px; padding: 0 18px; }
 }
+
+/* ── The LinkedIn banner: "needs you" orange tint, not Voyce's yellow ── */
+.li-banner { background: var(--sv-orange-50) !important; border-color: var(--sv-orange-line) !important; border-radius: var(--sv-r-card) !important; }
+.li-banner p { color: var(--sv-ink) !important; }
+.li-banner.connected { background: var(--sv-success-bg) !important; border-color: #B7DDC6 !important; }
+.li-banner.connected p { color: var(--sv-success) !important; }

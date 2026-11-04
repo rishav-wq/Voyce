@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import threading
 from html import escape as html_escape
 import logging
 from datetime import datetime, timedelta, timezone
@@ -2135,6 +2136,32 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
     except Exception:
         logging.exception("company save failed")
         raise HTTPException(status_code=500, detail="Could not save the profile. Please try again.")
+
+
+def partner_profile_from_invite(user: dict, partner: dict, setup: dict) -> dict | None:
+    """A client the partner set up when inviting them (partner_panel.invite): their profile is made as they
+    join, with daily drafts on and approval locked, so they skip onboarding and land on Today. The landing page
+    promises that CUSP sets up the voice; this is where it does (4 Nov 2026 launch audit)."""
+    if not (setup.get("industry") or "").strip() or list_companies(user["id"]):
+        return None
+    post_time = setup.get("post_time") or "09:00"
+    data = {"name": (setup.get("name") or user.get("name") or user.get("email", "").split("@")[0])[:80],
+            "industry": setup["industry"], "designation": setup.get("designation", ""),
+            "tone": setup.get("tone") or "professional", "knowledge": setup.get("knowledge", ""),
+            "post_time": post_time if re.fullmatch(r"\d{2}:\d{2}", post_time) else "09:00",
+            "timezone": valid_tz(setup.get("timezone", "")) or "", "profile_type": "personal",
+            "user_id": user["id"], "active": not partner["auto_posting"], "approval_mode": True}
+    company = save_company(data)
+    db.companies.update_one({"id": company["id"]}, {"$set": {"partner_id": partner["id"]}})
+    company["partner_id"] = partner["id"]
+    if company.get("active"):
+        _setup_company_cron(company)
+    db.users.update_one({"id": user["id"]}, {"$set": {"onboarding_done": True}})
+    if (setup.get("voice_posts") or "").strip():   # a paid read of their posts: not in the way of joining
+        threading.Thread(target=_apply_voice_posts, args=(company["id"], setup["voice_posts"]), daemon=True).start()
+    analytics.capture(user["id"], "profile_created", {"profile_type": "personal", "via": "partner_invite",
+                                                      "has_voice_posts": bool(setup.get("voice_posts"))})
+    return company
 
 
 @app.delete("/companies/{company_id}/voice")
