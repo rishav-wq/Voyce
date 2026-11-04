@@ -1570,7 +1570,13 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
 
         # A profile can publish to its own LinkedIn account (see linkedin.connection_for).
         conn = li.connection_for(company, user_id)
-        if not li.is_connected(conn):
+        import partners
+        # A partner seat never publishes without the client's click (LinkedIn API terms 3.1(26)), whatever the
+        # profile's approval flag or the run's caller says: a second lock after the API's (3 Nov 2026 review)
+        partner_lock = not (partners.for_company(company) or {}).get("auto_posting", True)
+        # So a partner's draft is written without LinkedIn too: the client connects when they approve it, or
+        # copies it and posts it themselves (4 Nov 2026 launch audit: unconnected clients got nothing)
+        if not li.is_connected(conn) and not partner_lock:
             raise ValueError("LinkedIn not connected for this profile")
 
         NEWS_HEAVY  = ("trend_commentary", "industry_stat", "trend_reaction", "stat_reaction")
@@ -1647,11 +1653,7 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
         log_entry["post_text"] = payload["post_text"]
         # DIY video items can never auto-publish (the asset doesn't exist until
         # the user generates it) — they always wait in the queue, approval mode
-        # or not, manual run or not.
-        import partners
-        # A partner seat never publishes without the client's click (LinkedIn API terms 3.1(26)), whatever the
-        # profile's approval flag or the run's caller says: a second lock after the API's (3 Nov 2026 review)
-        partner_lock = not (partners.for_company(company) or {}).get("auto_posting", True)
+        # or not, manual run or not. partner_lock (above) holds every partner seat's post.
         if do_diy_video or held_reason or partner_lock or (respect_approval and company.get("approval_mode")):
             pending_id = _save_pending(company, post_type, payload)
             log_entry["status"] = "pending_approval"

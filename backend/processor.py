@@ -35,7 +35,7 @@ def _url_fetch_error(exc: Exception, url: str) -> str:
     if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
         code = exc.response.status_code
         if code in (401, 402, 403, 451):
-            return (f"{site} blocks automated readers, so Voyce can't fetch this article. "
+            return (f"{site} blocks automated readers, so we can't fetch this article. "
                     f"Many news publishers do. Open it, copy the text, and use Paste Text "
                     f"instead — that works.")
         if code == 404:

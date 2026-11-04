@@ -135,8 +135,10 @@ async def _partner_context(request: Request, call_next):
                     return _partner_not_found(request, partner)
                 return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
             if path == "/robots.txt":
+                # its share image and icons too: LinkedIn's preview bot obeys robots.txt (and /?utm_… links)
                 return PlainTextResponse(
-                    "User-agent: *\nAllow: /$\nAllow: /terms\nAllow: /privacy\nDisallow: /\n\n"
+                    "User-agent: *\nAllow: /$\nAllow: /?\nAllow: /terms\nAllow: /privacy\n"
+                    f"Allow: /static/{partner['assets']}/\nDisallow: /\n\n"
                     f"Sitemap: {partners.base_url(partner)}/sitemap.xml\n")
             if path == "/sitemap.xml":
                 urls = "".join(f"<url><loc>{partners.base_url(partner)}{u}</loc></url>" for u in ("/", "/terms", "/privacy"))
@@ -213,6 +215,11 @@ class _RevalidatingStatic(StaticFiles):
         if low.startswith("partners/") and (not partner or not low.startswith(partner["assets"] + "/")
                                             or ".htm" in low.rsplit("/", 1)[-1]):
             # a partner's files only on its own address, and its pages only at /, /terms and /privacy
+            raise HTTPException(status_code=404)
+        if partner and not low.startswith("partners/") and (
+                low.endswith((".html", ".htm", ".txt", ".md", ".xml")) or low.startswith(("home/", "proof-", "og-image"))):
+            # Voyce's own pages (pricing, terms), its llms.txt and its landing and share images, which loaded raw
+            # on a partner's address (4 Nov 2026 launch audit). The app's pages have their own routes.
             raise HTTPException(status_code=404)
         if partner and path.endswith((".js", ".css")) and not path.startswith("partners/"):
             full = os.path.join(frontend_path, path)
@@ -2103,8 +2110,11 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
         data = _clean_li_photo(request.model_dump())
         data["user_id"] = user["id"]
         # Daily automation is an explicit opt-in: every new profile starts paused so
-        # nothing ever auto-posts before the user deliberately turns it on.
-        data["active"] = False
+        # nothing ever auto-posts before the user deliberately turns it on. A partner's client is the exception:
+        # the morning draft is what their seat is for, and on a partner's address nothing posts without Approve.
+        data["active"] = bool(partner and not partner["auto_posting"])
+        if data["active"]:
+            data["approval_mode"] = True
         if not pro:
             # Automated carousels are a Pro feature
             data["carousel_enabled"] = False
@@ -2378,6 +2388,14 @@ def approve_pending(pending_id: str, request: ApproveRequest | None = None,
                     x_token: str = Header(None)):
     user = _require_user(x_token)
     from autonomous import approve_pending_post
+    # Drafts are written before LinkedIn is connected (a partner's client), so say so instead of "try again"
+    pend = db.pending_posts.find_one({"id": pending_id, "user_id": user["id"], "status": "pending"},
+                                     {"_id": 0, "company_id": 1, "format": 1})
+    if pend and pend.get("format") != "diy_video":
+        company = db.companies.find_one({"id": pend.get("company_id"), "user_id": user["id"]}, {"_id": 0}) or {}
+        if not li.is_connected(li.connection_for(company, user["id"])):
+            raise HTTPException(status_code=409, detail="LINKEDIN_NEEDED: Connect your LinkedIn to publish this post. "
+                                                        "It stays in your queue until you do.")
     try:
         result = approve_pending_post(pending_id, user["id"],
                                       edited_text=(request.text if request else ""))

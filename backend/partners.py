@@ -50,6 +50,16 @@ PARTNERS: dict = {
         "auto_posting": False,                # LinkedIn API terms 3.1(26): a post goes live from a person's click
         "scheduling": False,
         "house_rules": _CUSP_HOUSE_RULES,
+        # Voyce's examples are for coaches and consultants; CUSP's clients lead IT, cloud and security firms
+        # (branding.transform, on the files as written: "Voyce" becomes the brand afterwards)
+        "copy": [
+            ("Answer one question and Voyce writes your first post, from this week's news in your niche. "
+             "Nothing posts until you say so.",
+             "Tell Voyce what you write about and it drafts your first post now, from this week's news in your field. "
+             "CUSP will refine your voice with you. Nothing is posted until you tap Approve."),
+            ("e.g. leadership, B2B marketing, fundraising", "e.g. cloud cost, AWS partnerships, security for mid-size firms"),
+            ("e.g. Fractional CMO, Leadership Coach, Consultant", "e.g. Founder & CEO, CISO, Head of Cloud"),
+        ],
         "clerk_publishable_env": "SOLVAI_CLERK_PUBLISHABLE_KEY",
         "clerk_secret_env": "SOLVAI_CLERK_SECRET_KEY",
         "sender_env": "SOLVAI_SENDER",

@@ -25,6 +25,16 @@ _WORDS = [(re.compile(r"\bgenerations\b"), "drafts"), (re.compile(r"\bgeneration
           (re.compile(r"\bGenerations\b"), "Drafts"), (re.compile(r" \(Pro\)"), ""),
           (re.compile(r"before scheduled or manual posting"), "before posting"),   # no scheduling on a seat
           (re.compile(r"Allow popups for voyce\.co\.in"), "Allow popups for this site")]
+# Voyce's free-plan and agency wording, false for an invite-only seat (4 Nov 2026 launch audit). Matched on the
+# files as written, before the name swap, so "Voyce" here is the partner's name by the time a client reads it.
+_SEAT_COPY = [(re.compile(re.escape(old)), new) for old, new in (
+    ("Voyce — Create your free account", "Voyce — Create your account"),
+    (" This used 1 of your 5 free generations.", " It used 1 of this month's drafts."),
+    ("You may have used your free generations; this one", "You may have used this month's drafts; this one"),
+    ("<h1>Welcome to Voyce 👋</h1>", "<h1>Welcome to Voyce</h1>"),
+    ('<a class="btn" href="/voice-check">Try it free</a>', ""),   # the free check isn't on a partner's address
+    ("free to look at", "they don't use a draft"),
+)] + [(re.compile(r'<p class="ob-company-note">.*?</p>', re.S), "")]   # "Posting for a client?": a seat is one person
 _CLERK_KEY = re.compile(r'data-clerk-publishable-key="[^"]*"')
 _CLERK_SRC = re.compile(r'src="https://clerk\.voyce\.co\.in/')
 _FAVICON = re.compile(r'<link rel="icon"[^>]*>')
@@ -67,6 +77,13 @@ def client_config(partner: dict) -> dict:
 
 def _head(partner: dict) -> str:
     t = partner["theme"]
+    # controls a seat can't use, which used to fail only at the last click (4 Nov 2026 launch audit)
+    hidden = []
+    if not partner["scheduling"]:
+        hidden += ['[onclick="openSchedule()"]', "#queue-section", "#schedule-modal"]
+    if partner["profiles_per_seat"] <= 1:
+        hidden.append("#profiles-head .btn-add")
+    hide = f"  {', '.join(hidden)} {{ display: none !important; }}\n" if hidden else ""
     return (f"<script>window.PARTNER = {json.dumps(client_config(partner))};</script>\n"
             '<script src="/static/partner.js?v=1"></script>\n'
             f"""<style id="partner-css">
@@ -76,9 +93,7 @@ def _head(partner: dict) -> str:
   /* no publishing as someone else: each client connects their own LinkedIn */
   [onclick*="inviteLinkedIn"] {{ display: none !important; }}
   .partner-logo {{ height: 22px; width: auto; display: block; }}
-  .side-foot::after {{ content: "Powered by Voyce"; display: block; font-size: 11px; color: rgba(255,255,255,.45);
-    padding: 2px 4px 0; letter-spacing: .02em; }}
-  :root {{ --partner-navy: {t['navy']}; --partner-accent: {t['orange']}; --partner-accent-hover: {t['orange_hover']}; }}
+{hide}  :root {{ --partner-navy: {t['navy']}; --partner-accent: {t['orange']}; --partner-accent-hover: {t['orange_hover']}; }}
 </style>
 """)
 
@@ -96,10 +111,14 @@ def transform(text: str, kind: str, partner: dict, logo: str = "on-dark") -> str
             text = _CLERK_SRC.sub(f'src="https://{domain}/', text)
         text = _FAVICON.sub(f'<link rel="icon" type="image/png" href="{a}/icon-64.png" />'
                             f'<link rel="apple-touch-icon" href="{a}/icon-180.png" />', text, count=1)
+    for pattern, words in _SEAT_COPY:
+        text = pattern.sub(words, text)
+    for old, new in partner.get("copy", ()):   # the partner's own wording, for its clients' world
+        text = text.replace(old, new)
     text = _WORD.sub(partner["brand"], text)
     for pattern, word in _WORDS:
         text = pattern.sub(word, text)
-    if kind == "html":   # after the word swaps, so its "Powered by Voyce" stays as it is
+    if kind == "html":   # after the word swaps, so nothing in the partner's head gets swapped
         text = text.replace("</head>", _head(partner) + "</head>", 1)
     return text
 

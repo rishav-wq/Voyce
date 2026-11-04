@@ -1504,6 +1504,10 @@
               </div>
               <!-- Review mode sits right under the main switch, not behind the
                    settings disclosure: it decides whether anything goes out unseen. -->
+              ${_approvalOnly() ? `
+              <div style="font-size:11.5px;color:#5b6270;margin:0 0 10px 46px;line-height:1.45;">
+                We email you each draft. Nothing is posted until you tap Approve.
+              </div>` : `
               <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${!!p.approval_mode}" style="margin-bottom:4px;"
                      aria-label="Ask before each post for ${p.name}"
                      onclick="toggleApproval('${p.id}')"
@@ -1515,7 +1519,7 @@
                 ${p.approval_mode
                   ? "We email you each post to approve. Nothing goes out unseen."
                   : "Posts go out automatically, without your review."}
-              </div>
+              </div>`}
               <!-- The card carried eleven controls at equal weight. What you touch
                    daily is the switch above; the rest is setup, so it sits behind
                    one disclosure. The selects stay in the DOM either way, which is
@@ -1555,7 +1559,7 @@
               </div>
               </details>
             ` : `
-              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes a post as ${p.name} every day, for you to approve or to post automatically.${_isFreePlan() ? ` <span style="color:#a7aebb;">(Pro)</span>` : ""}</div>
+              <div style="font-size:11.5px;color:#98a0ae;margin:6px 0 0 46px;line-height:1.45;">Off — Voyce only writes when you ask. Turn on and it writes a post as ${p.name} every day, for you to approve${_approvalOnly() ? "" : " or to post automatically"}.${_isFreePlan() ? ` <span style="color:#a7aebb;">(Pro)</span>` : ""}</div>
             `}
             ${_tzNudge(p)}
           </div>
@@ -1620,7 +1624,12 @@
 
     function _isFreePlan() {
       const p = (window._planInfo || {}).plan;
-      return !!p && p !== "pro" && p !== "admin";
+      return !!p && p !== "pro" && p !== "admin" && p !== "partner";   // a partner's seat is paid for
+    }
+
+    // On a partner's address every post waits for the client's Approve (partners.py auto_posting)
+    function _approvalOnly() {
+      return !!window.PARTNER && !window.PARTNER.auto_posting;
     }
 
     function isProRequired(data) {
@@ -1667,9 +1676,13 @@
     // An India pass with its 60 generations used: previews and idea lists come out of them too.
     function _outOfPassHtml(detail) {
       const msg = String(detail || "").slice("PASS_LIMIT_REACHED:".length) || "You've used this pass's generations.";
+      const P = window.PARTNER;   // a seat's month: the partner adds drafts, there's nothing to renew here
       return `<div style="font-size:13.5px;color:#16181d;line-height:1.55;padding:4px 0;">${msg.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</div>
-        <div style="margin-top:14px;display:flex;gap:8px;"><button class="act-btn" style="background:#24365e;color:#fff;border-color:#24365e;"
-          onclick="closePreviewModal();openUpgradeModal();">Renew Pro</button>
+        <div style="margin-top:14px;display:flex;gap:8px;">${P
+          ? `<a class="act-btn" style="background:#24365e;color:#fff;border-color:#24365e;text-decoration:none;"
+               href="mailto:${P.support_email}">Ask ${P.company} for more</a>`
+          : `<button class="act-btn" style="background:#24365e;color:#fff;border-color:#24365e;"
+          onclick="closePreviewModal();openUpgradeModal();">Renew Pro</button>`}
           <button class="act-btn" onclick="closePreviewModal()">Close</button></div>`;
     }
     function _outOfFreeHtml(what) {
@@ -1794,7 +1807,9 @@
         loadProfiles();   // the switch goes back to off
         return;
       }
-      if (active) {
+      if (active && _approvalOnly()) {
+        choice = "ask";   // nothing to choose: every draft waits for Approve
+      } else if (active) {
         const p = (currentProfiles || []).find(x => x.id === id);
         const who = p ? p.name : "this profile";
         choice = await voyceChoose({
@@ -2314,6 +2329,12 @@
         });
         const data = await res.json().catch(() => ({}));
         if (res.status === 410) { toast(data.detail || "This post expired, so it won't go out.", "warn"); loadPending(); loadLog(); return; }
+        if (res.status === 409 && String(data.detail || "").startsWith("LINKEDIN_NEEDED:")) {
+          toast(data.detail.slice("LINKEDIN_NEEDED:".length).trim(), "warn");
+          if (btn) { btn.disabled = false; btn.textContent = restore; }
+          connectLinkedIn();
+          return;
+        }
         if (!res.ok) throw new Error(data.detail || "Publish failed — the post is still in your queue.");
         const card = document.getElementById(`pending-${id}`);
         if (card && data.status === "posted") {
@@ -3459,9 +3480,7 @@
           btn.style.display = "none";
           banner.style.borderColor = "#e4e7ec";
           banner.style.background = "#ffffff";
-          return;
-        }
-        if (info.plan === "admin" || info.plan === "pro") {
+        } else if (info.plan === "admin" || info.plan === "pro") {
           if (sideUpsell) sideUpsell.style.display = "none";
           badge.textContent = info.plan === "admin" ? "Admin" : "Pro";
           badge.className = "plan-badge pro-badge";
@@ -3509,8 +3528,8 @@
         if (ap) ap.innerHTML = `<span class="${badge.className}">${_escHtml(badge.textContent)}</span> ${text.innerHTML}`;
         const quietPro = (info.plan === "pro" || info.plan === "admin") && btn.style.display === "none";
         if (apb) { apb.style.display = quietPro ? "none" : ""; apb.textContent = btn.textContent.trim() || "⚡ Upgrade to Pro"; }
-        // On every page only while it asks something of you (free allowance, a pass ending).
-        if (quietPro) banner.style.display = "none";
+        // On every page only while it asks something of you (free allowance, a pass ending, a seat nearly used up).
+        if (quietPro || (info.plan === "partner" && info.limit - info.used > 5)) banner.style.display = "none";
         updateLiBanner(liConnected);
         updateLiStat(liConnected);
         if (currentProfiles.length) {

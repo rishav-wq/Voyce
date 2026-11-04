@@ -91,7 +91,8 @@ def _in_partner_name(partner: dict, subject: str, text: str, html_body: str) -> 
     import branding
     base = partners.base_url(partner)
     word = re.compile(r"\bVoyce\b")
-    swap = lambda t: word.sub(partner["brand"], (t or "").replace(APP_URL, base))
+    keep = "powered by Voyce"   # the one place Voyce is named on purpose: it runs the service (the privacy notice says so)
+    swap = lambda t: word.sub(partner["brand"], (t or "").replace(APP_URL, base).replace(keep, "\0")).replace("\0", keep)
     return swap(subject), swap(text), branding._colours(swap(html_body), partner)
 
 
@@ -454,7 +455,8 @@ def partner_reminder(partner: dict, user: dict, waiting: int, sent_by: str = "")
     n = f"{waiting} draft{'s' if waiting != 1 else ''}"
     intro = (f"You have {n} waiting in {html.escape(brand)}. Read {'them' if waiting != 1 else 'it'}, change anything "
              "you like, and tap Approve when it sounds like you." if waiting else
-             f"A quick nudge from {html.escape(sent_by or firm)}: your next post in {html.escape(brand)} is a few minutes away.")
+             f"{html.escape(sent_by or firm)} thought you might like to write this week's post. It takes a few minutes "
+             f"in {html.escape(brand)}, and nothing goes out until you approve it.")
     text = f"{html.unescape(intro)}\n\n{url}"
     body = _layout(f"{n.capitalize()} waiting for you" if waiting else f"Your {brand} posts", [intro],
                    button=("Open " + brand, url), partner=partner)

@@ -32,6 +32,22 @@ INVITE_DAYS = 14
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def _sender_name(user: dict, partner: dict) -> str:
+    """How the team member is named in an invite or a reminder: "MB Sam", or the firm when the sign-in gave no
+    real name (Clerk with email codes leaves only the address's first part, which made "sam invited you")."""
+    name = (user.get("name") or "").strip()
+    handle = (user.get("email") or "").split("@")[0].strip().lower()
+    return partner["company_short"] if not name or name.lower() == handle else name
+
+
+def _waiting(uid: str) -> dict:
+    """A client's drafts still waiting for Approve. A draft expires after 48 hours, but it's only marked so when the
+    client opens their queue, and the clients Sam needs to nudge are the ones who don't (4 Nov 2026 launch audit)."""
+    from autonomous import PENDING_TTL_HOURS
+    cutoff = (datetime.now() - timedelta(hours=PENDING_TTL_HOURS)).isoformat()
+    return {"user_id": uid, "status": "pending", "created_at": {"$gte": cutoff}}
+
+
 # ── who's asking ──────────────────────────────────────────────────────────────
 
 def _user(x_token: str) -> dict:
@@ -129,7 +145,7 @@ def _client_row(u: dict, partner: dict) -> dict:
         "name": (c or {}).get("name") or u.get("name", ""), "title": (c or {}).get("designation", ""),
         "profile_id": (c or {}).get("id", ""), "has_profile": bool(c),
         "daily_drafts": bool((c or {}).get("active")), "linkedin": li_on,
-        "waiting": db.pending_posts.count_documents({"user_id": u["id"], "status": "pending"}),
+        "waiting": db.pending_posts.count_documents(_waiting(u["id"])),
         "posts_this_month": db.partner_activity.count_documents({"user_id": u["id"], "kind": "posted",
                                                                  "at": {"$gte": _month_start()}}),
         "last_post": (last or {}).get("at", ""),
@@ -184,7 +200,7 @@ def invite(req: InviteRequest, request: Request, x_token: str = Header(None)):
            "expires_at": (_now() + timedelta(days=INVITE_DAYS)).isoformat()}
     db.partner_invites.insert_one({**inv})
     link = f"{partners.url_for_request(partner, request.headers.get('host', ''))}/signup?invite={inv['token']}"
-    emailed = notify.partner_invite(partner, inv, link, inviter=user.get("name", ""))
+    emailed = notify.partner_invite(partner, inv, link, inviter=_sender_name(user, partner))
     log(None, "invited", email, by=user.get("email", ""), partner_id=partner["id"])
     # The link comes back too, so the team can send it on WhatsApp as well
     return {"id": inv["id"], "email": email, "link": link, "emailed": emailed}
@@ -231,7 +247,7 @@ def client_detail(uid: str, x_token: str = Header(None)):
     comps = list_companies(uid)
     prof = comps[0] if comps else {}
     keep = ("id", "name", "designation", "industry", "tone", "knowledge", "post_time", "timezone", "active")
-    drafts = list(db.pending_posts.find({"user_id": uid, "status": "pending"},
+    drafts = list(db.pending_posts.find(_waiting(uid),
                                         {"_id": 0, "id": 1, "post_text": 1, "post_type": 1, "created_at": 1,
                                          "format": 1, "slide_previews": 1}).sort("created_at", -1).limit(10))
     for d in drafts:
@@ -272,8 +288,8 @@ def remind(uid: str, x_token: str = Header(None)):
     c = _client(partner, uid)
     if c.get("seat") != "active":
         raise HTTPException(status_code=400, detail="This client doesn't have a seat.")
-    waiting = db.pending_posts.count_documents({"user_id": uid, "status": "pending"})
-    sent = notify.partner_reminder(partner, c, waiting, sent_by=user.get("name", ""))
+    waiting = db.pending_posts.count_documents(_waiting(uid))
+    sent = notify.partner_reminder(partner, c, waiting, sent_by=_sender_name(user, partner))
     if sent:
         log(c, "reminded", f"{waiting} waiting", by=user.get("email", ""))
     return {"sent": sent, "waiting": waiting,
@@ -317,8 +333,9 @@ def invite_info(token: str = ""):
     if not partner:
         raise HTTPException(status_code=404, detail="Not found")
     inv = _invite_by_token(partner, token)
-    if not inv:
-        return {"valid": False}
+    if not inv:   # a client who already joined reopens the email as a bookmark: send them to sign in, not to CUSP
+        raw = db.partner_invites.find_one({"token": token, "partner_id": partner["id"]}, {"_id": 0, "status": 1}) if token else None
+        return {"valid": False, "used": bool(raw and raw.get("status") == "used")}
     return {"valid": True, "email": inv["email"], "name": inv.get("name", ""), "brand": partner["brand"]}
 
 

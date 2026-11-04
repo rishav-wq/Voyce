@@ -146,6 +146,9 @@ function showError(msg) {
     a.href = "#"; a.textContent = "Renew Pro";
     a.style.cssText = "color:#24365e;font-weight:700;";
     a.onclick = (e) => { e.preventDefault(); openUpgradeModal(); };
+    if (window.PARTNER) {   // a seat's month: the partner adds drafts, there's nothing to renew here
+      a.href = `mailto:${window.PARTNER.support_email}`; a.textContent = `Ask ${window.PARTNER.company} for more`; a.onclick = null;
+    }
     el.appendChild(a);
   } else {
     el.textContent = msg;
@@ -618,7 +621,7 @@ function _openChat(to, text) {
   const url = "https://wa.me/" + (to || "") + (text ? "?text=" + encodeURIComponent(text) : "");
   const w = window.open(url, "_blank");
   if (w) { try { w.opener = null; } catch (_) {} return true; }
-  toast("The browser blocked WhatsApp from opening: allow pop-ups for voyce.co.in, then press the button again.", "warn");
+  toast("The browser blocked WhatsApp from opening: allow pop-ups for this site, then press the button again.", "warn");
   return false;
 }
 function _waIntro(kind) {
@@ -1459,7 +1462,7 @@ function downloadCarousel() {
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
   const a = document.createElement("a");
   a.href = "data:application/pdf;base64," + _carouselPdfBase64;
-  a.download = "voyce-carousel.pdf";
+  a.download = "carousel.pdf";
   a.click();
 }
 

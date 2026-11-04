@@ -40,10 +40,10 @@
     `color:${primary ? "#fff" : "#16181d"};font:600 14px Inter,system-ui,sans-serif;padding:11px 18px;border-radius:10px;cursor:pointer;">${label}</button>`;
   const mail = `<a href="mailto:${P.support_email}" style="color:${P.theme.ink};font-weight:600;">${P.support_email}</a>`;
 
-  window.partnerSignOut = async function () {
+  window.partnerSignOut = async function (next) {
     forget();
     try { localStorage.removeItem("cm_user"); await window.Clerk.signOut(); } catch (_) {}
-    location.href = "/login";
+    location.href = next || "/login";
   };
 
   async function join(user, t) {
@@ -64,8 +64,10 @@
       return;
     }
     forget();
+    // Signed up with another address: sign out back to the invite, which sign-out would otherwise forget
+    const back = res && res.status === 403 ? `partnerSignOut('/signup?invite=${encodeURIComponent(t)}')` : "partnerSignOut()";
     screen("This invite didn't work", [String((data && data.detail) || "Something went wrong. Try the link again.").replace(/</g, "&lt;"),
-                                       `Need help? Write to ${mail}.`], btn("Sign out", "partnerSignOut()", true));
+                                       `Need help? Write to ${mail}.`], btn("Sign out", back, true));
   }
 
   // true: the page must stop here (a screen is showing, or the browser is moving on)
@@ -152,7 +154,12 @@
       try {
         const info = await (await fetch("/partner/invite-info?token=" + encodeURIComponent(t))).json();
         if (info.valid) box.innerHTML = `You're invited to ${P.brand}. Create your account with <b>${info.email.replace(/</g, "&lt;")}</b>.`;
-        else { box.textContent = `This invite has expired or was used. Ask ${P.company} for a new one.`; forget(); }
+        else if (info.used) {   // already joined: this is a sign-in, not a new account
+          forget();
+          if (location.pathname === "/signup") { location.replace("/login"); return; }
+          box.textContent = `You've already joined ${P.brand}. Sign in with the email your invite went to.`;
+        }
+        else { box.textContent = `This invite has expired. Ask ${P.company} for a new one.`; forget(); }
       } catch (_) { return; }
     } else if (location.pathname === "/signup") {
       box.innerHTML = `${P.brand} is by invitation from ${P.company}. Use the link in your invite email.`;
