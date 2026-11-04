@@ -1,0 +1,106 @@
+/* SOLVAI by CUSP: the landing's look in the app, sign-in, onboarding, the client panel and the 404 page.
+   Linked by branding._head() after the app's own CSS, so equal specificity wins. Tokens from the 4 Nov 2026 launch
+   audit (ui-report §7): DM Sans, CUSP navy, one orange primary, flat fills, nothing lighter than --sv-muted for text. */
+:root {
+  --sv-navy-900: #070F24; --sv-navy-800: #0A1739; --sv-navy-600: #213C77; --sv-navy-50: #EEF1F8;
+  --sv-orange-700: #A04516; --sv-orange-600: #B9521C; --sv-orange-500: #E06D2E; --sv-coral-400: #F88860;
+  --sv-orange-50: #FDF1EA; --sv-orange-line: #F3CDB5;
+  --sv-ink: #0A1739; --sv-muted: #5A6482; --sv-line: #E1E6F0; --sv-line-strong: #8A93AD;
+  --sv-bg: #FFFFFF; --sv-tile: #F4F6FA;
+  --sv-success: #1E7A4F; --sv-success-bg: #E7F4EC; --sv-danger: #B42318;
+  --sv-focus: #E06D2E;
+  --sv-font: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sv-r-pill: 999px; --sv-r-card: 18px; --sv-r-input: 12px;
+  --sv-control: 44px;
+  /* the app's own variables, pointed at SOLVAI's */
+  --paper: var(--sv-tile); --navy: var(--sv-navy-800); --navy-hover: var(--sv-navy-600); --r-card: 18px; --r-btn: 999px;
+}
+
+/* ── Type: DM Sans everywhere; buttons and fields used to fall back to Arial ── */
+html body, html body *:not(code):not(pre):not(kbd):not(samp) { font-family: var(--sv-font) !important; }
+button, input, select, textarea { font-size: inherit; }
+h1, h2, h3, .section-head h2, .sec-head h2 { letter-spacing: -.02em; color: var(--sv-ink); }
+
+/* ── Ground: flat, no gradients ── */
+body { background: var(--sv-tile) !important; color: var(--sv-ink); }
+
+/* ── The one primary action per view: orange pill, 44 px ── */
+.act-btn.primary, .btn-add, #generate-btn, .submit-btn, .btn.primary, .li-banner-btn, .card-li-up-btn,
+.action-btn.primary, #post-now-btn {
+  background: var(--sv-orange-600) !important; border-color: var(--sv-orange-600) !important; color: #fff !important;
+  border-radius: var(--sv-r-pill) !important; min-height: var(--sv-control); padding: 0 20px;
+  font-size: 15px !important; font-weight: 600 !important; box-shadow: none !important;
+}
+.act-btn.primary:hover, .btn-add:hover, #generate-btn:hover, .submit-btn:hover, .btn.primary:hover,
+.li-banner-btn:hover, .action-btn.primary:hover, #post-now-btn:hover { background: var(--sv-orange-700) !important; }
+/* everything else: a white pill with a visible border */
+.act-btn, .action-btn, .btn, .up-change, .seg button { border-radius: var(--sv-r-pill) !important; min-height: 36px; }
+.act-btn:not(.primary), .action-btn:not(.primary) { border-color: var(--sv-line-strong); }
+.act-btn.quiet { color: var(--sv-muted); }
+.act-btn.quiet.danger { color: var(--sv-danger); }
+a { text-underline-offset: 2px; }
+
+/* ── Fields ── */
+input[type="text"], input[type="email"], input[type="url"], input[type="time"], input:not([type]), textarea, select {
+  border-color: var(--sv-line-strong); border-radius: var(--sv-r-input);
+}
+
+/* ── Status: orange for "needs you", green for done, no amber ── */
+.nav-count, .side-item.active .nav-count { background: var(--sv-orange-600) !important; color: #fff !important; }
+.pend-card, .q-status.waiting { background: var(--sv-orange-50); border-color: var(--sv-orange-line); }
+.q-status.waiting .q-dot { background: var(--sv-orange-500); box-shadow: none; }
+.plan-badge.pro-badge { background: var(--sv-navy-50); color: var(--sv-navy-600); }
+.li-status-pill.connected { background: transparent; border-color: rgba(255, 255, 255, .3); color: #fff; }
+.li-status-pill.connected .dot { background: #6FD3A0; }
+
+/* ── Shape ── */
+.profile-card, .glance-tile, .acct-card, #upcoming-list, .q-status, .empty-state { border-radius: var(--sv-r-card); }
+
+/* ── Readable small text: nothing lighter than muted ── */
+.up-hint, .up-day-h, .q-hint, .seg-hint, .pend-meta, .form-hint, .optional-tag, .ob-skip, .feed time, .lg-when .lg-time {
+  color: var(--sv-muted) !important;
+}
+
+/* ── Focus you can see, on light and on the navy sidebar ── */
+:focus-visible { outline: 2px solid var(--sv-focus) !important; outline-offset: 2px; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline-color: var(--sv-focus) !important; }
+
+/* ── Motion: none for people who ask for none ── */
+@media (prefers-reduced-motion: reduce) {
+  .dash-body > *, .view.on { animation: none !important; }
+  * { transition: none !important; }
+}
+
+/* ── Phone: 44 px targets ── */
+@media (max-width: 860px) {
+  button, .act-btn, .action-btn, .up-change, .seg button, .carousel-toggle-row { min-height: var(--sv-control); }
+}
+
+/* ── Sign-in and sign-up: on SOLVAI navy, as the landing's dark sections, with Clerk's card in white ── */
+body:has(#clerk-sign-in) { background: var(--sv-navy-900) !important; }
+body:has(#clerk-sign-in) .auth-tagline { color: var(--sv-coral-400); font-weight: 500; letter-spacing: .02em; }
+body:has(#clerk-sign-in) .partner-logo { height: 30px; margin: 0 auto; }
+body:has(#clerk-sign-in) #auth-legal, body:has(#clerk-sign-in) #auth-legal a { color: rgba(255, 255, 255, .78) !important; }
+body:has(#clerk-sign-in) > p:not(.auth-tagline):not(#auth-legal) { color: rgba(255, 255, 255, .85) !important; }
+body:has(#clerk-sign-in) > p b { color: #fff; }
+html body .cl-headerTitle { font-family: var(--sv-font) !important; color: var(--sv-ink) !important; }
+html body .cl-formButtonPrimary {
+  background-color: var(--sv-orange-600) !important; border-radius: var(--sv-r-pill) !important; min-height: var(--sv-control);
+}
+html body .cl-formButtonPrimary:hover { background-color: var(--sv-orange-700) !important; }
+html body .cl-footerActionLink { color: var(--sv-orange-700) !important; }
+
+/* ── One orange action per view: on Today that's Approve, so the weekly question's button steps back ── */
+.act-btn.primary[onclick^="answerQuestion"] {
+  background: #fff !important; color: var(--sv-ink) !important; border-color: var(--sv-line-strong) !important;
+}
+.act-btn.primary[onclick^="answerQuestion"]:hover { background: var(--sv-tile) !important; }
+
+/* ── Phone: Approve stays in reach while the draft is on screen (it sat below the first screen, under the post) ── */
+@media (max-width: 860px) {
+  .pend-card .pend-actions {
+    position: sticky; bottom: 0; z-index: 2; margin: 12px -18px -16px; padding: 12px 18px;
+    background: var(--sv-orange-50); border-top: 1px solid var(--sv-orange-line); border-radius: 0 0 var(--sv-r-card) var(--sv-r-card);
+  }
+  #upcoming-list .up-change { width: auto !important; justify-self: start; min-height: 40px; padding: 0 18px; }
+}

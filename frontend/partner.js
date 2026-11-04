@@ -25,7 +25,7 @@
     const wrap = document.createElement("div");
     wrap.id = "partner-gate";
     wrap.style.cssText = "position:fixed;inset:0;z-index:5000;background:#f6f7f9;display:flex;align-items:center;" +
-      "justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;";
+      "justify-content:center;padding:24px;font-family:var(--sv-font, Inter, system-ui, sans-serif);";
     wrap.innerHTML =
       `<div style="max-width:440px;width:100%;background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:32px 28px;text-align:center;">
         <img src="${esc(P.logo_on_light)}" alt="${esc(P.brand)}" style="height:26px;margin:0 auto 22px;display:block;">
@@ -37,7 +37,7 @@
   }
   const btn = (label, onclick, primary) =>
     `<button onclick="${onclick}" style="border:${primary ? "none" : "1px solid #d3d8e0"};background:${primary ? P.theme.orange : "#fff"};` +
-    `color:${primary ? "#fff" : "#16181d"};font:600 14px Inter,system-ui,sans-serif;padding:11px 18px;border-radius:10px;cursor:pointer;">${label}</button>`;
+    `color:${primary ? "#fff" : "#16181d"};font:600 14px var(--sv-font, Inter, system-ui, sans-serif);padding:11px 18px;border-radius:999px;cursor:pointer;">${label}</button>`;
   const mail = `<a href="mailto:${P.support_email}" style="color:${P.theme.ink};font-weight:600;">${P.support_email}</a>`;
 
   window.partnerSignOut = async function (next) {
@@ -106,7 +106,7 @@
     const wrap = document.createElement("div");
     wrap.id = "partner-consent";
     wrap.style.cssText = "position:fixed;inset:0;z-index:5000;background:rgba(10,23,57,.45);display:flex;align-items:center;" +
-      "justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;";
+      "justify-content:center;padding:20px;font-family:var(--sv-font, Inter, system-ui, sans-serif);";
     const li = s => `<li style="margin:0 0 8px;">${s}</li>`;
     wrap.innerHTML =
       `<div role="dialog" aria-modal="true" aria-labelledby="pc-h" style="max-width:480px;width:100%;background:#fff;border-radius:16px;padding:26px 24px;">
@@ -119,8 +119,8 @@
         </ul>
         <p style="font-size:13px;color:#5b6270;margin:0 0 18px;">More in the <a href="/privacy" target="_blank" style="color:${P.theme.ink};">privacy notice</a>.</p>
         <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-          <button id="pc-no" style="border:1px solid #d3d8e0;background:#fff;color:#16181d;font:600 14px Inter,system-ui,sans-serif;padding:11px 16px;border-radius:10px;cursor:pointer;">Not now</button>
-          <button id="pc-yes" style="border:none;background:${P.theme.orange};color:#fff;font:600 14px Inter,system-ui,sans-serif;padding:11px 16px;border-radius:10px;cursor:pointer;">I agree, connect LinkedIn</button>
+          <button id="pc-no" style="border:1px solid #d3d8e0;background:#fff;color:#16181d;font:600 14px var(--sv-font, Inter, system-ui, sans-serif);padding:11px 16px;border-radius:999px;cursor:pointer;">Not now</button>
+          <button id="pc-yes" style="border:none;background:${P.theme.orange};color:#fff;font:600 14px var(--sv-font, Inter, system-ui, sans-serif);padding:11px 16px;border-radius:999px;cursor:pointer;">I agree, connect LinkedIn</button>
         </div>
       </div>`;
     document.body.appendChild(wrap);

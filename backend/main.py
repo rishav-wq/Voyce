@@ -2447,8 +2447,10 @@ def _approve_shell_html(title: str, inner: str) -> str:
 
 
 def _btn(label: str, href: str = "", primary: bool = False, form_action: str = "") -> str:
-    style = ("display:inline-block;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px;"
-             + ("background:#24365e;color:#fff;border:1px solid #24365e;" if primary
+    partner = partners.current()   # a partner's page: its orange pill, as on its landing and in the app
+    accent, radius = (partner["theme"]["orange"], "999px") if partner else ("#24365e", "10px")
+    style = (f"display:inline-block;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:{radius};"
+             + (f"background:{accent};color:#fff;border:1px solid {accent};" if primary
                 else "background:#fff;color:#24365e;border:1px solid #d3d8e0;"))
     if form_action:
         return (f'<form method="post" action="{html_escape(form_action)}" style="display:inline;margin:0;">'

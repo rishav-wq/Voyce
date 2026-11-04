@@ -28,7 +28,7 @@ _CUSP_HOUSE_RULES = """CUSP's house rules (the 4 I's), for every post:
 PARTNERS: dict = {
     "cusp": {
         "id": "cusp",
-        "brand": "Solvai",                    # the product name clients see
+        "brand": "SOLVAI",                    # the product name clients see, in Sam's own spelling (his page, the logo)
         "brand_full": "SOLVAI by CUSP",
         "tagline": "Originality, Amplified.",
         "company": "Acies Cusp Services LLP",
@@ -59,17 +59,37 @@ PARTNERS: dict = {
              "CUSP will refine your voice with you. Nothing is posted until you tap Approve."),
             ("e.g. leadership, B2B marketing, fundraising", "e.g. cloud cost, AWS partnerships, security for mid-size firms"),
             ("e.g. Fractional CMO, Leadership Coach, Consultant", "e.g. Founder & CEO, CISO, Head of Cloud"),
+            ("<span>Queue</span>", "<span>Today</span>"),   # the landing's word for the morning draft
+            ("e.g. why most sales follow-ups die at the second email…",
+             "e.g. why most cloud migrations stall in the second quarter…"),
+            ('<p class="auth-tagline">LinkedIn posts that sound like <em class="you">you</em>.</p>',
+             '<p class="auth-tagline">Originality, Amplified.</p>'),
         ],
         "clerk_publishable_env": "SOLVAI_CLERK_PUBLISHABLE_KEY",
         "clerk_secret_env": "SOLVAI_CLERK_SECRET_KEY",
         "sender_env": "SOLVAI_SENDER",
-        "sender_default": "Solvai <solvai@notify.voyce.co.in>",   # Resend sends only from a verified domain (3 Nov: notify.voyce.co.in)
+        "sender_default": "SOLVAI <solvai@notify.voyce.co.in>",   # Resend sends only from a verified domain (3 Nov: notify.voyce.co.in)
         "admins_env": "SOLVAI_ADMINS",
-        "assets": "partners/solvai",          # under frontend/: landing, terms, privacy, logos
+        "assets": "partners/solvai",          # under frontend/: landing, terms, privacy, logos, app.css
+        "fonts": ["https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700"
+                  "&display=swap"],           # the landing's type, in the app too (app.css)
         "theme": {                            # Sam's own colour codes (solvai-landing_draft1.html)
             "navy": "#0A1739", "navy_deep": "#070F24", "orange": "#B9521C", "orange_hover": "#A04516",
             "coral": "#F88860", "blue": "#213C77", "ink": "#0A1739", "muted": "#5A6482",
             "line": "#E1E6F0", "sand": "#F4F1EA",
+        },
+        # Voyce's other colours in SOLVAI's palette (launch audit, ui-report §7): light greys darkened to readable
+        # text, amber "needs you" to orange tints, greens to one success green, blues to orange and ink
+        "recolour": {
+            "#98a0ae": "#5A6482", "#a7aebb": "#5A6482", "#8a909c": "#5A6482", "#7c8698": "#5A6482",
+            "#7a8190": "#5A6482", "#6d7482": "#5A6482", "#aaa": "#5A6482", "#999": "#5A6482", "#888": "#5A6482",
+            "#16181d": "#0A1739", "#1a1a1a": "#0A1739", "#e4e7ec": "#E1E6F0", "#eef0f4": "#E1E6F0",
+            "#f6f7f9": "#F4F6FA", "#f5f5f7": "#F4F6FA", "#e7ebf4": "#EEF1F8",
+            "#b07d1a": "#B9521C", "#d18b00": "#B9521C", "#9a5b00": "#A04516",
+            "#fff8e6": "#FDF1EA", "#fffdf6": "#FDF1EA", "#fdf3e1": "#FDF1EA", "#f0d58a": "#F3CDB5", "#ecdca6": "#F3CDB5",
+            "#057642": "#1E7A4F", "#18a07a": "#1E7A4F", "#e6f4ea": "#E7F4EC", "#a5d6a7": "#B7DDC6", "#8fe3bd": "#6FD3A0",
+            "#c0392b": "#B42318",
+            "#8fb4ff": "#FFFFFF", "#7aa2ff": "#E06D2E", "#5c8fff": "#E06D2E", "#2f5bc4": "#0A1739", "#3b66c4": "#0A1739",
         },
     },
 }

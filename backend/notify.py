@@ -57,7 +57,12 @@ def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None 
     templates land in Promotions; this should read like a note from a person.
     A partner's email uses the partner's colour for the bar and the button."""
     accent = (partner or {}).get("theme", {}).get("orange", "#24365e") if partner else "#24365e"
-    parts = [f'<p style="font-size:17px;font-weight:600;color:#16181d;margin:0 0 14px;">{html.escape(heading)}</p>']
+    parts = []
+    if partner:   # the partner's wordmark on top, as on its pages (a partner's email has no other branding)
+        logo = f"{partners.base_url(partner)}/static/{partner['assets']}/logo-on-light.png"
+        parts.append(f'<img src="{html.escape(logo)}" alt="{html.escape(partner["brand"])}" height="22" '
+                     'style="display:block;height:22px;width:auto;margin:0 0 20px;border:0;">')
+    parts.append(f'<p style="font-size:17px;font-weight:600;color:#16181d;margin:0 0 14px;">{html.escape(heading)}</p>')
     for p in paragraphs:
         parts.append(f'<p style="font-size:15px;line-height:1.55;color:#333;margin:0 0 14px;">{p}</p>')
     if quote:
@@ -70,10 +75,12 @@ def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None 
         parts.append(
             f'<p style="margin:0 0 20px;"><a href="{html.escape(url)}" style="display:inline-block;'
             f'background:{accent};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;'
-            f'padding:11px 20px;border-radius:8px;">{html.escape(label)}</a></p>')
+            f'padding:11px {"22px" if partner else "20px"};border-radius:{"999px" if partner else "8px"};">'
+            f'{html.escape(label)}</a></p>')
     if footer:
         parts.append(f'<p style="font-size:12.5px;line-height:1.5;color:#7a8190;margin:18px 0 0;">{footer}</p>')
-    return ('<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Inter,Arial,sans-serif;'
+    font = "'DM Sans'," if partner else ""   # the partner's type where the reader has it, system fonts otherwise
+    return (f'<div style="font-family:{font}-apple-system,BlinkMacSystemFont,\'Segoe UI\',Inter,Arial,sans-serif;'
             'max-width:560px;margin:0 auto;padding:8px 4px;">' + "".join(parts) + "</div>")
 
 
@@ -163,18 +170,24 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
     if len(preview) > 700:
         preview = preview[:700].rstrip() + "…"
     src_text, src_html = _sources_line(sources)
+    partner = partners.for_company(company)
+    in_partner = bool(partner)
     if held_reason:
         subject = f"Check this post before it goes out ({name})"
         intro = (f"Voyce wrote today's {html.escape(post_type)} for {html.escape(name)}, but held it back "
                  f"instead of posting it: {html.escape(held_reason)}")
+    elif in_partner:   # a seat is one person: to them, about their own post
+        subject = "Today's draft is ready for your OK"
+        intro = ("Your draft for today is ready. Read it, change anything you like, and tap Approve when it sounds "
+                 "like you. Nothing goes out until you do.")
     else:
         subject = f"Your post for {name} is ready to approve"
         intro = (f"Voyce wrote today's {html.escape(post_type)} for {html.escape(name)}. "
                  "It won't go out until you approve it.")
     paras = [intro] + ([src_html] if src_html else [])
-    url = _approve_url(pending_id)
-    # A partner's client approves signed in: their link only shows the post (main._partner_approve_actions)
-    in_partner = bool(partners.for_company(company))
+    # A partner's client approves signed in, so the button opens Today: the approve link only showed the post
+    # again before sending them there (4 Nov 2026 launch audit)
+    url = app_url(partner) + "/setup" if in_partner else _approve_url(pending_id)
     ask = ""
     try:
         import notes
@@ -192,7 +205,8 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
             + (f"{src_text}\n\n" if src_text else "") + ask
             + f"Review and approve{'' if in_partner else ' (no login needed)'}: {url}\n\n{expiry}")
     body = _layout("Ready for your OK" if not held_reason else "Held for your review",
-                   paras, button=("Review and approve", url), quote=preview, footer=expiry)
+                   paras, button=("Open today's draft" if in_partner else "Review and approve", url),
+                   quote=preview, footer=expiry, partner=partner)
     return send(company.get("user_id", ""), f"ready:{pending_id}", "post_ready", subject, text, body)
 
 
@@ -223,7 +237,14 @@ def approval_reminders() -> int:
         preview = preview[:400].rstrip() + ("…" if len(preview) > 400 else "")
         url = _approve_url(p["id"])
         kind = html.escape(p.get("post_type") or "post")
-        if daily:
+        partner = _partner_of(p.get("user_id", ""))
+        if partner:   # a seat: to the client about their own draft, and straight to Today (as post_ready)
+            url = app_url(partner) + "/setup"
+            subject = "Your draft is still waiting for your OK"
+            when = (f"Tomorrow's draft replaces it in about {hours} hours" if daily
+                    else f"It expires in about {hours} hours")
+            intro = f"Your draft is still waiting. {when}, so approve it before then if you want it on LinkedIn."
+        elif daily:
             subject = f"Your post for {name} is still waiting"
             intro = (f"Voyce's {kind} for {html.escape(name)} is still waiting for your OK. Tomorrow's post replaces "
                      f"it in about {hours} hours, so approve it before then if you want it on LinkedIn.")
@@ -234,8 +255,9 @@ def approval_reminders() -> int:
         no_login = "" if db.users.find_one({"id": p.get("user_id", ""), "partner_id": {"$nin": [None, ""]}},
                                            {"_id": 1}) else " (no login needed)"   # partner clients approve signed in
         text = f"{html.unescape(intro)}\n\n{preview}\n\nReview and approve{no_login}: {url}"
-        body = _layout("Still waiting for your OK", [intro], button=("Review and approve", url), quote=preview,
-                       footer="This is the only reminder for this post.")
+        body = _layout("Still waiting for your OK", [intro],
+                       button=("Open today's draft" if partner else "Review and approve", url), quote=preview,
+                       footer="This is the only reminder for this post.", partner=partner)
         if send(p.get("user_id", ""), f"remind:{p['id']}", "approval_reminder", subject, text, body):
             sent += 1
     return sent

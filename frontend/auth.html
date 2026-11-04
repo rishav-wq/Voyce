@@ -114,6 +114,7 @@
       // turns away an email it has never seen, so new visitors hit a wall at the
       // very first step. Each form links to the other.
       const isSignUp = location.pathname === "/signup";
+      const P = window.PARTNER;   // a partner's address: its button colour and type (partners/<id>/app.css)
       const opts = {
         routing:        "virtual",
         afterSignInUrl:  _next || "/tool",
@@ -122,15 +123,15 @@
         signUpUrl:       "/signup",
         appearance: {
           variables: {
-            colorPrimary:         "#24365e",
+            colorPrimary:         P ? P.theme.orange : "#24365e",
             colorText:            "#16181d",
             colorTextSecondary:   "#5b6270",
             colorBackground:      "#ffffff",
             colorInputBackground: "#ffffff",
             colorInputText:       "#16181d",
             colorDanger:          "#c0392b",
-            fontFamily:           "'Inter', sans-serif",
-            borderRadius:         "11px",
+            fontFamily:           P ? "'DM Sans', sans-serif" : "'Inter', sans-serif",
+            borderRadius:         P ? "12px" : "11px",
           }
         }
       };

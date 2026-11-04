@@ -35,6 +35,9 @@ _SEAT_COPY = [(re.compile(re.escape(old)), new) for old, new in (
     ('<a class="btn" href="/voice-check">Try it free</a>', ""),   # the free check isn't on a partner's address
     ("free to look at", "they don't use a draft"),
 )] + [(re.compile(r'<p class="ob-company-note">.*?</p>', re.S), "")]   # "Posting for a client?": a seat is one person
+# "Voyce — Dashboard" and "Page not found — Voyce" become "Dashboard · SOLVAI by CUSP", as on the partner's own pages
+_TITLE = re.compile(r"<title>(?:Voyce — (.+?)|(.+?) — Voyce)</title>")
+_JS_TITLE = re.compile(r'(document\.title\s*=\s*")Voyce — ([^"]+)"')
 _CLERK_KEY = re.compile(r'data-clerk-publishable-key="[^"]*"')
 _CLERK_SRC = re.compile(r'src="https://clerk\.voyce\.co\.in/')
 _FAVICON = re.compile(r'<link rel="icon"[^>]*>')
@@ -58,7 +61,13 @@ def _colours(text: str, partner: dict) -> str:
             return m.group(0)
         r, g, b = _rgb(theme[key])
         return m.group(0).split("(")[0] + f"({r},{g},{b}"
-    return _RGB.sub(rgb, text)
+    text = _RGB.sub(rgb, text)
+    recolour = partner.get("recolour") or {}
+    if recolour:   # the partner's palette for Voyce's greys, ambers, greens and blues, inline styles included
+        pattern = re.compile("|".join(re.escape(h) for h in recolour) + r"(?![0-9a-fA-F])", re.I)
+        lookup = {h.lower(): v for h, v in recolour.items()}
+        text = pattern.sub(lambda m: lookup[m.group(0).lower()], text)
+    return text
 
 
 def _assets(partner: dict) -> str:
@@ -84,8 +93,13 @@ def _head(partner: dict) -> str:
     if partner["profiles_per_seat"] <= 1:
         hidden.append("#profiles-head .btn-add")
     hide = f"  {', '.join(hidden)} {{ display: none !important; }}\n" if hidden else ""
+    # The partner's own type and token sheet, after the app's CSS so it wins (partners/<id>/app.css)
+    sheet = ""
+    if os.path.exists(os.path.join(FRONT, partner["assets"], "app.css")):
+        sheet = ("".join(f'<link rel="stylesheet" href="{f}">\n' for f in partner.get("fonts", ()))
+                 + f'<link rel="stylesheet" href="{_assets(partner)}/app.css?v=1">\n')
     return (f"<script>window.PARTNER = {json.dumps(client_config(partner))};</script>\n"
-            '<script src="/static/partner.js?v=1"></script>\n'
+            '<script src="/static/partner.js?v=1"></script>\n' + sheet +
             f"""<style id="partner-css">
   /* {partner['brand']}: the partner bills its clients, so no upgrade or payment anywhere */
   .side-upsell, #side-upsell, .plan-upgrade-btn, #plan-upgrade-btn, #acct-plan-btn, #upgrade-modal,
@@ -113,6 +127,9 @@ def transform(text: str, kind: str, partner: dict, logo: str = "on-dark") -> str
                             f'<link rel="apple-touch-icon" href="{a}/icon-180.png" />', text, count=1)
     for pattern, words in _SEAT_COPY:
         text = pattern.sub(words, text)
+    full = partner["brand_full"]
+    text = _TITLE.sub(lambda m: f"<title>{m.group(1) or m.group(2)} · {full}</title>", text)
+    text = _JS_TITLE.sub(lambda m: f'{m.group(1)}{m.group(2)} · {full}"', text)
     for old, new in partner.get("copy", ()):   # the partner's own wording, for its clients' world
         text = text.replace(old, new)
     text = _WORD.sub(partner["brand"], text)
@@ -128,9 +145,10 @@ def _clerk_frontend(publishable_key: str) -> str:
     return auth._clerk_domain(publishable_key) if publishable_key else ""
 
 
-# Which wordmark each page's logo sits on: the app's sidebar is navy; sign-in and onboarding are light
+# Which wordmark each page's logo sits on: the app's sidebar and a partner's sign-in (app.css) are navy;
+# onboarding is light
 _LOGO_ON = {"index.html": "on-dark", "dashboard.html": "on-dark", "sales.html": "on-dark",
-            "auth.html": "on-light", "onboarding.html": "on-light", "404.html": "on-light", "partner.html": "on-light"}
+            "auth.html": "on-dark", "onboarding.html": "on-light", "404.html": "on-light", "partner.html": "on-light"}
 
 
 def file(path: str, partner: dict) -> str:
