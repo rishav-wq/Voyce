@@ -512,10 +512,10 @@ def partner_waitlist(partner: dict, entry: dict) -> bool:
     so answering the email writes to the person who asked."""
     brand = partner["brand"].upper()
     rows = [("Name", entry["name"]), ("Title", entry["title"]), ("Company", entry["company"]),
-            ("Email", entry["email"]), ("Phone", entry["phone"])]
+            ("Email", entry["email"]), ("Phone", entry["phone"] or "Not given (prefers email)")]
     when = (datetime.fromisoformat(entry["at"]) + timedelta(hours=5, minutes=30)).strftime("%d %b %Y, %H:%M")
     intro = (f"{html.escape(entry['name'])} ({html.escape(entry['title'])}, {html.escape(entry['company'])}) "
-             f"joined the {brand} waiting list on {partners.base_url(partner).split('://')[1]}.")
+             f"asked to talk to CUSP about {brand} on {partners.base_url(partner).split('://')[1]}.")
     table = "".join(f'<tr><td style="padding:4px 16px 4px 0;color:#7a8190;">{k}</td>'
                     f'<td style="padding:4px 0;color:#16181d;">{html.escape(v)}</td></tr>' for k, v in rows)
     body = _layout(f"New request for {brand}",
@@ -525,7 +525,7 @@ def partner_waitlist(partner: dict, entry: dict) -> bool:
     text = (f"{html.unescape(intro)}\n\n" + "\n".join(f"{k}: {v}" for k, v in rows) +
             f"\n\nReply to this email to write to them directly.\nReceived {when} IST")
     return send("", f"partner_waitlist:{entry['id']}", "partner_waitlist",
-                f"{brand} waiting list: {entry['name']}, {entry['company']}", text, body,
+                f"{brand}: {entry['name']}, {entry['company']} wants to talk", text, body,
                 to=partner["waitlist_to"], partner=partner, reply_to=entry["email"])
 
 

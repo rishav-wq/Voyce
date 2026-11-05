@@ -475,8 +475,9 @@ def _waitlist_email_allowed(partner_id: str) -> bool:
 
 @router.post("/partner/waitlist")
 def waitlist(req: WaitlistRequest, request: Request):
-    """Someone asks to join on the partner's landing page (Sam, 3 Nov 2026: name, title, company, official email,
-    phone; each one emailed to him). Saved before the email goes, so a failed email loses nobody."""
+    """Someone asks to join on the partner's landing page (Sam, 3 Nov 2026: name, title, company, official email;
+    phone optional since his 5 Nov page, as US buyers often prefer email; each one emailed to him). Saved before
+    the email goes, so a failed email loses nobody."""
     partner = partners.current()
     if not partner or not partner.get("waitlist_to"):
         raise HTTPException(status_code=404, detail="Not found")
@@ -491,7 +492,8 @@ def waitlist(req: WaitlistRequest, request: Request):
     phone = " ".join(re.sub(r"[^\d+()\- ]", "", req.phone).split())[:30]
     for ok, msg in ((len(name) >= 2, "Please add your name."), (title, "Please add your title."),
                     (company, "Please add your company."), (_EMAIL.match(email), "Please check your email address."),
-                    (len(re.sub(r"\D", "", phone)) >= 8, "Please add a phone number we can reach you on.")):
+                    (not phone or len(re.sub(r"\D", "", phone)) >= 8,
+                     "That phone number looks too short. Leave it empty if you prefer email.")):
         if not ok:
             raise HTTPException(status_code=400, detail=msg)
     if db.partner_waitlist.find_one({"partner_id": partner["id"], "email": email,
