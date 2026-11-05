@@ -99,6 +99,155 @@ section{padding-block:clamp(72px,10vw,120px)}
 .hero .lead{color:var(--ink-2);max-width:31ch;margin:24px 0 34px}
 .actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px 26px}
 
+/* hero picture: the morning on a laptop and a phone (Voyce's rig, SOLVAI's colours, flat).
+   9:00 SOLVAI writes the draft, 9:01 it reaches the phone and you tap Approve & post, 9:03 it's on LinkedIn.
+   Device frames are logo-free photos; each screen sits behind its frame's see-through glass. */
+.hero .wrap.hero-grid{max-width:1280px;grid-template-columns:.86fr 1.14fr;gap:0 40px}
+.nav .wrap{max-width:1280px}   /* the logo lines up with the headline */
+.hero{padding-bottom:clamp(72px,9vw,120px)}
+.hero h1{font-size:clamp(44px,4.9vw,72px)}
+.rig{--live:#1E7A4F;position:relative;width:640px;margin-left:auto;text-align:left}
+.rg-times{display:flex;gap:8px;margin:0 16px 22px 0}
+.rg-times div{flex:1;position:relative;padding-top:12px;font-size:13px;color:var(--muted);line-height:1.3}
+.rg-times b{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--muted)}
+.rg-times div::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;border-radius:2px;background:var(--line)}
+.rg-times div::after{content:"";position:absolute;top:0;left:0;height:3px;border-radius:2px;width:0;background:var(--ink)}
+.rg-times div:nth-child(2)::after{background:var(--orange)}
+.rg-times div:nth-child(3)::after{background:var(--live)}
+.rg-laptop{--lw:548;position:relative;width:calc(var(--lw)*1px);aspect-ratio:1.553}
+.rg-frame{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.rg-display{position:absolute;left:11.548%;top:6.012%;width:76.968%;height:75.852%;background:#fff;overflow:hidden;z-index:1;color:#0A1739}
+.rg-dsc{position:absolute;left:0;top:0;width:472px;height:300px;transform-origin:0 0;transform:scale(calc(var(--lw)*0.76968/472))}
+.rg-chrome{height:28px;background:#eef0f3;border-bottom:1px solid #dfe2e7;display:flex;align-items:center;gap:6px;padding:0 10px}
+.rg-chrome i{width:8px;height:8px;border-radius:50%;background:#d3d6dc}
+.rg-url{margin-left:14px;flex:1;max-width:260px;height:17px;border-radius:9px;background:#fff;border:1px solid #e1e4e9;font:500 10px/15px var(--font);color:#5A6482;padding:0 10px;position:relative}
+.rg-url span{position:absolute;left:10px}
+.rg-scene{position:absolute;top:28px;left:0;right:0;bottom:0;padding:16px 22px}
+.rg-feed{background:#f3f2ef;padding:14px 54px}
+.rg-wr{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#0A1739}
+.rg-dots i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#E06D2E;margin-right:3px;opacity:.3}
+.rg-news{margin:10px 0 12px;font-size:10.5px;line-height:1.4;color:#5A6482;background:#F4F6FA;border-radius:7px;padding:7px 9px}
+.rg-news b{color:#1D2742}
+.rg-dr .rg-t{font-size:16px;font-weight:700;line-height:1.3;letter-spacing:-.01em;margin:0 0 8px;color:#0A1739}
+.rg-dr p{margin:0 0 6px;font-size:11.5px;line-height:1.5;color:#1D2742}
+.rg-fits{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.rg-fits span{font-size:10px;font-weight:600;background:#E7F4EC;color:#1E7A4F;padding:4px 8px;border-radius:999px}
+.rg-sent{position:absolute;left:22px;right:22px;bottom:16px;display:flex;align-items:center;gap:8px;background:#0A1739;color:#fff;font-size:11.5px;font-weight:600;padding:9px 12px;border-radius:9px;opacity:0}
+.rg-fpost{background:#fff;border-radius:8px;border:1px solid #e0dfdc;padding:12px 14px}
+.rg-fh{display:flex;gap:8px;align-items:center}
+.rg-av{flex:none;width:34px;height:34px;border-radius:50%;background:#213C77;color:#fff;display:grid;place-items:center;font-size:10px;font-weight:700;letter-spacing:.02em}
+.rg-fh b{display:block;font-size:11.5px;line-height:1.25;color:#0A1739}
+.rg-fh small{display:block;font-size:9.5px;color:#5A6482}
+.rg-fh div{line-height:1.3}
+.rg-fpost .rg-t{font-size:14px;font-weight:700;line-height:1.3;margin:10px 0 5px;color:#0A1739}
+.rg-fpost p{margin:0 0 4px;font-size:10.5px;line-height:1.5;color:#1D2742}
+.rg-fbar{display:flex;justify-content:space-between;border-top:1px solid #ecebe8;margin-top:8px;padding-top:7px;font-size:9.5px;color:#5A6482}
+.rg-live{position:absolute;left:54px;bottom:14px;display:inline-flex;align-items:center;gap:6px;background:#E7F4EC;color:#1E7A4F;font-size:10.5px;font-weight:600;padding:5px 9px;border-radius:999px;border:1px solid #B7DDC6}
+.rg-live i{width:6px;height:6px;border-radius:50%;background:#1E7A4F}
+.rg-ghost{height:54px;margin-top:10px;background:#fff;border-radius:8px;border:1px solid #e0dfdc}
+.rg-phone{--pw:196;position:absolute;left:444px;bottom:-62px;width:calc(var(--pw)*1px);aspect-ratio:.484;z-index:5}
+.rg-phone .rg-frame{filter:drop-shadow(0 22px 26px rgba(10,23,57,.22))}
+.rg-pscreen{position:absolute;left:4.954%;top:2.397%;width:89.171%;height:94.928%;border-radius:12%/5.5%;overflow:hidden;background:#fff;z-index:1;color:#0A1739}
+.rg-psc{position:absolute;left:0;top:0;width:168px;height:370px;transform-origin:0 0;transform:scale(calc(var(--pw)*0.89171/168))}
+.rg-pst{position:absolute;inset:0}
+.rg-lock{background:#ecebe6;text-align:center;padding-top:52px}
+.rg-clk{font-size:52px;font-weight:600;line-height:1;letter-spacing:-.03em;display:grid;color:#0A1739}
+.rg-clk span{grid-area:1/1}
+.rg-clk .k1{opacity:0}
+.rg-day{font-size:11px;color:#5A6482;margin-top:6px}
+.rg-wip{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;margin-top:22px;background:#fff;border-radius:999px;padding:6px 11px;font-size:10px;font-weight:600;color:#0A1739}
+.rg-banner{position:absolute;left:8px;right:8px;top:132px;background:#fff;box-shadow:0 8px 20px -10px rgba(0,0,0,.35);border-radius:14px;padding:9px 10px;text-align:left;display:flex;gap:8px;opacity:0}
+.rg-banner img{width:26px;height:26px;flex:none;border-radius:7px;display:block}
+.rg-banner b{font-size:10.5px}
+.rg-banner time{float:right;font-size:9.5px;color:#5A6482}
+.rg-banner p{margin:1px 0 0;font-size:10px;line-height:1.35;color:#1D2742}
+.rg-app{background:#F4F6FA}
+.rg-bar{background:#0A1739;padding:28px 11px 9px;display:flex;align-items:center;justify-content:space-between}
+.rg-bar img{height:11px;width:auto;display:block}
+.rg-bar span{font-size:9px;font-weight:600;color:#AEB8D3}
+.rg-body{padding:11px 10px}
+.rg-h{font-size:13px;font-weight:700;margin:0 0 2px}
+.rg-sub{font-size:9px;line-height:1.35;color:#5A6482;margin:0 0 8px}
+.rg-card{background:#FDF1EA;border:1px solid #F3CDB5;border-radius:12px;padding:9px}
+.rg-card .rg-av{width:24px;height:24px;font-size:7.5px}
+.rg-card .rg-fh b{font-size:10px}
+.rg-card .rg-fh small{font-size:8.5px}
+.rg-card .rg-t{font-size:11.5px;font-weight:700;line-height:1.3;margin:7px 0 4px}
+.rg-card p{font-size:9.5px;line-height:1.45;color:#1D2742;margin:0}
+.rg-approve{position:relative;display:block;margin-top:10px;text-align:center;background:#B9521C;color:#fff;font-size:11px;font-weight:600;padding:9px;border-radius:999px}
+.rg-approve .ok{position:absolute;inset:0;border-radius:999px;background:#1E7A4F;display:grid;place-items:center;opacity:0}
+.rg-approve .ring{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid rgba(255,255,255,.8);opacity:0}
+.rg-pnote{display:flex;justify-content:center;gap:14px;font-size:9.5px;color:#5A6482;margin-top:7px}
+.rg-ok{background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 16px}
+.rg-tick{width:54px;height:54px;border-radius:50%;background:#E7F4EC;color:#1E7A4F;display:grid;place-items:center;font-size:26px;font-weight:700;margin-bottom:12px}
+.rg-ok b{font-size:14px}
+.rg-ok small{display:block;margin-top:4px;font-size:10.5px;color:#5A6482}
+.rig + .note{margin-top:84px}
+/* the loop: 12 s, three beats */
+.L3,.rg-url .u3,.P2,.P3{opacity:0}
+@media (prefers-reduced-motion:no-preference){
+  .rg-times div:nth-child(1)::after{animation:rgt1 12s linear infinite}.rg-times div:nth-child(2)::after{animation:rgt2 12s linear infinite}.rg-times div:nth-child(3)::after{animation:rgt3 12s linear infinite}
+  .rg-times div:nth-child(1) b{animation:rgc1 12s infinite}.rg-times div:nth-child(2) b{animation:rgc2 12s infinite}.rg-times div:nth-child(3) b{animation:rgc3 12s infinite}
+  .L1,.rg-url .u1{animation:rgvis1 12s infinite}.L3,.rg-url .u3{animation:rgvis3 12s infinite}
+  .rg-sent{animation:rgsent 12s infinite}
+  .rg-dr .r1{animation:rgr1 12s infinite}.rg-dr .r2{animation:rgr2 12s infinite}.rg-dr .r3{animation:rgr3 12s infinite}.rg-fits{animation:rgr4 12s infinite}
+  .rg-dots i:nth-child(1){animation:rgbl 1.2s infinite}.rg-dots i:nth-child(2){animation:rgbl 1.2s .2s infinite}.rg-dots i:nth-child(3){animation:rgbl 1.2s .4s infinite}
+  .P0{animation:rgpv0 12s infinite}.P2{animation:rgpv2 12s infinite}.P3{animation:rgpv3 12s infinite}
+  .rg-banner{animation:rgban 12s infinite}
+  .rg-clk .k0,.rg-wip{animation:rgk0 12s infinite}.rg-clk .k1{animation:rgk1 12s infinite}
+  .rg-approve .ring{animation:rgtap 12s infinite}.rg-approve .ok{animation:rgok 12s infinite}
+  .rg-live{animation:rgpop 12s infinite}
+  .rg-laptop .rg-display{animation:rgdim 12s infinite}
+}
+@keyframes rgt1{0%{width:0}33%,100%{width:100%}}
+@keyframes rgt2{0%,33%{width:0}66%,100%{width:100%}}
+@keyframes rgt3{0%,66%{width:0}96%,100%{width:100%}}
+@keyframes rgc1{0%,33%{color:var(--ink)}34%,100%{color:var(--muted)}}
+@keyframes rgc2{0%,33%{color:var(--muted)}34%,66%{color:var(--accent-ink)}67%,100%{color:var(--muted)}}
+@keyframes rgc3{0%,66%{color:var(--muted)}67%,100%{color:var(--live)}}
+@keyframes rgvis1{0%,65%{opacity:1}67%,98%{opacity:0}100%{opacity:1}}
+@keyframes rgvis3{0%,65%{opacity:0}67%,98%{opacity:1}100%{opacity:0}}
+@keyframes rgsent{0%,31%{opacity:0;transform:translateY(6px)}34%,64%{opacity:1;transform:none}66%,100%{opacity:0}}
+@keyframes rgr1{0%,4%{clip-path:inset(0 100% 0 0)}9%,100%{clip-path:inset(0 0 0 0)}}
+@keyframes rgr2{0%,9%{clip-path:inset(0 100% 0 0)}15%,100%{clip-path:inset(0 0 0 0)}}
+@keyframes rgr3{0%,15%{clip-path:inset(0 100% 0 0)}21%,100%{clip-path:inset(0 0 0 0)}}
+@keyframes rgr4{0%,21%{clip-path:inset(0 100% 0 0)}26%,100%{clip-path:inset(0 0 0 0)}}
+@keyframes rgbl{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes rgpv0{0%,39%{opacity:1}41%,98%{opacity:0}100%{opacity:1}}
+@keyframes rgpv2{0%,39%{opacity:0}41%,65%{opacity:1}67%,100%{opacity:0}}
+@keyframes rgpv3{0%,65%{opacity:0}67%,98%{opacity:1}100%{opacity:0}}
+@keyframes rgk0{0%,32%{opacity:1}33%,100%{opacity:0}}
+@keyframes rgk1{0%,32%{opacity:0}33%,100%{opacity:1}}
+@keyframes rgban{0%,33%{opacity:0;transform:translateY(-10px)}35%,39%{opacity:1;transform:none}41%,100%{opacity:0}}
+@keyframes rgtap{0%,54%{opacity:0;transform:scale(.5)}56%{opacity:1;transform:scale(1)}60%,100%{opacity:0;transform:scale(1.9)}}
+@keyframes rgok{0%,56%{opacity:0}58%,100%{opacity:1}}
+@keyframes rgpop{0%,69%{opacity:0;transform:scale(.9)}72%,98%{opacity:1;transform:none}100%{opacity:0}}
+@keyframes rgdim{0%,33%{filter:none}36%,64%{filter:brightness(.94)}67%,100%{filter:none}}
+/* still frame for people who ask for no motion: the approve screen, the draft written */
+@media (prefers-reduced-motion:reduce){.P0,.P3,.rg-banner{opacity:0!important}.P2,.rg-sent{opacity:1!important}.rg-times div:nth-child(-n+2)::after{width:100%}}
+@media (min-width:1500px){
+  .hero .wrap.hero-grid{max-width:1440px;gap:0 56px}
+  .nav .wrap{max-width:1440px}
+  .hero h1{font-size:clamp(68px,4.4vw,80px)}
+  .rig{width:770px}.rg-laptop{--lw:660}.rg-phone{--pw:236;left:535px;bottom:-75px}
+  .rig + .note{margin-top:100px}
+}
+@media (max-width:1279px) and (min-width:1101px){
+  .rig{width:560px}.rg-laptop{--lw:480}.rg-phone{--pw:172;left:388px;bottom:-54px}
+}
+@media (max-width:1100px){
+  .hero .wrap.hero-grid{grid-template-columns:1fr}
+  .rig{margin:56px auto 0;max-width:100%}
+}
+@media (max-width:700px){
+  .rg-laptop{display:none}
+  .rig{width:260px;height:600px;margin-top:44px}
+  .rg-times{margin:0 0 20px}
+  .rg-times div{font-size:11px}.rg-times b{font-size:15px}
+  .rg-phone{--pw:240;left:50%;margin-left:-120px;bottom:auto;top:76px}
+  .rig + .note{margin-top:8px}
+}
+
 /* the in → out pair (hero and demo) */
 .flow{display:flex;flex-direction:column;align-items:stretch;width:min(100%,460px);margin:0 auto;min-width:0}
 .in{background:var(--card);border:1px dashed var(--strike);border-radius:var(--r-card);padding:16px 18px;font-size:15px;color:var(--ink-2);line-height:1.5}
@@ -285,16 +434,56 @@ footer a:hover{color:var(--band-accent)}
       </div>
     </div>
     <div>
-      <div class="flow">
-        <div class="in"><small>Your note, 8:12 AM</small>killed the migration 3 wks in. right call. biz case assumed a team we hadn&rsquo;t hired</div>
-        <div class="arrow">SOLVAI writes</div>
-        <article class="post" aria-label="The post SOLVAI drafts from that note">
-          <div class="who"><span class="av" aria-hidden="true">YOU</span><div><b>Your name</b><em>CTO</em></div></div>
-          <p>We killed a cloud migration last month. Three weeks in.</p>
-          <p>Nobody liked the call. I&rsquo;d make it again. The business case assumed a team we hadn&rsquo;t hired yet.</p>
-          <p>Moving fast on the wrong plan is just expensive stubbornness.</p>
-          <div class="ready"><i aria-hidden="true"></i>Ready for your approval</div>
-        </article>
+      <div class="rig" role="img" aria-label="Illustrative example. At 9:00 SOLVAI writes your draft on the laptop. At 9:01 it reaches your phone and you tap Approve and post. At 9:03 it is live on your LinkedIn.">
+        <div class="rg-times" aria-hidden="true"><div><b>9:00</b>SOLVAI writes</div><div><b>9:01</b>You tap Approve</div><div><b>9:03</b>Live on LinkedIn</div></div>
+        <div class="rg-laptop" aria-hidden="true">
+          <div class="rg-display"><div class="rg-dsc">
+            <div class="rg-chrome"><i></i><i></i><i></i><div class="rg-url"><span class="u1">solvai.cusp.services</span><span class="u3">linkedin.com/feed</span></div></div>
+            <div class="rg-scene L1">
+              <div class="rg-wr"><span class="rg-dots"><i></i><i></i><i></i></span>Writing today&rsquo;s draft in your voice</div>
+              <div class="rg-news">This week in your field: <b>&ldquo;Firms rethink lift-and-shift as cloud bills climb&rdquo;</b></div>
+              <div class="rg-dr">
+                <p class="rg-t r1">Lift-and-shift is back in the news this week.</p>
+                <p class="r2">Most cloud overruns I&rsquo;ve seen didn&rsquo;t start in the cloud bill. They started in a business case that assumed a team nobody had hired yet.</p>
+                <p class="r3">Before you move a workload, staff the plan. Then move it.</p>
+              </div>
+              <div class="rg-fits"><span>Your words</span><span>Your sentence length</span><span>No hashtags, like you</span></div>
+              <div class="rg-sent">&#10003; Emailed to you for your OK &middot; 9:01 AM</div>
+            </div>
+            <div class="rg-scene rg-feed L3">
+              <div class="rg-fpost">
+                <div class="rg-fh"><span class="rg-av">YOU</span><div><b>Your name</b><small>CTO &middot; now &middot; &#127760;</small></div></div>
+                <p class="rg-t">Lift-and-shift is back in the news this week.</p>
+                <p>Most cloud overruns I&rsquo;ve seen didn&rsquo;t start in the cloud bill. They started in a business case that assumed a team nobody had hired yet.</p>
+                <p style="color:#5A6482">&hellip;see more</p>
+                <div class="rg-fbar"><span>Like</span><span>Comment</span><span>Repost</span><span>Send</span></div>
+              </div>
+              <div class="rg-ghost"></div>
+              <span class="rg-live"><i></i>Live on LinkedIn &middot; 9:03 AM</span>
+            </div>
+          </div></div>
+          <img class="rg-frame" src="/static/partners/solvai/device-laptop.webp" alt="">
+        </div>
+        <div class="rg-phone" aria-hidden="true"><div class="rg-pscreen"><div class="rg-psc">
+          <div class="rg-pst rg-lock P0"><div class="rg-clk"><span class="k0">9:00</span><span class="k1">9:01</span></div><div class="rg-day">Tuesday, 10 November</div>
+            <div class="rg-wip"><span class="rg-dots"><i></i><i></i><i></i></span>Writing today&rsquo;s draft</div>
+            <div class="rg-banner"><img src="/static/partners/solvai/icon-64.png" alt=""><div><b>SOLVAI</b><time>now</time><p>Today&rsquo;s draft is ready for your OK.</p></div></div></div>
+          <div class="rg-pst rg-app P2">
+            <div class="rg-bar"><img src="/static/partners/solvai/logo-on-dark.png" alt=""><span>Today</span></div>
+            <div class="rg-body">
+              <p class="rg-h">Needs your OK</p>
+              <p class="rg-sub">1 post waiting for your approval. Nothing publishes until you say so.</p>
+              <div class="rg-card">
+                <div class="rg-fh"><span class="rg-av">YOU</span><div><b>Your name</b><small>CTO</small></div></div>
+                <p class="rg-t">Lift-and-shift is back in the news this week.</p>
+                <p>Most cloud overruns I&rsquo;ve seen didn&rsquo;t start in the cloud bill&hellip;</p>
+                <span class="rg-approve">&#10003; Approve &amp; post<span class="ok">&#10003; Approved</span><span class="ring"></span></span>
+                <div class="rg-pnote"><span>Edit</span><span>Skip</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="rg-pst rg-ok P3"><div class="rg-tick">&#10003;</div><b>Posted to LinkedIn</b><small>9:03 AM &middot; as Your name</small></div>
+        </div></div><img class="rg-frame" src="/static/partners/solvai/device-phone.webp" alt=""></div>
       </div>
       <span class="note">Illustrative example</span>
     </div>
