@@ -199,4 +199,7 @@ def activate_pro(user_id: str, order_id: str, payment_id: str, source: str = "ch
     fields.update({"pass_ai_start": pics_total, "pass_ai_allowance": pics + pics_carry})
     db.users.update_one({"id": user_id}, {"$set": fields})
     import analytics
+    import meta_ads
     analytics.capture(user_id, "payment_succeeded", {"region": region, "source": source, "renewal": still_active})
+    meta_ads.purchase(user_id, order_id, payment_id, (record or {}).get("amount", price_for(region)),
+                      (record or {}).get("currency", PRO_PRICE_CURRENCY))

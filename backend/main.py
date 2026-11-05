@@ -40,6 +40,7 @@ import ratelimit
 import db
 import sales
 import analytics
+import meta_ads
 import notes
 from pymongo.errors import DuplicateKeyError
 
@@ -71,7 +72,7 @@ _PARTNER_BLOCKED = ("/payments",)   # a partner's clients never pay Voyce: the p
 # Voyce's own marketing, legal and team pages: not on a partner's address
 _PARTNER_HIDDEN = ("/voice-check", "/how-to-not-sound-like-ai-on-linkedin", "/about", "/contact", "/refund",
                    "/refunds", "/cancellation", "/shipping", "/delivery", "/pricing", "/sales", "/llms.txt",
-                   "/waitlist", "/analytics")
+                   "/waitlist", "/analytics", "/emails")
 # The partner's own files (frontend/<partner assets>/): its landing page and its Terms and Privacy
 _PARTNER_OWN = {"/": "landing.html", "/terms": "terms.html", "/privacy": "privacy.html"}
 
@@ -86,13 +87,14 @@ PUBLIC_PAGES = {
     "/how-to-not-sound-like-ai-on-linkedin": "2026-11-01",
     "/about": "2026-11-01",
     "/contact": "2026-10-18",
-    "/privacy": "2026-11-01",
+    "/privacy": "2026-11-06",
     "/terms": "2026-10-18",
     "/refund": "2026-10-18",
     "/shipping": "2026-10-18",
 }
 # Signed-in screens and one-time links: reachable, never listed in search results.
-_NOINDEX = ("/tool", "/setup", "/onboarding", "/login", "/signup", "/sales", "/approve/", "/connect/", "/auth/")
+_NOINDEX = ("/tool", "/setup", "/onboarding", "/login", "/signup", "/sales", "/approve/", "/connect/", "/auth/",
+            "/emails/")
 
 
 @app.middleware("http")
@@ -150,9 +152,19 @@ async def _partner_context(request: Request, call_next):
         partners.reset_current(token)
 
 
+@app.middleware("http")
+async def _visitor_context(request: Request, call_next):
+    """The browser behind this request, for the Meta events it can set off (meta_ads.py)."""
+    token = meta_ads.set_visitor(request)
+    try:
+        return await call_next(request)
+    finally:
+        meta_ads.reset_visitor(token)
+
+
 # The forms anyone can post to, and the most each may send: a few huge bodies used to be read whole into the
 # small server's memory, and stored (security review, 3 Nov 2026)
-_PUBLIC_POSTS = ("/waitlist", "/partner/waitlist", "/voice-check", "/approve/")
+_PUBLIC_POSTS = ("/waitlist", "/partner/waitlist", "/voice-check", "/approve/", "/emails/")
 _PUBLIC_MAX_BYTES = 256 * 1024
 
 
@@ -654,6 +666,13 @@ def startup():
         id="notify_approval_reminders",
         replace_existing=True,
     )
+    # A new free account's first-week notes (an hour in, day 2, day 5)
+    scheduler.add_job(
+        notify.welcome_sweep,
+        trigger=CronTrigger(minute="10,40"),
+        id="notify_welcome",
+        replace_existing=True,
+    )
 
 
 def _do_scheduled_post(text: str, job_id: str, dry_run: bool = False, user_id: str = ""):
@@ -899,10 +918,11 @@ def serve_onboarding():
 
 
 @app.get("/analytics.js")
-def analytics_js():
-    # PostHog loader + Voyce helpers (vTrack / vIdentify / vReset); a no-op without a token.
-    return Response(analytics.loader_js(), media_type="application/javascript",
-                    headers={"Cache-Control": "public, max-age=300"})
+def analytics_js(request: Request):
+    # PostHog loader + Voyce helpers (vTrack / vIdentify / vReset); a no-op without a token. Then Meta's pixel
+    # for the countries the ads run in (meta_ads.py): the script differs by country, so no shared cache keeps it.
+    return Response(analytics.loader_js() + "\n" + meta_ads.loader_js(request.headers.get("cf-ipcountry", "")),
+                    media_type="application/javascript", headers={"Cache-Control": "private, max-age=300"})
 
 
 @app.get("/sales")
@@ -1018,6 +1038,25 @@ def join_waitlist(req: WaitlistRequest, request: Request):
         "joined_at": datetime.utcnow().isoformat()
     })
     return {"status": "joined"}
+
+
+@app.api_route("/emails/stop", methods=["GET", "POST"])
+def emails_stop(t: str = ""):
+    """The "Stop them" link in a new account's first-week notes (notify.welcome_sweep), and the one-click
+    unsubscribe mail apps send to it. The same page whatever the link, so it can't be used to test links."""
+    if 10 < len(t) < 100:
+        db.users.update_one({"email_token": t}, {"$set": {"welcome_off": True}})
+    return HTMLResponse(
+        '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" '
+        'content="width=device-width, initial-scale=1.0"><title>Emails stopped · Voyce</title>'
+        '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"></head>'
+        '<body style="margin:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Inter,'
+        'Arial,sans-serif;color:#16181d;"><main style="max-width:460px;margin:12vh auto;padding:0 20px;">'
+        '<p style="font-size:20px;font-weight:700;margin:0 0 10px;">Done. No more first-week notes.</p>'
+        '<p style="font-size:15px;line-height:1.55;color:#5b6270;margin:0 0 20px;">Emails about your own posts and '
+        'your pass, like a post waiting for your approval, still arrive.</p>'
+        '<a href="/tool" style="color:#24365e;font-weight:600;">Open Voyce</a></main></body></html>',
+        headers={"Cache-Control": "no-store"})
 
 
 # ── Voice Check (free, no-login lead tool) ───────────────────────────────────
@@ -1255,6 +1294,7 @@ def payments_create_order(request: Request, x_token: str = Header(None)):
     try:
         order = payments.create_order(user["id"], user.get("email", ""), _pricing_region(request))
         analytics.capture(user["id"], "checkout_started", {"region": order.get("region") or _pricing_region(request)})
+        meta_ads.checkout(user["id"], order)
     except Exception:
         logging.exception("Razorpay order creation failed")
         raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
@@ -1589,6 +1629,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
     analytics.capture(user["id"], "post_generated", {"input_type": request.input_type, "format": "text"})
+    meta_ads.first_post(user["id"])
     try:
         auth_module.increment_gens(user["id"])
         logging.info(f"[Gen] incremented for user {user['id']}")
@@ -2719,6 +2760,7 @@ def preview_post(company_id: str, post_type: str = "", seed: str = "",
         post_text = generate_autonomous_post(subject, news_context, pt)
         _spend_free_generation(user, tier)
         analytics.capture(user["id"], "preview_generated", {"post_type": pt, "plan": tier})
+        meta_ads.first_post(user["id"])
         return {"post": post_text, "post_type": POST_TYPE_LABELS.get(pt, pt),
                 "product_name": subject.get("product_name", "")}
     except Exception:

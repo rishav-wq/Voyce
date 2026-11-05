@@ -55,6 +55,13 @@
     }
     .cl-formButtonPrimary:hover { background-color: #1c2b4d !important; }
     .cl-footerActionLink { color: #24365e !important; font-weight: 600 !important; }
+    /* Inside the Facebook, Instagram or LinkedIn app: why there's no Google button */
+    .inapp-note { width: 100%; max-width: 420px; background: #ffffff; border: 1px solid #e4e7ec; border-left: 3px solid #24365e;
+      border-radius: 12px; padding: 12px 14px; margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: #444; }
+    .inapp-note b { color: #16181d; }
+    .inapp-note a { display: inline-block; margin-top: 8px; color: #24365e; font-weight: 700; text-decoration: none; }
+    .in-app .cl-socialButtonsRoot, .in-app .cl-socialButtons, .in-app .cl-socialButtonsBlockButton__google,
+    .in-app .cl-dividerRow { display: none !important; }
       /* ── Wordmark: cursive V flowing straight into "oyce", no gap ──────────────
        Fraunces italic is the same face as the italic "you" on the landing page,
        so the logo and that accent are one gesture. Georgia italic is the
@@ -77,6 +84,7 @@
 <body>
   <div class="auth-logo logo"><span class="logo-mark">V</span><span>oyce</span></div>
   <p class="auth-tagline">LinkedIn posts that sound like <em class="you">you</em>.</p>
+  <div class="inapp-note" id="inapp-note" hidden></div>
   <div id="clerk-sign-in"></div>
   <p id="auth-legal" style="display:none;font-size:12.5px;color:#5b6270;margin-top:16px;text-align:center;max-width:420px;line-height:1.5;">By creating an account you agree to the <a href="/terms" style="color:#24365e;">Terms</a> and <a href="/privacy" style="color:#24365e;">Privacy Policy</a>.</p>
 
@@ -87,6 +95,32 @@
       const n = new URLSearchParams(location.search).get("next") || "";
       return /^\/(setup|tool|sales)(#[a-z-]+)?$/.test(n) ? n : "";
     })();
+
+    // Facebook, Instagram and LinkedIn open links in their own browser, where Google refuses to sign anyone in
+    // ("Error 403: disallowed_useragent"), and Google is the first button on the form. Inside those apps it's
+    // hidden and the page says why: email works there, and Google does once the page is in Chrome or Safari.
+    const _inApp = (() => {
+      const ua = navigator.userAgent || "";
+      if (/Instagram/i.test(ua)) return "Instagram";
+      if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua)) return "Facebook";
+      if (/LinkedInApp/i.test(ua)) return "LinkedIn";
+      return "";
+    })();
+    if (_inApp) {
+      const note = document.getElementById("inapp-note");
+      const android = /Android/i.test(navigator.userAgent);
+      note.innerHTML = `You're in ${_inApp}'s browser, where <b>Google sign-in doesn't work</b>. `
+        + `Use your email below, or open this page in ${android ? "Chrome" : "Safari"} to sign in with Google.<br>`
+        + (android ? "" : "Tap <b>•••</b> at the top, then <b>Open in browser</b>.");
+      if (android) {   // the page's own address goes in as an attribute, never as markup
+        const open = document.createElement("a");
+        open.href = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
+        open.textContent = "Open in Chrome →";
+        note.appendChild(open);
+      }
+      note.hidden = false;
+      document.body.classList.add("in-app");
+    }
 
     async function startApp() {
       const clerk = window.Clerk;
@@ -132,7 +166,10 @@
             colorDanger:          "#c0392b",
             fontFamily:           P ? "'DM Sans', sans-serif" : "'Inter', sans-serif",
             borderRadius:         P ? "12px" : "11px",
-          }
+          },
+          // socialButtonsRoot in newer Clerk, socialButtons in older; the in-app CSS rule above backs both up
+          elements: _inApp ? { socialButtonsRoot: { display: "none" }, socialButtons: { display: "none" },
+                               socialButtonsBlockButton__google: { display: "none" }, dividerRow: { display: "none" } } : {},
         }
       };
       const mount = document.getElementById("clerk-sign-in");

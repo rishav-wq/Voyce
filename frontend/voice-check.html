@@ -201,6 +201,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Something went wrong. Try again.");
         renderResult(data);
+        if (window.vMeta) vMeta("VoiceCheck");   // for the ads that send people here (meta_ads.py)
       } catch(e){
         err.textContent = e.message; err.style.display = "block";
       } finally {

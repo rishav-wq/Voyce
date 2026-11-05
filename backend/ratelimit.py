@@ -45,10 +45,8 @@ def _prune(cutoff: float) -> None:
 _CLOUDFLARE_HOSTS = {"voyce.co.in", "www.voyce.co.in"}
 
 
-def client_ip(request) -> str:
-    """The visitor's address for per-visitor limits. IPv6 is keyed on its /64: one machine holds a whole
-    /64, so counting single addresses let a script reset its limit by changing one."""
-    import ipaddress
+def visitor_ip(request) -> str:
+    """The visitor's own address, as it arrived (meta_ads sends it to Meta with an event)."""
     host = (request.headers.get("host") or "").split(":")[0].strip().lower()
     ip = request.headers.get("cf-connecting-ip", "").strip() if host in _CLOUDFLARE_HOSTS else ""
     if not ip:
@@ -56,6 +54,14 @@ def client_ip(request) -> str:
         # whatever the client typed.
         fwd = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",") if p.strip()]
         ip = fwd[-1] if fwd else (request.client.host if request.client else "")
+    return ip
+
+
+def client_ip(request) -> str:
+    """The visitor's address for per-visitor limits. IPv6 is keyed on its /64: one machine holds a whole
+    /64, so counting single addresses let a script reset its limit by changing one."""
+    import ipaddress
+    ip = visitor_ip(request)
     try:
         addr = ipaddress.ip_address(ip)
         if addr.version == 6:

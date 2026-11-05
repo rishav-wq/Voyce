@@ -139,6 +139,9 @@ def get_user_by_token(token: str) -> dict | None:
         # partner's team, accepted at /partner/join); the team's own members are recognised by email.
         user.update(partner_id=partner["id"], plan="partner", seat="none")
     db.users.insert_one({**user, "_id": clerk_id})
+    if not partner:   # where they came from, and Meta's sign-up event (meta_ads.py)
+        import meta_ads
+        meta_ads.signed_up(user)
     return user
 
 

@@ -8,6 +8,7 @@ problem must never stop a post from being written or published.
 import html
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 
 import requests
@@ -109,7 +110,8 @@ def app_url(partner: dict | None = None) -> str:
 
 
 def send(user_id: str, key: str, kind: str, subject: str, text: str, html_body: str,
-         to: str = "", partner: dict | None = None, reply_to: str = "") -> bool:
+         to: str = "", partner: dict | None = None, reply_to: str = "", sender: str = "",
+         headers: dict | None = None) -> bool:
     """Send once per key. Returns True only when an email actually went out. A partner's client gets it from
     the partner (its sender and reply-to); to sends to an address that has no account yet (an invite)."""
     try:
@@ -123,12 +125,12 @@ def send(user_id: str, key: str, kind: str, subject: str, text: str, html_body: 
         partner = partner or (_partner_of(user_id) if user_id else None)
         if partner:
             subject, text, html_body = _in_partner_name(partner, subject, text, html_body)
-        sender = partners.sender(partner) if partner else _FROM
+        sender = partners.sender(partner) if partner else (sender or _FROM)
         reply_to = reply_to or (partner["support_email"] if partner else _REPLY_TO)
-        r = requests.post(_API_URL, timeout=15, headers={"Authorization": f"Bearer {api_key}"}, json={
-            "from": sender, "to": [to], "reply_to": reply_to,
-            "subject": subject, "text": text, "html": html_body,
-        })
+        email = {"from": sender, "to": [to], "reply_to": reply_to, "subject": subject, "text": text, "html": html_body}
+        if headers:
+            email["headers"] = headers
+        r = requests.post(_API_URL, timeout=15, headers={"Authorization": f"Bearer {api_key}"}, json=email)
         if not r.ok:
             logger.error(f"[notify] Resend rejected '{kind}': {r.status_code} {r.text[:200]}")
             return False
@@ -449,6 +451,130 @@ def sweep_expiries():
                              button=("Open Voyce", _QUEUE_URL)))
         except Exception:
             logger.exception(f"[notify] profile connection sweep failed for {c.get('id')}")
+
+
+# ── The first week of a free account ──────────────────────────────────────────
+# Three short notes from Rishav: an hour after sign-up, on day 2 and on day 5. Only to free Voyce accounts made
+# since WELCOME_SINCE (never a partner's client), at most one a day, none after day 14, each with a link that
+# stops them. A late sweep sends only the latest note that is due, never the ones it missed.
+WELCOME_SINCE   = os.getenv("WELCOME_SINCE", "2026-11-06")
+_WELCOME_FROM   = os.getenv("WELCOME_FROM", "Rishav from Voyce <rishav@notify.voyce.co.in>")
+_WELCOME_REPLY  = os.getenv("WELCOME_REPLY_TO", "rishav@voyce.co.in")
+_WELCOME_STEPS  = ((1, timedelta(hours=1)), (2, timedelta(days=2)), (3, timedelta(days=5)))
+_WELCOME_LAST_DAY = 14
+
+
+def _stop_url(user: dict) -> str:
+    """The user's own link that turns these notes off (main.emails_stop), made the first time it's needed."""
+    import secrets
+    token = user.get("email_token")
+    if not token:
+        token = secrets.token_urlsafe(18)
+        db.users.update_one({"id": user["id"], "email_token": {"$exists": False}}, {"$set": {"email_token": token}})
+        token = (db.users.find_one({"id": user["id"]}, {"email_token": 1}) or {}).get("email_token", token)
+    return f"{APP_URL}/emails/stop?t={token}"
+
+
+def _welcome_note(user: dict, step: int) -> tuple[str, str, list[str], tuple[str, str]]:
+    """Subject, heading, paragraphs (HTML) and button for one note."""
+    import payments
+    word = ((user.get("name") or "").split() or [""])[0]
+    hi = f"Hi {html.escape(word)}," if word.isalpha() else "Hi,"
+    wrote = int(user.get("gens_used") or 0) > 0
+    if step == 1 and not wrote:
+        return ("Your first Voyce post takes about a minute", "Your first post takes about a minute",
+                [f"{hi} thanks for signing up to Voyce.",
+                 "Tell it what you post about and it writes a post you can edit and publish, usually from a recent "
+                 "story in your field. Paste two or three of your own LinkedIn posts when it asks, and it writes "
+                 "in your words and rhythm instead of AI's."],
+                ("Write my first post", f"{APP_URL}/tool"))
+    if step == 1:
+        has_voice = db.companies.find_one({"user_id": user["id"], "linkedin_top_posts.0": {"$exists": True}},
+                                          {"_id": 1}) is not None
+        tip = ("If anything in it didn't sound like you, turn it into a rule. In Settings, open your profile and "
+               "write it under <b>Key facts &amp; rules</b>: \"no question at the end\", \"never say leverage\", "
+               "\"under 150 words\". Every post after that follows them." if has_voice else
+               "The biggest thing you can do for the next one: give Voyce three of your own LinkedIn posts. In "
+               "Settings, open your profile and paste them, or upload <b>Screenshots</b> of them straight from your "
+               "phone. It learns how long your sentences run, the words you use and how you open and close.")
+        return ("Getting your next post closer to your voice", "Getting your next post closer to your voice",
+                [f"{hi} you've written your first post with Voyce.", tip],
+                ("Open Settings", f"{APP_URL}/setup#profiles"))
+    if step == 2:
+        return ("Why Voyce doesn't write like ChatGPT", "Why it doesn't read like ChatGPT",
+                [f"{hi} a quick note on what Voyce does differently.",
+                 "Ask ChatGPT for a LinkedIn post and you get the average post on that topic: the same hooks, the "
+                 "same closing question, the same words people now skip past.",
+                 "Voyce starts from you: the posts you've given it, your topics and your rules. Then it writes about "
+                 "something that actually happened in your field, so the post has something new to say."],
+                ("Write a post", f"{APP_URL}/tool"))
+    if not wrote:
+        return ("Your free posts are still here", "Your free posts are still here",
+                [f"{hi} you signed up to Voyce a few days ago but haven't written a post yet.",
+                 "It takes about a minute: tell it what you post about, and it writes one you can edit and "
+                 "publish. If something got in the way, reply and tell me. I'll fix it or walk you through it."],
+                ("Write my first post", f"{APP_URL}/tool"))
+    if user.get("signup_country") == "IN":
+        price = (f"The pass is ₹{payments.PRO_PRICE_AMOUNT_IN // 100:,} for 30 days, with "
+                 f"{payments.INDIA_PASS_GENERATIONS} posts, carousels or images (the daily post uses about 30).")
+    else:
+        price = f"The pass is $49 for 30 days, billed as ₹{payments.PRO_PRICE_AMOUNT // 100:,}."
+    return ("A post in your inbox every morning", "What the Voyce pass adds",
+            [f"{hi} so far you've used Voyce by hand. The pass turns it into a habit you don't have to remember.",
+             "Every morning, at the time you pick, Voyce writes that day's post and emails it to you. Read it on "
+             "your phone, edit it if you like, tap Approve, and it's on LinkedIn. Nothing is posted without your tap.",
+             price + " It never auto-charges: when it ends, it simply stops.",
+             "If Voyce isn't right for you, a one-line reply telling me why would help me a lot."],
+            ("See the pass", f"{APP_URL}/setup#upgrade"))
+
+
+def _welcome(user: dict, step: int) -> bool:
+    subject, heading, paras, button = _welcome_note(user, step)
+    stop = _stop_url(user)
+    footer = ("Rishav, founder of Voyce. Reply any time; I read every reply.<br>"
+              f"Don't want these first-week notes? <a href=\"{html.escape(stop)}\" style=\"color:#7a8190;\">Stop them</a>.")
+    plain = "\n\n".join(html.unescape(re.sub(r"<[^>]+>", "", p)) for p in paras)
+    text = (f"{plain}\n\n{button[0]}: {button[1]}\n\n— Rishav, founder of Voyce. Reply any time; I read every reply."
+            f"\n\nStop these first-week notes: {stop}")
+    return send(user["id"], f"welcome{step}:{user['id']}", f"welcome_{step}", subject, text,
+                _layout(heading, paras, button=button, footer=footer),
+                sender=_WELCOME_FROM, reply_to=_WELCOME_REPLY,
+                headers={"List-Unsubscribe": f"<{stop}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"})
+
+
+def welcome_sweep() -> int:
+    """Every 30 minutes: the first-week note each new free account is due, if any."""
+    now = datetime.now()
+    since = max(WELCOME_SINCE, (now - timedelta(days=_WELCOME_LAST_DAY)).isoformat())
+    try:
+        users = list(db.users.find(
+            {"plan": "free", "partner_id": {"$in": [None, ""]}, "welcome_off": {"$ne": True},
+             "email": {"$nin": [None, ""]}, "created_at": {"$gte": since}},
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "created_at": 1, "gens_used": 1, "signup_country": 1,
+             "email_token": 1}))
+    except Exception:
+        logger.exception("[notify] welcome sweep could not read users")
+        return 0
+    sent = 0
+    for u in users:
+        try:
+            age = now - datetime.fromisoformat(str(u["created_at"])[:19])
+            due = [n for n, after in _WELCOME_STEPS if age >= after]
+            if not due:
+                continue
+            keys = [f"welcome{n}:{u['id']}" for n, _ in _WELCOME_STEPS]
+            done = list(db.notifications.find({"_id": {"$in": keys}}, {"_id": 1, "sent_at": 1}))
+            sent_steps = [int(d["_id"].split(":")[0][len("welcome"):]) for d in done]
+            if sent_steps and max(due) <= max(sent_steps):
+                continue
+            last = max((datetime.fromisoformat(d["sent_at"]) for d in done if d.get("sent_at")), default=None)
+            if last and now - last < timedelta(hours=20):
+                continue   # one a day at most
+            if _welcome(u, max(due)):
+                sent += 1
+        except Exception:
+            logger.exception(f"[notify] welcome note failed for {u.get('id')}")
+    return sent
 
 
 # ── A partner's own emails (partner_panel.py) ─────────────────────────────────

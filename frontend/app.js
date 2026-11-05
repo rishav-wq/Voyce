@@ -180,6 +180,8 @@ async function startApp() {
   const plan = ((user || {}).gen_info || {}).plan;
   const up = document.getElementById("side-upsell");
   if (up) up.style.display = plan && plan !== "pro" && plan !== "admin" ? "" : "none";
+  const mini = document.getElementById("side-up-mini");
+  if (mini) mini.hidden = plan !== "free";
   _renderMeter((user || {}).gen_info);
   _syncFormats();
   applySeedTopic();
