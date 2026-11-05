@@ -1629,6 +1629,7 @@ function attachRemove() {
   _attachState("empty");
   const inp = document.getElementById("attach-upload");
   if (inp) inp.value = "";
+  _madeKind = ""; _colourHint();
   saveDraft();
 }
 
@@ -1661,12 +1662,28 @@ function _paintSwatches() {
     b.onclick = () => { _imgTheme = k; _paintSwatches(); };
     return b;
   }));
+  _colourHint();
 }
-// Colours and options only mean something for the designed cards (Auto may pick one)
+// The colours are a setting for the next card made, not a recolour of the one on the post. Tapping a
+// colour used to change only a ring, so people thought it was broken: this line says what the pick did.
+let _madeKind = "", _madeTheme = "";   // the card on the post now and the colours it was made with
+function _colourHint() {
+  const el = document.getElementById("img-colour-hint");
+  if (!el) return;
+  const pick = _imgTheme ? `<b>${_themeName(_imgTheme)}</b> is set` : "<b>Surprise me</b> is on";
+  const onPost = _attachB64 && !_attachIsUpload && _DESIGNED.includes(_madeKind);
+  if (onPost && _imgTheme === _madeTheme)
+    el.innerHTML = "To try other colours on your card, pick one and press <b>Make it</b> on that card again.";
+  else if (onPost)
+    el.innerHTML = `${pick} for your next card. The card on your post keeps its colours until you press <b>Make it</b> again.`;
+  else if (_imgTheme)
+    el.innerHTML = `${pick}. Now press <b>Make it</b> on an Idea picture, Quote, List or Photo + headline card.`;
+  else
+    el.innerHTML = "Pick colours before you press <b>Make it</b>. They're used for Idea picture, Quote, List and Photo + headline cards. With <b>Surprise me</b>, Voyce chooses.";
+}
+// "Show 3 options" is for the designed cards; an idea picture is made one at a time
 function _syncDesignRow() {
   const style = (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration";
-  const line = document.getElementById("img-colour-line");
-  if (line) line.style.display = _DESIGNED.includes(style) ? "" : "none";
   // An idea picture is drawn whole, so each colour would be a new picture: one at a time
   const three = document.querySelector(".img-three");
   if (three) three.style.display = style === "concept" ? "none" : "";
@@ -1751,6 +1768,7 @@ async function attachGenerateImage() {
     const fmt = imgStyle === "source" ? "source" : data.format;
     _setImageMeta(fmt, data.theme);
     _showImageOptions(data.options, fmt);
+    _madeKind = imgStyle; _madeTheme = _imgTheme; _colourHint();
     saveDraft();
     toast((data.options && data.options.length > 1 ? "3 options ready: pick one under the image." : "Image added to your post.")
       + (data.notice ? " " + data.notice : ""), "success");

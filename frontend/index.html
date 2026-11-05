@@ -490,6 +490,8 @@
     .img-sw.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #24365e; border-color: transparent; }
     .img-sw-any { width: auto; height: 26px; padding: 0 11px; border-radius: 999px; background: #fff; font-family: inherit; font-size: 12px; font-weight: 600; color: #3b414c; }
     .img-three { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; cursor: pointer; }
+    .img-colour-hint { flex-basis: 100%; font-size: 12.5px; line-height: 1.45; color: #5b6270; }
+    .img-colour-hint b { color: #24365e; font-weight: 600; }
     .img-options { display: flex; justify-content: center; gap: 10px; padding: 10px 16px 0; }
     .img-options[hidden] { display: none; }
     .img-options button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none;
@@ -1147,6 +1149,8 @@
           <span class="img-design-k">Card colours</span>
           <span class="img-swatches" id="img-swatches" role="radiogroup" aria-label="Card colours"></span>
           <label class="img-three"><input type="checkbox" id="img-three"> Show 3 options</label>
+          <!-- Colours are for the NEXT card made; they never change one already on the post (filled by _colourHint) -->
+          <span class="img-colour-hint" id="img-colour-hint" aria-live="polite"></span>
         </span>
       </div>
     </section>
@@ -1315,7 +1319,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=34"></script>
+  <script src="/static/app.js?v=35"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async
