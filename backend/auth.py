@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 import httpx
+from pymongo.errors import DuplicateKeyError
 import db
 import partners
 
@@ -138,7 +139,16 @@ def get_user_by_token(token: str) -> dict | None:
         # A partner's client: no plan of their own. They write once a seat is theirs (an invite from the
         # partner's team, accepted at /partner/join); the team's own members are recognised by email.
         user.update(partner_id=partner["id"], plan="partner", seat="none")
-    db.users.insert_one({**user, "_id": clerk_id})
+    try:
+        db.users.insert_one({**user, "_id": clerk_id})
+    except DuplicateKeyError:
+        # A new account's first page sends several requests at once (Write asks for the account, the profiles and
+        # today's ideas together); one makes the account and the others read it. They used to fail, so /auth/me
+        # could miss "needs onboarding" and leave a brand-new account on Write.
+        existing = db.users.find_one({"clerk_id": clerk_id}, {"_id": 0})
+        if not existing or (existing.get("partner_id") or None) != (partner["id"] if partner else None):
+            return None
+        return existing
     if not partner:   # where they came from, and Meta's sign-up event (meta_ads.py)
         import meta_ads
         meta_ads.signed_up(user)
