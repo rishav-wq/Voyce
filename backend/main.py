@@ -1198,6 +1198,10 @@ def me(x_token: str = Header(None)):
         logging.exception("[Auth] could not note the visit")
     out = {**user, "gen_info": auth_module.get_gen_info(user["id"]), "sales_access": sales.is_member(user),
            "needs_onboarding": _needs_onboarding(user)}
+    out.pop("meta_pending", None)
+    events = meta_ads.for_browser(user["id"])   # sign-up, first post, checkout, payment, for this browser's pixel
+    if events:
+        out["meta_events"] = events
     p = partners.for_user(user)
     if p:
         out["partner"] = {"id": p["id"], "brand": p["brand"], "team": partners.is_admin(user, p)}

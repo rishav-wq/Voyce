@@ -22,7 +22,7 @@ async function initClerk() {
   _paintSideFromCache(clerk.user.id);
   try {
     const res = await fetch("/auth/me", { headers: { "x-token": _clerkToken } });
-    if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null")); }
+    if (res.ok) { localStorage.setItem("cm_user", JSON.stringify(await res.json())); if (window._showSalesLink) _showSalesLink(); if (window.vIdentify) vIdentify(JSON.parse(localStorage.getItem("cm_user") || "null")); if (window.vMetaEvents) vMetaEvents(JSON.parse(localStorage.getItem("cm_user") || "null")); }
   } catch (_) {}
   return true;
 }

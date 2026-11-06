@@ -8,9 +8,12 @@ Only people in META_COUNTRIES are measured (default IN: the ads run in India). A
 pixel, and no server event is sent for an account that signed up from elsewhere. A partner's visitors and
 clients are never measured, and the pixel stays off Voyce's signed-in screens.
 
-What Meta receives: page views on the public pages, a Voice Check run, and four server events (CompleteRegistration
-for a new account, FirstPost, InitiateCheckout, Purchase), each with Meta's own browser cookies (_fbp, _fbc), the
-IP address and browser, and the account's email and ID hashed with SHA-256. Never posts, profiles or LinkedIn data.
+What Meta receives: page views on the public pages, a Voice Check run, and four steps (CompleteRegistration for a
+new account, FirstPost, InitiateCheckout, Purchase), with Meta's own browser cookies (_fbp, _fbc), the IP address
+and browser, and the account's email (and, from the server, its ID) hashed with SHA-256. Never posts, profiles or
+LinkedIn data. Each step goes two ways: the browser's pixel sends it (/auth/me hands it over, for_browser), and the
+Conversions API sends it from the server once META_CAPI_TOKEN is set; Meta keeps one of the two by event ID. The
+token needs the dataset inside a business portfolio, so until then the browser is the only way.
 
 Every new account also keeps the campaign link that brought it (signup_source), whatever the country: Voyce's own
 record of which ad or campaign works, readable without Meta.
@@ -22,7 +25,7 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote
 
 import requests
@@ -33,8 +36,12 @@ import partners
 GRAPH_VERSION = os.getenv("META_GRAPH_VERSION", "v24.0")
 SOURCE_COOKIE = "v_src"   # the last campaign link that brought this browser here, set by the loader below
 _SOURCE_KEYS = ("utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "landing", "at")
-# Signed-in screens and one-time links: the pixel never loads there
-_NO_PIXEL = r"^\/(tool|setup|onboarding|sales|approve|connect|partner)"
+# The team's page and one-time links: the pixel never loads there
+_NO_PIXEL = r"^\/(sales|approve|connect|partner)"
+# Signed-in screens: the pixel loads only to send the steps below (sign-up, first post, checkout, payment), no page views
+_APP = r"^\/(tool|setup|onboarding)"
+# Meta counts an event once per event ID for 48 hours, so the browser is handed each step only that long
+_BROWSER_HOURS = 48
 
 
 def _pixel_id() -> str:
@@ -78,15 +85,45 @@ _SOURCE = r"""
 """
 
 
+_BOOT = r"""
+(function () {
+  var path = location.pathname;
+  window.vMeta = window.vMetaEvents = function () {};
+  if (/NO_PIXEL/.test(path)) return;
+  PIXEL
+  var user = null;
+  try { user = JSON.parse(localStorage.getItem("cm_user") || "null"); } catch (e) {}
+  fbq("set", "autoConfig", false, PIXEL_ID);   // no events guessed from button clicks
+  fbq("init", PIXEL_ID, user && user.email ? { em: String(user.email).toLowerCase() } : {});   // the pixel hashes it
+  if (!/APP_SCREENS/.test(path)) fbq("track", "PageView");
+  window.vMeta = function (ev, props) { try { fbq("trackCustom", ev, props || {}); } catch (e) {} };
+  // The steps the server recorded (main.me hands them over with the account), each sent once from this browser
+  // under the server's event ID, so Meta counts it once even when the Conversions API sends it too.
+  var STANDARD = { CompleteRegistration: 1, InitiateCheckout: 1, Purchase: 1 };
+  window.vMetaEvents = function (u) {
+    try {
+      var sent = [];
+      try { sent = JSON.parse(localStorage.getItem("v_meta_sent") || "[]") || []; } catch (e) {}
+      ((u && u.meta_events) || []).forEach(function (ev) {
+        if (!ev || !ev.name || !ev.id || sent.indexOf(ev.id) >= 0) return;
+        fbq(STANDARD[ev.name] ? "track" : "trackCustom", ev.name, ev.custom || {}, { eventID: ev.id });
+        sent.push(ev.id);
+      });
+      try { localStorage.setItem("v_meta_sent", JSON.stringify(sent.slice(-50))); } catch (e) {}
+    } catch (e) {}
+  };
+})();
+"""
+
+
 def loader_js(country: str) -> str:
-    """Added to /analytics.js: the campaign-link cookie for every visitor, and the pixel with a PageView
-    for a measured visitor on a public page. vMeta(event) records a custom event; a no-op without the pixel."""
+    """Added to /analytics.js: the campaign-link cookie for every visitor, and for a measured visitor the pixel:
+    a PageView on public pages, and vMetaEvents(account) to send the steps the server recorded. vMeta(event)
+    records a custom event. Both are no-ops without the pixel."""
     if not measures(country):
-        return _SOURCE + "window.vMeta = function () {};\n"
-    return _SOURCE + (
-        "window.vMeta = function (ev, props) { try { if (window.fbq) fbq('trackCustom', ev, props || {}); } catch (e) {} };\n"
-        f"(function () {{ if (/{_NO_PIXEL}/.test(location.pathname)) return;\n"
-        + _PIXEL + f"\nfbq('init', {json.dumps(_pixel_id())});\nfbq('track', 'PageView');\n}})();\n")
+        return _SOURCE + "window.vMeta = window.vMetaEvents = function () {};\n"
+    return _SOURCE + (_BOOT.replace("NO_PIXEL", _NO_PIXEL).replace("APP_SCREENS", _APP)
+                      .replace("PIXEL_ID", json.dumps(_pixel_id())).replace("  PIXEL\n", "  " + _PIXEL + "\n"))
 
 
 # ── The request in hand ───────────────────────────────────────────────────────
@@ -187,6 +224,34 @@ def _send(name: str, event_id: str, user: dict, visit: dict, custom: dict | None
     threading.Thread(target=_post, daemon=True).start()
 
 
+def _queue(user_id: str, name: str, event_id: str, custom: dict | None = None) -> None:
+    """Keep the step for the browser's pixel to send (for_browser). Without a Conversions API token this is how
+    Meta hears of it; with one, Meta keeps one of the two by event ID."""
+    try:
+        entry = {"name": name, "id": event_id, "custom": custom or {}, "at": datetime.now(timezone.utc).isoformat()}
+        db.users.update_one({"id": user_id}, {"$push": {"meta_pending": {"$each": [entry], "$slice": -10}}})
+    except Exception:
+        logging.exception("[meta] could not keep the step for the browser")
+
+
+def for_browser(user_id: str) -> list:
+    """The steps of the last 48 hours for this browser's pixel to send (main.me). Only for a visitor who gets the
+    pixel; the browser remembers which ones it already sent."""
+    v = _visitor.get() or {}
+    if _off() or partners.current() or not measures(v.get("country", "")):
+        return []
+    try:
+        pending = (db.users.find_one({"id": user_id}, {"meta_pending": 1}) or {}).get("meta_pending") or []
+        since = (datetime.now(timezone.utc) - timedelta(hours=_BROWSER_HOURS)).isoformat()
+        fresh = [e for e in pending if str(e.get("at", "")) >= since]
+        if len(fresh) != len(pending):
+            db.users.update_one({"id": user_id}, {"$set": {"meta_pending": fresh}})
+        return [{"name": e["name"], "id": e["id"], "custom": e.get("custom") or {}} for e in fresh]
+    except Exception:
+        logging.exception("[meta] could not read the steps for the browser")
+        return []
+
+
 def _measured_user(user_id: str) -> dict | None:
     """The account if Meta may hear about it: signed up in a measured country, not a partner's client."""
     if _off() or partners.current():
@@ -211,6 +276,7 @@ def signed_up(user: dict) -> None:
             fields["meta_visit"] = _visit(v, src)
         db.users.update_one({"id": user["id"]}, {"$set": fields})
         if measured and not _off():
+            _queue(user["id"], "CompleteRegistration", f"reg_{user['id']}")
             _send("CompleteRegistration", f"reg_{user['id']}", {**user, **fields}, fields["meta_visit"])
     except Exception:
         logging.exception("[meta] sign-up event failed")
@@ -225,6 +291,7 @@ def first_post(user_id: str) -> None:
         claimed = db.users.update_one({"id": user_id, "meta_first_post": {"$exists": False}},
                                       {"$set": {"meta_first_post": datetime.now(timezone.utc).isoformat()}})
         if claimed.modified_count:
+            _queue(user_id, "FirstPost", f"first_{user_id}")
             _send("FirstPost", f"first_{user_id}", u, _fresh(u))
     except Exception:
         logging.exception("[meta] first-post event failed")
@@ -235,8 +302,9 @@ def checkout(user_id: str, order: dict) -> None:
     try:
         u = _measured_user(user_id)
         if u:
-            _send("InitiateCheckout", f"checkout_{order.get('id', '')}", u, _fresh(u),
-                  {"value": round(int(order.get("amount", 0)) / 100, 2), "currency": order.get("currency", "INR")})
+            value = {"value": round(int(order.get("amount", 0)) / 100, 2), "currency": order.get("currency", "INR")}
+            _queue(user_id, "InitiateCheckout", f"checkout_{order.get('id', '')}", value)
+            _send("InitiateCheckout", f"checkout_{order.get('id', '')}", u, _fresh(u), value)
     except Exception:
         logging.exception("[meta] checkout event failed")
 
@@ -246,8 +314,10 @@ def purchase(user_id: str, order_id: str, payment_id: str, amount: int, currency
     request's: Razorpay's webhook confirms many payments, and its server is not the buyer."""
     try:
         u = _measured_user(user_id)
-        if u and u.get("meta_visit"):
-            _send("Purchase", f"pay_{payment_id or order_id}", u, u["meta_visit"],
-                  {"value": round(int(amount or 0) / 100, 2), "currency": currency or "INR", "order_id": order_id})
+        if u:
+            value = {"value": round(int(amount or 0) / 100, 2), "currency": currency or "INR", "order_id": order_id}
+            _queue(user_id, "Purchase", f"pay_{payment_id or order_id}", value)
+            if u.get("meta_visit"):
+                _send("Purchase", f"pay_{payment_id or order_id}", u, u["meta_visit"], value)
     except Exception:
         logging.exception("[meta] purchase event failed")
