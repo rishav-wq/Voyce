@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 from processor import process_input
-from generator import generate_content
+from generator import generate_content, author_rules, RULES_NOTE, past_post_gist
 from company import save_company, get_company, list_companies, delete_company, toggle_company, update_company, save_linkedin_data, set_scheduled_type, valid_tz, DEFAULT_TZ
 from autonomous import run_for_company, get_post_log, update_post_engagement
 from linkedin_data import parse_linkedin_upload, parse_pasted_posts, parse_post_screenshots
@@ -536,11 +536,11 @@ def _with_profile_context(profile: dict | None, raw_text: str, limit: int | None
         context.append(f"Designation: {profile.get('designation')}")
     if profile.get("analysis", {}).get("description"):
         context.append(f"Background: {profile['analysis']['description']}")
-    rules = partners.with_house_rules((profile.get("knowledge") or "").strip()[:2000], profile)
+    rules = author_rules(profile)
     if rules:
         context.append(
             "\nKNOWLEDGE BASE — ground the post in these facts/rules; never contradict or "
-            "invent around them:\n" + rules)
+            "invent around them. " + RULES_NOTE + "\n" + rules)
     return "\n".join(context) + "\n\nContent to repurpose:\n" + raw_text
 
 
@@ -2862,14 +2862,15 @@ def suggest_ideas(company_id: str, request: IdeasRequest | None = None,
         topics_block = (f"\nTHEIR TOPICS: {'; '.join(topics)}. Spread the 5 ideas across these: at least one idea for each topic.\n"
                         if len(topics) > 1 else "")
         who = subject.get("product_name") or subject.get("name", "")
-        kb = partners.with_house_rules((subject.get("knowledge") or "").strip()[:2000], subject)
+        # whole: the second 2,000 cut here used to drop the partner's house rules from any long box
+        kb = author_rules(subject)
         kb_block = ("\nKNOWLEDGE BASE — draw ideas from these facts/rules and honour any "
-                    "'never say' rules; do not contradict or invent around them:\n" + kb[:2000] + "\n") if kb else ""
+                    "'never say' rules; do not contradict or invent around them:\n" + kb + "\n") if kb else ""
         # What makes ideas theirs: their career (profile PDF), what they posted lately, what they told us
         role = (subject.get("designation") or "").strip()
         facts = (subject.get("profile_facts") or "").strip()
         facts_block = ("\nTHEIR CAREER (their LinkedIn profile; real facts to build ideas on):\n" + facts[:8000] + "\n") if facts else ""
-        recent = [str(p)[:500] for p in (subject.get("linkedin_top_posts") or [])[:5] if str(p).strip()]
+        recent = [past_post_gist(p) for p in (subject.get("linkedin_top_posts") or [])[:5] if str(p).strip()]
         recent_block = ("\nTHEIR RECENT POSTS (don't repeat these topics or hooks; build on what they're focused on now):\n"
                         + "\n---\n".join(recent) + "\n") if recent else ""
         told = [str(n.get("text", ""))[:300] for n in (subject.get("author_notes") or [])[:8] if n.get("text")]

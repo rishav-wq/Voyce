@@ -2102,10 +2102,11 @@ def generate_carousel_content(company: dict, news_context: str, post_type: str) 
     company_brief = _build_company_brief(company, with_knowledge=False)[:1400]
     # Their own facts and rules get their own place: inside the brief they came after the voice
     # examples, so the 1,400-character cut above always dropped them.
-    import partners
-    knowledge = partners.with_house_rules((company.get("knowledge") or "").strip()[:2000], company)
+    from generator import author_rules
+    knowledge = author_rules(company)   # whole: a 2,000 cut lost a long box's writing rules (8 Nov 2026)
     rules = (f"\nThe author's own facts and rules (follow every one that fits a carousel; never "
-             f"contradict them or invent around them):\n{knowledge}\n") if knowledge else ""
+             f"contradict them or invent around them; a line quoted in them shows a style, never "
+             f"words to reuse):\n{knowledge}\n") if knowledge else ""
     # The brief's own note on the example posts sits after them, past the cut: decks kept
     # lifting a coined term from one example ("SELLFIE") into slide after slide.
     rules += ("\nThe example posts above show the voice only: never reuse their hooks, phrases, "

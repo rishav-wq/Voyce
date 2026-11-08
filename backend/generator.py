@@ -1,6 +1,55 @@
 import re
 
+import partners
 from llm import generate, generate_json, CLAUDE_EDIT_MODEL, CLAUDE_EDIT_EFFORT
+
+# How much of a profile each writer is given (8 Nov 2026 audit). The facts-and-rules box holds 4,000
+# characters (the partner setup's limit), but the writers took 2,000, so a long box lost its writing rules
+# (all of Mandar's, six of Raj's). Example posts were cut at 600, so no writer ever saw how an author ends a
+# post (their last line, their hashtags): about two in three examples were longer than that.
+KNOWLEDGE_CHARS = 4000
+EXAMPLE_CHARS = 1500
+
+# Said wherever the box reaches a writer. Without it the general rules (130-260 words, no hashtags, end on
+# the takeaway) beat the author's own, and lines quoted in the box as examples of a style came back as
+# sentences ("the real question is quieter").
+RULES_NOTE = ("These are the author's own rules. Where they differ from the general writing rules (length, "
+              "lists, hashtags, how to end), follow the author's. A line quoted in them shows a style: never "
+              "reuse it word for word, and never restate an argument from their past posts as new.")
+
+
+def author_rules(company: dict | None) -> str:
+    """The profile's facts and writing rules, whole, then their partner's house rules."""
+    if not company:
+        return ""
+    return partners.with_house_rules((company.get("knowledge") or "").strip()[:KNOWLEDGE_CHARS], company)
+
+
+def past_post_gist(post, part: int = 350) -> str:
+    """A past post's opening and its ending, for the "don't repeat these" lists: its hook and where it
+    lands. The first 300 characters alone missed the argument, so an idea restated an old post as new
+    (Raj's 37signals post came back as "cloud vs no cloud is the wrong debate", 8 Nov 2026)."""
+    text = " ".join(str(post or "").split())
+    return text if len(text) <= 2 * part + 20 else f"{text[:part]} … {text[-part:]}"
+
+
+def uses_hashtags(company: dict | None) -> bool:
+    return any(re.search(r"(^|\s)#[A-Za-z]\w", str(p)) for p in (company or {}).get("linkedin_top_posts") or [])
+
+
+def editor_brief(company: dict | None) -> str:
+    """What the final editor needs to know about the author. It used to see the draft alone, so its
+    checklist beat the author's rules, and "no hashtags unless the author's own posts use them" always
+    stripped them: it had never seen the posts."""
+    rules = author_rules(company)
+    out = []
+    if rules:
+        out.append("THE AUTHOR'S OWN RULES (where they differ from your checklist, theirs win; keep what they "
+                   "ask for, such as their length, lists, ending or hashtags):\n" + rules)
+    if uses_hashtags(company):
+        out.append("This author's own posts carry hashtags at the end: keep the post's hashtags, trimmed to any "
+                   "limit their rules set.")
+    return ("\n\n".join(out) + "\n\n") if out else ""
 
 
 def _strip_markdown(text: str) -> str:
@@ -304,7 +353,7 @@ def _build_voice_block(company: dict | None) -> str:
         else:
             parts.append("\nREAL POSTS BY THIS AUTHOR — study these to learn the VOICE only:")
         for i, post in enumerate(top_posts[:5], 1):
-            parts.append(f"--- Example {i} ---\n{post[:600]}")
+            parts.append(f"--- Example {i} ---\n{post[:EXAMPLE_CHARS]}")
         # The examples teach how the author sounds, not what to say. Without this the
         # model lifts hooks verbatim (it reused "my last 7 posts bombed" across posts).
         parts.append("\nHOW TO USE THESE EXAMPLES: copy the author's sentence rhythm, vocabulary, "
@@ -323,9 +372,9 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
     voice_section = f"\n\nVOICE PROFILE:\n{voice_block}" if voice_block else ""
 
     draft = generate_json(
-        # main.py has cut the source to 6,000 before putting the profile's context (up to ~2,600)
-        # in front of it, so this cap only guards other callers
-        f"Source content to repurpose:\n\n{raw_text[:9000]}{voice_section}",
+        # main.py has cut the source to 6,000 before putting the profile's context (up to ~4,800 with a
+        # full rules box) in front of it, so this cap only guards other callers
+        f"Source content to repurpose:\n\n{raw_text[:11500]}{voice_section}",
         system=SYSTEM_PROMPT,
         max_tokens=2048,
         temperature=0.85,
@@ -336,7 +385,7 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
         post = draft.get("linkedin_post", "")
         if post:
             edited = generate(
-                f"Post to edit:\n\n{post}",
+                f"{editor_brief(company)}Post to edit:\n\n{post}",
                 system=HUMANIZE_PROMPT,
                 max_tokens=1024,
                 temperature=0.6,

@@ -5,7 +5,8 @@ from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 
 from llm import generate as llm_generate
-from generator import HUMANIZE_PROMPT, _strip_markdown, drop_author_furniture
+from generator import (HUMANIZE_PROMPT, _strip_markdown, drop_author_furniture, author_rules, editor_brief,
+                       RULES_NOTE, EXAMPLE_CHARS, KNOWLEDGE_CHARS)
 import analytics
 import notes as notes_mod
 from search import search_industry_news, format_news_context
@@ -738,7 +739,7 @@ def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
         else:
             parts.append("\n--- REAL POSTS BY THIS AUTHOR (match this voice exactly — rhythm, vocabulary, quirks) ---")
         for i, post in enumerate(top_posts[:5], 1):
-            parts.append(f"Example {i}:\n{post[:600]}")
+            parts.append(f"Example {i}:\n{post[:EXAMPLE_CHARS]}")
         # Without this the daily posts lifted an example's hook and its story as
         # if new ("my last 7 posts bombed", every day, as a carousel).
         parts.append("HOW TO USE THESE EXAMPLES: copy the rhythm, vocabulary and tone only. NEVER reuse "
@@ -748,12 +749,11 @@ def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
                      "belong to the posts they write, and a number you add is made up. Don't sign off "
                      "with their name or title.")
 
-    import partners
-    kb = partners.with_house_rules((company.get("knowledge") or "").strip()[:2000], company) if with_knowledge else ""
+    kb = author_rules(company) if with_knowledge else ""
     if kb:
         parts.append(
             "\n--- KNOWLEDGE BASE (ground every claim in these facts/rules; never "
-            "contradict them or invent around them) ---\n" + kb)
+            "contradict them or invent around them. " + RULES_NOTE + ") ---\n" + kb)
     if (company.get("profile_facts") or "").strip():
         parts.append(
             "\n--- THEIR CAREER (from their LinkedIn profile; real facts you may draw on when they fit. "
@@ -1029,11 +1029,12 @@ def get_post_type_info(company: dict) -> dict:
     }
 
 
-def _revise_post(draft: str, industry: str) -> str:
-    """Humanizer pass: strip AI tells, vary rhythm, keep voice and facts."""
+def _revise_post(draft: str, industry: str, company: dict | None = None) -> str:
+    """Humanizer pass: strip AI tells, vary rhythm, keep voice and facts. It sees the author's own rules
+    (generator.editor_brief), so its checklist no longer undoes them."""
     try:
         revised = llm_generate(
-            f"Industry: {industry}\n\nPost to edit:\n\n{draft}",
+            f"{editor_brief(company)}Industry: {industry}\n\nPost to edit:\n\n{draft}",
             system=HUMANIZE_PROMPT,
             max_tokens=1024,
             temperature=0.6,
@@ -1124,7 +1125,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             prompt + f"\n\nYOUR LAST DRAFT OPENED LIKE THIS EARLIER POST: \"{copied}\". "
                      "Write the post again with a completely different first line and angle.",
             max_tokens=1024, temperature=0.9))
-    post = _revise_post(draft, industry)
+    post = _revise_post(draft, industry, company)
 
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
@@ -1140,7 +1141,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             "an observation, an opinion or advice instead."
         )
         post2 = _revise_post(_format_linkedin_post(
-            llm_generate(retry, max_tokens=1024, temperature=0.9)), industry)
+            llm_generate(retry, max_tokens=1024, temperature=0.9)), industry, company)
         v2 = _value_gate(post2, industry, facts, author_context=author)
         if v2.get("score", 0) >= verdict.get("score", 0):
             chosen, chosen_v = post2, v2
@@ -1176,9 +1177,9 @@ def _author_record(company: dict) -> str:
     if company.get("website_content") and company.get("website_type") != "external":
         parts.append("Their own website:\n" + company["website_content"][:1200])
     for i, post in enumerate((company.get("linkedin_top_posts") or [])[:5], 1):
-        parts.append(f"Their past post {i}:\n{str(post)[:600]}")
-    if (company.get("knowledge") or "").strip():
-        parts.append("Facts they gave:\n" + company["knowledge"].strip()[:2000])
+        parts.append(f"Their past post {i}:\n{str(post)[:EXAMPLE_CHARS]}")
+    if (company.get("knowledge") or "").strip():   # whole, as the writer saw it: a fact past a cut read as invented
+        parts.append("Facts they gave:\n" + company["knowledge"].strip()[:KNOWLEDGE_CHARS])
     if (company.get("profile_facts") or "").strip():
         parts.append("Their LinkedIn profile (career):\n" + company["profile_facts"].strip()[:8000])
     told = notes_mod.record_block(company)

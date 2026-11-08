@@ -144,10 +144,12 @@ def make_ideas(company: dict, recent: list[str] | None = None) -> dict:
                 seen.add(n["url"])
                 news.append({**n, "topic": t})
     facts = (company.get("profile_facts") or "").strip()[:8000]
-    import partners
-    rules = partners.with_house_rules((company.get("knowledge") or "").strip()[:4000], company)
-    posted = [str(x)[:300] for x in (company.get("linkedin_top_posts") or [])[:8]] + \
-             [str(x)[:300] for x in recent_made_list[:15]]
+    from generator import author_rules, past_post_gist
+    rules = author_rules(company)
+    # each past post's opening AND ending: from the first 300 characters alone, an idea restated an old
+    # post's argument as new (8 Nov 2026)
+    posted = [past_post_gist(x) for x in (company.get("linkedin_top_posts") or [])[:8]] + \
+             [past_post_gist(x, 250) for x in recent_made_list[:15]]
     news_block = "\n".join(f"[N{i}] ({n['topic']}) {n['title']} — {n.get('published', '')[:16]}\n{n['snippet']}"
                            for i, n in enumerate(news, 1))
 
