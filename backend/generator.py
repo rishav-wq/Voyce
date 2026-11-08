@@ -37,10 +37,26 @@ def uses_hashtags(company: dict | None) -> bool:
     return any(re.search(r"(^|\s)#[A-Za-z]\w", str(p)) for p in (company or {}).get("linkedin_top_posts") or [])
 
 
-def editor_brief(company: dict | None) -> str:
-    """What the final editor needs to know about the author. It used to see the draft alone, so its
-    checklist beat the author's rules, and "no hashtags unless the author's own posts use them" always
-    stripped them: it had never seen the posts."""
+def _lines(post) -> list[str]:
+    return [ln.strip() for ln in str(post or "").splitlines() if ln.strip() and not ln.strip().startswith("#")]
+
+
+def signature_lines(company: dict | None) -> list[str]:
+    """Each example post's first line and last two lines: where an author's memorable phrases sit (their hook,
+    their closing line). The writer echoed them even when told not to ("the business you've become")."""
+    out = []
+    for post in ((company or {}).get("linkedin_top_posts") or [])[:5]:
+        ls = _lines(post)
+        for ln in dict.fromkeys(ls[:1] + ls[-2:]):
+            out.append(ln[:200])
+    return out
+
+
+def editor_brief(company: dict | None, source: str = "") -> str:
+    """What the final editor needs to know. It used to see the draft alone, so its checklist beat the
+    author's rules, "no hashtags unless the author's own posts use them" always stripped them (it had never
+    seen the posts), and "cut any number that isn't from the source" couldn't work (it had never seen the
+    source either: a figure Claude knew from memory went out unchecked)."""
     rules = author_rules(company)
     out = []
     if rules:
@@ -49,7 +65,117 @@ def editor_brief(company: dict | None) -> str:
     if uses_hashtags(company):
         out.append("This author's own posts carry hashtags at the end: keep the post's hashtags, trimmed to any "
                    "limit their rules set.")
+    sig = signature_lines(company)
+    if sig:
+        out.append("LINES FROM THE AUTHOR'S PAST POSTS (their own hooks and closing lines). The post must not repeat "
+                   "any of them or reword one closely; rewrite any sentence that echoes one:\n"
+                   + "\n".join(f"- {s}" for s in sig))
+    if (source or "").strip():
+        out.append("WHAT THE POST WAS WRITTEN FROM (check its facts against this):\n" + source.strip()[:4000] +
+                   "\n\nA statistic, amount or date about the world (a study, survey, market figure or news event) "
+                   "that is in neither this nor the author's rules stays only if the post says where it comes from "
+                   "(the organisation or publication, and the year) and it is widely documented. Otherwise cut it "
+                   "or make the sentence general. Facts about the author's own work and career are not for you to "
+                   "check: leave them.")
     return ("\n\n".join(out) + "\n\n") if out else ""
+
+
+# Common words: a five-word run of these ("one of the most important") is shared with half of LinkedIn, so it
+# doesn't count as copying.
+_COMMON = set("""a an the and or but nor of to in on for with at by from as into about over after before is are
+was were be been being it its it's this that these those there here you your you're we our we're they their
+they're i i'm my me he she his her them us not no so if then than what which who whom how why when where all
+any each more most much many some such very just only also even still can could will would should may might
+must do does did done have has had having get gets got one two""".split())
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+(?:'[a-z]+)?", str(text or "").lower())
+
+
+def lifted_phrases(post: str, company: dict | None, n: int = 5) -> list[str]:
+    """Runs of n or more words the post shares word for word with the author's example posts, skipping runs
+    made of common words. The examples teach a voice; a copied run is their old post, not a new one."""
+    examples = (company or {}).get("linkedin_top_posts") or []
+    words = _words(post)
+    if not examples or len(words) < n:
+        return []
+    theirs = set()
+    for ex in examples:
+        w = _words(ex)
+        theirs |= {tuple(w[i:i + n]) for i in range(len(w) - n + 1)}
+    hit = [False] * len(words)
+    for i in range(len(words) - n + 1):
+        g = tuple(words[i:i + n])
+        if g in theirs and sum(x not in _COMMON for x in g) >= 2:
+            for j in range(i, i + n):
+                hit[j] = True
+    spans, cur = [], []
+    for w, h in zip(words, hit):
+        if h:
+            cur.append(w)
+        elif cur:
+            spans.append(" ".join(cur)); cur = []
+    if cur:
+        spans.append(" ".join(cur))
+    return spans
+
+
+_UNCOPY_PROMPT = """You fix one problem in a LinkedIn post: some phrases in it were copied word for word from the
+author's earlier posts, so readers who follow them would see the same lines again. Rewrite only the sentences
+that contain those phrases, saying the same thing in fresh words, in the same voice. Change nothing else: keep
+every other line, every fact and number, the opening line's idea, the line breaks and any hashtags.
+Return ONLY the post."""
+
+
+def word_cap(company: dict | None) -> int | None:
+    """The longest a post may be by the author's own rules: the largest upper bound they state ("180-250
+    words", "never over 250"). The loosest one, so a long format they allow is never cut to a short one's size."""
+    text = (company or {}).get("knowledge") or ""
+    caps = [int(b) for _, b in re.findall(r"(\d{2,4})\s*(?:-|–|—|to)\s*(\d{2,4})\s*words", text)]
+    caps += [int(n) for n in re.findall(r"(?:never|not|no)\s+(?:over|more than|longer than)\s+(\d{2,4})", text)]
+    caps = [c for c in caps if 50 <= c <= 1000]
+    return max(caps) if caps else None
+
+
+def post_words(post: str) -> int:
+    return len([w for w in str(post or "").split() if not w.startswith("#")])
+
+
+_TRIM_PROMPT = """You trim a LinkedIn post to a word limit. Cut padding first: restated points, wind-up phrases,
+a second closing line that repeats the first. Keep the opening line, every fact, number and named source, the
+closing takeaway, any closing question and the hashtags, and keep the author's voice and line breaks.
+Return ONLY the post."""
+
+
+def fit_length(post: str, company: dict | None) -> str:
+    """One trim pass when a post runs past the author's own longest length (8 Nov 2026: with "180-250 words"
+    in his rules, Raj's drafts came out at 267; Mandar's at 296 against 280). Small overruns are left alone."""
+    cap, n = word_cap(company), post_words(post)
+    if not cap or n <= cap * 1.04:
+        return post
+    try:
+        out = generate(f"Limit: {cap} words. The post has {n}.\n\nPost:\n\n{post}", system=_TRIM_PROMPT,
+                       max_tokens=1024, temperature=0.3, model=CLAUDE_EDIT_MODEL, effort=CLAUDE_EDIT_EFFORT)
+        out = (out or "").strip()
+        return out if out and cap * 0.6 <= post_words(out) < n else post
+    except Exception:
+        return post
+
+
+def uncopy(post: str, company: dict | None) -> str:
+    """One pass that rewrites sentences copied from the author's example posts (8 Nov 2026 audit). The
+    prompt rules alone let a signature line through now and then."""
+    spans = lifted_phrases(post, company)
+    if not spans:
+        return post
+    try:
+        fixed = generate("Copied phrases:\n" + "\n".join(f"- {s}" for s in spans) + f"\n\nPost:\n\n{post}",
+                         system=_UNCOPY_PROMPT, max_tokens=1024, temperature=0.5,
+                         model=CLAUDE_EDIT_MODEL, effort=CLAUDE_EDIT_EFFORT)
+        return fixed.strip() if fixed and len(fixed.strip()) > len(post) * 0.6 else post
+    except Exception:
+        return post
 
 
 def _strip_markdown(text: str) -> str:
@@ -380,12 +506,14 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
         temperature=0.85,
     )
 
-    # Humanize pass on the LinkedIn post only
+    # Humanize pass on the LinkedIn post only. It sees what the post was written from (main.py puts the
+    # source after "Content to repurpose:"), so it can check the post's facts against it.
+    source = raw_text.split("Content to repurpose:\n", 1)[-1]
     try:
         post = draft.get("linkedin_post", "")
         if post:
             edited = generate(
-                f"{editor_brief(company)}Post to edit:\n\n{post}",
+                f"{editor_brief(company, source)}Post to edit:\n\n{post}",
                 system=HUMANIZE_PROMPT,
                 max_tokens=1024,
                 temperature=0.6,
@@ -398,4 +526,5 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
 
     if draft.get("linkedin_post"):
         draft["linkedin_post"] = drop_author_furniture(_strip_markdown(draft["linkedin_post"]), company)
+        draft["linkedin_post"] = _strip_markdown(fit_length(uncopy(draft["linkedin_post"], company), company))
     return draft

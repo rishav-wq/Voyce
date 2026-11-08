@@ -608,6 +608,8 @@
     }
     .form-group input:focus, .form-group select:focus { border-color: #24365e; }
     .form-hint { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .form-hint .count { white-space: nowrap; }
+    .form-hint .count.count-near { color: #b45309; font-weight: 600; }
     .li-fill-row { display: flex; gap: 8px; }
     .li-fill-row input { flex: 1; min-width: 0; }
     .li-fill-row .act-btn { white-space: nowrap; }
@@ -1060,8 +1062,8 @@
               </div>
               <div class="form-group">
                 <label>Key facts &amp; rules</label>
-                <textarea id="p-knowledge" rows="4" placeholder="Facts every post can use and rules it must follow: real capabilities, cited numbers, angles that work, 'never say X'."></textarea>
-                <p class="form-hint">Every post is grounded in these and won't contradict them.</p>
+                <textarea id="p-knowledge" rows="4" maxlength="4000" data-count="p-knowledge-count" placeholder="Facts every post can use and rules it must follow: real capabilities, cited numbers, angles that work, 'never say X'."></textarea>
+                <p class="form-hint">Every post is grounded in these and won't contradict them. <span class="count" id="p-knowledge-count" aria-live="polite"></span></p>
               </div>
             </div>
           </details>
@@ -3229,6 +3231,7 @@
       switchMode("personal");   // after editing a company profile, a new one is still a person
       // A new profile starts empty — not with the last one's details still in the fields.
       document.querySelectorAll("#modal-overlay form").forEach(f => f.reset());
+      _paintCount(document.getElementById("p-knowledge"));
       document.getElementById("p-website-type-row").style.display = "none";
       const vs = document.getElementById("p-li-status"); if (vs) vs.textContent = "";
       _liPhoto = ""; _showLiFound(null);
@@ -3287,6 +3290,16 @@
     }
     function closeModalIfBg(e) { if (e.target === document.getElementById("modal-overlay")) closeModal(); }
 
+    // The facts-and-rules box: writers read up to 4,000 characters, so the box stops there and says how much is used
+    function _paintCount(ta) {
+      const out = ta && document.getElementById(ta.dataset.count);
+      if (!out) return;
+      const n = ta.value.length, max = +ta.maxLength || 4000;
+      out.textContent = `${n.toLocaleString("en-US")} of ${max.toLocaleString("en-US")} characters`;
+      out.classList.toggle("count-near", n >= max * 0.9);
+    }
+    document.addEventListener("input", e => { if (e.target.dataset && e.target.dataset.count) _paintCount(e.target); });
+
     function switchMode(mode) {
       currentMode = mode;
       document.querySelectorAll(".mode-tab").forEach((t,i) => t.classList.toggle("active", (mode==="personal"&&i===0)||(mode==="company"&&i===1)));
@@ -3331,6 +3344,7 @@
             _liPhoto = p.li_photo ? "data:image/jpeg;base64," + p.li_photo : "";
             _showLiFound(p.linkedin_url ? { name: p.name, role: p.designation, photo: _liPhoto } : null);
             document.getElementById("p-knowledge").value   = p.knowledge || "";
+            _paintCount(document.getElementById("p-knowledge"));
             document.getElementById("p-product-name").value = p.product_name || "";
             const pw = document.getElementById("p-website");
             pw.value = p.website_url || "";

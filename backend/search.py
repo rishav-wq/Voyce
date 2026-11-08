@@ -174,6 +174,9 @@ def _off_topic(r: dict, topic: str) -> bool:
 
 _NEWS_TYPES = {"trend_commentary", "trend_reaction", "product_spotlight"}
 _STAT_TYPES = {"industry_stat", "stat_reaction"}
+# A take on what's happening now: the past month first, wider only when that finds too little. Searched
+# without a date, Raj's first hot take (8 Nov 2026) was built on a 2024 article, against "this week's news".
+_FRESH_TYPES = {"hot_take", "prediction"}
 
 
 def _tavily(query: str, depth: str, num_results: int, **filters) -> dict:
@@ -233,10 +236,13 @@ def search_industry_news(
     # everything.
     if post_type in _STAT_TYPES:
         window = {"time_range": "year"}
+    elif post_type in _FRESH_TYPES:
+        window = {"time_range": "month"}
     elif post_type in _NEWS_TYPES or post_type not in _QUERY_TEMPLATES:
         window = {"topic": "news", "time_range": "week"}
     else:
         window = {}
+    fresh = post_type in _FRESH_TYPES
 
     # A few more than asked for: job ads, sports, social posts and repeats are dropped after the search
     fetch = num_results + 4
@@ -270,6 +276,11 @@ def search_industry_news(
                 # A quiet week in a small niche: widen to the month rather than
                 # drop the date limit.
                 data = _tavily(q, "advanced", fetch, topic="news", time_range="month")
+            elif fresh and len(usable(data, q)) < 2:
+                # A take with too little from the past month: the past year, and only then anything
+                data = _tavily(q, "advanced", fetch, time_range="year")
+                if len(usable(data, q)) < 2:
+                    data = _tavily(q, "advanced", fetch)
         except Exception:
             # Fallback: a simpler query, still recent
             try:

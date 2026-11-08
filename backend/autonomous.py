@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 
 from llm import generate as llm_generate
 from generator import (HUMANIZE_PROMPT, _strip_markdown, drop_author_furniture, author_rules, editor_brief,
-                       RULES_NOTE, EXAMPLE_CHARS, KNOWLEDGE_CHARS)
+                       RULES_NOTE, EXAMPLE_CHARS, KNOWLEDGE_CHARS, uncopy, fit_length)
+from llm import CLAUDE_EDIT_MODEL, CLAUDE_EDIT_EFFORT
 import analytics
 import notes as notes_mod
 from search import search_industry_news, format_news_context
@@ -1029,19 +1030,24 @@ def get_post_type_info(company: dict) -> dict:
     }
 
 
-def _revise_post(draft: str, industry: str, company: dict | None = None) -> str:
-    """Humanizer pass: strip AI tells, vary rhythm, keep voice and facts. It sees the author's own rules
-    (generator.editor_brief), so its checklist no longer undoes them."""
+def _revise_post(draft: str, industry: str, company: dict | None = None, source: str = "") -> str:
+    """Humanizer pass: strip AI tells, vary rhythm, keep voice and facts. It sees the author's own rules and
+    the news the post was written from (generator.editor_brief), so its checklist no longer undoes the rules
+    and it can check figures. Same model as the Write page's editor (Sonnet, low effort: better and cheaper
+    than Opus there, 2 Nov 2026 test). Then sentences copied from the author's past posts are rewritten."""
     try:
         revised = llm_generate(
-            f"{editor_brief(company)}Industry: {industry}\n\nPost to edit:\n\n{draft}",
+            f"{editor_brief(company, source)}Industry: {industry}\n\nPost to edit:\n\n{draft}",
             system=HUMANIZE_PROMPT,
             max_tokens=1024,
             temperature=0.6,
+            model=CLAUDE_EDIT_MODEL, effort=CLAUDE_EDIT_EFFORT,
         )
-        return _format_linkedin_post(revised) if revised else draft
+        post = _format_linkedin_post(revised) if revised else draft
     except Exception:
-        return draft  # fall back to original if revision fails
+        post = draft  # fall back to original if revision fails
+    fixed = fit_length(uncopy(post, company), company)
+    return _format_linkedin_post(fixed) if fixed != post else post
 
 
 # Claim-shaped post types automatically ship with a tweet card: the hook line rendered
@@ -1125,11 +1131,11 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             prompt + f"\n\nYOUR LAST DRAFT OPENED LIKE THIS EARLIER POST: \"{copied}\". "
                      "Write the post again with a completely different first line and angle.",
             max_tokens=1024, temperature=0.9))
-    post = _revise_post(draft, industry, company)
+    facts = news_context if gate_context is None else gate_context
+    post = _revise_post(draft, industry, company, facts)
 
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
-    facts = news_context if gate_context is None else gate_context
     author = _author_record(company)
     verdict = _value_gate(post, industry, facts, author_context=author)
     chosen, chosen_v = post, verdict
@@ -1141,7 +1147,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             "an observation, an opinion or advice instead."
         )
         post2 = _revise_post(_format_linkedin_post(
-            llm_generate(retry, max_tokens=1024, temperature=0.9)), industry, company)
+            llm_generate(retry, max_tokens=1024, temperature=0.9)), industry, company, facts)
         v2 = _value_gate(post2, industry, facts, author_context=author)
         if v2.get("score", 0) >= verdict.get("score", 0):
             chosen, chosen_v = post2, v2

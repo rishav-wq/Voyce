@@ -83,6 +83,8 @@
     input, textarea { width: 100%; border: 1px solid #d3d8e0; border-radius: 10px; padding: 10px 12px; font: 14px Inter, sans-serif; color: var(--ink); }
     textarea { min-height: 130px; resize: vertical; }
     .hint { color: var(--soft); font-size: 12.5px; margin: 4px 0 0; }
+    .hint.count { text-align: right; }
+    .hint.count.count-near { color: var(--warn, #b45309); font-weight: 600; }
     .draft { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0; font-size: 14px; white-space: pre-wrap; }
     .draft img { max-width: 140px; border-radius: 8px; display: block; margin-top: 8px; }
     .draft small { display: block; color: var(--soft); margin-bottom: 6px; white-space: normal; }
@@ -153,11 +155,12 @@
       <summary>Set up their voice now (recommended)</summary>
       <p class="hint">Fill this in from your conversation with them, and they skip the setup form: their first morning
         draft is on its way as soon as they join. Topics are the one field you need.</p>
-      <label for="mi-role">Role line</label><input id="mi-role" autocomplete="off" placeholder="Founder &amp; CEO, Flentas">
+      <label for="mi-role">Role line</label><input id="mi-role" autocomplete="off" placeholder="Founder &amp; CEO, Northwind Cloud">
       <label for="mi-topics">Topics</label><input id="mi-topics" autocomplete="off" placeholder="cloud cost, AWS partnerships, security for mid-size firms">
       <label for="mi-tone">Tone</label><input id="mi-tone" autocomplete="off" placeholder="Plain, direct, a little dry">
       <label for="mi-rules">Facts and writing rules</label>
-      <textarea id="mi-rules" placeholder="20 years in cloud consulting. Founded Flentas in 2016. Never name clients. No emojis."></textarea>
+      <textarea id="mi-rules" maxlength="4000" data-count="mi-rules-count" placeholder="20 years in cloud consulting. Founded the firm in 2012. Never name clients. No emojis."></textarea>
+      <p class="hint count" id="mi-rules-count" aria-live="polite">0 of 4,000 characters</p>
       <label for="mi-posts">A few of their LinkedIn posts</label>
       <textarea id="mi-posts" placeholder="Paste 1 to 3 posts, with a line of --- between them. This is what makes drafts sound like them."></textarea>
       <div class="two">
@@ -301,9 +304,19 @@
       el.innerHTML = items.length ? items.map(a => feedItem(a, true)).join("")
         : `<li class="empty">Nothing yet. Posts, approvals and invites show up here.</li>`;
     }
+    // The facts-and-rules box: writers read up to 4,000 characters, so the box stops there and says how much is used
+    function _paintCount(ta) {
+      const out = ta && $(ta.dataset.count);
+      if (!out) return;
+      out.textContent = `${ta.value.length.toLocaleString("en-US")} of 4,000 characters`;
+      out.classList.toggle("count-near", ta.value.length >= 3600);
+    }
+    document.addEventListener("input", e => { if (e.target.dataset && e.target.dataset.count) _paintCount(e.target); });
+
     const _MI = ["mi-name", "mi-email", "mi-role", "mi-topics", "mi-tone", "mi-rules", "mi-posts", "mi-time", "mi-tz"];
     function openInvite() {
       _MI.forEach(id => { $(id).value = { "mi-time": "09:00", "mi-tz": "Asia/Kolkata" }[id] || ""; $(id).disabled = false; });
+      _paintCount($("mi-rules"));
       $("mi-setup").open = false;
       $("mi-done").hidden = true; $("mi-send").hidden = false; $("mi-close").textContent = "Cancel";
       show("m-invite"); $("mi-name").focus();
@@ -379,7 +392,8 @@
           <label for="su-topics">Topics</label><input id="su-topics" value="${esc(s.industry || "")}">
           <p class="hint">Separate topics with commas. The writer takes one a day, in turn.</p>
           <label for="su-tone">Tone</label><input id="su-tone" value="${esc(s.tone || "")}">
-          <label for="su-rules">Facts and writing rules</label><textarea id="su-rules">${esc(s.knowledge || "")}</textarea>
+          <label for="su-rules">Facts and writing rules</label><textarea id="su-rules" maxlength="4000" data-count="su-rules-count">${esc(s.knowledge || "")}</textarea>
+          <p class="hint count" id="su-rules-count" aria-live="polite">${(s.knowledge || "").length.toLocaleString("en-US")} of 4,000 characters</p>
           <p class="hint">${d.voice_samples ? `${d.voice_samples} of ${first}'s own posts teach the writer their voice. ` : ""}${P ? `${esc(P.company)}'s house rules are added for every client; ${first}'s own rules win where they differ.` : ""}</p>
           <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn primary" onclick="saveSetup('${esc(c.id)}', this)">Save setup</button></div>`
           : `<p class="hint">${first} hasn't set up their profile yet. It shows here once they do.</p>`}

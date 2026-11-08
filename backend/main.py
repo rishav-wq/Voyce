@@ -836,7 +836,9 @@ class CompanyRequest(BaseModel):
     allowed_hooks: list[str] = []
     voice_posts: str = ""   # pasted recent posts -> voice examples (fastest way to match a voice)
     tone_shift: bool = False  # opt-in: keep the voice from examples but shift register toward `tone`
-    knowledge: str = ""     # curated facts/rules/angles the AI must ground every post in
+    # curated facts/rules/angles the AI must ground every post in; writers read 4,000 (generator.KNOWLEDGE_CHARS)
+    # and the box stops there, so more would only be ignored
+    knowledge: str = Field("", max_length=4000)
     li_photo: str = ""      # their photo from "Fill from LinkedIn" (data URL), for previews and image cards
     timezone: str = ""      # IANA zone from the browser, e.g. "America/New_York"; post_time is local to it
 
