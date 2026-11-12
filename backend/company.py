@@ -192,4 +192,48 @@ def save_linkedin_data(company_id: str, linkedin_result: dict):
             "linkedin_data_type": linkedin_result.get("type", ""),
         }}
     )
+    add_length_rule(company_id, linkedin_result.get("top_posts") or [])
     return result.matched_count > 0
+
+
+# The person's usual post length, written into their rules when Voyce first reads their posts (12 Nov 2026).
+# Every sample pack needed it: a loose length let 4 of 5 posts run about 30% long. The writers already keep
+# to a "120-180 words" range in the rules box (generator.word_cap), so this is a line there they can see and
+# change. Never added over a length they already wrote, nor past the box's 4,000 characters.
+_RANGE = re.compile(r"\d{2,4}\s*(?:-|–|—|to)\s*\d{2,4}\s*words", re.I)
+
+
+def _post_text(p) -> str:
+    return p if isinstance(p, str) else str((p or {}).get("text") or (p or {}).get("commentary") or "")
+
+
+def length_range(posts: list) -> tuple[int, int] | None:
+    """(low, high) in words from their own posts, rounded to tens: at least 80 (a post from the news needs
+    room) and at least 40 words wide. None without a real post to measure."""
+    counts = [len([w for w in _post_text(p).split() if not w.startswith("#")]) for p in posts]
+    counts = [n for n in counts if n >= 30]
+    if not counts:
+        return None
+    low = max(80, min(counts) // 10 * 10)
+    high = min(400, max(low + 40, -(-max(counts) // 10) * 10))
+    return low, high
+
+
+def add_length_rule(company_id: str, posts: list) -> str:
+    """Add "Length: 110–180 words, like my own posts." to the profile's rules; returns the line added, or ""."""
+    try:
+        rng = length_range(posts)
+        if not rng:
+            return ""
+        c = db.companies.find_one({"id": company_id}, {"_id": 0, "knowledge": 1}) or {}
+        rules = (c.get("knowledge") or "").rstrip()
+        if _RANGE.search(rules):
+            return ""
+        line = f"Length: {rng[0]}–{rng[1]} words, like my own posts."
+        new = (rules + "\n" + line) if rules else line
+        if len(new) > 4000:
+            return ""
+        db.companies.update_one({"id": company_id}, {"$set": {"knowledge": new}})
+        return line
+    except Exception:
+        return ""   # a missing length line never stops the posts being saved

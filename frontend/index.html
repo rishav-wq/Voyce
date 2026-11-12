@@ -848,8 +848,48 @@
     .sm-row { font-size: 12.5px; color: rgba(255,255,255,.75); margin-top: 7px; } .sm-row b { color: #fff; }
     .sm-bar { display: block; height: 5px; border-radius: 99px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 5px; }
     .sm-bar i { display: block; height: 100%; width: 0; background: #8fb4ff; border-radius: 99px; } .sm-bar.ai i { background: #f2a46b; }
+    /* Example tiles answer a click: write the post first (12 Nov 2026) */
+    .formats[data-mode="examples"] .fmt { cursor: pointer; }
+    .formats[data-mode="examples"] .fmt:hover { border-color: #b9c3d6; }
+
+    /* No profile yet (Look around first): say so, and the way back is one click */
+    .setup-card { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; text-align: left;
+      background: #fff; border: 1px solid #d8deea; border-radius: 14px; padding: 16px 18px; margin: 0 auto 22px; max-width: 980px; }
+    .setup-card[hidden], .teach[hidden] { display: none; }   /* display: flex would otherwise beat the hidden attribute */
+    .setup-card .sc-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 320px; }
+    .setup-card b { font-family: 'Space Grotesk', sans-serif; font-size: 17px; color: #16181d; }
+    .setup-card span { font-size: 14px; color: #4a5160; line-height: 1.5; }
+    .setup-card a { background: #24365e; color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; border-radius: 10px; padding: 11px 18px; white-space: nowrap; }
+    .setup-card a:hover { background: #1c2b4d; }
+
+    /* Teach Voyce about you: the four things that make posts sound like the person, each with its status */
+    .teach { max-width: 980px; margin: 22px auto 0; background: #fff; border: 1px solid #e4e7ec; border-radius: 14px; padding: 14px 18px 6px; text-align: left; }
+    .teach-hd { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .teach-hd b { font-family: 'Space Grotesk', sans-serif; font-size: 17px; color: #16181d; }
+    .teach-n { font-size: 12.5px; color: #5b6270; font-variant-numeric: tabular-nums; }
+    .teach-x { margin-left: auto; background: none; border: none; color: #8a909c; font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px; }
+    .teach-x:hover { color: #16181d; }
+    .teach-sub { font-size: 13px; color: #5b6270; margin: 3px 0 6px; }
+    .teach-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 11px 0; border-top: 1px solid #eef0f4; }
+    .teach-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #d3d8e0; margin-top: 1px; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; }
+    .teach-row.done .teach-dot { background: #18a07a; border-color: #18a07a; }
+    .teach-row b { display: block; font-size: 14px; color: #16181d; }
+    .teach-row .teach-d { font-size: 13px; color: #5b6270; line-height: 1.5; }
+    .teach-btn { font: inherit; font-size: 13px; font-weight: 700; border-radius: 9px; padding: 7px 13px; cursor: pointer; white-space: nowrap;
+      background: #fff; color: #24365e; border: 1.5px solid #cfd6e3; text-decoration: none; display: inline-block; }
+    .teach-btn:hover { border-color: #24365e; }
+    .teach-btn.primary { background: #24365e; color: #fff; border-color: #24365e; }
+    .teach-btn:disabled { opacity: .65; cursor: progress; }
+    .teach-answer { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+    .teach-answer textarea { width: 100%; min-height: 64px; border: 1.5px solid #d3d8e0; border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 14px; resize: vertical; }
+    .teach-answer textarea:focus { outline: none; border-color: #24365e; }
+    .teach-answer div { display: flex; gap: 8px; }
+
     @media (max-width: 1100px) { .fmt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 860px) {
+      .teach-row { grid-template-columns: 22px minmax(0, 1fr); }
+      .teach-row > .teach-btn { grid-column: 2; justify-self: start; }
+      .setup-card a { width: 100%; text-align: center; }
       .side-prof { order: 5; } .side-meter { order: 6; width: 100%; display: flex; gap: 14px; align-items: center; padding: 8px 10px; }
       .side-meter .sm-k { display: none; } .side-meter .sm-row { margin: 0; flex: 1; }
       .today-grid { grid-template-columns: none !important; grid-auto-flow: column; grid-auto-columns: 84%; overflow-x: auto; scroll-snap-type: x mandatory; padding: 10px 0 4px; }
@@ -935,11 +975,11 @@
     <div class="page-head">
     <!-- Progress strip -->
     <div class="progress-strip" id="progress-strip" style="display:none;">
-      <a class="pstep active" id="pstep-generate" href="#"><span class="pnum">1</span> Generate a post</a>
+      <a class="pstep active" id="pstep-generate" href="#content-input" onclick="document.getElementById('content-input').focus();return false;"><span class="pnum">1</span> Write a post</a>
       <span class="parrow">→</span>
       <a class="pstep" id="pstep-linkedin" href="#" onclick="handleLiClick();return false;"><span class="pnum">2</span> Connect LinkedIn</a>
       <span class="parrow">→</span>
-      <a class="pstep" id="pstep-automate" href="/setup"><span class="pnum">3</span> Set up daily posting</a>
+      <a class="pstep" id="pstep-automate" href="/setup#profiles"><span class="pnum">3</span> Set up daily posting (Pro)</a>
       <button type="button" class="pclose" onclick="hideProgress()" aria-label="Hide these steps" title="Hide these steps">×</button>
     </div>
 
@@ -948,6 +988,12 @@
 
     <!-- ── The question first; today's ideas and every format under it (Layout A, Nov 2026) ── -->
     <section class="write-hero">
+    <!-- No profile yet ("Look around first"): what Voyce doesn't know, and the one-minute way to fix it -->
+    <div class="setup-card" id="setup-card" hidden>
+      <div class="sc-text"><b>Voyce doesn't know you yet</b>
+        <span>Answer two questions, about a minute, and your posts use your topics and your voice. Until then Voyce writes in a plain, general voice.</span></div>
+      <a href="/onboarding" onclick="if (window.vTrack) vTrack('setup_card_clicked')">Set up my profile →</a>
+    </div>
     <h1 class="hero-q">What do you want to post today?</h1>
     <p class="hero-sub">Type an idea, paste notes or a link. Or start from one of today's ideas below.</p>
 
@@ -960,7 +1006,7 @@
       </div>
       <textarea id="content-input" placeholder="e.g. why most sales follow-ups die at the second email…" rows="3"></textarea>
       <div class="box-row">
-        <span class="box-cost">Writing the post uses <b>1 generation</b> · in your voice, from your topics and this week's news</span>
+        <span class="box-cost">Writing the post uses <b>1 generation</b> · <span id="box-how">from what you type here</span></span>
         <div class="box-acts">
           <button type="button" class="recent-btn" id="recent-btn" onclick="openRecent()">🕘 Recent<span class="recent-n" id="recent-n" hidden></span></button>
           <button class="generate-btn" id="generate-btn" onclick="generate()">
@@ -1104,6 +1150,15 @@
 
     </section><!-- /write-hero -->
 
+    <!-- Teach Voyce about you (12 Nov 2026): voice, career, beliefs, rules. Filled by _renderTeach() -->
+    <section class="teach" id="teach-card" hidden aria-labelledby="teach-h">
+      <div class="teach-hd"><b id="teach-h">Teach Voyce about you</b><span class="teach-n" id="teach-n"></span>
+        <button type="button" class="teach-x" onclick="hideTeach()" aria-label="Hide this card" title="Hide this card">×</button></div>
+      <p class="teach-sub" id="teach-sub">Each one makes your posts sound more like you and less like AI.</p>
+      <div id="teach-rows"></div>
+      <input type="file" id="teach-pdf" accept=".pdf" hidden onchange="teachUploadPdf(this)" />
+    </section>
+
     <!-- Today's ideas: made before they wake (morning_ideas.py), free to look at; filled by loadTodayIdeas() -->
     <section class="today" id="today-ideas" hidden>
       <div class="sec-k">Or start from today's ideas <span id="today-when">free to look at · from this week's news on your topics</span></div>
@@ -1112,7 +1167,7 @@
 
     <!-- Every format, shown before anything is made. With a post written, each one is a click away. -->
     <section class="formats" id="formats" data-mode="examples">
-      <div class="sec-k"><span id="formats-k">What Voyce makes from your idea</span> <span id="formats-sub">examples · each is made only when you click it</span></div>
+      <div class="sec-k"><span id="formats-k">What Voyce makes from your idea</span> <span id="formats-sub">examples · write your post above, then make any of these from it</span></div>
       <div class="fmt-grid">
         <div class="fmt" data-fmt="post">
           <div class="fmt-hd"><b>Post text</b><span class="fmt-ok">✓ Ready</span></div>
@@ -1325,7 +1380,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=37"></script>
+  <script src="/static/app.js?v=38"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async

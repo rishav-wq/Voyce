@@ -45,6 +45,7 @@ function pickProfile(id) {
   _syncWhatsAppTarget();
   _renderDrafts();
   _paintSideProfile();
+  _syncProfileState();   // the line under the box and what Voyce knows about them
   loadTodayIdeas();  // and their ideas for today
 }
 async function loadProfilePicker() {
@@ -56,10 +57,11 @@ async function loadProfilePicker() {
     _profiles = await res.json();
     updateProgress();
     _paintLooks();   // a carousel opened before the profiles arrived
-    if (!_profiles.length) return;
+    if (!_profiles.length) { _syncProfileState(); return; }
     let active = getActiveProfileId();
     if (!_profiles.some(p => p.id === active)) active = _profiles[0].id;
     setActiveProfile(active);
+    _syncProfileState();
     const sel  = document.getElementById("profile-picker");
     if (sel && _profiles.length >= 2) {  // only worth a picker with 2+ profiles
       sel.innerHTML = _profiles.map(p =>
@@ -131,7 +133,7 @@ function toast(msg, type = "") {
   el.textContent = msg;
   el.className = "show " + type;
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.className = "", 3500);
+  _toastTimer = setTimeout(() => el.className = "", type === "error" ? 6500 : 3500);   // an error needs reading time
 }
 
 function showError(msg) {
@@ -155,6 +157,14 @@ function showError(msg) {
   }
   el.style.display = "block";
   setTimeout(() => el.style.display = "none", 10000);
+  // The banner sits at the top of the page. A click lower down (the format tiles, on a phone most of the
+  // page) left the error off-screen and the click looked dead, so it's said at the click too (12 Nov 2026).
+  const r = el.getBoundingClientRect();
+  if (r.top < 0 || r.bottom > window.innerHeight) {
+    const plain = msg === "LIMIT_REACHED" ? "You've used all 5 free generations. Upgrade to Pro to keep going."
+      : String(msg).replace(/^PASS_LIMIT_REACHED:/, "");
+    toast(plain, "error");
+  }
 }
 
 // ── Init (called by Clerk script onload) ─────────────────────────────────────
@@ -164,7 +174,7 @@ async function startApp() {
   // A new account goes through onboarding first, however sign-up got it here.
   if ((getUser() || {}).needs_onboarding) { location.replace("/onboarding"); return; }
   loadProfilePicker();
-  _loadDrafts();
+  _draftsReady = _loadDrafts();
   const user = getUser();
   if (user) {
     const tag = document.getElementById("user-tag");
@@ -216,6 +226,11 @@ function applySeedTopic() {
     document.getElementById("output-section").classList.add("visible");
     markGenerated();
     openPreview();
+    // Onboarding already put it in Recent: edits here follow that draft instead of being lost
+    _draftsReady.then(() => {
+      const d = _drafts.find(x => x.kind === "post" && x.text === seedPost);
+      if (d && !_activeDraftId) _activeDraftId = d.id;
+    });
     setTimeout(() => toast("Your first post. Edit anything, then post it.", "success"), 400);
     return;
   }
@@ -229,7 +244,7 @@ function applySeedTopic() {
   ta.value = `Write a specific, useful LinkedIn post about ${seed}.`;
   ta.focus();
   ta.scrollIntoView({ behavior: "smooth", block: "center" });
-  setTimeout(() => toast("We pre-filled your topic — hit Generate to see your first post.", "success"), 600);
+  setTimeout(() => toast("We filled in your topic. Press Write my post to see your first post.", "success"), 600);
 }
 
 window.addEventListener("message", (e) => {
@@ -293,7 +308,9 @@ function updateProgress() {
   // Until both answers are in, it stays hidden rather than flashing.
   const strip = document.getElementById("progress-strip");
   const setUp = linkedInConnected && (_profiles || []).some(p => p.active);
-  if (strip) strip.style.display = (!_profilesKnown || !_liKnown || setUp || _stepsHidden()) ? "none" : "";
+  // No profile yet: the setup card says what's next, so the strip (and its "Connect LinkedIn") waits
+  const noProfile = _profilesKnown && !(_profiles || []).length;
+  if (strip) strip.style.display = (!_profilesKnown || !_liKnown || setUp || noProfile || _stepsHidden()) ? "none" : "";
   const liText = document.getElementById("linkedin-content");
   const carSec = document.getElementById("carousel-section");
   const hasGen = _everGenerated || !!(liText && liText.textContent.trim()) ||
@@ -1044,6 +1061,7 @@ function pickVariant(i) {
 // The old text-only history (cm_history) moves in once.
 const _DRAFTS_MAX = 60;
 let _drafts = [], _draftsAll = false, _draftsDb = null;
+let _draftsReady = Promise.resolve();   // the first load of Recent (startApp)
 let _activeDraftId = null, _activeCarouselDraftId = null;   // what the preview and the carousel card show
 function _draftsStore(mode) {
   if (!_draftsDb) _draftsDb = new Promise((res, rej) => {
@@ -1350,9 +1368,14 @@ setInterval(loadQueue, 15000);
 let _carouselPdfBase64 = null;
 let _carouselContent = null, _carouselLook = "", _carouselProfileId = "";   // the slides as written, their look, whose they are
 
-async function generateCarousel() {
-  const content = document.getElementById("content-input").value.trim();
-  if (!content) { showError("Please enter some content first."); return; }
+// fromPost: made from the post on screen (the Carousel tile). An empty box also falls back to the post, so a
+// post opened from onboarding's "Edit in Write" makes a carousel instead of an error (12 Nov 2026).
+async function generateCarousel(fromPost = false) {
+  const typed = document.getElementById("content-input").value.trim();
+  const usePost = (fromPost || !typed) && _hasPost();
+  const content = usePost ? _postText().trim() : typed;
+  const inputType = usePost ? "text" : activeType;
+  if (!content) { showError("Write your post first, or type an idea in the box, then make the carousel."); return; }
   await _refreshToken();
 
   const btn     = document.getElementById("carousel-btn");
@@ -1377,14 +1400,14 @@ async function generateCarousel() {
     const res = await fetch("/generate/carousel", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId() })
+      body: JSON.stringify({ input_type: inputType, content, profile_id: getActiveProfileId() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Carousel generation failed.");
     _showCarouselResult(data);
     _newDraft("carousel", { text: data.post_text || "", pdf: data.pdf_base64, hook: data.hook || "",
                             content: data.content || null, look: data.look || "" });
-    toast("Carousel ready! Download the PDF to preview.", "success");
+    toast("Your carousel is ready. Check the slides, then post it.", "success");
   } catch (err) {
     showError(err.message);
   } finally {
@@ -1985,7 +2008,7 @@ function _syncFormats() {
   document.getElementById("formats-k").textContent = hasPost ? "Make it" : "What Voyce makes from your idea";
   document.getElementById("formats-sub").textContent = hasPost
     ? "your post is written · click any format to make it from the post"
-    : "examples · each is made only when you click it";
+    : "examples · write your post above, then make any of these from it";
   const thumb = f.querySelector('[data-fmt="post"] .fmt-thumb'), cost = f.querySelector('[data-fmt="post"] .fmt-cost');
   if (_fmtPostExample === null && thumb) _fmtPostExample = thumb.innerHTML;
   if (thumb) {
@@ -1997,6 +2020,182 @@ function _syncFormats() {
   if (cost) cost.textContent = hasPost ? "Used 1 generation" : "Uses 1 generation";
   if (!hasPost) f.querySelectorAll(".fmt.made").forEach(el => el.classList.remove("made"));
 }
+// An example tile clicked before a post exists used to do nothing at all (5 Nov audit): say what comes first
+(() => {
+  const f = document.getElementById("formats");
+  if (!f) return;
+  f.addEventListener("click", e => {
+    if (f.dataset.mode !== "examples" || !e.target.closest(".fmt")) return;
+    toast("Write your post first: type an idea above and press Write my post. Then each of these is one click.", "warn");
+    const ta = document.getElementById("content-input");
+    if (ta) { ta.focus({ preventScroll: true }); ta.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  });
+})();
+
+// ── Who Voyce is writing as, and what it knows about them (12 Nov 2026 first-run audit) ──────────────
+// 3 of 5 real sign-ups took Skip and wrote with no profile, under a line promising "your voice, your topics
+// and this week's news". With no profile the page now says so; with one, a card shows the four things that
+// made the hand-made sample packs good (their posts, career PDF, beliefs, rules) and what is still missing.
+function _isOwnProfile(p) {
+  const u = getUser() || {}, norm = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  if (!p) return false;
+  if (norm(p.name) && norm(p.name) === norm(u.name)) return true;
+  return (_profiles || []).length === 1 && p.profile_type === "personal" && !u.sales_access;
+}
+function _syncProfileState() {
+  const none = _profilesKnown && !(_profiles || []).length;
+  const card = document.getElementById("setup-card");
+  if (card) card.hidden = !none || !!window.PARTNER;   // a partner's seats are set up by the partner
+  const pill = document.getElementById("li-pill");      // LinkedIn waits until there's someone to post as
+  if (pill) pill.style.display = none ? "none" : "";
+  const how = document.getElementById("box-how"), p = _activeProfile();
+  if (how) {
+    if (none || !p) how.textContent = "in a plain, general voice until Voyce knows you";
+    else {
+      const own = _isOwnProfile(p), first = String(p.name || "").trim().split(/\s+/)[0] || "their";
+      const voice = (p.linkedin_top_posts || []).length > 0;
+      how.textContent = voice
+        ? (own ? "in your voice, from what you type here" : `in ${first}'s voice, from what you type here`)
+        : window.PARTNER ? "from what you type here"   // the partner sets up their clients' voice
+        : (own ? "from what you type here, in a clear voice until you add your posts"
+               : `from what you type here, in a clear voice until you add ${first}'s posts`);
+    }
+  }
+  updateProgress();
+  _renderTeach();
+}
+
+const _TEACH_Q = "What advice do you find yourself repeating to clients?";
+function _teachHidden(pid) { try { return localStorage.getItem("cm_teach_hidden:" + pid) === "1"; } catch (_) { return false; } }
+function hideTeach() {
+  const p = _activeProfile();
+  if (p) { try { localStorage.setItem("cm_teach_hidden:" + p.id, "1"); } catch (_) {} }
+  const c = document.getElementById("teach-card");
+  if (c) c.hidden = true;
+  if (window.vTrack) vTrack("teach_card_hidden");
+}
+function _lengthRange(k) {
+  const m = String(k || "").match(/(\d{2,4})\s*(?:-|–|—|to)\s*(\d{2,4})\s*words/i);
+  return m ? `${m[1]}–${m[2]} words` : "";
+}
+function _clipText(s, n) { s = String(s || ""); return s.length > n ? s.slice(0, n).replace(/\s+\S*$/, "") + "…" : s; }
+function _renderTeach() {
+  const card = document.getElementById("teach-card"), rows = document.getElementById("teach-rows");
+  if (!card || !rows) return;
+  const p = _activeProfile();
+  // A partner's clients are set up by the partner (CUSP promises it sets up the voice): not shown there for now
+  if (!p || p.profile_type !== "personal" || _teachHidden(p.id) || window.PARTNER) { card.hidden = true; return; }
+  const own = _isOwnProfile(p), first = String(p.name || "").trim().split(/\s+/)[0] || "them";
+  const your = own ? "your" : "their", you = own ? "you" : first;
+  const posts = (p.linkedin_top_posts || []).length, style = String((p.linkedin_analysis || {}).writing_style || "").trim();
+  const notes = (p.author_notes || []).length, facts = !!String(p.profile_facts || "").trim();
+  const rules = String(p.knowledge || ""), len = _lengthRange(rules);
+  const own_rules = rules.split("\n").filter(l => l.trim() && !/^length:/i.test(l.trim())).length;   // beyond the length Voyce added
+  const pid = encodeURIComponent(p.id);
+  const items = [
+    { key: "voice", done: posts > 0, title: own ? "Your voice" : `${first}'s voice`,
+      d: posts > 0 ? `Learned from ${posts} post${posts > 1 ? "s" : ""}${style ? ": " + _clipText(style, 110) : "."}`
+                   : `Add 2–3 of ${your} LinkedIn posts so new ones sound like ${you}, at ${your} usual length.`,
+      btn: posts > 0 ? "Add more" : "Add posts", href: `/setup?teach=voice&p=${pid}#profiles` },
+    { key: "career", done: facts, title: own ? "Your career" : `${first}'s career`,
+      d: facts ? `Career facts are in, from ${your} LinkedIn PDF. Posts use ${your} real roles and years.`
+               : `Upload ${your} LinkedIn profile as a PDF so posts use ${your} real roles and years, not guesses. On LinkedIn: ${your} profile → More → Save to PDF.`,
+      btn: facts ? "Replace PDF" : "Upload PDF", act: () => document.getElementById("teach-pdf").click() },
+    { key: "belief", done: notes > 0, title: own ? "What you believe" : `What ${first} believes`,
+      d: notes > 0 ? `${notes} note${notes > 1 ? "s" : ""} saved. Voyce builds posts around them.`
+                   : (own ? `"${_TEACH_Q}" A sentence or two. Voyce builds a post around it.`
+                          : `What advice does ${first} keep repeating to clients? A sentence or two. Voyce builds a post around it.`),
+      btn: notes > 0 ? "Add another" : "Answer", act: teachToggleBelief },
+    { key: "rules", done: own_rules > 0, title: own ? "Your rules" : `${first}'s rules`,
+      d: own_rules > 0 ? `${len ? "Length " + len + ". " : ""}${own_rules} rule${own_rules > 1 ? "s" : ""} Voyce follows in every post.`
+                       : `${len ? "Length " + len + ", from " + your + " posts. " : ""}Add anything Voyce must never say or claim, like client names or prices.`,
+      btn: own_rules > 0 ? "Edit rules" : "Add rules", href: `/setup?teach=rules&p=${pid}#profiles` },
+  ];
+  const done = items.filter(i => i.done).length;
+  if (done === items.length) { card.hidden = true; return; }   // nothing left to teach: the card goes
+  document.getElementById("teach-h").textContent = own ? "Teach Voyce about you" : `Teach Voyce about ${first}`;
+  document.getElementById("teach-n").textContent = `${done} of ${items.length} done`;
+  document.getElementById("teach-sub").textContent = own ? "Each one makes your posts sound more like you and less like AI."
+    : `Each one makes ${first}'s posts sound more like ${first} and less like AI.`;
+  const next = items.find(i => !i.done);   // one primary button: the next thing to do
+  rows.replaceChildren(...items.map(i => {
+    const row = _el("div", "teach-row" + (i.done ? " done" : ""));
+    row.dataset.key = i.key;
+    const dot = _el("span", "teach-dot", i.done ? "✓" : "");
+    dot.setAttribute("aria-hidden", "true");
+    const body = _el("div", "");
+    body.append(_el("b", "", i.title), _el("span", "teach-d", i.d));
+    let btn;
+    if (i.href) {
+      btn = _el("a", "teach-btn", i.btn); btn.href = i.href;
+      btn.onclick = () => { if (window.vTrack) vTrack("teach_action", { part: i.key }); };
+    } else {
+      btn = _el("button", "teach-btn", i.btn); btn.type = "button"; btn.id = `teach-${i.key}-btn`; btn.onclick = i.act;
+    }
+    if (i === next) btn.classList.add("primary");
+    row.append(dot, body, btn);
+    return row;
+  }));
+  card.hidden = false;
+}
+function teachToggleBelief() {
+  const row = document.querySelector('#teach-rows .teach-row[data-key="belief"]');
+  if (!row) return;
+  const open = row.querySelector(".teach-answer");
+  if (open) { open.remove(); return; }
+  const box = _el("div", "teach-answer");
+  const ta = document.createElement("textarea");
+  ta.id = "teach-belief-text"; ta.maxLength = 1200; ta.placeholder = "Say it the way you would to a client.";
+  ta.setAttribute("aria-label", _TEACH_Q);
+  const acts = _el("div", "");
+  const save = _el("button", "teach-btn primary", "Save"); save.type = "button"; save.id = "teach-belief-save"; save.onclick = teachSaveBelief;
+  const cancel = _el("button", "teach-btn", "Cancel"); cancel.type = "button"; cancel.onclick = () => box.remove();
+  acts.append(save, cancel); box.append(ta, acts); row.append(box);
+  ta.focus();
+}
+async function teachSaveBelief() {
+  const p = _activeProfile(), ta = document.getElementById("teach-belief-text"), btn = document.getElementById("teach-belief-save");
+  const text = ((ta && ta.value) || "").trim();
+  if (!p || !text) { toast("Write a sentence or two first.", "warn"); if (ta) ta.focus(); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const r = await fetch(`/companies/${encodeURIComponent(p.id)}/notes`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ text, kind: "process", source: "added", question: _TEACH_Q }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Couldn't save that. Try again.");
+    p.author_notes = [...(p.author_notes || []), d];
+    if (window.vTrack) vTrack("teach_action", { part: "belief" });
+    toast("Saved. Voyce builds an upcoming post around it.", "success");
+    _renderTeach();
+  } catch (e) {
+    toast(e.message, "error");
+    btn.disabled = false; btn.textContent = "Save";
+  }
+}
+async function teachUploadPdf(input) {
+  const p = _activeProfile(), f = input.files && input.files[0];
+  if (!p || !f) return;
+  const btn = document.getElementById("teach-career-btn"), label = btn ? btn.textContent : "";
+  if (!/\.pdf$/i.test(f.name)) { toast("Choose the PDF saved from the LinkedIn profile (More → Save to PDF).", "warn"); input.value = ""; return; }
+  if (btn) { btn.disabled = true; btn.textContent = "Reading…"; }
+  const form = new FormData();
+  form.append("file", f);
+  try {
+    await _refreshToken();
+    const r = await fetch(`/companies/${encodeURIComponent(p.id)}/upload-linkedin`, { method: "POST", body: form, headers: { "x-token": getToken() } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Couldn't read that PDF. Save it from LinkedIn again and retry.");
+    if (d.facts) p.profile_facts = "read";
+    if (window.vTrack) vTrack("teach_action", { part: "career" });
+    toast("Career facts read. Posts now use the real roles and years.", "success");
+    _renderTeach();
+  } catch (e) {
+    toast(e.message, "error");
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  } finally { input.value = ""; }
+}
+
 async function makeFormat(kind, el) {
   const f = document.getElementById("formats");
   if (!f || f.dataset.mode !== "make") {
@@ -2007,7 +2206,7 @@ async function makeFormat(kind, el) {
   if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = "Making…"; }
   try {
     if (kind === "carousel") {
-      await generateCarousel();
+      await generateCarousel(true);   // from the post on screen, like every other tile
       const cs = document.getElementById("carousel-section");
       if (tile && cs && cs.classList.contains("visible")) tile.classList.add("made");
     } else {

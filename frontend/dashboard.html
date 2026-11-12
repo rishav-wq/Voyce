@@ -561,7 +561,9 @@
     details.adv[open] summary::after { transform: rotate(90deg); }
     details.adv .adv-inner { padding: 6px 14px 14px; border-top: 1px solid #eef1f6; }
     details.adv summary .optional-tag { display: block; margin-top: 2px; font-weight: 400; }
-    .li-upload-box.pf-voice { border-style: solid; border-color: #c9d3e6; background: #f6f8fc; }
+    .li-upload-box.pf-voice, .li-upload-box.pf-career { border-style: solid; border-color: #c9d3e6; background: #f6f8fc; }
+    .li-upload-box.pf-voice .li-upload-desc, .li-upload-box.pf-career .li-upload-desc { font-size: 12.5px; color: #4a5160; }
+    .pf-teach-flash { outline: 3px solid #8fb4ff; outline-offset: 3px; transition: outline-color 1.2s ease; }
     .pf-rec { font-size: 11px; font-weight: 700; color: #057642; background: #e6f4ea; padding: 2px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 1px; }
     .pf-tabs { display: flex; gap: 6px; margin: 12px 0 10px; flex-wrap: wrap; }
     .pf-tabs button { padding: 6px 13px; border: 1px solid #d3d8e0; border-radius: 999px; background: #fff; color: #5b6270; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
@@ -1019,13 +1021,15 @@
             <p class="form-hint">Each topic is one side of your work: your coaching, your consulting, your book. Voyce writes about one a day, in turns, from this week's news on it.</p>
           </div>
 
+          <!-- Teaching Voyce (12 Nov 2026): their posts, their career and their rules, each in plain sight. The career PDF
+               used to sit under "voice" and the rules inside "About the business", where nobody looked. -->
           <div class="li-upload-box pf-voice">
-            <div class="li-upload-title">Teach Voyce the voice <span class="pf-rec">Recommended</span></div>
-            <div class="li-upload-desc">Add 2–3 of their LinkedIn posts so new ones sound like them. Without them, Voyce writes in a clear, conversational voice.</div>
+            <div class="li-upload-title"><span class="pf-who" data-own="Your posts" data-other="Their posts">Your posts</span> <span class="pf-rec">Recommended</span></div>
+            <div class="li-upload-desc pf-who" data-own="Add 2–3 of your LinkedIn posts. Voyce learns your voice and your usual length from them. Without them, it writes in a clear, conversational voice." data-other="Add 2–3 of their LinkedIn posts. Voyce learns their voice and their usual length from them. Without them, it writes in a clear, conversational voice.">Add 2–3 of your LinkedIn posts. Voyce learns your voice and your usual length from them. Without them, it writes in a clear, conversational voice.</div>
             <div class="pf-tabs" id="p-voice-tabs">
               <button type="button" data-pane="paste" onclick="voicePane('paste')">Paste posts</button>
               <button type="button" data-pane="shots" onclick="voicePane('shots')">Screenshots</button>
-              <button type="button" data-pane="archive" onclick="voicePane('archive')">LinkedIn export</button>
+              <button type="button" data-pane="archive" onclick="voicePane('archive')">LinkedIn ZIP</button>
             </div>
             <div id="p-voice-pane-paste">
               <textarea id="p-voice-posts" rows="5" placeholder="Paste 2–3 posts, with a line of --- (three dashes) between them."></textarea>
@@ -1035,14 +1039,28 @@
               <p class="form-hint" style="margin-top:6px;">Screenshot 2–3 posts and drop them here. Voyce reads the text from the images.</p>
             </div>
             <div id="p-voice-pane-archive" style="display:none;">
-              <input type="file" id="p-li-file" accept=".pdf,.zip" />
-              <p class="form-hint" style="margin-top:6px;">PDF: their profile → More → Save to PDF (career facts, for post ideas). ZIP: Settings → Data Privacy → Get a copy (~24h; their posts, for the voice).</p>
+              <input type="file" id="p-li-file" accept=".zip" />
+              <p class="form-hint" style="margin-top:6px;">On LinkedIn: Settings → Data privacy → Get a copy of your data. It arrives by email in about a day; upload the ZIP here.</p>
             </div>
             <div class="li-upload-status" id="p-li-status"></div>
           </div>
 
+          <div class="li-upload-box pf-career" id="pf-career">
+            <div class="li-upload-title"><span class="pf-who" data-own="Your career" data-other="Their career">Your career</span></div>
+            <div class="li-upload-desc pf-who" data-own="Upload your LinkedIn profile as a PDF. Voyce uses your real roles and years, so posts never guess your history." data-other="Upload their LinkedIn profile as a PDF. Voyce uses their real roles and years, so posts never guess their history.">Upload your LinkedIn profile as a PDF. Voyce uses your real roles and years, so posts never guess your history.</div>
+            <input type="file" id="p-career-file" accept=".pdf" />
+            <p class="form-hint pf-who" style="margin-top:6px;" data-own="On LinkedIn: your profile → More → Save to PDF." data-other="On LinkedIn: their profile → More → Save to PDF.">On LinkedIn: your profile → More → Save to PDF.</p>
+            <div class="li-upload-status" id="p-career-status"></div>
+          </div>
+
+          <div class="form-group pf-rules" id="pf-rules">
+            <label for="p-knowledge"><span class="pf-who" data-own="Your rules" data-other="Their rules">Your rules</span> <span class="optional-tag">(optional)</span></label>
+            <textarea id="p-knowledge" rows="5" maxlength="4000" data-count="p-knowledge-count" placeholder="One per line, for example:&#10;Length: 120–180 words&#10;Never name a client&#10;No emojis&#10;Only numbers I can stand behind"></textarea>
+            <p class="form-hint">Every post follows these and won't contradict them. Voyce adds the usual length when it reads the posts. <span class="count" id="p-knowledge-count" aria-live="polite"></span></p>
+          </div>
+
           <details class="adv">
-            <summary><span>About the business <span class="optional-tag">website, product, key facts · optional</span></span></summary>
+            <summary><span>About the business <span class="optional-tag">website, product · optional</span></span></summary>
             <div class="adv-inner">
               <div class="form-group">
                 <label>Website</label>
@@ -1059,11 +1077,6 @@
                 <label>Product or service name</label>
                 <input type="text" id="p-product-name" placeholder="e.g. your product or service" />
                 <p class="form-hint">Shown on carousels. Leave blank to show just the name.</p>
-              </div>
-              <div class="form-group">
-                <label>Key facts &amp; rules</label>
-                <textarea id="p-knowledge" rows="4" maxlength="4000" data-count="p-knowledge-count" placeholder="Facts every post can use and rules it must follow: real capabilities, cited numbers, angles that work, 'never say X'."></textarea>
-                <p class="form-hint">Every post is grounded in these and won't contradict them. <span class="count" id="p-knowledge-count" aria-live="polite"></span></p>
               </div>
             </div>
           </details>
@@ -1275,7 +1288,7 @@
       }
       loadPlanBanner().then(() => {
         checkLinkedIn();
-        loadProfiles();
+        loadProfiles().then(_openTeachLink);
         loadPending();
         loadQuestions();
       });
@@ -2376,6 +2389,18 @@
     async function _uploadVoiceInputs(id, isPersonal) {
       if (!isPersonal || !id) return;
       const st = document.getElementById("p-li-status");
+      // The career PDF has its own box now; it goes to the same reader as before
+      const career = document.getElementById("p-career-file")?.files[0];
+      if (career) {
+        const cs = document.getElementById("p-career-status");
+        if (cs) cs.textContent = "Reading the PDF…";
+        const form = new FormData();
+        form.append("file", career);
+        const r = await fetch(`/companies/${id}/upload-linkedin`, { method:"POST", body:form, headers:{"x-token":getToken()} });
+        const d = r.ok ? await r.json().catch(() => ({})) : {};
+        if (r.ok && cs) { cs.textContent = "✓ Career facts saved from the LinkedIn PDF"; cs.className = "li-upload-status ok"; }
+        if (!r.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || "Couldn't read that PDF. Save it from LinkedIn again and retry.", "warn"); if (cs) cs.textContent = ""; }
+      }
       const liFile = document.getElementById("p-li-file")?.files[0];
       if (liFile) {
         if (st) st.textContent = "Uploading LinkedIn data...";
@@ -3234,6 +3259,8 @@
       _paintCount(document.getElementById("p-knowledge"));
       document.getElementById("p-website-type-row").style.display = "none";
       const vs = document.getElementById("p-li-status"); if (vs) vs.textContent = "";
+      const cs = document.getElementById("p-career-status"); if (cs) cs.textContent = "";
+      _pfWho(_isOwnProfile(null));
       _liPhoto = ""; _showLiFound(null);
       document.getElementById("p-topic-suggest")?.classList.remove("visible");
       _renderTopicRows([]);
@@ -3314,9 +3341,41 @@
       if (isAiDev) document.getElementById("p-tone").value = "educational";
     }
 
+    // Whose profile the drawer is for: the person themselves ("your posts") or someone they write for ("their posts").
+    // An agency's wording on a person's own profile read as if Voyce was talking about someone else (12 Nov audit).
+    function _isOwnProfile(p) {
+      const u = getUser() || {}, norm = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+      if (!p) return !(currentProfiles || []).length;   // a first profile is almost always their own
+      if (norm(p.name) && norm(p.name) === norm(u.name)) return true;
+      return (currentProfiles || []).length === 1 && p.profile_type === "personal" && !u.sales_access;
+    }
+    function _pfWho(own) {
+      document.querySelectorAll("#modal-overlay .pf-who").forEach(el => {
+        const t = el.dataset[own ? "own" : "other"];
+        if (t) el.textContent = t;
+      });
+    }
+
+    // /setup?teach=voice|career|rules&p=<profile>: Write's "Teach Voyce about you" card opens the drawer at that part
+    async function _openTeachLink() {
+      const q = new URLSearchParams(location.search), part = q.get("teach"), pid = q.get("p");
+      if (!part || !pid) return;
+      history.replaceState(null, "", location.pathname + location.hash);   // once: a reload doesn't reopen it
+      if (!(currentProfiles || []).some(x => x.id === pid)) return;
+      await editProfile(pid);
+      const target = { voice: ".pf-voice", career: "#pf-career", rules: "#pf-rules" }[part];
+      const el = target && document.querySelector("#modal-overlay " + target);
+      if (!el) return;
+      el.scrollIntoView({ block: "center" });
+      el.classList.add("pf-teach-flash");
+      setTimeout(() => el.classList.remove("pf-teach-flash"), 1600);
+      const focus = { voice: "p-voice-posts", rules: "p-knowledge" }[part];
+      if (focus) document.getElementById(focus)?.focus({ preventScroll: true });
+    }
+
     function editProfile(id) {
       // Find profile data from the cached list
-      fetch("/companies", { headers: { "x-token": getToken() } })
+      return fetch("/companies", { headers: { "x-token": getToken() } })
         .then(r => r.json())
         .then(profiles => {
           const p = profiles.find(x => x.id === id);
@@ -3324,6 +3383,11 @@
           _editingId = id;
           personalToneTouched = true;
           _liRowSync();
+          _pfWho(_isOwnProfile(p));
+          const cs = document.getElementById("p-career-status");
+          if (cs) { cs.textContent = p.profile_facts ? "✓ Career facts saved from a LinkedIn PDF. Upload a new one to replace them." : ""; cs.className = "li-upload-status" + (p.profile_facts ? " ok" : ""); }
+          const vs = document.getElementById("p-li-status"), np = (p.linkedin_top_posts || []).length;
+          if (vs) { vs.textContent = np ? `✓ Voice learned from ${np} post${np > 1 ? "s" : ""}. Add more to refresh it.` : ""; vs.className = "li-upload-status" + (np ? " ok" : ""); }
           // Editing: show everything so prefilled advanced values are visible
           document.querySelectorAll("#modal-overlay details.adv").forEach(d => d.open = true);
           const isPersonal = p.profile_type === "personal";

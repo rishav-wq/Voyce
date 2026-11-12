@@ -29,7 +29,6 @@ _WORDS = [(re.compile(r"\bgenerations\b"), "drafts"), (re.compile(r"\bgeneration
 # files as written, before the name swap, so "Voyce" here is the partner's name by the time a client reads it.
 _SEAT_COPY = [(re.compile(re.escape(old)), new) for old, new in (
     ("Voyce — Create your free account", "Voyce — Create your account"),
-    (" This used 1 of your 5 free generations.", " It used 1 of this month's drafts."),
     ("You may have used your free generations; this one", "You may have used this month's drafts; this one"),
     ("<h1>Welcome to Voyce 👋</h1>", "<h1>Welcome to Voyce</h1>"),
     ('<a class="btn" href="/voice-check">Try it free</a>', ""),   # the free check isn't on a partner's address
