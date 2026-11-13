@@ -2584,8 +2584,11 @@ def approve_page(token: str, request: Request):
     elif pend.get("format") == "carousel":
         slides = (f'<p style="margin:14px 0 4px;"><a href="/approve/{html_escape(token)}/slides.pdf" '
                   'style="color:#24365e;font-weight:600;">View the slides (PDF)</a></p>')
+    # With daily posting on, tomorrow's post replaces this one well before it expires, as the email says
+    daily = bool((db.companies.find_one({"id": pend.get("company_id", "")}, {"_id": 0, "active": 1}) or {}).get("active"))
+    when = "replaced by tomorrow's post" if daily else f"expires in {hours} h"
     inner = (f'<p style="font-size:13.5px;color:#6b7280;margin:0;">{html_escape(pend.get("company_name") or "")} · '
-             f'{html_escape(pend.get("post_type") or "")} · {fmt} · <b style="color:#b45309;">expires in {hours} h</b></p>'
+             f'{html_escape(pend.get("post_type") or "")} · {fmt} · <b style="color:#b45309;">{when}</b></p>'
              f'{slides}'
              f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
              f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
@@ -2716,6 +2719,20 @@ def approve_slides(token: str, request: Request):
         raise HTTPException(status_code=404, detail="Not found")
     return Response(content=base64.b64decode(full["asset_b64"]), media_type="application/pdf",
                     headers={"Content-Disposition": 'inline; filename="carousel.pdf"', "Cache-Control": "private, no-store"})
+
+
+@app.get("/approve/{token}/cover.jpg")
+def approve_cover(token: str, request: Request):
+    """A carousel's first slide, for the approval email (the approve page itself shows every slide).
+    Fetching it changes nothing, so mail scanners and image proxies opening it are harmless."""
+    _rate_limit(f"approvecover:{_client_ip(request)}", 60)
+    import base64
+    pend = _pending_by_token(token)
+    previews = (pend or {}).get("slide_previews") or []
+    if not pend or pend.get("format") != "carousel" or not previews:
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(content=base64.b64decode(previews[0]), media_type="image/jpeg",
+                    headers={"Cache-Control": "private, max-age=86400"})
 
 
 @app.post("/pending/{pending_id}/discard")

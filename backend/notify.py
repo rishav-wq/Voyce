@@ -53,10 +53,13 @@ def _user_email(user_id: str) -> str:
 
 
 def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None = None,
-            quote: str = "", footer: str = "", partner: dict | None = None) -> str:
+            quote: str = "", footer: str = "", partner: dict | None = None,
+            image: tuple[str, str, str] | None = None, after: list[str] | None = None) -> str:
     """Plain on purpose: one heading, a few lines, at most one button. Heavy
     templates land in Promotions; this should read like a note from a person.
-    A partner's email uses the partner's colour for the bar and the button."""
+    A partner's email uses the partner's colour for the bar and the button.
+    image = (src, link, alt): one picture above the quote, e.g. a carousel's cover slide.
+    after = lines below the button, for anything optional that shouldn't push the post down."""
     accent = (partner or {}).get("theme", {}).get("orange", "#24365e") if partner else "#24365e"
     parts = []
     if partner:   # the partner's wordmark on top, as on its pages (a partner's email has no other branding)
@@ -66,6 +69,11 @@ def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None 
     parts.append(f'<p style="font-size:17px;font-weight:600;color:#16181d;margin:0 0 14px;">{html.escape(heading)}</p>')
     for p in paragraphs:
         parts.append(f'<p style="font-size:15px;line-height:1.55;color:#333;margin:0 0 14px;">{p}</p>')
+    if image:
+        src, link, alt = image
+        parts.append(f'<p style="margin:0 0 14px;"><a href="{html.escape(link)}"><img src="{html.escape(src)}" '
+                     f'alt="{html.escape(alt)}" width="280" style="display:block;width:280px;max-width:100%;'
+                     'height:auto;border:1px solid #e4e7ec;border-radius:8px;"></a></p>')
     if quote:
         parts.append(
             '<div style="white-space:pre-wrap;font-size:14px;line-height:1.55;color:#333;'
@@ -78,6 +86,8 @@ def _layout(heading: str, paragraphs: list[str], button: tuple[str, str] | None 
             f'background:{accent};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;'
             f'padding:11px {"22px" if partner else "20px"};border-radius:{"999px" if partner else "8px"};">'
             f'{html.escape(label)}</a></p>')
+    for p in after or []:
+        parts.append(f'<p style="font-size:14px;line-height:1.55;color:#333;margin:0 0 14px;">{p}</p>')
     if footer:
         parts.append(f'<p style="font-size:12.5px;line-height:1.5;color:#7a8190;margin:18px 0 0;">{footer}</p>')
     font = "'DM Sans'," if partner else ""   # the partner's type where the reader has it, system fonts otherwise
@@ -174,28 +184,47 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
     src_text, src_html = _sources_line(sources)
     partner = partners.for_company(company)
     in_partner = bool(partner)
+    # Say what it is in plain words ("a 10-slide carousel"), not the writer's post type ("Teardown"),
+    # and show a carousel's cover: the email used to show only the caption, so a carousel looked like text.
+    fmt, n_slides, tok = "", 0, ""
+    try:
+        pend = db.pending_posts.find_one({"id": pending_id}, {"format": 1, "slide_previews": 1, "approve_token": 1}) or {}
+        fmt, n_slides, tok = pend.get("format") or "", len(pend.get("slide_previews") or []), pend.get("approve_token") or ""
+    except Exception:
+        pass
+    if fmt == "carousel":
+        kind, short = (f"{n_slides}-slide carousel" if n_slides else "carousel"), "carousel"
+    elif fmt == "tweet_card":
+        kind, short = "post with an image card", "post"
+    else:
+        kind, short = "post", "post"
     if held_reason:
-        subject = f"Check this post before it goes out ({name})"
-        intro = (f"Voyce wrote today's {html.escape(post_type)} for {html.escape(name)}, but held it back "
+        subject = f"Check this {short} before it goes out ({name})"
+        intro = (f"Voyce wrote today's {kind} for {html.escape(name)}, but held it back "
                  f"instead of posting it: {html.escape(held_reason)}")
     elif in_partner:   # a seat is one person: to them, about their own post
         subject = "Today's draft is ready for your OK"
         intro = ("Your draft for today is ready. Read it, change anything you like, and tap Approve when it sounds "
                  "like you. Nothing goes out until you do.")
     else:
-        subject = f"Your post for {name} is ready to approve"
-        intro = (f"Voyce wrote today's {html.escape(post_type)} for {html.escape(name)}. "
+        subject = f"Your {short} for {name} is ready to approve"
+        intro = (f"Voyce wrote today's {kind} for {html.escape(name)}. "
                  "It won't go out until you approve it.")
     paras = [intro] + ([src_html] if src_html else [])
     # A partner's client approves signed in, so the button opens Today: the approve link only showed the post
     # again before sending them there (4 Nov 2026 launch audit)
     url = app_url(partner) + "/setup" if in_partner else _approve_url(pending_id)
-    ask = ""
+    image = None
+    if fmt == "carousel" and n_slides and tok and not in_partner:
+        image = (f"{APP_URL}/approve/{tok}/cover.jpg", url, "The carousel's first slide")
+        paras.append("The first slide is below. All the slides are on the approve page.")
+    ask, after = "", []
     try:
         import notes
         q = notes.question_for(company)
         if not q["status"] and not held_reason and not in_partner:
-            paras.append(f"<b>One question this week</b> (optional): {html.escape(q['text'])} Answer in a line or two "
+            # Under the button: optional, so it shouldn't push the post itself down the email
+            after.append(f"<b>One question this week</b> (optional): {html.escape(q['text'])} Answer in a line or two "
                          "on the approve page, and Voyce builds an upcoming post around it.")
             ask = f"One question this week (optional): {q['text']} Answer on the approve page.\n\n"
     except Exception:
@@ -204,11 +233,11 @@ def post_ready(company: dict, pending_id: str, post_type: str, post_text: str,
     expiry = ("If you don't approve it, it never goes out, and tomorrow's post replaces it, so stale news never goes out."
               if company.get("active") else "Posts you don't approve expire after 48 hours, so stale news never goes out.")
     text = (f"{html.unescape(intro)}\n\n{preview}\n\n"
-            + (f"{src_text}\n\n" if src_text else "") + ask
-            + f"Review and approve{'' if in_partner else ' (no login needed)'}: {url}\n\n{expiry}")
+            + (f"{src_text}\n\n" if src_text else "")
+            + f"Review and approve{'' if in_partner else ' (no login needed)'}: {url}\n\n" + ask + expiry)
     body = _layout("Ready for your OK" if not held_reason else "Held for your review",
                    paras, button=("Open today's draft" if in_partner else "Review and approve", url),
-                   quote=preview, footer=expiry, partner=partner)
+                   quote=preview, footer=expiry, partner=partner, image=image, after=after)
     return send(company.get("user_id", ""), f"ready:{pending_id}", "post_ready", subject, text, body)
 
 
