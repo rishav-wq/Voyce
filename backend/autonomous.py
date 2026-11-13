@@ -1299,7 +1299,17 @@ def _format_linkedin_post(text: str) -> str:
 # the profile's last post. Profiles from before the choice existed: switch on = "alt".
 CAROUSEL_CHOICES = (0, 1, 2, 3, "alt")
 CAROUSEL_WEEKDAYS = {1: {2}, 2: {1, 3}, 3: {0, 2, 4}}   # Mon=0: Wed · Tue+Thu · Mon+Wed+Fri
-_DAILY_STATUSES = ("posted", "pending_approval", "expired", "discarded", "superseded", "dry_run_fired")
+
+
+def _split_carousel_plan(plan) -> tuple:
+    """A per-day plan "__carousel__:teardown" is a carousel of that post type (set by the team for a day
+    whose rotation type finds thin news); returns ("__carousel__", "teardown"). Anything else as it is, ""."""
+    if isinstance(plan, str) and plan.startswith("__carousel__:"):
+        return "__carousel__", plan.split(":", 1)[1].strip()
+    return plan, ""
+
+
+_DAILY_STATUSES =("posted", "pending_approval", "expired", "discarded", "superseded", "dry_run_fired")
 
 
 def carousel_mode(company: dict):
@@ -1354,10 +1364,12 @@ def get_week_forecast(company: dict, days: int = 7) -> list[dict]:
         planned = sched.get(d.isoformat()) or ""
         if isinstance(planned, dict):
             planned = planned.get("type", "")
+        planned, car_type = _split_carousel_plan(planned)
         if planned == "__video__":
             fmt = "video"
         elif planned == "__carousel__":
             fmt = "carousel"
+            label = POST_TYPE_LABELS.get(car_type, label)   # a carousel of a set type shows that type
         elif planned in POST_TYPE_LABELS:
             label = POST_TYPE_LABELS[planned]   # an explicit type is never a carousel
             fmt = "card" if planned in TWEET_CARD_TYPES else "text"
@@ -1515,18 +1527,20 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
         plan = (company.get("scheduled_types") or {}).get(local_today.isoformat())
         if isinstance(plan, dict):   # tolerate legacy product-pinned rows
             plan = plan.get("type", "")
+        plan, carousel_type = _split_carousel_plan(plan)
         if plan in ("__carousel__", "__video__"):
             post_type_override = ""  # keep rotation type, but force the format below
         elif plan in valid_types:
             post_type_override = plan
     else:
-        plan = None
+        plan, carousel_type = None, ""
     do_diy_video = False
     if post_type_override and post_type_override in valid_types:
         post_type = post_type_override
         do_carousel = False  # an explicit type choice is a text/tweet intent, never a carousel
     elif plan == "__carousel__":
-        post_type = _get_post_type(company, runs_today)
+        # "__carousel__:teardown" asks for a carousel of that type; plain "__carousel__" keeps the rotation's
+        post_type = carousel_type if carousel_type in valid_types else _get_post_type(company, runs_today)
         do_carousel = True
     elif plan == "__video__":
         # DIY video day: Voyce writes the caption + a generation prompt; the user
