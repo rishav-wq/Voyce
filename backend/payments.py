@@ -23,7 +23,7 @@ PRO_DURATION_DAYS  = int(os.getenv("PRO_DURATION_DAYS", "31"))
 # too much for India, so visitors in India pay a founding India price. Their pass
 # covers one profile on daily posting: AI cost grows with daily profiles, and at
 # this price several of them would eat the margin.
-PRO_PRICE_AMOUNT_IN      = int(os.getenv("PRO_PRICE_AMOUNT_IN", "199900"))   # ₹1,999
+PRO_PRICE_AMOUNT_IN      = int(os.getenv("PRO_PRICE_AMOUNT_IN", "299900"))   # ₹2,999 (was ₹1,999 until 16 Nov 2026)
 REGION_IN, REGION_INTL   = "IN", "INTL"
 INDIA_AUTOPILOT_PROFILES = 1
 # Each India pass also includes a fixed number of generations (daily posting

@@ -63,7 +63,7 @@
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 free tries (posts, carousels, image cards, previews or idea lists) including 1 AI picture, manual posting to LinkedIn, no credit card." },
           { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited posts, carousels, image cards, previews and idea lists, 40 AI pictures, a daily post to approve, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
-          { "@type": "Offer", "name": "Pro (India)", "price": "1999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "Founding India price: 60 posts, carousels or images per pass (previews and idea lists included), and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Pro (India)", "price": "2999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "India price: 60 posts, carousels or images per pass (previews and idea lists included), and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
         ]
       },
       {
@@ -77,7 +77,7 @@
           { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 free tries: each post, carousel, image card, preview or list of post ideas uses one, and one of them can be an AI picture. You can post them to LinkedIn yourself. No credit card required." } },
           { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI providers: Anthropic (Claude) writes and checks them, and Google Gemini draws AI pictures and reads YouTube videos. The Privacy Policy has the details." } },
           { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
-          { "@type": "Question", "name": "How much does Voyce cost?", "acceptedAnswer": { "@type": "Answer", "text": "Free for 5 posts, with no card. Pro is a 30-day pass: ₹1,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel." } },
+          { "@type": "Question", "name": "How much does Voyce cost?", "acceptedAnswer": { "@type": "Answer", "text": "Free for 5 posts, with no card. Pro is a 30-day pass: ₹2,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel." } },
           { "@type": "Question", "name": "What is an AI LinkedIn ghostwriter?", "acceptedAnswer": { "@type": "Answer", "text": "Software that writes LinkedIn posts for you in your own voice, the way a human ghostwriter would. A human LinkedIn ghostwriter typically charges $1,000–$5,000 a month and needs a weekly call. Voyce learns your style from your past posts, finds this week's news in your field, and has a post ready each morning for you to approve." } },
           { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them." } }
         ]
@@ -697,7 +697,7 @@ With their latest announcement, the platform is rolling out features designed to
       <details><summary>What do I get for free?</summary><p>5 free tries: each post, carousel, image card, preview or list of post ideas uses one, and one of them can be an AI picture. You can post them to LinkedIn yourself. No credit card required.</p></details>
       <details><summary>Is my content private?</summary><p>Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI providers: Anthropic (Claude) writes and checks them, and Google Gemini draws AI pictures and reads YouTube videos. The <a href="/privacy">Privacy Policy</a> has the details.</p></details>
       <details><summary>Can I cancel anytime?</summary><p>There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to.</p></details>
-      <details><summary>How much does Voyce cost?</summary><p>Free for 5 posts, with no card. Pro is a 30-day pass: ₹1,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel.</p></details>
+      <details><summary>How much does Voyce cost?</summary><p>Free for 5 posts, with no card. Pro is a 30-day pass: ₹2,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel.</p></details>
       <details><summary>What is an AI LinkedIn ghostwriter?</summary><p>Software that writes LinkedIn posts for you in your own voice, the way a human ghostwriter would. A human LinkedIn ghostwriter typically charges $1,000–$5,000 a month and needs a weekly call. Voyce learns your style from your past posts, finds this week's news in your field, and has a post ready each morning for you to approve.</p></details>
       <details><summary>Does it work for a company page too?</summary><p>Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them.</p></details>
   </div>
@@ -728,7 +728,7 @@ With their latest announcement, the platform is rolling out features designed to
     function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
     set("free-amt", "₹0");
     set("pro-amt", "₹" + rupees + " <small>/ 30 days</small>");
-    set("pro-per", "founding India price · never renews by itself");
+    set("pro-per", "India price · never renews by itself");
     set("pro-gens", (c.pass_generations || 60) + " posts, carousels or images per pass (the daily post uses about 30)");
     set("pro-ai", (c.pass_ai_pictures || 10) + " of them can be AI pictures");
     set("pro-profiles", "3 profiles, each on its own LinkedIn · 1 on daily posting");
