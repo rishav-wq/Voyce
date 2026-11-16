@@ -50,15 +50,19 @@ def region_for(country: str) -> str:
     return REGION_IN if (country or "").strip().upper() == "IN" else REGION_INTL
 
 
-def price_for(region: str) -> int:
+def price_for(region: str, user: dict | None = None) -> int:
+    # A price kept for one account (users.price_in, in paise): a customer who bought before a price rise
+    # keeps their price, as Sam keeps ₹1,999 after the 16 Nov 2026 rise to ₹2,999. India only.
+    if region == REGION_IN and user and user.get("price_in"):
+        return int(user["price_in"])
     return PRO_PRICE_AMOUNT_IN if region == REGION_IN else PRO_PRICE_AMOUNT
 
 
-def get_config(region: str = REGION_INTL) -> dict:
+def get_config(region: str = REGION_INTL, user: dict | None = None) -> dict:
     return {
         "configured": is_configured(),
         "key_id": RAZORPAY_KEY_ID,
-        "amount": price_for(region),
+        "amount": price_for(region, user),
         "currency": PRO_PRICE_CURRENCY,
         "region": region,
         "autopilot_profiles": INDIA_AUTOPILOT_PROFILES if region == REGION_IN else None,
@@ -73,11 +77,12 @@ def create_order(user_id: str, email: str, region: str = REGION_INTL) -> dict:
     """Create a Razorpay order and record it so /payments/verify can
     confirm the order belongs to the paying user. The amount is set here, from
     the region the server worked out — never taken from the browser."""
+    user = db.users.find_one({"id": user_id}, {"_id": 0, "price_in": 1})
     resp = httpx.post(
         f"{_API_BASE}/orders",
         auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
         json={
-            "amount": price_for(region),
+            "amount": price_for(region, user),
             "currency": PRO_PRICE_CURRENCY,
             "receipt": f"voyce_pro_{user_id[:24]}",
             "notes": {"user_id": user_id, "email": email, "product": "voyce_pro", "region": region},

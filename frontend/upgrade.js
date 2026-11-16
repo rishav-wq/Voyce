@@ -72,7 +72,7 @@
   window.loadPaymentConfig = async function () {
     if (_payConfig) return _payConfig;
     try {
-      const res = await fetch("/payments/config");
+      const res = await fetch("/payments/config", { headers: { "x-token": getToken() || "" } });
       if (!res.ok) return null;
       _payConfig = await res.json();
       if (_payConfig.configured) {

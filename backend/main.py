@@ -1288,8 +1288,10 @@ def _pricing_region(request: Request) -> str:
 
 
 @app.get("/payments/config")
-def payments_config(request: Request):
-    return payments.get_config(_pricing_region(request))
+def payments_config(request: Request, x_token: str = Header(None)):
+    # Signed in, an account with its own price (users.price_in) sees that price; the page stays public
+    user = auth_module.get_user_by_token(x_token) if x_token else None
+    return payments.get_config(_pricing_region(request), user)
 
 
 @app.post("/payments/create-order")
