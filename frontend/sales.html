@@ -289,6 +289,7 @@ html.panel-open { overflow: hidden; }   /* on html only: overflow on body would 
 .hist .t { overflow-wrap: anywhere; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 40; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
 @media (prefers-reduced-motion: no-preference) { .drawer { animation: slide .18s ease-out; } @keyframes slide { from { transform: translateX(24px); opacity: .6; } } }
+  .wa-count { margin-top: 6px; } .wa-count.over { color: #b42318; font-weight: 600; }
 </style>
   <link rel="stylesheet" href="/static/gold-dash.css?v=2" />
 </head>
@@ -314,7 +315,7 @@ html.panel-open { overflow: hidden; }   /* on html only: overflow on body would 
       <div class="top">
         <div>
           <h1 class="page-title">Sales</h1>
-          <div class="sub">Cold calls to firm owners, and LinkedIn DMs with up to 3 follow-ups. Every lead ends in a booked meeting or a reason. Only the Voyce team can see this page.</div>
+          <div class="sub">WhatsApp intros to mobiles, cold calls to office lines, and LinkedIn DMs. Every lead ends in a booked meeting or a reason. Only the Voyce team can see this page.</div>
         </div>
         <button class="btn primary" id="add-lead" data-act="new" hidden>+ Add lead</button>
       </div>
@@ -352,6 +353,9 @@ const STAGES = [
   { key: "replied", label: "Replied", group: "Conversation", track: "dm" },
   { key: "number", label: "Number shared", group: "Conversation", track: "dm" },
   { key: "called", label: "Called", group: "Conversation", track: "dm" },
+  { key: "wa1", label: "WhatsApp sent", group: "Outreach", track: "wa" },
+  { key: "wa2", label: "WhatsApp follow-up", group: "Outreach", track: "wa" },
+  { key: "wa_yes", label: "Said yes: call", group: "Conversation", track: "wa" },
   { key: "meeting", label: "Meeting booked", group: "Meeting", track: "both" },
   { key: "won", label: "Won", group: "Closed", track: "both" },
   { key: "lost", label: "Lost", group: "Closed", track: "both" },
@@ -368,9 +372,10 @@ const lastOpenStage = l => { const h = (l.history || []).slice().reverse().find(
 const NEXT_STEP = { tocall: "Call the firm's line", try1: "Call again", try2: "Call again (last try)", try3: "Close, or switch to a LinkedIn DM",
   spoke: "Send the sample on WhatsApp", sample: "Call back about the sample", new: "Send the first DM", dm: "Send follow-up 1", fu1: "Send follow-up 2", fu2: "Send follow-up 3",
   fu3: "Close if there's still no reply", replied: "Ask for their number", number: "Call them", called: "Book the meeting",
-  meeting: "Meeting", won: "Paying customer", lost: "Closed" };
-const SCRIPT_FOR = { tocall: "smb_call", try1: "smb_call", try2: "smb_call", try3: "dm", spoke: "wa_sample", sample: "sample_callback", new: "dm", dm: "fu1", fu1: "fu2", fu2: "fu3", replied: "ask_number", number: "call", called: "call", meeting: "setup_close" };
-const LOST_REASONS = ["No reply after 3 follow-ups", "Not interested", "Wrong number", "Wants company page posting", "Unreachable by phone", "Not a fit", "Price", "Using another tool", "Other"];
+  meeting: "Meeting", won: "Paying customer", lost: "Closed",
+  wa1: "Wait for their reply. Follow up once after 3 days", wa2: "Close if there's still no reply", wa_yes: "Call them at the time you agreed" };
+const SCRIPT_FOR = { tocall: "smb_call", try1: "smb_call", try2: "smb_call", try3: "dm", spoke: "wa_sample", sample: "sample_callback", new: "dm", dm: "fu1", fu1: "fu2", fu2: "fu3", replied: "ask_number", number: "call", called: "call", meeting: "setup_close", wa1: "wa_followup", wa_yes: "wa_yes" };
+const LOST_REASONS = ["No reply after 3 follow-ups", "No reply on WhatsApp", "Asked not to be contacted", "Not interested", "Wrong number", "Wants company page posting", "Unreachable by phone", "Not a fit", "Price", "Using another tool", "Other"];
 const SOURCES = ["LinkedIn DM", "Cold call list", "Voyce signup", "Referral", "Event", "WhatsApp group", "Other"];
 let pipeTrack = "call";
 const CHANNELS = ["LinkedIn", "WhatsApp", "Call", "Email", "Note"];
@@ -418,8 +423,65 @@ const isDue = l => isActive(l) && l.next_due && l.next_due <= today();
 const normLi = u => String(u || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
 const digits = p => String(p || "").replace(/\D/g, "");
 const waNumber = p => { const d = digits(p); return d.length === 10 ? "91" + d : d; };
-function fillScript(body, l) { return String(body || "").replaceAll("{first_name}", firstName(l?.name)).replaceAll("{company}", l?.company || "your company"); }
-const scriptFor = l => scripts.find(s => s.key === SCRIPT_FOR[l.stage]);
+// An Indian mobile as WhatsApp wants it (91XXXXXXXXXX), or "" for a landline or anything unclear (same rule as the server's
+// whatsapp_number: a landline writes its city code as its own group, a mobile's first group starts with 6-9).
+function waMobile(raw) {
+  let g = String(raw || "").match(/\d+/g) || [];
+  if (g.length && (g[0] === "91" || g[0] === "0091")) g = g.slice(1);
+  else if (g.length && g[0].length === 12 && g[0].startsWith("91")) g = [g[0].slice(2)].concat(g.slice(1));
+  if (!g.length) return "";
+  g[0] = g[0].replace(/^0+/, "");
+  const d = g.join(""), first = g[0];
+  return d.length === 10 && first && "6789".includes(first[0]) && first.length >= 3 ? "91" + d : "";
+}
+// The number a WhatsApp goes to: their own mobile first, else a firm number that is really a mobile (solo practices).
+const waTo = l => [l.phone, l.firm_phone].filter(n => !isBadNum(l, n)).map(waMobile).find(Boolean) || "";
+// WhatsApp-first: a stranger's sales message on WhatsApp gets reported fast, and enough reports get the sender's number
+// restricted. So: one at a time, ask before calling, make "no" easy, follow up once, keep it under 30 new intros a day.
+const WA_DAILY = 20;   // they go from Rishav's personal number: a restriction would cost him his own WhatsApp
+const BUILTIN_SCRIPTS = [
+  { key: "wa_intro", title: "WhatsApp intro: ask before calling", when: "First message to a lead with a mobile number, instead of a cold call. Rishav sends it from his own WhatsApp, one person at a time. Add a line of your own when you know something about them",
+    body: "Hi {first_name}, Rishav here, I run Voyce. {found}\n\n{impact} Voyce writes a post for you every morning in your own voice, and nothing goes out without your OK.\n\nWorth a quick 10-min call this week? If it's not your thing, just say so and I won't message again \u{1F642}" },
+  { key: "wa_followup", title: "WhatsApp follow-up (only once)", when: "3 days after the intro, only if there's no reply. Never send a second follow-up",
+    body: "Hi {first_name}, just bumping this up. Happy to send you 2 or 3 sample posts written in your voice first, so you can see if it's any good. Want me to?" },
+  { key: "wa_yes", title: "WhatsApp: book the call", when: "As soon as they say yes on WhatsApp",
+    body: "Great, thank you! Would tomorrow or the day after work for a quick call? Just tell me a time and we'll call you on this number." },
+];
+// What LinkedIn does for their kind of business, said the way people talk: one sentence, no invented numbers.
+const IMPACT = [
+  [/IT services|exporter|software/i, "Buyers abroad usually check the founder's LinkedIn before a first call, so posting regularly builds trust before you even speak."],
+  [/CA\b|tax|chartered/i, "People check their CA on LinkedIn too, and simple regular posts keep you in mind when someone needs one."],
+  [/agency/i, "Brands usually check an agency founder's LinkedIn before they shortlist, so posting regularly keeps you on their radar."],
+  [/coach|trainer/i, "People usually check a coach's LinkedIn before they book, so posting regularly quietly brings in clients."],
+  [/consult|advis|strategy|growth/i, "Most clients check a consultant's LinkedIn before they reach out, so being visible there quietly brings in work."],
+];
+const IMPACT_DEFAULT = "People usually check your LinkedIn before they work with you, so being visible there quietly brings in work.";
+// How we came across them, from what the tracker already holds (company, segment, city): true for every lead, nothing invented.
+const SEG_PLURAL = [[/IT services|exporter/i, "IT services firms"], [/CA\b|tax/i, "CA practices"], [/agency/i, "agencies"],
+  [/strategy|management/i, "strategy consultancies"], [/growth/i, "growth advisors"], [/executive coach/i, "executive coaches"],
+  [/coach|trainer/i, "coaches and trainers"], [/consult/i, "consultancies"]];
+function foundLine(l) {
+  const co = String(l?.company || "").trim(), city = String(l?.city || "").trim();
+  const seg = (SEG_PLURAL.find(([re]) => re.test(l?.segment || "")) || [])[1];
+  if (co && seg && city) return `Came across ${co} while looking at ${seg} in ${city}.`;
+  if (co && seg) return `Came across ${co} while looking at ${seg}.`;
+  return co ? `Came across your work at ${co}.` : "Came across your work.";
+}
+const impactFor = l => (IMPACT.find(([re]) => re.test(`${l?.segment || ""} ${l?.role || ""}`)) || [null, IMPACT_DEFAULT])[1];
+const withBuiltins = items => items.concat(BUILTIN_SCRIPTS.filter(b => !items.some(s => s.key === b.key)));
+function waSentToday() {
+  const d = today();
+  return leads.reduce((n, l) => n + (l.history || []).filter(h => h.text === "WhatsApp intro sent" && h.at && ymd(new Date(h.at)) === d).length, 0);   // the whole team: everyone sends from the one Voyce number
+}
+function openWhatsApp(id, key) {
+  const l = leads.find(x => x.id === id), s = scripts.find(x => x.key === key), num = l && waTo(l);
+  if (!l || !s || !num) return;
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(fillScript(s.body, l))}`, "_blank", "noopener");
+}
+function fillScript(body, l) { return String(body || "").replaceAll("{first_name}", firstName(l?.name)).replaceAll("{company}", l?.company || "your company").replaceAll("{my_name}", firstName(me.name) === "there" ? "___" : firstName(me.name)).replaceAll("{impact}", impactFor(l)).replaceAll("{found}", foundLine(l)); }
+// A lead with a mobile number gets the WhatsApp intro instead of the cold-call script.
+const nextStep = l => l.stage === "tocall" && waTo(l) ? "Send the WhatsApp intro" : (NEXT_STEP[l.stage] || "");
+const scriptFor = l => scripts.find(s => s.key === (l.stage === "tocall" && waTo(l) ? "wa_intro" : SCRIPT_FOR[l.stage]));
 function lookupCell(l) {
   const note = (l.lookup === "done" || l.lookup === "none") ? `<div class="hint">${esc(l.lookup_note || "")}${l.lookup_at ? " · " + esc(fmtStamp(l.lookup_at)) : ""}</div>` : "";
   if (!(l.linkedin || (l.name && l.company))) return note + `<span class="hint">Add their LinkedIn link or company to look them up.</span>`;
@@ -438,14 +500,17 @@ function actionsFor(l) {
   const wrong = WRONG_NUMBER_ON.has(l.stage) && hasPhone(l) ? [{ id: "wrongnum", label: "Wrong number", neg: true }] : [];
   return acts.concat(wrong, NOT_INTERESTED_ON.has(l.stage) ? [{ id: "notint", label: "Not interested", neg: true }] : []);
 }
-const WRONG_NUMBER_ON = new Set(["tocall", "try1", "try2", "try3"]);
+const WRONG_NUMBER_ON = new Set(["tocall", "try1", "try2", "try3", "wa1", "wa2"]);
 const dialled = l => [l.phone, l.firm_phone].find(n => digits(n) && !isBadNum(l, n)) || "";
 // Stages where they can say no: a call was answered or they wrote back. Closing it stops every follow-up.
-const NOT_INTERESTED_ON = new Set(["tocall", "try1", "try2", "spoke", "sample", "dm", "fu1", "fu2", "fu3", "replied", "number", "called"]);
+const NOT_INTERESTED_ON = new Set(["tocall", "try1", "try2", "spoke", "sample", "dm", "fu1", "fu2", "fu3", "replied", "number", "called", "wa1", "wa2", "wa_yes"]);
 function _actionsFor(l) {
   const callOutcomes = next => [{ id: "spoke", label: "Spoke: interested", primary: true }, { id: next, label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
   switch (l.stage) {
-    case "tocall": return callOutcomes("try1");
+    case "tocall": return waTo(l) ? [{ id: "wa_intro", label: "Send WhatsApp intro", primary: true, wa: "wa_intro" }, { id: "not_wa", label: "Not on WhatsApp" }] : callOutcomes("try1");
+    case "wa1": return [{ id: "wa_yes", label: "They said yes", primary: true }, { id: "wa_fu", label: "Send the follow-up", wa: "wa_followup" }, { id: "wa_stop", label: "Asked to stop", neg: true }];
+    case "wa2": return [{ id: "wa_yes", label: "They said yes", primary: true }, { id: "wa_noreply", label: "Close: no reply" }, { id: "wa_stop", label: "Asked to stop", neg: true }];
+    case "wa_yes": return [{ id: "meeting", label: "Book meeting", primary: true, needs: "meeting" }, { id: "call_noans", label: "No answer" }, { id: "callback", label: "Call back later", needs: "callback" }];
     case "try1": return callOutcomes("try2");
     case "try2": return callOutcomes("try3");
     case "try3": return [{ id: "to_dm", label: "Switch to LinkedIn DM", primary: true }, { id: "unreachable", label: "Close: unreachable" }];
@@ -483,6 +548,12 @@ const ACTION = {
   fu3: () => ({ stage: "fu3", next_due: addDays(today(), 7), _t: "Sent follow-up 3" }),
   noreply: () => ({ stage: "lost", next_due: "", lost_reason: LOST_REASONS[0], _t: "Closed: no reply after 3 follow-ups" }),
   replied: () => ({ stage: "replied", next_due: today(), _t: "They replied" }),
+  wa_intro: () => ({ stage: "wa1", next_due: addDays(today(), 3), _t: "WhatsApp intro sent" }),
+  wa_fu: () => ({ stage: "wa2", next_due: addDays(today(), 4), _t: "WhatsApp follow-up sent" }),
+  wa_yes: () => ({ stage: "wa_yes", next_due: today(), _t: "Said yes to a call on WhatsApp" }),
+  wa_noreply: () => ({ stage: "lost", next_due: "", lost_reason: "No reply on WhatsApp", _t: "Closed: no reply on WhatsApp" }),
+  wa_stop: () => ({ stage: "lost", next_due: "", lost_reason: "Asked not to be contacted", _t: "Closed: asked not to be contacted. Don't message or call again" }),
+  not_wa: () => ({ stage: "new", next_due: today(), _t: "Not on WhatsApp: switched to a LinkedIn DM" }),
   number: (l, v) => ({ stage: "number", phone: v.phone, next_due: addDays(today(), 1), _t: "Got their number" }),
   called: () => ({ stage: "called", next_due: addDays(today(), 2), _t: "Called them" }),
   called_again: () => ({ stage: "called", next_due: addDays(today(), 2), _t: "Called again" }),
@@ -541,7 +612,7 @@ async function reload() {
   try {
     const [ls, sc] = await Promise.all([api("GET", "/sales/leads"), api("GET", "/sales/scripts")]);
     leads = (ls || []).filter(l => l.name);
-    if (editingScript === null) scripts = (sc && sc.items) || [];
+    if (editingScript === null) scripts = withBuiltins((sc && sc.items) || []);
     ready = true; denied = false; renderAll(); schedulePhoneCheck();
   } catch (e) {
     if (e && e.code === 403) { denied = true; ready = false; renderAll(); }
@@ -714,8 +785,8 @@ function leadRow(l, opts = {}) {
   const d = dueInfo(l);
   const all = actionsFor(l), rowActs = all.filter(a => !a.neg).slice(0, 3).concat(all.filter(a => a.neg));
   const acts = canWrite ? rowActs.map(a =>
-    `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
-  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage];
+    `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}"${a.wa ? ` data-wa="${a.wa}"` : ""}>${esc(a.label)}</button>`).join("") : "";
+  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : l.stage === "lost" ? (l.lost_reason || "Closed") : nextStep(l);
   return `<div class="row ${d.cls === "late" ? "late" : ""}">
     <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
       <div class="name">${prio(l)}${esc(l.name)}${l.private ? ` <span class="only-you" title="Hidden from the rest of the team">Only you</span>` : ""}</div>
@@ -744,17 +815,18 @@ function viewToday() {
          (soon.length ? sec("soon", "Coming up in the next 3 days", "", soon) : "");
 }
 const TODAY_GROUPS = [
-  { key: "warm", title: "Follow up first: they said yes", hint: "The warmest leads. Aim for a booked setup call.", stages: ["spoke", "sample", "replied", "number", "called"] },
+  { key: "warm", title: "Follow up first: they said yes", hint: "The warmest leads. Aim for a booked setup call.", stages: ["spoke", "sample", "replied", "number", "called", "wa_yes"] },
+  { key: "wa", title: "WhatsApp follow-ups", hint: "No reply yet. Send the one follow-up, or close the lead. Never chase twice.", stages: ["wa1", "wa2"] },
   { key: "retry", title: "Call again: no answer", hint: "Try another time of day. After the third try, switch to a LinkedIn DM.", stages: ["try1", "try2", "try3"] },
-  { key: "new", title: "New calls", hint: "Strongest first. Best answered Tue to Thu, 3 to 5 pm.", stages: ["tocall"] },
+  { key: "new", title: "New contacts", hint: "Strongest first. A mobile number gets a WhatsApp intro, not a cold call. Office lines: call, best Tue to Thu, 3 to 5 pm.", stages: ["tocall"] },
   { key: "dm", title: "LinkedIn DMs", hint: "", stages: ["new", "dm", "fu1", "fu2", "fu3"] },
 ];
 // The work in seven steps (Rishav, 2 Nov 2026): each card counts its leads; a click opens that step's whole list
 const STAGE_CARDS = [
   { key: "contact", title: "To contact", hint: "", stages: ["tocall", "new"] },
   { key: "retry", title: "Call again", hint: "No answer yet", stages: ["try1", "try2", "try3"] },
-  { key: "follow", title: "LinkedIn follow-up", hint: "Messaged, no reply yet", stages: ["dm", "fu1", "fu2", "fu3"] },
-  { key: "warm", title: "Interested", hint: "Send the sample, book the call", stages: ["spoke", "sample", "replied", "number", "called"] },
+  { key: "follow", title: "Follow-up", hint: "Messaged on LinkedIn or WhatsApp, no reply yet", stages: ["dm", "fu1", "fu2", "fu3", "wa1", "wa2"] },
+  { key: "warm", title: "Interested", hint: "Send the sample, book the call", stages: ["spoke", "sample", "replied", "number", "called", "wa_yes"] },
   { key: "meeting", title: "Setup calls", hint: "Booked with Rishav", stages: ["meeting"] },
   { key: "won", title: "Customers", hint: "Paying", stages: ["won"] },
   { key: "lost", title: "Closed", hint: "", stages: ["lost"] },
@@ -857,7 +929,7 @@ function personWeek(r, workdays) {
 }
 function viewPipeline() {
   if (!leads.length) return emptyState("The pipeline fills in as you add leads and mark each step.");
-  const switcher = `<div class="row-btns" style="margin-bottom:12px" role="group" aria-label="Track">${[["call", "Cold calls"], ["dm", "LinkedIn DMs"]].map(([k, t]) =>
+  const switcher = `<div class="row-btns" style="margin-bottom:12px" role="group" aria-label="Track">${[["call", "Cold calls"], ["wa", "WhatsApp"], ["dm", "LinkedIn DMs"]].map(([k, t]) =>
     `<button class="btn ${pipeTrack === k ? "primary" : ""}" data-act="track" data-t="${k}" aria-pressed="${pipeTrack === k}">${t}</button>`).join("")}</div>`;
   const cols = STAGES.filter(s => s.track === pipeTrack || s.track === "both").map(s => {
     const items = leads.filter(l => l.stage === s.key).sort((a, b) => (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
@@ -889,7 +961,7 @@ function viewAll() {
   return head + `<div class="table-scroll"><table><thead><tr><th>Name</th><th>Company</th><th>City</th><th>Stage</th><th>Next step</th><th>Phone</th><th>Owner</th></tr></thead><tbody>${list.map(l => {
     const d = dueInfo(l);
     return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td>${prio(l)}<b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
-      <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : NEXT_STEP[l.stage])}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}${closedBy(l)}</td>
+      <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : nextStep(l))}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}${closedBy(l)}</td>
       <td class="num">${esc(l.phone || "")}${badTag(l, l.phone)}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}${badTag(l, l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
@@ -950,7 +1022,7 @@ function viewDms() {
   const label = d => d === t ? "Sent today" : d === addDays(t, -1) ? "Yesterday" : fmtDay(d);
   const row = x => `<div class="row"><div class="who" data-act="open" data-id="${esc(x.l.id)}" tabindex="0" role="button"><div class="name">${esc(x.l.name)}</div>
       <div class="meta">${esc([fmtStamp(x.at).split(", ")[1], x.by && "by " + x.by, x.note].filter(Boolean).join(" · "))}</div>
-      <div class="next">${pill(x.l.stage)}<span>${esc(NEXT_STEP[x.l.stage] || "")}</span></div></div>
+      <div class="next">${pill(x.l.stage)}<span>${esc(nextStep(x.l))}</span></div></div>
     <div class="acts">${x.l.linkedin ? `<a class="btn quiet" href="${esc(liHref(x.l.linkedin))}" target="_blank" rel="noopener">LinkedIn</a>` : ""}<button class="btn quiet" data-act="open" data-id="${esc(x.l.id)}">Open</button></div></div>`;
   const lists = days.length ? days.map(d => { const xs = log.filter(x => x.day === d);
       return `<section class="section"><h3>${esc(label(d))}<span class="num">${xs.length}</span></h3><div class="list">${xs.map(row).join("")}</div></section>`; }).join("")
@@ -1032,7 +1104,7 @@ function renderDrawer() {
   const l = leads.find(x => x.id === openId);
   if (!l) { d.innerHTML = `<div class="d-head"><div><h2>Lead removed</h2><div class="meta">Someone deleted this lead.</div></div>${CLOSE_BTN}</div>`; return; }
   const due = dueInfo(l), s = scriptFor(l);
-  const acts = canWrite ? actionsFor(l).map(a => `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "set-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}">${esc(a.label)}</button>`).join("") : "";
+  const acts = canWrite ? actionsFor(l).map(a => `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "set-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}"${a.wa ? ` data-wa="${a.wa}"` : ""}>${esc(a.label)}</button>`).join("") : "";
   const lostBtn = canWrite && isActive(l) && l.stage !== "meeting" ? `<button class="btn quiet" data-act="set-panel" data-panel="lost">Mark lost</button>` : "";
   const panels = {
     number: `<form class="inline-form" id="p-number"><input id="p-phone" type="tel" value="${esc(l.phone || "")}" placeholder="+91 98xxxxxxxx" required aria-label="Their number"><button class="btn primary" type="submit">Save number</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
@@ -1041,7 +1113,7 @@ function renderDrawer() {
     lost: `<form class="inline-form" id="p-lost"><select id="p-reason" aria-label="Reason">${LOST_REASONS.map(r => `<option>${esc(r)}</option>`).join("")}</select><button class="btn primary" type="submit">Mark lost</button><button class="btn quiet" type="button" data-act="set-panel" data-panel="">Cancel</button></form>`,
     delete: `<div class="inline-form"><span>Delete ${esc(l.name)} and their history? This can't be undone.</span><button class="btn danger solid" data-act="delete" data-id="${esc(l.id)}">Delete</button><button class="btn quiet" data-act="set-panel" data-panel="">Keep</button></div>`,
   };
-  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : NEXT_STEP[l.stage];
+  const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : nextStep(l);
   const canAsk = l.linkedin || (l.name && l.company);
   const phone = l.phone ? `<span class="num">${esc(l.phone)}</span>${badTag(l, l.phone)}${l.phone_source === "Apollo" ? ` <span class="hint">${esc(l.phone_note || "From Apollo")}</span>` : ""}<div class="row-btns"><button class="btn" data-act="copy-text" data-text="${esc(l.phone)}">Copy</button>
       <a class="btn" href="https://wa.me/${esc(waNumber(l.phone))}" target="_blank" rel="noopener">WhatsApp</a><a class="btn quiet" href="tel:${esc(digits(l.phone))}">Call</a></div>`
@@ -1057,6 +1129,7 @@ function renderDrawer() {
       <div class="nextbox"><div class="what">Next: ${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : what)}</div>
         <div class="row-btns">${acts}${toCall}${lostBtn}</div>
         ${panel && panels[panel] && panel !== "delete" ? panels[panel] : ""}
+        ${l.stage === "tocall" && waTo(l) && canWrite ? (() => { const n = waSentToday(); return `<div class="hint wa-count${n >= WA_DAILY ? " over" : ""}">Rishav sends these from his own WhatsApp: open this page where his WhatsApp is signed in. Intros sent today: ${n} of ${WA_DAILY}.${n >= WA_DAILY ? " That's enough for today: more can get his number flagged." : " One at a time."}</div>`; })() : ""}
         ${s && isActive(l) ? `<div class="hint">Message: ${esc(s.title)}</div><pre id="msg">${esc(fillScript(s.body, l))}</pre><div class="row-btns"><button class="btn" data-act="copy-msg">Copy message for ${esc(firstName(l.name))}</button></div>` : ""}
       </div>
     </div>
@@ -1121,7 +1194,7 @@ document.addEventListener("click", async e => {
   else if (act === "open") openLead(id);
   else if (act === "open-panel") openLead(id, el.dataset.panel);
   else if (act === "set-panel") { panel = el.dataset.panel || null; renderDrawer(); }
-  else if (act === "action") { await runAction(id, el.dataset.a); }
+  else if (act === "action") { if (el.dataset.wa) openWhatsApp(id, el.dataset.wa); await runAction(id, el.dataset.a); }
   else if (act === "take") { await patchLead(id, { owner: "me" }, "Took over this lead"); }
   else if (act === "private") { const on = el.dataset.on === "1"; await save(id, { private: on }, on ? "Made private: only Rishav sees this lead" : "Shown to the team again", on ? "Only you see this lead now" : "The team can see this lead again"); }
   else if (act === "delete") { if (await safe(() => api("DELETE", `/sales/leads/${encodeURIComponent(id)}`), "Lead deleted")) { leads = leads.filter(x => x.id !== id); closeDrawer(); renderAll(); } }
@@ -1132,7 +1205,7 @@ document.addEventListener("click", async e => {
   else if (act === "stage-track") { stageTrack = el.dataset.t; renderMain(); }
   else if (act === "scope") { scope = el.dataset.s === "team" ? "team" : "me"; renderSummary(); try { localStorage.setItem("vs-scope", scope); } catch (_) {} }
   else if (act === "team-week") { teamWeek = Number(el.dataset.w) === -1 ? -1 : 0; renderMain(); }
-  else if (act === "track") { pipeTrack = el.dataset.t === "dm" ? "dm" : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
+  else if (act === "track") { pipeTrack = ["dm", "wa"].includes(el.dataset.t) ? el.dataset.t : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
   else if (act === "lookup") { await doLookup(id, el); }
   else if (act === "enrich") { await doEnrich(el); }
   else if (act === "reveal") { await doReveal(id, el); }
@@ -1148,7 +1221,7 @@ document.addEventListener("click", async e => {
     else items[i] = { ...items[i], title: $("#s-title").value.trim() || "Untitled", when: $("#s-when").value.trim(), body: $("#s-body").value };
     editingScript = null;
     const out = await safe(() => api("PUT", "/sales/scripts", { items }), act === "script-del" ? "Script deleted" : "Script saved");
-    if (out && out.items) scripts = out.items;
+    if (out && out.items) scripts = withBuiltins(out.items);
     renderAll();
   }
 });
@@ -1215,7 +1288,7 @@ document.addEventListener("submit", async e => {
 try { const v = localStorage.getItem("vs-view"); if (["today", "stage", "pipeline", "all", "team", "scripts"].includes(v)) view = v;
   if (localStorage.getItem("vs-scope") === "team") scope = "team";
   const sk = localStorage.getItem("vs-stage"); if (STAGE_CARDS.some(c => c.key === sk)) stageKey = sk;
-  const tr = localStorage.getItem("vs-track"); if (tr === "dm" || tr === "call") pipeTrack = tr; } catch (_) {}
+  const tr = localStorage.getItem("vs-track"); if (["dm", "call", "wa"].includes(tr)) pipeTrack = tr; } catch (_) {}
 try { const u = JSON.parse(localStorage.getItem("cm_user") || "null"); if (u) $("#nav-user").textContent = u.name || u.email || ""; } catch (_) {}
 renderSummary(); renderMain();
 async function startApp() {

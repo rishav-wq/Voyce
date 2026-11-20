@@ -27,7 +27,8 @@ router = APIRouter()
 
 STAGES = {"tocall", "try1", "try2", "try3", "spoke", "sample",
           "new", "dm", "fu1", "fu2", "fu3", "replied", "number", "called",
-          "meeting", "won", "lost"}
+          "meeting", "won", "lost",
+          "wa1", "wa2", "wa_yes"}   # WhatsApp-first: intro sent, follow-up sent, said yes to a call
 LOOKUP_STATES = {"", "done", "none"}
 # field -> max length; anything else a client sends is dropped
 TEXT_FIELDS = {"name": 120, "role": 160, "company": 160, "city": 80, "linkedin": 300, "website": 300,
