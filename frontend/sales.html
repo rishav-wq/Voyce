@@ -441,7 +441,7 @@ const waTo = l => [l.phone, l.firm_phone].filter(n => !isBadNum(l, n)).map(waMob
 const WA_DAILY = 20;   // they go from Rishav's personal number: a restriction would cost him his own WhatsApp
 const BUILTIN_SCRIPTS = [
   { key: "wa_intro", title: "WhatsApp intro: ask before calling", when: "First message to a lead with a mobile number, instead of a cold call. Rishav sends it from his own WhatsApp, one person at a time. Add a line of your own when you know something about them",
-    body: "Hi {first_name}, Rishav here, I run Voyce. {found}\n\n{impact} Voyce writes a post for you every morning in your own voice, and nothing goes out without your OK.\n\nWorth a quick 10-min call this week? If it's not your thing, just say so and I won't message again \u{1F642}" },
+    body: "Hi {first_name}, Rishav here, founder of Voyce. {found}\n\n{impact} Voyce writes a post for you every morning in your own voice, and nothing goes out without your OK.\n\nWorth a quick 10-min call this week? If it's not your thing, just say so and I won't message again \u{1F642}" },
   { key: "wa_followup", title: "WhatsApp follow-up (only once)", when: "3 days after the intro, only if there's no reply. Never send a second follow-up",
     body: "Hi {first_name}, just bumping this up. Happy to send you 2 or 3 sample posts written in your voice first, so you can see if it's any good. Want me to?" },
   { key: "wa_yes", title: "WhatsApp: book the call", when: "As soon as they say yes on WhatsApp",
