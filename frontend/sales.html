@@ -155,6 +155,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 10px; }
 .stage-head h3 { font-size: 17px; margin-right: auto; }
 .stage-head h3 .num { margin-left: 8px; color: var(--faint); font-weight: 600; }
+.strip { display: flex; align-items: center; gap: 10px 22px; flex-wrap: wrap; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.strip-day { display: grid; gap: 2px; min-width: 180px; }
+.strip-day b { font-family: var(--f-display); font-size: 15px; }
+.strip-day span { color: var(--muted); font-size: 12.5px; }
+.strip-day .bar { margin-top: 4px; }
+.strip-items { display: flex; flex-wrap: wrap; gap: 6px 20px; flex: 1; color: var(--muted); font-size: 13px; align-items: baseline; }
+.strip-items b { color: var(--fg); font-family: var(--f-display); font-size: 16px; }
+.strip-items .done b { color: var(--ok); }
+.strip-items .wk { flex-basis: 100%; font-size: 12.5px; }
+.strip-items .wk b { font-size: 14px; }
+.segs { margin-bottom: 10px; flex-wrap: wrap; }
+.segs .btn .num, .cats .btn .num { margin-left: 2px; opacity: .75; }
+.ch { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.ch svg { width: 14px; height: 14px; }
+.ch.wa { color: #128c4a; } .ch.li { color: #0a66c2; } .ch.call { color: var(--accent); } .ch.post { color: #c2410c; }
+.more { position: relative; }
+.more > summary { list-style: none; cursor: pointer; font-size: 18px; line-height: 1; padding-inline: 10px; }
+.more > summary::-webkit-details-marker { display: none; }
+.more[open] > summary { color: var(--fg); border-color: var(--line); }
+.more .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 200px; display: grid; gap: 2px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.more .menu .btn { justify-content: flex-start; width: 100%; border-color: transparent; background: transparent; }
+.more .menu .btn:hover { background: var(--surface-2); }
+.more-row { margin-top: 12px; text-align: center; }
+.backlog .hint { padding: 12px 14px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; }
+.cat-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 11.5px; font-weight: 600; vertical-align: 1px; white-space: nowrap; }
+.cat-tag.ai { background: transparent; }
+.d-tags { margin-top: 6px; } .d-tags .cat-tag:first-child { margin-left: 0; }
+.cats { margin-bottom: 12px; flex-wrap: wrap; }
+.cats .btn .num { margin-left: 2px; opacity: .75; }
 .only-you { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
 /* Team tab: each person's week */
 .person { margin-top: 18px; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
@@ -315,7 +344,7 @@ html.panel-open { overflow: hidden; }   /* on html only: overflow on body would 
       <div class="top">
         <div>
           <h1 class="page-title">Sales</h1>
-          <div class="sub">WhatsApp intros to mobiles, cold calls to office lines, and LinkedIn DMs. Every lead ends in a booked meeting or a reason. Only the Voyce team can see this page.</div>
+          <div class="sub">Every lead ends in a booked call or a reason. Only the Voyce team can see this page.</div>
         </div>
         <button class="btn primary" id="add-lead" data-act="new" hidden>+ Add lead</button>
       </div>
@@ -323,9 +352,8 @@ html.panel-open { overflow: hidden; }   /* on html only: overflow on body would 
       <div class="banner" id="banner" hidden></div>
       <nav class="tabs" role="tablist" id="tabs">
         <button class="tab" role="tab" data-view="today" aria-selected="true">Today<span class="n" id="n-today"></span></button>
+        <button class="tab" role="tab" data-view="leads" aria-selected="false">Leads<span class="n" id="n-leads"></span></button>
         <button class="tab" role="tab" data-view="pipeline" aria-selected="false">Pipeline</button>
-        <button class="tab" role="tab" data-view="all" aria-selected="false">All leads<span class="n" id="n-all"></span></button>
-        <button class="tab" role="tab" data-view="dms" aria-selected="false">LinkedIn DMs<span class="n" id="n-dms"></span></button>
         <button class="tab" role="tab" data-view="team" aria-selected="false">Team</button>
         <button class="tab" role="tab" data-view="scripts" aria-selected="false">Scripts</button>
       </nav>
@@ -401,6 +429,7 @@ function fmtStamp(iso) { const d = new Date(iso); if (isNaN(d)) return ""; let h
 function dueInfo(l) {
   if (CLOSED.has(l.stage) || !l.next_due) return { text: "", cls: "" };
   const diff = daysBetween(today(), l.next_due);
+  if (diff < 0 && (l.stage === "tocall" || l.stage === "new")) return { text: "", cls: "" };   // a first contact waits; it can't be late
   if (diff < 0) return { text: `${-diff} day${diff === -1 ? "" : "s"} late`, cls: "late" };
   if (diff === 0) return { text: "due today", cls: "today" };
   if (diff === 1) return { text: "due tomorrow", cls: "" };
@@ -411,7 +440,7 @@ function dayChip(l) { if (!l.dm_at || !["dm", "fu1", "fu2", "fu3"].includes(l.st
 const firstName = n => (String(n || "").trim().split(/\s+/)[0] || "there");
 const pill = k => { const s = STAGE[k] || STAGE.new; return `<span class="pill g-${s.group} s-${s.key}">${esc(s.label)}</span>`; };
 const isActive = l => !CLOSED.has(l.stage);
-const prio = l => Number.isInteger(l.priority) && l.priority > 0 ? `<span class="prio" title="Call-list priority: ${l.priority}">#${l.priority}</span>` : "";
+const prio = l => me.admin && Number.isInteger(l.priority) && l.priority > 0 ? `<span class="prio" title="Call-list priority: ${l.priority}">#${l.priority}</span>` : "";
 const byPrio = (a, b) => (a.priority || 1e9) - (b.priority || 1e9);
 // Already being worked (called, sample sent, DM'd): these stay above leads nobody has contacted yet.
 const inProgress = l => isActive(l) && l.stage !== "tocall" && l.stage !== "new";
@@ -772,55 +801,110 @@ function renderSummary() {
   const t = today();
   const notInt = leads.filter(isNotInt).length;
   const wrongNums = leads.filter(isWrongNum).length;
-  $("#summary").innerHTML = !ready ? "" : progressCard() + stageCards(notInt, wrongNums);
-  $("#n-today").textContent = ready ? String(leads.filter(isDue).length) : "";
-  $("#n-dms").textContent = ready ? String(dmLog().filter(x => x.day === t).length || "") : "";
-  $("#n-all").textContent = ready ? String(leads.length) : "";
+  const plan = ready ? todayPlan() : null;
+  $("#summary").innerHTML = !ready ? "" : todayStrip(plan);
+  $("#n-today").textContent = ready ? String(plan.todo) : "";
+  $("#n-leads").textContent = ready ? String(leads.filter(isActive).length) : "";
   $("#banner").hidden = true;
   $("#add-lead").hidden = !ready || denied;
   $("#tabs").hidden = denied;
-  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.view === view)));
+  const tabView = view === "dms" ? "leads" : view;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.view === tabView)));
 }
+// How you reach them at this step, at a glance
+const CH_ICON = {
+  wa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 12a8 8 0 0 1-11.7 7.1L4 20l1-4.1A8 8 0 1 1 20 12z"/></svg>',
+  call: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
+  li: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7"/></svg>',
+  post: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+};
+function channelOf(l) {
+  if (catOf(l)[0] === "asked") return /reddit/i.test(`${l.research_url} ${l.name}`) ? ["post", "Reddit"] : ["li", "LinkedIn"];
+  if (l.stage === "wa1" || l.stage === "wa2" || (l.stage === "tocall" && waTo(l))) return ["wa", "WhatsApp"];
+  if (["tocall", "try1", "try2", "try3", "spoke", "sample", "number", "called", "wa_yes"].includes(l.stage)) return ["call", "Call"];
+  if (["new", "dm", "fu1", "fu2", "fu3", "replied"].includes(l.stage)) return ["li", "LinkedIn"];
+  return null;
+}
+const chBadge = l => { const c = channelOf(l); return c ? `<span class="ch ${c[0]}">${CH_ICON[c[0]]}${esc(c[1])}</span>` : ""; };
 function leadRow(l, opts = {}) {
   const d = dueInfo(l);
-  const all = actionsFor(l), rowActs = all.filter(a => !a.neg).slice(0, 3).concat(all.filter(a => a.neg));
-  const acts = canWrite ? rowActs.map(a =>
-    `<button class="btn ${a.primary ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}"${a.wa ? ` data-wa="${a.wa}"` : ""}>${esc(a.label)}</button>`).join("") : "";
+  // the main action and one more on the row; everything else (and the red ones) behind "⋯"
+  const all = canWrite ? actionsFor(l) : [], pos = all.filter(a => !a.neg);
+  const main = pos.slice(0, 2), rest = pos.slice(2).concat(all.filter(a => a.neg));
+  const btn = (a, inMenu) => `<button class="btn ${a.primary && !inMenu ? "primary" : ""}${a.neg ? " neg" : ""}" data-act="${a.needs ? "open-panel" : "action"}" data-id="${esc(l.id)}" data-a="${a.id}" data-panel="${a.needs || ""}"${a.wa ? ` data-wa="${a.wa}"` : ""}>${esc(a.label)}</button>`;
+  const acts = main.map(a => btn(a, false)).join("") + `<details class="more"><summary class="btn quiet" aria-label="More for ${esc(l.name)}" title="More">⋯</summary><div class="menu">${rest.map(a => btn(a, true)).join("")}<button class="btn" data-act="open" data-id="${esc(l.id)}">Open details</button></div></details>`;
   const what = l.stage === "meeting" && l.meeting_at ? `Meeting ${fmtMeeting(l.meeting_at)}` : l.stage === "lost" ? (l.lost_reason || "Closed") : nextStep(l);
   return `<div class="row ${d.cls === "late" ? "late" : ""}">
     <div class="who" data-act="open" data-id="${esc(l.id)}" tabindex="0" role="button">
-      <div class="name">${prio(l)}${esc(l.name)}${l.private ? ` <span class="only-you" title="Hidden from the rest of the team">Only you</span>` : ""}</div>
+      <div class="name">${prio(l)}${esc(l.name)}${catTags(l)}${l.private ? ` <span class="only-you" title="Hidden from the rest of the team">Only you</span>` : ""}</div>
       <div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · ")) || "&nbsp;"}</div>
-      <div class="next">${pill(l.stage)}<span>${esc(what)}</span>${d.text ? `<span class="due ${d.cls}">${esc(d.text)}</span>` : ""}${dayChip(l)}</div>
+      <div class="next">${chBadge(l)}${pill(l.stage)}<span>${esc(what)}</span>${d.text ? `<span class="due ${d.cls}">${esc(d.text)}</span>` : ""}${dayChip(l)}</div>
     </div>
-    <div class="acts">${acts}<button class="btn quiet" data-act="open" data-id="${esc(l.id)}">Open</button></div>
+    <div class="acts">${acts}</div>
   </div>`;
 }
 function emptyState(msg) {
   return `<div class="empty"><p>${msg}</p>${canWrite && !denied ? `<button class="btn primary" data-act="new">+ Add lead</button>` : ""}</div>`;
 }
+// Today = a day you can finish (20 Nov 2026): what's due that's already in motion, then today's share of first contacts
+// (WhatsApp intros up to the team's 20, office-line calls and first LinkedIn DMs up to the daily targets). The rest waits.
+const WARM = ["spoke", "sample", "replied", "number", "called", "wa_yes"];
+function todayPlan() {
+  const t = today(), mine = me.id ? dayStats(t, me.id) : dayStats(t);
+  const due = leads.filter(isDue);
+  const byDue = (a, b) => (a.next_due || "").localeCompare(b.next_due || "");
+  const pick = stages => due.filter(l => stages.includes(l.stage)).sort((a, b) => byDue(a, b) || byPrio(a, b));
+  const meetings = leads.filter(l => l.stage === "meeting").sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
+  const warm = due.filter(l => WARM.includes(l.stage)).sort((a, b) => byDue(a, b) || STAGE[b.stage].i - STAGE[a.stage].i || byPrio(a, b));
+  const first = due.filter(l => l.stage === "tocall").sort(byPrio);
+  const waNew = first.filter(l => waTo(l)), callNew = first.filter(l => !waTo(l));
+  const liFu = pick(["dm", "fu1", "fu2", "fu3"]), dmNew = due.filter(l => l.stage === "new").sort(byPrio);
+  const sent = waSentToday();
+  const waN = Math.max(0, WA_DAILY - sent), callN = Math.max(0, DAILY.answered - mine.calls), dmN = Math.max(0, DAILY.dms - mine.dms - liFu.length);
+  const groups = [
+    { key: "meet", title: "Setup calls booked", hint: "Run the setup call, then mark it won or lost.", list: meetings },
+    { key: "warm", title: "Follow up first: they said yes", hint: "The warmest leads. Aim for a booked setup call.", list: warm },
+    { key: "wa", title: "WhatsApp follow-ups", hint: "No reply yet. Send the one follow-up, or close the lead. Never chase twice.", list: pick(["wa1", "wa2"]) },
+    { key: "retry", title: "Call again: no answer", hint: "Try another time of day. After the third try, switch to a LinkedIn DM.", list: pick(["try1", "try2", "try3"]) },
+    { key: "wa-new", title: "WhatsApp intros", hint: `Rishav sends these from his own WhatsApp, one at a time. ${sent} of ${WA_DAILY} sent today.`, list: waNew.slice(0, waN) },
+    { key: "call-new", title: "Calls to office lines", hint: "One consultative call, no repeat after a no. Best Tue to Thu, 3 to 5 pm.", list: callNew.slice(0, callN) },
+    { key: "li-fu", title: "LinkedIn follow-ups", hint: "", list: liFu },
+    { key: "li-new", title: "First LinkedIn messages", hint: "Connect with a short note about their work.", list: dmNew.slice(0, dmN) },
+  ];
+  const doneIds = new Set();
+  for (const l of leads) for (const h of l.history || []) if (h.by && h.by === me.id && h.at && h.kind !== "created" && ymd(new Date(h.at)) === t) doneIds.add(l.id);
+  const meetToday = meetings.filter(l => (l.meeting_at || "").slice(0, 10) === t).length;
+  const todo = groups.reduce((n, g) => n + (g.key === "meet" ? meetToday : g.list.length), 0);
+  const backlog = (waNew.length - groups[4].list.length) + (callNew.length - groups[5].list.length) + (dmNew.length - groups[7].list.length);
+  return { groups, todo, done: doneIds.size, backlog, sent, mine };
+}
 function viewToday() {
   if (!leads.length) return emptyState("No leads yet. Add the first person you're DMing on LinkedIn: a name and their profile link is enough. Voyce Sales then tells you when each follow-up is due.");
-  const t = today();
-  // The day in the plan's order: booked meetings, the people who said yes, retries, new calls, DMs.
-  const byDue = (a, b) => (a.next_due || "").localeCompare(b.next_due || "");
-  const meetings = leads.filter(l => l.stage === "meeting").sort((a, b) => (a.meeting_at || "").localeCompare(b.meeting_at || ""));
-  const groups = TODAY_GROUPS.map(g => ({ ...g, list: leads.filter(l => isDue(l) && g.stages.includes(l.stage))
-    .sort((a, b) => byDue(a, b) || (g.key === "warm" ? STAGE[b.stage].i - STAGE[a.stage].i : 0) || byPrio(a, b)) }));
-  const soon = leads.filter(l => isActive(l) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting").sort((a, b) => a.next_due.localeCompare(b.next_due) || byPrio(a, b));
+  const t = today(), p = todayPlan();
   const sec = (key, title, hint, list) => `<section class="section" data-group="${key}"><h3>${title}<span class="num">${list.length}</span></h3>${hint ? `<div class="hint sec-hint">${hint}</div>` : ""}<div class="list">${list.map(l => leadRow(l)).join("")}</div></section>`;
-  const shown = [meetings.length ? sec("meet", "Setup calls booked", "Run the setup call, then mark it won or lost.", meetings) : "",
-                 ...groups.filter(g => g.list.length).map(g => sec(g.key, g.title, g.hint, g.list))].join("");
-  return (shown || `<section class="section"><div class="hint">Nothing due. Every follow-up is on schedule.</div></section>`) +
-         (soon.length ? sec("soon", "Coming up in the next 3 days", "", soon) : "");
+  const shown = p.groups.filter(g => g.list.length).map(g => sec(g.key, g.title, g.hint, g.list)).join("");
+  const backlog = p.backlog ? `<section class="section backlog"><div class="hint"><b>${p.backlog}</b> more first contacts are waiting. They come up here as you clear today's list. <button class="linkbtn" data-act="go-contact">See them in Leads</button></div></section>` : "";
+  const soon = leads.filter(l => isActive(l) && !["tocall", "new"].includes(l.stage) && l.next_due > t && l.next_due <= addDays(t, 3) && l.stage !== "meeting")
+    .sort((a, b) => a.next_due.localeCompare(b.next_due) || byPrio(a, b));
+  return (shown || `<section class="section"><div class="empty"><p>Today's list is done: ${p.done} lead${p.done === 1 ? "" : "s"} worked. Nice.</p></div></section>`) + backlog +
+         (soon.length ? sec("soon", "Follow-ups in the next 3 days", "", soon) : "");
 }
-const TODAY_GROUPS = [
-  { key: "warm", title: "Follow up first: they said yes", hint: "The warmest leads. Aim for a booked setup call.", stages: ["spoke", "sample", "replied", "number", "called", "wa_yes"] },
-  { key: "wa", title: "WhatsApp follow-ups", hint: "No reply yet. Send the one follow-up, or close the lead. Never chase twice.", stages: ["wa1", "wa2"] },
-  { key: "retry", title: "Call again: no answer", hint: "Try another time of day. After the third try, switch to a LinkedIn DM.", stages: ["try1", "try2", "try3"] },
-  { key: "new", title: "New contacts", hint: "Strongest first. A mobile number gets a WhatsApp intro, not a cold call. Office lines: call, best Tue to Thu, 3 to 5 pm.", stages: ["tocall"] },
-  { key: "dm", title: "LinkedIn DMs", hint: "", stages: ["new", "dm", "fu1", "fu2", "fu3"] },
-];
+// One slim line on top: your day, then the team's week. The full progress box lives in the Team tab.
+function todayStrip(p) {
+  const t = today(), monday = thisMonday(), month1 = t.slice(0, 8) + "01";
+  let interested = 0, setups = 0;
+  for (let d = monday; d <= t; d = addDays(d, 1)) { const s = dayStats(d); interested += s.interested; setups += s.setups; }
+  const wonOn = l => { const h = (l.history || []).slice().reverse().find(x => x.stage === "won" && x.at); return h ? ymd(new Date(h.at)) : ""; };
+  const cust = me.admin || !me.customers ? null : me.customers;
+  const wonWeek = cust ? cust.week : leads.filter(l => l.stage === "won" && wonOn(l) >= monday).length;
+  const total = p.done + p.todo, pctDone = total ? Math.round(p.done / total * 100) : 0;
+  const item = (n, target, label) => `<span class="${n >= target ? "done" : ""}"><b>${n}</b>/${target} ${label}</span>`;
+  return `<section class="strip" aria-label="Today">
+    <div class="strip-day"><b>${esc(fmtDay(t))}</b><span>${p.done} done · ${p.todo} to go</span><div class="bar ${total && p.done >= total ? "full" : ""}" role="progressbar" aria-label="Today's list" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${p.done}"><i style="width:${pctDone}%"></i></div></div>
+    <div class="strip-items">${item(p.sent, WA_DAILY, "WhatsApp intros")}${item(p.mine.dms, DAILY.dms, "LinkedIn messages")}${item(p.mine.answered, DAILY.answered, "answered calls")}
+      <span class="wk">Team this week: <b>${interested}</b> interested · <b>${setups}</b> setup calls · <b>${wonWeek}</b> paying <span class="hint">(goal ${GOAL.week})</span></span></div>
+    <button class="linkbtn" data-act="go-team">Details</button></section>`;
+}
 // The work in seven steps (Rishav, 2 Nov 2026): each card counts its leads; a click opens that step's whole list
 const STAGE_CARDS = [
   { key: "contact", title: "To contact", hint: "", stages: ["tocall", "new"] },
@@ -831,35 +915,65 @@ const STAGE_CARDS = [
   { key: "won", title: "Customers", hint: "Paying", stages: ["won"] },
   { key: "lost", title: "Closed", hint: "", stages: ["lost"] },
 ];
-let stageKey = "contact", stageTrack = "all", stageSort = "due";
+// Broad categories (Rishav, 20 Nov 2026: "categorise them so it's easy to understand"), read from each lead's segment and source,
+// so older leads get one too. First match wins: the order matters ("Veteran consultant/trainer" is a consultant, "Coach / trainer" a coach).
+const CATEGORIES = [
+  ["asked", "Asked for LinkedIn help", /asked for linkedin|social intent/i],
+  ["abroad", "Abroad", /abroad/i],
+  ["it", "IT services founders", /IT services|exporter/i],
+  ["ai", "AI experts", /\bAI\b/],
+  ["fractional", "Fractional CXOs / CFOs", /fractional|virtual cfo|\bcxo\b/i],
+  ["search", "Executive search", /executive search/i],
+  ["family", "Family business & boards", /family business|board/i],
+  ["hr", "HR & L&D", /\bHR\b|\bOD\b|L&D/],
+  ["growth", "Growth & marketing", /growth|gtm|marketing/i],
+  ["ca", "CAs", /\bCA\b|\btax\b/],
+  ["agency", "Agencies", /agency/i],
+  ["coach", "Coaches", /coach/i],
+  ["consult", "Consultants", /consult/i],
+  ["trainer", "Trainers", /trainer|facilitator/i],
+];
+const catOf = l => CATEGORIES.find(c => c[2].test(`${l.segment || ""} | ${l.source || ""}`)) || ["other", "Other"];
+const catLabel = k => (CATEGORIES.find(c => c[0] === k) || [k, "Other"])[1];
+const isAiPositive = l => /^AI: talks about AI/m.test(l.notes || "");
+const catTags = l => `<span class="cat-tag">${esc(catOf(l)[1])}</span>${isAiPositive(l) ? `<span class="cat-tag ai" title="Talks about AI on their site or headline">AI-positive</span>` : ""}`;
+let catFilter = "all";
+const inCat = l => catFilter === "all" || catOf(l)[0] === catFilter;
+let stageKey = "contact", stageTrack = "all", stageSort = "best", closedFilter = "all", leadsShown = 60;
 let scope = "me", teamWeek = 0;   // the progress box: your numbers or the team's; the Team tab: this week (0) or last (-1)
-function stageCards(notInt, wrongNums) {
-  const t = today();
-  return `<div class="stage-cards" role="group" aria-label="Leads by step">${STAGE_CARDS.filter(c => me.admin || c.key !== "won").map(c => {
-    const list = leads.filter(l => c.stages.includes(l.stage));
-    const late = list.filter(l => isActive(l) && l.next_due && l.next_due < t).length, due = list.filter(l => isActive(l) && l.next_due === t).length;
-    const calls = list.filter(l => l.stage === "tocall").length;
-    const sub = c.key === "contact" ? `${calls} to call · ${list.length - calls} on LinkedIn` : c.hint;
-    const foot = c.key === "lost" ? `<span class="s">${notInt ? `<button class="link" data-act="show-notint">${notInt} not interested</button>` : ""}${notInt && wrongNums ? " · " : ""}${wrongNums ? `<button class="link" data-act="show-wrongnum">${wrongNums} wrong number${wrongNums === 1 ? "" : "s"}</button>` : ""}</span>`
-      : late ? `<span class="due-n late">${late} overdue</span>` : due ? `<span class="due-n">${due} due today</span>` : "";
-    return `<div class="scard" role="button" tabindex="0" data-act="stage-card" data-k="${c.key}" aria-pressed="${view === "stage" && stageKey === c.key}">
-      <span class="t">${esc(c.title)}</span><b>${list.length}</b>${sub ? `<span class="s">${esc(sub)}</span>` : ""}${foot}</div>`;
-  }).join("")}</div>`;
-}
-function viewStage() {
-  const c = STAGE_CARDS.find(x => x.key === stageKey) || STAGE_CARDS[0];
-  const all = leads.filter(l => c.stages.includes(l.stage)), calls = all.filter(l => l.stage === "tocall").length;
-  const split = c.key === "contact";
-  let list = split && stageTrack !== "all" ? all.filter(l => (l.stage === "tocall") === (stageTrack === "call")) : all.slice();
+function viewLeads() {
+  const q = filters.q.trim().toLowerCase();
+  const cards = STAGE_CARDS.filter(c => me.admin || c.key !== "won");
+  const inStage = (l, k) => k === "all" || (STAGE_CARDS.find(c => c.key === k) || { stages: [] }).stages.includes(l.stage);
+  let base = leads.slice();
+  if (filters.owner === "mine") base = base.filter(l => l.owner && l.owner === me.id);
+  if (q) base = base.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email, l.segment, catOf(l)[1]].some(v => String(v || "").toLowerCase().includes(q)));
+  let list = stageKey === "lost" && closedFilter === "wrongnum" ? base.filter(isWrongNum) : base.filter(l => inStage(l, stageKey));
+  if (stageKey === "lost" && closedFilter === "notint") list = list.filter(isNotInt);
+  if (stageKey === "contact" && stageTrack !== "all")
+    list = list.filter(l => stageTrack === "wa" ? l.stage === "tocall" && !!waTo(l) : stageTrack === "call" ? l.stage === "tocall" && !waTo(l) : l.stage === "new");
+  const n = {};
+  list.forEach(l => { const k = catOf(l)[0]; n[k] = (n[k] || 0) + 1; });
+  const before = list.length;
+  list = list.filter(inCat);
   const byDue = (a, b) => (a.next_due || "9").localeCompare(b.next_due || "9");
   const newest = (a, b) => (b.created_at || "").localeCompare(a.created_at || "");
-  list.sort(stageSort === "new" ? (a, b) => newest(a, b) || byPrio(a, b) : (a, b) => byDue(a, b) || byPrio(a, b));
-  const seg = (k, label, n) => `<button class="btn ${stageTrack === k ? "primary" : ""}" data-act="stage-track" data-t="${k}" aria-pressed="${stageTrack === k}">${label} <span class="num">${n}</span></button>`;
-  const head = `<div class="stage-head"><h3>${esc(c.title)}<span class="num">${list.length}</span></h3>
-    ${split ? `<div class="row-btns" role="group" aria-label="Calls or LinkedIn">${seg("all", "All", all.length)}${seg("call", "Calls", calls)}${seg("dm", "LinkedIn", all.length - calls)}</div>` : ""}
-    <select id="f-stage-sort" aria-label="Order"><option value="due" ${stageSort === "due" ? "selected" : ""}>Due first</option><option value="new" ${stageSort === "new" ? "selected" : ""}>Newest added first</option></select></div>`;
-  if (!list.length) return head + `<div class="empty"><p>No one at this step right now.</p></div>`;
-  return head + `<div class="list">${list.map(l => leadRow(l)).join("")}</div>`;
+  list.sort(stageSort === "new" ? (a, b) => newest(a, b) || byPrio(a, b) : stageKey === "contact" ? byPrio : (a, b) => (isActive(b) - isActive(a)) || byDue(a, b) || byPrio(a, b));
+  const seg = (k, label, c) => `<button class="btn ${stageKey === k ? "primary" : ""}" data-act="stage-card" data-k="${k}" aria-pressed="${stageKey === k}">${esc(label)} <span class="num">${c}</span></button>`;
+  const steps = `<div class="row-btns segs" role="group" aria-label="Step">${cards.map(c => seg(c.key, c.title, base.filter(l => inStage(l, c.key)).length)).join("")}${seg("all", "All", base.length)}</div>`;
+  const catKeys = [...CATEGORIES.map(c => c[0]), "other"].filter(k => n[k] || k === catFilter).sort((a, b) => (n[b] || 0) - (n[a] || 0));
+  const opt = (v, label, cur) => `<option value="${v}" ${cur === v ? "selected" : ""}>${esc(label)}</option>`;
+  const catSel = `<select id="f-cat" aria-label="Category">${opt("all", `All categories (${before})`, catFilter)}${catKeys.map(k => opt(k, `${catLabel(k)} (${n[k] || 0})`, catFilter)).join("")}</select>`;
+  const trackSel = stageKey === "contact" ? `<select id="f-track" aria-label="Channel">${[["all", "Any channel"], ["wa", "WhatsApp"], ["call", "Office-line calls"], ["dm", "LinkedIn"]].map(([v, l]) => opt(v, l, stageTrack)).join("")}</select>` : "";
+  const closedSel = stageKey === "lost" ? `<select id="f-closed" aria-label="Closed">${[["all", "All closed"], ["notint", `Not interested (${leads.filter(isNotInt).length})`], ["wrongnum", `Wrong numbers (${leads.filter(isWrongNum).length})`]].map(([v, l]) => opt(v, l, closedFilter)).join("")}</select>` : "";
+  const head = `${steps}<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city, number or category" value="${esc(filters.q)}">
+    ${catSel}${trackSel}${closedSel}<select id="f-owner" aria-label="Owner">${opt("all", "Everyone's leads", filters.owner)}${opt("mine", "My leads", filters.owner)}</select>
+    <select id="f-stage-sort" aria-label="Order">${opt("best", "Best first", stageSort)}${opt("new", "Newest added", stageSort)}</select>
+    ${canWrite ? `<button class="btn" data-act="go-dms">Log LinkedIn DMs</button>` : ""}</div>`;
+  if (!leads.length) return head + emptyState("No leads yet.");
+  if (!list.length) return head + `<div class="empty"><p>No leads match these filters.</p></div>`;
+  const more = list.length > leadsShown ? `<div class="more-row"><button class="btn" data-act="show-more">Show ${Math.min(60, list.length - leadsShown)} more (${list.length - leadsShown} left)</button></div>` : "";
+  return head + `<div class="list">${list.slice(0, leadsShown).map(l => leadRow(l)).join("")}</div>${more}`;
 }
 /* ── Team: each person's week, for a weekly review. The admin (Rishav) sees everyone; a rep sees only their own.
    Counted from what people log here, so it shows patterns, not proof that calls happened. ── */
@@ -875,7 +989,7 @@ function viewTeam() {
     `<button class="btn ${teamWeek === w ? "primary" : ""}" data-act="team-week" data-w="${w}" aria-pressed="${teamWeek === w}">${label}</button>`).join("")}</div>`;
   const head = `<div class="stage-head"><h3>${me.admin ? "The team's week" : "Your week"}<span class="num">${esc(fmtDay(monday))} to ${esc(fmtDay(days[days.length - 1] || monday))}</span></h3>${weekSwitch}</div>
     <p class="hint" style="margin:-4px 0 14px">Counted from what each person logs on this page: patterns to look at, not proof.${me.admin ? " Proof that a call happened needs a calling app's records or an itemised SIM bill." : ""}</p>`;
-  if (!ppl.length || !days.length) return head + `<div class="empty"><p>Nothing logged this week yet.</p></div>`;
+  if (!ppl.length || !days.length) return progressCard() + `<div style="height:22px"></div>` + head + `<div class="empty"><p>Nothing logged this week yet.</p></div>`;
   const rows = ppl.map(([id, name]) => {
     const daysS = days.map(d => ({ d, s: dayStats(d, id) }));
     const w = Object.fromEntries(WEEK_KEYS.map(k => [k, daysS.reduce((a, x) => a + x.s[k], 0)]));
@@ -883,7 +997,7 @@ function viewTeam() {
   });
   const table = `<div class="table-scroll"><table class="team-t"><thead><tr><th>Person</th><th>Dials</th><th>Answered</th><th>Answer rate</th><th>Interested</th><th>Samples</th><th>Setup calls</th><th>Customers</th><th>LinkedIn messages</th><th>Replies</th><th>New prospects</th></tr></thead><tbody>${rows.map(r =>
     `<tr><td><b>${esc(r.name)}</b></td><td>${r.w.calls}</td><td>${r.w.answered}</td><td>${pct(r.w.answered, r.w.calls)}</td><td>${r.w.interested}</td><td>${r.w.samples}</td><td>${r.w.setups}</td><td>${r.w.won}</td><td>${r.w.dms}</td><td>${r.w.replies}</td><td>${r.w.prospects}</td></tr>`).join("")}</tbody></table></div>`;
-  return head + table + rows.map(r => personWeek(r, workdays)).join("");
+  return progressCard() + `<div style="height:22px"></div>` + head + table + rows.map(r => personWeek(r, workdays)).join("");
 }
 function personWeek(r, workdays) {
   const t = today(), wd = r.daysS.filter(x => workdays.includes(x.d)), w = r.w;
@@ -941,30 +1055,6 @@ function viewPipeline() {
   }).join("");
   return switcher + `<div class="board-scroll"><div class="board">${cols}</div></div>`;
 }
-function viewAll() {
-  const q = filters.q.trim().toLowerCase();
-  let list = leads.slice();
-  if (filters.stage === "active") list = list.filter(isActive);
-  else if (filters.stage === "notint") list = list.filter(isNotInt);
-  else if (filters.stage === "wrongnum") list = list.filter(isWrongNum);
-  else if (filters.stage !== "all") list = list.filter(l => l.stage === filters.stage);
-  if (filters.owner === "mine") list = list.filter(l => l.owner && l.owner === me.id);
-  if (q) list = list.filter(l => [l.name, l.company, l.city, l.role, l.phone, l.firm_phone, l.email].some(v => String(v || "").toLowerCase().includes(q)));
-  list.sort((a, b) => (isActive(b) - isActive(a)) || byWorkedFirst(a, b) || byPhoneFirst(a, b) || (a.next_due || "9").localeCompare(b.next_due || "9") || byPrio(a, b));
-  const opts = [["active", "In progress"], ["all", "All stages"], ["notint", "Not interested"], ["wrongnum", "Wrong number"], ...STAGES.map(s => [s.key, s.label])]
-    .map(([v, t]) => `<option value="${v}" ${filters.stage === v ? "selected" : ""}>${esc(t)}</option>`).join("");
-  const head = `<div class="filters"><input id="f-q" type="search" placeholder="Search name, company, city or number" value="${esc(filters.q)}">
-    <select id="f-stage" aria-label="Stage">${opts}</select>
-    <select id="f-owner" aria-label="Owner"><option value="all" ${filters.owner === "all" ? "selected" : ""}>Everyone's leads</option><option value="mine" ${filters.owner === "mine" ? "selected" : ""}>My leads</option></select></div>`;
-  if (!leads.length) return head + emptyState("No leads yet.");
-  if (!list.length) return head + `<div class="empty"><p>No leads match these filters.</p></div>`;
-  return head + `<div class="table-scroll"><table><thead><tr><th>Name</th><th>Company</th><th>City</th><th>Stage</th><th>Next step</th><th>Phone</th><th>Owner</th></tr></thead><tbody>${list.map(l => {
-    const d = dueInfo(l);
-    return `<tr class="click" data-act="open" data-id="${esc(l.id)}"><td>${prio(l)}<b>${esc(l.name)}</b><div class="hint">${esc(l.role || "")}</div></td><td>${esc(l.company || "")}</td><td>${esc(l.city || "")}</td>
-      <td>${pill(l.stage)}</td><td>${esc(l.stage === "lost" ? (l.lost_reason || "Closed") : nextStep(l))}${d.text ? `<div class="due ${d.cls}">${esc(d.text)}</div>` : ""}${closedBy(l)}</td>
-      <td class="num">${esc(l.phone || "")}${badTag(l, l.phone)}${!l.phone && l.firm_phone ? `<div class="hint">Firm: ${esc(l.firm_phone)}${badTag(l, l.firm_phone)}</div>` : ""}</td><td>${esc(l.owner ? ownerName(l) : "")}</td></tr>`;
-  }).join("")}</tbody></table></div>`;
-}
 function viewScripts() {
   const cards = scripts.map((s, i) => {
     if (editingScript === i) return `<div class="script"><input id="s-title" value="${esc(s.title)}" aria-label="Title">
@@ -984,7 +1074,7 @@ function renderMain() {
   if (denied) { m.innerHTML = `<div class="empty"><p>Sales is only for the Voyce team. If you should have access, ask Rishav to add your account.</p><a class="btn" href="/setup">Back to Voyce</a></div>`; return; }
   if (!ready) { m.innerHTML = `<div class="empty"><p>Loading your leads…</p></div>`; return; }
   if (view === "scripts" && editingScript !== null && m.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   // don't wipe an edit in progress
-  m.innerHTML = view === "today" ? viewToday() : view === "stage" ? viewStage() : view === "team" ? viewTeam() : view === "pipeline" ? viewPipeline() : view === "all" ? viewAll() : view === "dms" ? viewDms() : viewScripts();
+  m.innerHTML = view === "today" ? viewToday() : view === "leads" ? viewLeads() : view === "team" ? viewTeam() : view === "pipeline" ? viewPipeline() : view === "dms" ? viewDms() : viewScripts();
 }
 
 /* ── LinkedIn DMs: paste profile links as they're sent; each becomes (or updates) a lead on the DM track ── */
@@ -1121,7 +1211,7 @@ function renderDrawer() {
     : `<span class="hint">${esc(l.phone_reveal === "none" ? (l.phone_note || "Apollo had no number for them") : "Not shared yet")}</span>${canWrite && canAsk ? `<div class="row-btns"><button class="btn" data-act="reveal" data-id="${esc(l.id)}">${l.phone_reveal === "none" ? "Try Apollo again" : "Get their number from Apollo"}</button></div><div class="hint">About 9 Apollo credits. It's their own number: say who you are, and stop if they ask you to.</div>` : ""}`;
   const toCall = canWrite && l.phone && !isBadNum(l, l.phone) && ["new", "dm", "fu1", "fu2", "fu3"].includes(l.stage) ? `<button class="btn" data-act="to-call" data-id="${esc(l.id)}">Move to the call list</button>` : "";
   const hist = (l.history || []).slice().reverse();
-  d.innerHTML = `<div class="d-head"><div><h2>${esc(l.name)}</h2><div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · "))}</div>
+  d.innerHTML = `<div class="d-head"><div><h2>${esc(l.name)}</h2><div class="meta">${esc([l.role, l.company, l.city].filter(Boolean).join(" · "))}</div><div class="d-tags">${catTags(l)}</div>
       <div class="d-badges">${pill(l.stage)}${due.text ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ""}${dayChip(l)}</div></div>
       ${CLOSE_BTN}</div>
     <div class="d-body"><div class="d-col">
@@ -1184,13 +1274,18 @@ function copy(text, done = "Copied") {
 }
 
 /* ── events ── */
+document.addEventListener("click", e => {
+  document.querySelectorAll("details.more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".menu [data-act]")) d.open = false; });
+}, true);
 document.addEventListener("click", async e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act, id = el.dataset.id;
   if (act === "new") { if (!canWrite) return; openId = "new"; panel = null; dupMatch = null; renderDrawer(); }
   else if (act === "close") closeDrawer();
-  else if (act === "show-notint") { view = "all"; filters.stage = "notint"; filters.q = ""; renderSummary(); renderMain(); }
-  else if (act === "show-wrongnum") { view = "all"; filters.stage = "wrongnum"; filters.q = ""; renderSummary(); renderMain(); }
+  else if (act === "show-notint" || act === "show-wrongnum") { view = "leads"; stageKey = "lost"; closedFilter = act === "show-notint" ? "notint" : "wrongnum"; filters.q = ""; leadsShown = 60; renderSummary(); renderMain(); }
+  else if (act === "go-team" || act === "go-dms") { view = act === "go-team" ? "team" : "dms"; renderSummary(); renderMain(); window.scrollTo({ top: 0 }); }
+  else if (act === "go-contact") { view = "leads"; stageKey = "contact"; stageTrack = "all"; leadsShown = 60; renderSummary(); renderMain(); }
+  else if (act === "show-more") { leadsShown += 60; renderMain(); }
   else if (act === "open") openLead(id);
   else if (act === "open-panel") openLead(id, el.dataset.panel);
   else if (act === "set-panel") { panel = el.dataset.panel || null; renderDrawer(); }
@@ -1200,10 +1295,10 @@ document.addEventListener("click", async e => {
   else if (act === "delete") { if (await safe(() => api("DELETE", `/sales/leads/${encodeURIComponent(id)}`), "Lead deleted")) { leads = leads.filter(x => x.id !== id); closeDrawer(); renderAll(); } }
   else if (act === "copy-msg") { copy($("#msg")?.textContent || "", "Message copied"); }
   else if (act === "copy-text") { copy(el.dataset.text || "", "Copied"); }
-  else if (act === "stage-card") { view = "stage"; stageKey = el.dataset.k; stageTrack = "all"; editingScript = null; renderSummary(); renderMain();
-    try { localStorage.setItem("vs-view", "stage"); localStorage.setItem("vs-stage", stageKey); } catch (_) {} }
+  else if (act === "stage-card") { view = "leads"; stageKey = el.dataset.k; stageTrack = "all"; closedFilter = "all"; leadsShown = 60; editingScript = null; renderSummary(); renderMain();
+    try { localStorage.setItem("vs-view", "leads"); localStorage.setItem("vs-stage", stageKey); } catch (_) {} }
   else if (act === "stage-track") { stageTrack = el.dataset.t; renderMain(); }
-  else if (act === "scope") { scope = el.dataset.s === "team" ? "team" : "me"; renderSummary(); try { localStorage.setItem("vs-scope", scope); } catch (_) {} }
+  else if (act === "scope") { scope = el.dataset.s === "team" ? "team" : "me"; renderSummary(); renderMain(); try { localStorage.setItem("vs-scope", scope); } catch (_) {} }
   else if (act === "team-week") { teamWeek = Number(el.dataset.w) === -1 ? -1 : 0; renderMain(); }
   else if (act === "track") { pipeTrack = ["dm", "wa"].includes(el.dataset.t) ? el.dataset.t : "call"; renderMain(); try { localStorage.setItem("vs-track", pipeTrack); } catch (_) {} }
   else if (act === "lookup") { await doLookup(id, el); }
@@ -1238,6 +1333,9 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", async e => {
   if (e.target.id === "f-stage") { filters.stage = e.target.value; renderMain(); }
+  else if (e.target.id === "f-cat") { catFilter = e.target.value; leadsShown = 60; renderMain(); }
+  else if (e.target.id === "f-track") { stageTrack = e.target.value; leadsShown = 60; renderMain(); }
+  else if (e.target.id === "f-closed") { closedFilter = e.target.value; leadsShown = 60; renderMain(); }
   else if (e.target.id === "f-stage-sort") { stageSort = e.target.value; renderMain(); }
   else if (e.target.id === "f-owner") { filters.owner = e.target.value; renderMain(); }
   else if (e.target.id === "d-due" && openId && e.target.value) { await patchLead(openId, { next_due: e.target.value }, `Next date set to ${fmtDay(e.target.value)}`); }
@@ -1285,7 +1383,7 @@ document.addEventListener("submit", async e => {
 });
 
 /* ── boot: lay the page out now, fill it once Voyce says who you are ── */
-try { const v = localStorage.getItem("vs-view"); if (["today", "stage", "pipeline", "all", "team", "scripts"].includes(v)) view = v;
+try { const v = localStorage.getItem("vs-view"); if (["today", "leads", "pipeline", "team", "scripts", "dms"].includes(v)) view = v; else if (v === "stage" || v === "all") view = "leads";
   if (localStorage.getItem("vs-scope") === "team") scope = "team";
   const sk = localStorage.getItem("vs-stage"); if (STAGE_CARDS.some(c => c.key === sk)) stageKey = sk;
   const tr = localStorage.getItem("vs-track"); if (["dm", "call", "wa"].includes(tr)) pipeTrack = tr; } catch (_) {}
