@@ -616,19 +616,34 @@ def _singular(unit: str) -> str:
     return unit[:-1] if unit.endswith("s") else unit
 
 
+_GENERIC_LABEL = re.compile(r"^(lesson|step|point|tip|idea|part|insight|item|no\.?|#)\s*\d{1,2}$", re.I)
+
+
 def carousel_slides(content: dict, t: dict, t_cover: dict, name: str, title: str, avatar, promise: str = "") -> list:
     """The whole deck in the v2 design, from the writer's deck (carousel.py's schema)."""
     hook, ctx = content["hook_slide"], content.get("context_slide")
     c_slides, rcp, cta = content.get("content_slides", []), content.get("recap_slide"), content["cta_slide"]
+    unit = (hook.get("unit") or "").strip()
+    one = _singular(unit)
+    if one:   # a generic label takes the cover's unit: "LESSON 1" sat in a deck of "4 mistakes" (21 Nov 2026)
+        n, fixed = 0, []
+        for s in c_slides:
+            if not (s.get("kind") == "stat" and s.get("stat")):
+                n += 1
+                lab = (s.get("label") or "").strip()
+                if one.lower() not in lab.lower() and _GENERIC_LABEL.match(lab):
+                    s = {**s, "label": f"{one.upper()} {n}"}
+            fixed.append(s)
+        c_slides = fixed
     points = [s for s in c_slides if not (s.get("kind") == "stat" and s.get("stat"))]
     tiles = [((s.get("icon") or "").strip().lower(), (s.get("tag") or "").strip()) for s in points]
     said = re.search(r"\b([2-9]|10)\b", hook.get("headline", ""))
     if said and int(said.group(1)) != len(points):
         tiles = []
-    show_overview = 3 <= len(points) <= 6 and bool(tiles) and all(tg for _, tg in tiles)
+    # The at-a-glance slide only in a deck without a recap: with both, the points were listed twice in nine
+    # slides and point 1 waited until slide 4 (21 Nov 2026 audit)
+    show_overview = 3 <= len(points) <= 6 and bool(tiles) and all(tg for _, tg in tiles) and not rcp
     # "The 5 fixes" only when every point is one: a deck of 2 traps and 3 fixes was counted as 5 fixes
-    unit = (hook.get("unit") or "").strip()
-    one = _singular(unit)
     counted = bool(one) and all(one.lower() in (s.get("label") or "").lower() for s in points)
     if unit and not counted and promise.startswith(f"{len(points)} {unit} · "):
         promise = promise[len(f"{len(points)} {unit} · "):]
@@ -690,6 +705,34 @@ def _context(t: dict, num: int, total: int, name: str, avatar, title: str, body:
 
 
 # ── single image cards ───────────────────────────────────────────────────────────────────────────
+def statement_card(t: dict, line: str, emph: str, name: str, title: str, avatar) -> Image.Image:
+    """A post's hook line as its picture (what hot takes, predictions and stat reactions ship with): the
+    author at the top as on the post itself, the line as large as fits, its turn in the accent colour.
+    4:5 in the author's look. It replaced a black 2.6:1 "tweet" strip that was the same for every client
+    and a third of this height on a phone (21 Nov 2026 audit)."""
+    img, d = _page(t)
+    mw = W - 2 * M
+    ph = 104 * S
+    _author(img, d, t, avatar, name, _short_title(title), M, M, ph, 34, 25, mw - ph - 30 * S)
+    top, foot = M + ph + 120 * S, H - M - 90 * S
+    room = foot - top
+    gap = 14 * S
+    f = None
+    for z in (124, 116, 108, 100, 92, 86, 80, 74, 68, 62, 56):
+        cand = _display(z, t)
+        lines = _wrap(d, line, cand, mw, emph)
+        if len(lines) <= 7 and all(_line_w(d, ln, cand) <= mw for ln in lines) and not _ragged(lines) \
+                and _block_h(d, line, cand, mw, gap, emph) <= room:
+            f = cand
+            break
+    f = f or _display(56, t)
+    y = top + max(0, (room - _block_h(d, line, f, mw, gap, emph)) // 2 - 40 * S)
+    d.rectangle([M, y - 52 * S, M + 96 * S, y - 42 * S], fill=t["accent"])   # one short rule as the anchor
+    _write(d, line, f, M, y, mw, t["ink"], gap, emph, t["accent"])
+    _logo(img, t, W - M, H - M - 44 * S, 44 * S)
+    return _done(img)
+
+
 def _quote_mark(d, x: int, y: int, size: int, col):
     """A drawn “: two round heads, each with a curved tail."""
     r = size // 4

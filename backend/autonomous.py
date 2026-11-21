@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from llm import generate as llm_generate
 from generator import (HUMANIZE_PROMPT, _strip_markdown, drop_author_furniture, author_rules, editor_brief,
-                       RULES_NOTE, EXAMPLE_CHARS, KNOWLEDGE_CHARS, uncopy, fit_length)
+                       RULES_NOTE, EXAMPLE_CHARS, KNOWLEDGE_CHARS, SAMENESS_RULES, uncopy, fit_length)
 from llm import CLAUDE_EDIT_MODEL, CLAUDE_EDIT_EFFORT
 import analytics
 import notes as notes_mod
@@ -330,9 +330,9 @@ QUALITY RULES (non-negotiable):
   the end or restate the hook as a closer.
 - HOLD ATTENTION (dwell time is a confirmed reach signal): one idea per line, whitespace,
   and a shape that pulls the eye down — a narrative arc, a numbered list, or a before→after.
-- SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a numbered
-  list of specifics, a checklist, or a clear before→after. A save drives far more reach than
-  a like, so make the post reference-worthy, not just agreeable.
+- SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a concrete
+  example, a clear before→after, or a list when the content really is a set of parallel items.
+  A save drives far more reach than a like, so make the post reference-worthy, not just agreeable.
 - NEVER invent how a platform or algorithm works: no made-up thresholds, mechanisms, or
   rules. If a mechanism isn't in the provided context, state the idea generally or drop it.
 - EVERY STAT NAMES ITS SOURCE in the post body ("per LinkedIn's 2026 report...") or gets cut.
@@ -387,7 +387,8 @@ THE BAR (what readers reward — aim every post at it):
 - NEVER STACK TRUISMS: two consensus statements in a row ("focus beats volume", "consistency
   is key", "quality over quantity") is the worst possible output. One consensus line is
   allowed only as setup for a specific, sourced, or contrarian payoff.
-"""
+
+""" + SAMENESS_RULES + "\n"
 
 _COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT") + """
 COMPANY-PAGE EXCEPTION to the self-promotion ban: a post whose instructions explicitly make it
@@ -408,7 +409,7 @@ AUTHOR CONTEXT:
 
 Write a Trend Reaction post in first person (I, my, I've):
 
-Hook (1 line): Start with the specific thing you read — name the source, stat, or company. NOT "I read something this week." Something like: "Google just said 80% of code will be AI-written by 2027. Here's why that number is misleading."
+Hook (1 line): The surprising part of what you read, in plain words (a number or a name helps). NOT "I read something this week", and not a press-release sentence ("X just announced..."): lead with what it means, and name the source in line 2 if it doesn't fit. Something like: "80% of new code written by AI by 2027 is the wrong number to watch."
 
 Body (2-3 short paragraphs):
 - What the trend actually means — your honest, specific take
@@ -438,7 +439,7 @@ Body:
 - Line 3-4: The common wisdom you're pushing back against
 - Line 5-6: What actually works instead
 
-Counter: One sentence: "I know this is controversial because [reason]." Then stand your ground.
+Counter: the best argument against you, in your own words (never "I know this is controversial" or "Some will say"). Then stand your ground.
 
 Closing: end on the strongest version of your claim. Never a bare "Agree or disagree?"
 
@@ -605,8 +606,9 @@ INDUSTRY NEWS AND EXAMPLES:
 
 Write a Teardown post in first person — a sharp analysis of one real, NAMED company's move:
 
-Opening (1 line): name the company and the specific thing being torn down — a pricing page,
-a launch, an onboarding flow, a product decision. Make the reader curious why it matters.
+Opening (1 line): the company and what's clever or wrong about the specific thing being torn
+down — a pricing page, a launch, an onboarding flow, a product decision. Lead with the verdict,
+not a press-release sentence ("X just launched..."). Make the reader curious why it matters.
 
 The breakdown (3-4 observations): what they did, why it works or fails, what everyone else
 gets wrong on the same thing. Each observation specific enough to verify by looking.
@@ -636,7 +638,8 @@ Falsifiable — something readers could check on that date.
 Reasoning (2-3 short paragraphs): the current signals pointing to it — named companies,
 real numbers, observable shifts from the news or known industry facts.
 
-The counterargument: name the obvious objection in one sentence, then hold the position.
+The counterargument: deal with the strongest objection in a sentence or two of your own (never
+"The obvious objection is..."), then hold the position.
 
 Close: what to do now if this is right — or an invitation to bookmark and check back.
 
@@ -970,17 +973,35 @@ def _get_post_type(company: dict, runs_today: int | None = None) -> str:
     # This gives deterministic but varied results across runs
     seed = hashlib.md5(f"{company_id}{today_str}{runs_today}".encode()).hexdigest()
     idx = int(seed[:4], 16) % len(rotation)
-    key = rotation[idx]
+    key = _ready_type(rotation, idx, company)
 
     # Weekly spotlight cap: advance deterministically to the next non-spotlight
     # slot. (get_week_plan doesn't model the cap — a capped day shows Spotlight
     # in the forecast but posts the substitute; acceptable drift.)
     if key == "product_spotlight" and _spotlights_last7(company_id) >= SPOTLIGHT_WEEKLY_CAP:
-        for step in range(1, len(rotation)):
-            alt = rotation[(idx + step) % len(rotation)]
-            if alt != "product_spotlight":
-                return alt
+        return _ready_type(rotation, idx, company, skip=("product_spotlight",))
     return key
+
+
+# Story types ask for a memory. With no note and no career facts the writer could only give advice or an
+# invented "Imagine a bank..." under a "Personal Story" label (21 Nov 2026 audit: 7 of 45 drafts).
+STORY_TYPES = ("personal_story", "lesson_learned")
+
+
+def has_story_material(company: dict) -> bool:
+    """Something true about the author's own past to tell: a note they gave, or their career facts."""
+    return bool(company.get("author_notes") or (company.get("profile_facts") or "").strip())
+
+
+def _ready_type(rotation: dict, idx: int, company: dict, skip: tuple = ()) -> str:
+    """The rotation's type at idx, moved on past story types the profile has nothing to tell for, and past
+    anything in skip."""
+    ready = has_story_material(company)
+    for step in range(len(rotation)):
+        key = rotation[(idx + step) % len(rotation)]
+        if key not in skip and (ready or key not in STORY_TYPES):
+            return key
+    return rotation[idx]
 
 
 def get_week_plan(company: dict, days: int = 7) -> list[str]:
@@ -997,7 +1018,7 @@ def get_week_plan(company: dict, days: int = 7) -> list[str]:
         day = (date.today() + timedelta(days=i)).isoformat()
         seed = hashlib.md5(f"{company_id}{day}0".encode()).hexdigest()
         idx = int(seed[:4], 16) % len(rotation)
-        key = rotation[idx]
+        key = _ready_type(rotation, idx, company)
         plan.append(POST_TYPE_LABELS.get(key, key))
     return plan
 
@@ -1050,35 +1071,107 @@ def _revise_post(draft: str, industry: str, company: dict | None = None, source:
     return _format_linkedin_post(fixed) if fixed != post else post
 
 
-# Claim-shaped post types automatically ship with a tweet card: the hook line rendered
-# as the social-screenshot image (deterministic typography — no AI-image lottery, safe
-# to run unattended). Scene illustrations remain manual-only by design.
+# Claim-shaped post types automatically ship with a card of their hook line (deterministic
+# typography — no AI-image lottery, safe to run unattended). Since 21 Nov 2026 it is a 4:5 card
+# in the author's look, signed with their photo, not the black 2.6:1 "tweet" strip that looked the
+# same for every client. Drawn pictures remain manual-only by design.
 TWEET_CARD_TYPES = ("hot_take", "prediction", "stat_reaction")
 
 
 def _tweet_card_for(post_text: str, company: dict):
-    """Render the post's hook line as a tweet-card PNG. Fail-open: any problem -> None
+    """Render the post's hook line as the post's card PNG. Fail-open: any problem -> None
     and the post ships as plain text."""
     try:
-        from carousel import _slide_tweet_card, _get_palette, IMG_POST_W, _SCALE
-        from PIL import Image
-        import io as _io
+        from carousel import render_statement_card_png
         hook = next((l.strip() for l in post_text.splitlines() if l.strip()), "")
         if not (10 <= len(hook) <= 180):
             return None
-        from carousel import _card_author
-        handle = (company.get("designation") or "").strip()   # real title, never an invented @handle
         # The account it posts as: its LinkedIn name and photo, else the profile name
         author = li.author_for_profile(company, company.get("user_id", ""))
-        name, avatar = _card_author(company.get("name", "") or "Voyce", author)
-        img = _slide_tweet_card(hook, name, handle, _get_palette(company),
-                                rw=IMG_POST_W * _SCALE, avatar=avatar)
-        buf = _io.BytesIO()
-        img.save(buf, format="PNG")
-        return buf.getvalue()
+        return render_statement_card_png(hook, company, author=author)
     except Exception as e:
-        logger.warning(f"[Autonomous] tweet card render failed, posting plain text: {e}")
+        logger.warning(f"[Autonomous] card render failed, posting plain text: {e}")
         return None
+
+
+# The last few drafts' shape, so today's is built differently (21 Nov 2026 audit: across 45 drafts, a
+# "this week" move in 33, a list in 27, a closing question in 23, a mirrored two-line closer in about half).
+_STOCK_OBJECTION = re.compile(r"\b(obvious|fair) objection\b|\bsome will say\b|\bI don'?t buy it\b|"
+                              r"\bI'?d push back\b|\bI know this is controversial\b", re.I)
+_LIST_LINE = re.compile(r"^\s*(\d{1,2}[.)]|\d️⃣|[✔✅•→▪◆-])\s*\S")
+
+
+def _statements(text: str) -> list[str]:
+    return [ln.strip() for ln in str(text or "").splitlines() if ln.strip() and not ln.strip().startswith("#")]
+
+
+def _closing_statement(text: str) -> str:
+    """The post's last line that isn't a question or hashtags: where its takeaway sits."""
+    for ln in reversed(_statements(text)):
+        if not ln.endswith("?"):
+            return ln
+    return ""
+
+
+def is_mirrored_closer(line: str) -> bool:
+    """Two short sentences set against each other: "Code is getting cheaper to move. Knowing what it's for
+    isn't." / "Moving data is the easy part. Agreeing what it means is the architecture." """
+    parts = [p for p in re.split(r"(?<=[.!])\s+", (line or "").strip()) if p]
+    if len(parts) != 2 or any(len(p.split()) > 14 for p in parts):
+        return False
+    first, second = parts
+    return bool(re.search(r"n't\b|\b(not|never|only|real|actually|still|just|always)\b", second, re.I)
+                or re.search(r"\b(easy|easier|cheap|cheaper|simple|hard|harder)\b", first, re.I))
+
+
+def recent_shape(texts: list[str]) -> dict:
+    """How a set of drafts was built: how many had a list, "this week", a closing question, a mirrored
+    closer, a stock objection."""
+    def ends_on_question(t):
+        s = _statements(t)
+        return bool(s) and s[-1].endswith("?")
+    return {
+        "n": len(texts),
+        "lists": sum(sum(bool(_LIST_LINE.match(ln)) for ln in str(t).splitlines()) >= 3 for t in texts),
+        "this_week": sum(bool(re.search(r"\bthis week\b|\byour move\b", str(t), re.I)) for t in texts),
+        "questions": sum(ends_on_question(t) for t in texts),
+        "mirrored": sum(is_mirrored_closer(_closing_statement(t)) for t in texts),
+        "objections": sum(bool(_STOCK_OBJECTION.search(str(t))) for t in texts),
+    }
+
+
+def _variety_block(company: dict, n: int = 4) -> str:
+    """Tell the writer how this author's last few drafts were built, and what to do differently today."""
+    try:
+        texts = [e.get("post_text", "") for e in db.post_log.find(
+            {"company_id": company.get("id", ""), "post_format": {"$ne": "carousel"}, "post_text": {"$ne": ""}},
+            {"_id": 0, "post_text": 1}).sort("timestamp", -1).limit(n)]
+    except Exception:
+        logger.exception("[Variety] could not read recent drafts")
+        return ""
+    if len(texts) < 2:
+        return ""
+    s = recent_shape(texts)
+    todo = []
+    # Rules that ask for a checklist in every post ("each item starting with ✔") win: told "no list this time,
+    # unless the author's rules require one", the writer still dropped Rajeev's (22 Nov 2026)
+    list_required = bool(re.search(r"checklist|each item start|✔|☑", author_rules(company), re.I))
+    if s["lists"] >= 2 and not list_required:
+        todo.append("No list this time: connected short paragraphs (unless the author's own rules require a list).")
+    if s["this_week"] >= 2:
+        todo.append('Don\'t write "this week" or "your move". If a practical step is needed, say what to do and when '
+                    'it naturally happens.')
+    if s["questions"] >= 2:
+        todo.append("End on a statement, not a question (unless the author's own rules require a closing question).")
+    if s["mirrored"]:
+        todo.append("Don't end on a two-sentence contrast: end on one plain sentence, a concrete detail or a decision.")
+    if s["objections"]:
+        todo.append("No staged objection.")
+    if not todo:
+        return ""
+    return (f"\n\nHOW THIS AUTHOR'S LAST {s['n']} DRAFTS WERE BUILT: {s['lists']} had a list, {s['this_week']} said "
+            f"\"this week\", {s['questions']} ended on a question, {s['mirrored']} ended on a two-sentence contrast. "
+            "Their followers would see a template, so build this one differently:\n" + "\n".join(f"- {t}" for t in todo))
 
 
 def generate_autonomous_post(company: dict, news_context: str, post_type: str,
@@ -1119,6 +1212,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
     prompt += _hook_guidance(company.get("allowed_hooks"))
     openings = _openings_to_avoid(company)
     prompt += _avoid_block(openings)
+    prompt += _variety_block(company)
 
     draft = _format_linkedin_post(
         llm_generate(prompt, max_tokens=1024, temperature=0.85)
@@ -1650,12 +1744,12 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
                                                  gate_context=gate_context, report=report)
             card_png = _tweet_card_for(post_text, subject) if post_type in TWEET_CARD_TYPES else None
             if card_png:
-                # The card already displays the hook line — don't repeat it as the text opener.
+                # The text keeps its hook. On LinkedIn the text sits above the picture and its first lines
+                # are all anyone sees before "...see more"; with the hook moved onto the card, 8 of 13 such
+                # posts opened on a line pointing at nothing ("That's from the 2024 Verizon DBIR...").
                 lines = post_text.splitlines()
                 first_idx = next((i for i, l in enumerate(lines) if l.strip()), 0)
-                rest = "\n".join(lines[first_idx + 1:]).strip()
-                text_for_post = rest if len(rest.split()) >= 40 else post_text
-                payload = {"format": "tweet_card", "post_text": post_text, "publish_text": text_for_post,
+                payload = {"format": "tweet_card", "post_text": post_text, "publish_text": post_text,
                            "asset_b64": _b64.b64encode(card_png).decode(),
                            "alt_text": (lines[first_idx].strip()[:120] if lines else "post card"),
                            "title": company["name"]}

@@ -1036,6 +1036,32 @@ Return ONLY valid JSON:
 IMG_POST_W, IMG_POST_H = 1080, 1350
 
 
+def render_statement_card_png(line: str, company: dict | None, author: dict | None = None, theme: str = "",
+                              meta: dict | None = None) -> bytes:
+    """A hook line as the post's card (the "tweet card" format): 4:5, in the author's brand look (else a colour
+    set), signed with their LinkedIn photo at the top. The old black strip is drawn only if this fails."""
+    brand = (company or {}).get("name", "Voyce")
+    name, avatar = _card_author(brand, author)
+    title = (company or {}).get("designation", "")
+    theme = _pick_card_theme(theme, company)
+    setup, turn = _split_turn(line, "")
+    emph = turn if setup and len(turn.split()) <= 9 else ""   # a long turn in the accent is a wall of colour
+    img = None
+    try:
+        import designs
+        img = designs.statement_card(_v2_look(_card_look(theme, company), company), line, emph, name, title, avatar)
+    except Exception:
+        logging.exception("[Carousel] statement card failed; drawing the old strip")
+    if img is None:
+        img, theme = _slide_tweet_card(line, name, title, _get_palette(company), rw=IMG_POST_W * _SCALE,
+                                       avatar=avatar), ""
+    if meta is not None:
+        meta.update(format="tweet_card", theme=theme)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def render_image_post_png(content: dict, company: dict, author: dict | None = None,
                           theme: str = "", meta: dict | None = None) -> bytes:
     """The quote card at 4:5: the one line, signed by its author, in the colour set asked for
@@ -1114,9 +1140,15 @@ image_words: every word written on the objects, as a list of short strings, max 
 How good concept pictures work:
 - Before answering, think of three different metaphors and keep the one a stranger would get
   fastest. If it would fit any post on the topic, it is not sharp enough.
-- One metaphor built from ordinary physical things everyone recognises: a menu and an order slip,
-  a receipt, a boarding pass, a to-do list with one line circled, a thick proposal next to a sticky
-  note, a breaker panel, name badges, a report card, a price tag, a luggage label.
+- One metaphor built from ordinary physical things everyone recognises. Look in THIS post's own
+  world first (a loan file, a cable spec sheet, an influencer brief, a server rack label, a
+  boardroom agenda). The stock ones (a menu and an order slip, a receipt, a boarding pass, a to-do
+  list, a sticky note, a price tag, a luggage label) only when nothing from the post's world works:
+  every author's pictures leaning on the same ten objects reads as a template.
+- At most one hand-drawn circle or underline, and only when the metaphor needs it.
+- Few words: a metaphor that reads with 0-6 words beats a sheet, form or list full of writing,
+  which the image model letters as gibberish (a checklist with handwritten notes failed three
+  drawings in a row on 22 Nov 2026).
 - It carries the contrast or tension in THIS post: what people do vs what works, the many vs the
   one, the cost vs the price. The headline and the picture say the same thing.
 - Things carry SHORT, real words that make the metaphor readable (a few list items, a circled
@@ -1256,19 +1288,54 @@ def _split_turn(headline: str, emphasis: str) -> tuple[str, str]:
     return (" ".join(parts[:-1]), parts[-1]) if len(parts) > 1 else (head, "")
 
 
-def _build_concept_prompt(content: dict, t: dict, region: str = "") -> str:
+# How an Idea picture is made. Every one used to be paper objects photographed on a flat colour, often with a
+# red marker circle: good alone, a template by a follower's second week (21 Nov 2026 audit). A profile's
+# pictures take the looks in CONCEPT_LOOK_ROTATION in turn (_next_concept_look), each on the flat background
+# our headline needs. "sketch" (a hand-drawn marker drawing) tested well on 22 Nov but is an illustration, and
+# Rishav chose realistic pictures over illustrations in Oct 2026: it is off until he says yes
+# (CONCEPT_LOOKS=still,sketch). A cut-paper look was tried and dropped: the model drew a photo still life anyway.
+CONCEPT_LOOKS = {
+    "still": ("The objects look like real printed paper, card, plastic and ink, photographed as a still life with a "
+              "soft natural shadow, slightly tilted, crisp and premium, large and close enough to read on a phone."),
+    "sketch": ("Drawn as one confident hand-made sketch straight onto the flat background, like a strategist's "
+               "drawing on a board: thick marker-style lines in {ink} with the {accent} accent, simple bold shapes, "
+               "hand-lettered words in clear capitals, generous line weight so it reads on a phone. No sheet of "
+               "paper, no board edge, no photo: the lines sit on the background itself."),
+}
+CONCEPT_LOOK_ROTATION = tuple(k for k in os.getenv("CONCEPT_LOOKS", "still").replace(" ", "").split(",")
+                              if k in CONCEPT_LOOKS) or ("still",)
+
+
+def _next_concept_look(company: dict | None) -> str:
+    """The look after the one this profile's last Idea picture used (stored on the profile)."""
+    keys = list(CONCEPT_LOOK_ROTATION)
+    last = str((company or {}).get("concept_look") or "")
+    return keys[(keys.index(last) + 1) % len(keys)] if last in keys else keys[0]
+
+
+def _remember_concept_look(company: dict | None, look: str) -> None:
+    try:
+        if (company or {}).get("id"):
+            import db
+            db.companies.update_one({"id": company["id"]}, {"$set": {"concept_look": look}})
+            company["concept_look"] = look
+    except Exception:
+        logging.exception("[Image] could not store the picture's look")
+
+
+def _build_concept_prompt(content: dict, t: dict, region: str = "", look: str = "still") -> str:
     """The image model's brief for a concept picture: the metaphor in the lower part of the frame,
     on a flat background in the card's colours, with the top left empty for the headline we set."""
     bg = "#%02X%02X%02X" % tuple(int(x) for x in t["bg"][:3])
     words = "; ".join(f'"{w}"' for w in content.get("image_words") or [])
+    medium = CONCEPT_LOOKS.get(look, CONCEPT_LOOKS["still"]).format(
+        ink=_describe_color(t["ink"]), accent=_describe_color(t["accent"]))
     return (
         f"A vertical 4:5 editorial concept image for a LinkedIn post. Flat solid background colour {bg} "
         f"filling the whole frame, no gradient, no texture, no vignette. The TOP 42% of the frame is "
         f"completely EMPTY background: no objects, no hands, no shadows, no text, nothing (a headline is "
         f"added there later; do not draw any headline or title). LOWER 58%: {content.get('image_concept', '')} "
-        f"The objects look like real printed paper, card, plastic and ink, photographed as a still life "
-        f"with a soft natural shadow, slightly tilted, crisp and premium, large and close enough to read on "
-        f"a phone. The objects sit DIRECTLY on the flat {_describe_color(t['bg'])} background, which runs "
+        f"{medium} The objects sit DIRECTLY on the flat {_describe_color(t['bg'])} background, which runs "
         f"edge to edge behind them: no white or light sweep under them, no desk, no table, no wall, no "
         f"frame, no inset photo, no panel, no box, no border, no second background colour. "
         + (f"Any hand belongs to a person from {region}. " if region else "")
@@ -1314,6 +1381,26 @@ def _free_top(img: Image.Image) -> tuple[float, bool, tuple]:
     return free, boxed, bg
 
 
+def _lower_picture(img: Image.Image, free: float, bg: tuple, target: float = 0.40) -> Image.Image:
+    """A drawing that reaches into the headline's space, scaled down to the bottom centre of a frame in its own
+    background colour (a flat colour by design), its edges feathered so no seam shows. Such drawings used to be
+    thrown away, and a post asking for an Idea picture got a plain card (21 Nov 2026 audit). No smaller than
+    0.55 of the frame: below that the words on the objects stop reading on a phone."""
+    from PIL import ImageFilter
+    w, h = img.size
+    s = (1 - target) / max(0.01, 1 - free)
+    if s < 0.55:
+        raise ValueError(f"the picture starts {free:.0%} down; it would shrink too far to read")
+    small = img.convert("RGB").resize((int(w * s), int(h * s)), Image.LANCZOS)
+    feather = max(8, int(min(small.size) * 0.05))
+    mask = Image.new("L", small.size, 0)
+    ImageDraw.Draw(mask).rectangle([feather, feather, small.width - feather, small.height - 1], fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(feather / 2))
+    out = Image.new("RGB", (w, h), tuple(int(c) for c in bg[:3]))
+    out.paste(small, ((w - small.width) // 2, h - small.height), mask)
+    return out
+
+
 def _letter_concept(pic: Image.Image, content: dict, t: dict, footer: str, font_key: str = "") -> Image.Image:
     """Voyce sets the concept picture's type, so it is the same on every post: the headline in the
     space the picture left at the top, as large as fits in up to 5 lines (the setup in the ink, the
@@ -1322,10 +1409,13 @@ def _letter_concept(pic: Image.Image, content: dict, t: dict, footer: str, font_
     rw, rh = IMG_POST_W * S, IMG_POST_H * S
     img = _cover_crop(pic, rw, rh)
     free, boxed, bg = _free_top(img)
-    if free < 0.27:   # the drawing reached into the headline's space: type on it would collide
-        raise ValueError(f"the picture starts {free:.0%} down, no room for the headline")
     if boxed:
         raise ValueError("the objects sit in a box of another colour, not on the background")
+    if free < 0.27:   # the drawing reached into the headline's space: move it down instead of losing it
+        img = _lower_picture(img, free, bg)
+        free, boxed, bg = _free_top(img)
+    if free < 0.27:   # type on it would collide
+        raise ValueError(f"the picture starts {free:.0%} down, no room for the headline")
     draw = ImageDraw.Draw(img)
     pad, top, gap = 84 * S, 92 * S, 10 * S
     max_w = rw - pad * 2
@@ -1413,6 +1503,7 @@ def _checked_image(prompt: str, check: str, ratio: str = "4:5", size: str = "1K"
         if final is not None:
             break
     if final is None:
+        logging.warning("[Image] no usable drawing in 2 tries")
         return None
     verdict = _verdict(final)
     if verdict.get("ok") is not False:
@@ -1422,11 +1513,20 @@ def _checked_image(prompt: str, check: str, ratio: str = "4:5", size: str = "1K"
     fixed = _finish(generate_image(
         f"Edit this image. {fix} Keep everything else exactly as it is: the same layout, colours, words "
         "and style, and empty space empty.", aspect_ratio=ratio, size=size, edit=b)) if fix else None
-    if fixed is None:
-        return None
-    again = _verdict(fixed)
-    logging.info(f"[Image] after repair: {'ok' if again.get('ok') is not False else again.get('problems')}")
-    return fixed if again.get("ok") is not False else None
+    if fixed is not None:
+        again = _verdict(fixed)
+        logging.info(f"[Image] after repair: {'ok' if again.get('ok') is not False else again.get('problems')}")
+        if again.get("ok") is not False:
+            return fixed
+    # The repair didn't take: one fresh, simpler drawing, kept only if it passes as drawn. Without it 1 in 5
+    # Idea pictures came back as a plain card (21 Nov 2026 audit).
+    fresh = _finish(generate_image(
+        prompt + " Keep it simple: fewer, larger objects, every word large and printed clearly, nothing else.",
+        aspect_ratio=ratio, size=size))
+    if fresh is not None and _verdict(fresh).get("ok") is not False:
+        return fresh
+    logging.warning(f"[Image] no drawing passed the check: {verdict.get('problems')}")
+    return None
 
 
 def _concept_image(content: dict, company: dict, look: dict, footer: str):
@@ -1444,8 +1544,12 @@ def _concept_image(content: dict, company: dict, look: dict, footer: str):
              f"WHAT THE PICTURE SHOULD SHOW: {content.get('image_concept', '')}\n"
              f"THE POST IT GOES WITH (start): {(content.get('post_text') or '')[:500]}")
     font_key = str(((company or {}).get("brand_kit") or {}).get("font") or "")
-    return _checked_image(_build_concept_prompt(content, look, _region_for(company)), check, ratio="4:5",
-                          size="1K", compose=lambda pic: _letter_concept(pic, content, look, footer, font_key))
+    medium = content.get("concept_look") or _next_concept_look(company)
+    img = _checked_image(_build_concept_prompt(content, look, _region_for(company), medium), check, ratio="4:5",
+                         size="1K", compose=lambda pic: _letter_concept(pic, content, look, footer, font_key))
+    if img is not None:
+        _remember_concept_look(company, medium)
+    return img
 
 
 def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
@@ -1571,10 +1675,10 @@ def _card_author(brand: str, author: dict | None):
 
 def render_ai_image_options(content: dict, company: dict, author: dict | None = None,
                             theme: str = "", n: int = 1) -> list[dict]:
-    """The image for a post, and for the designed cards (list, quote) up to 3 colour versions of
-    it to choose from. Those are drawn here, so the extra versions cost nothing; concept pictures,
-    photos and tweet cards come one at a time. [{"png": bytes, "format": ..., "theme": ...}], the
-    asked-for one first."""
+    """The image for a post, and for the designed cards (list, quote, tweet) up to 3 colour versions
+    of it to choose from. Those are drawn here, so the extra versions cost nothing; concept pictures
+    and photos come one at a time. [{"png": bytes, "format": ..., "theme": ...}], the asked-for one
+    first."""
     fmt = (content.get("format") or "scene").strip().lower()
     n = max(1, min(3, int(n or 1)))
     photo = None
@@ -1583,7 +1687,7 @@ def render_ai_image_options(content: dict, company: dict, author: dict | None = 
         if photo is None:
             n = 1             # it falls back to a card below
     designed = ((fmt == "list_card" and content.get("card_points"))
-                or (fmt == "quote_card" and (content.get("card_headline") or content.get("key_line")))
+                or (fmt in ("quote_card", "tweet_card") and (content.get("card_headline") or content.get("key_line")))
                 or (fmt == "photo_card" and photo is not None))
     out = []
     for th in (_option_themes(theme, n, company) if designed else [theme]):
@@ -1669,16 +1773,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         key_line = (content.get("key_line") or "").strip()
         if key_line and len(card_line.split()) > 16 and len(key_line.split()) < len(card_line.split()):
             card_line = key_line
-        content = {**content, "card_headline": card_line}
-        handle = ((company or {}).get("designation") or "").strip()   # real title, never an invented @handle
-        name, avatar_img = _card_author(brand, author)
-        img = _slide_tweet_card(
-            content.get("card_headline") or content.get("key_line", ""), name, handle, p,
-            rw=IMG_POST_W * _SCALE, avatar=avatar_img)
-        meta.update(format="tweet_card", theme="")
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return buf.getvalue()
+        return render_statement_card_png(card_line, company, author=author, theme=theme, meta=meta)
     if fmt == "photo_card":
         # photo: the one already made, False when it was tried and failed, None to make it here
         photo = _ai_photo(content, company) if photo is None else photo
@@ -1898,11 +1993,13 @@ slides are, one plural word ("plays", "steps", "mistakes", "rules").
 CONTENT SLIDES — each has a "kind":
 - "point" (default): title = the point as a bold claim (max 6 words); body = ONE concrete example,
   company, number, or step (max ~25 words). label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
-  "TRUTH") fitting the arc. action = the one move the reader can make this week to apply it (max
+  "TRUTH") fitting the arc, in the cover's unit: a deck of mistakes says MISTAKE 1, MISTAKE 2,
+  never LESSON 1. action = the one move the reader can make this week to apply it (max
   10 words, starts with a verb); empty when the point isn't something to do. tag = the point's
   name in 2-4 words, for the deck's at-a-glance slide ("Who monitors", "Price after scope").
-  icon = the one that fits the point from: pulse, alert, network, link, growth, decline, money,
-  clock, people, target, check, shield, idea, gear, calendar, chat, search, doc ("" when none fits).
+  icon = from: pulse, alert, network, link, growth, decline, money, clock, people, target, check,
+  shield, idea, gear, calendar, chat, search, doc, ONLY when it literally pictures the point (money
+  for a price, clock for time, people for a team); "" otherwise: a decorative icon is noise.
 - "stat": use when one number IS the story. stat = the number ("43%", "3x", "₹2.4 Cr"); title =
   what it means; body = one line of context. Use at most one stat slide.
 - source (any content slide) = where its number or study comes from, exactly as the content given

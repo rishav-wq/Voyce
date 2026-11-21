@@ -9,7 +9,7 @@
 - **Checks facts before you see them**: each post is checked against the article it is based on, and a post that fails the check is held back for you to review.
 - **A post each morning, approved in a tap**: on Pro, Voyce emails you the day's post. Nothing goes out until you tap Approve (no login needed). An unapproved post never goes out, and the next day's post replaces it. A profile can be switched to automatic posting.
 - **Post ideas each morning**: up to three ideas based on this week's news and your own career, ready when you open Voyce.
-- **Formats**: text posts, carousels (swipeable PDF slides), AI pictures that illustrate a post's idea, and quote, list and tweet-style image cards.
+- **Formats**: text posts, carousels (swipeable PDF slides), AI pictures that illustrate a post's idea, and quote, list and statement image cards.
 - **Write from anything**: an idea or rough notes, a link to an article, or a YouTube video.
 - **Several profiles**: up to 3 profiles per account, each with its own voice and schedule, each able to post to its own LinkedIn account (for example a client who connects their LinkedIn through an invite link).
 

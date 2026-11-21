@@ -1561,9 +1561,9 @@
                 <span>Write now and Preview use:</span>
                 <select id="runtype-${p.id}" style="font-size:12px;padding:5px 8px;border:1px solid #d3d8e0;border-radius:6px;background:#fff;color:#555;font-family:inherit;">
                   <option value="">Today's planned type (${p.next_post_type || "auto"})</option>
-                  <option value="hot_take">Hot Take · with tweet card</option>
-                  <option value="prediction">Prediction · with tweet card</option>
-                  <option value="stat_reaction">Stat Reaction · with tweet card</option>
+                  <option value="hot_take">Hot Take · with a statement card</option>
+                  <option value="prediction">Prediction · with a statement card</option>
+                  <option value="stat_reaction">Stat Reaction · with a statement card</option>
                   <option value="lesson_learned">Lesson Learned</option>
                   <option value="how_to">How-To / Playbook</option>
                   <option value="listicle">Listicle</option>
@@ -2220,7 +2220,7 @@
         const isDiy = p.format === "diy_video";
         const fmt = isDiy ? "video day — you generate &amp; post"
           : p.format === "carousel" ? "PDF carousel"
-          : p.format === "tweet_card" ? "text + tweet card" : "text post";
+          : p.format === "tweet_card" ? "text + statement card" : "text post";
         const prodTag = p.product_name ? ` · ${_escHtml(p.product_name)}` : "";
         const held = p.held_reason ? `
           <div style="font-size:12.5px;color:#8a5a00;background:#fff4dc;border:1px solid #f0d58a;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.45;">
@@ -2604,9 +2604,9 @@
 
     const CAL_PLAN_OPTIONS = [
       ["", "Auto (planned)"],
-      ["hot_take", "Hot Take · tweet"],
-      ["prediction", "Prediction · tweet"],
-      ["stat_reaction", "Stat Reaction · tweet"],
+      ["hot_take", "Hot Take · card"],
+      ["prediction", "Prediction · card"],
+      ["stat_reaction", "Stat Reaction · card"],
       ["lesson_learned", "Lesson Learned"],
       ["how_to", "How-To"],
       ["listicle", "Listicle"],

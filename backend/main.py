@@ -1969,15 +1969,30 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
     ai_left = gen_info["ai_limit"] == -1 or gen_info["ai_used"] < gen_info["ai_limit"]
     if request.style in ("concept", "scene", "photo_text") and not ai_left:
         raise HTTPException(status_code=402, detail="AI_PICTURES_USED:" + _ai_pictures_used_message(gen_info)
-                            + " List, quote and tweet cards are still included.")
+                            + " List, quote and statement cards are still included.")
     notice = ""
     try:
         import base64
         profile = _resolve_profile(user["id"], request.profile_id)
         context_text = _with_profile_context(profile, raw_text, 6000)
+        # The caption gets the same editor, copied-line check and length fit as a text post, while the
+        # image is drawn (21 Nov 2026 audit: image captions skipped all three)
+        from concurrent.futures import ThreadPoolExecutor
+        from generator import polish_post, source_of
+        polish_pool = ThreadPoolExecutor(max_workers=1)
+
+        def _polished(c: dict):
+            return polish_pool.submit(polish_post, c.get("post_text", ""), profile, source_of(context_text))
+
+        def _caption(fut, c: dict) -> str:
+            try:
+                return fut.result(timeout=90) or c.get("post_text", "")
+            except Exception:
+                return c.get("post_text", "")
         if request.style == "card":
             from carousel import generate_image_post_from_text, render_image_post_png
             content = generate_image_post_from_text(context_text, company=profile)
+            caption = _polished(content)
             author = li.author_for_profile(profile, user["id"]) or None   # the card is signed with their photo
             meta: dict = {}
             png_bytes = render_image_post_png(content, profile or {"name": "Voyce"}, author=author,
@@ -1991,6 +2006,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             force = {"concept": "concept", "tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
                      "list": "list_card", "quote": "quote_card"}.get(request.style)
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
+            caption = _polished(content)
             # With the plan's AI pictures used up, Auto makes the card its writer would
             # otherwise have drawn (asking for a drawing by name was refused above)
             if content["format"] in _AI_PICTURE_FORMATS and not ai_left:
@@ -2009,6 +2025,12 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
                 if gen_info["ai_limit"] != -1:
                     ai_after = max(0, gen_info["ai_limit"] - gen_info["ai_used"] - 1)
                     notice = f"{ai_after} AI picture{'' if ai_after == 1 else 's'} left in your plan."
+            elif content["format"] in _AI_PICTURE_FORMATS:
+                # It used to fall back without a word, even when the picture was asked for by name
+                notice = ("The picture didn't pass Voyce's check, so this one is a card. Try again for a new "
+                          "picture: this one isn't counted.")
+        content["post_text"] = _caption(caption, content)
+        polish_pool.shutdown(wait=False)
         auth_module.increment_gens(user["id"])   # one write-up, however many colour versions
         _remember_write(user["id"], (profile or {}).get("id"), "image", request,
                         (content.get("card_headline") or headline or "") + "\n\n" + content.get("post_text", ""),

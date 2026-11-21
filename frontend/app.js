@@ -1667,7 +1667,7 @@ const _CARD_THEMES = [["light", "Cream", "#f4f0e8", "#24365e"], ["mint", "Mint",
   ["sky", "Sky", "#eaf2fb", "#047857"], ["sage", "Sage", "#ecf1e8", "#1e305c"], ["lavender", "Lavender", "#f1edfb", "#5b21b6"],
   ["peach", "Peach", "#fdefe5", "#0f666b"], ["rose", "Rose", "#fcedf1", "#881337"], ["sand", "Sand", "#f3ede0", "#166534"],
   ["forest", "Forest", "#112b22", "#78e2b2"], ["dark", "Charcoal", "#16181d", "#d6aa48"]];
-const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Tweet card", scene: "Photo", source: "Source card" };
+const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Statement card", scene: "Photo", source: "Source card" };
 const _DESIGNED = ["illustration", "concept", "photo_text", "list", "quote"];   // colours apply
 let _imgTheme = "";   // "" = surprise me (the author's brand look when the profile has one)
 function _themeName(k) {

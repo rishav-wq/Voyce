@@ -17,6 +17,29 @@ RULES_NOTE = ("These are the author's own rules. Where they differ from the gene
               "lists, hashtags, how to end), follow the author's. A line quoted in them shows a style: never "
               "reuse it word for word, and never restate an argument from their past posts as new.")
 
+# 21 Nov 2026 audit of 45 real morning drafts (6 authors): clean and correct, but nearly every post had the same
+# skeleton (news hook, "I think", a staged objection, a list, "This week, ...", a mirrored two-line closer, a
+# question) and only 4 of 64 November drafts were approved. Said to every writer and to the final editor.
+SAMENESS_RULES = """TEMPLATE TELLS (readers spot these as AI within a week of following someone; avoid all of them):
+- The mirrored two-sentence closer: "Leaving the cloud is easy to price. Living between environments is where
+  the cost sits." / "A dashboard can hide a fuzzy definition. A direct answer can't." Never end on one. A
+  closing takeaway is ONE plain sentence; or end on a concrete detail, a decision, or the author's plain view.
+- Objections in stock phrases: "The obvious objection is...", "The fair objection is...", "Some will say...",
+  "I don't buy it", "I'd push back on that", "I know this is controversial". If an objection matters, answer
+  it in your own words inside the argument.
+- A press-release first line: "X just achieved...", "X announced...", "X's blog shared...", "According to
+  X...". Open on what is surprising or what it means for the reader; the source can come in the next line.
+- Bracket citations like "(TechTarget, Nov 2026)". Name a source the way people talk ("TechTarget reported
+  that..."), and build the post on one or two sources, not four.
+- An invented scenario as the post's backbone: "Imagine a bank...", "Picture a team...", "Say a CFO...". Use
+  the real case from the news or the author's own notes, or make the point directly.
+- "This week, ..." as a reflex. A rule asking for a move the reader can make this week asks for something
+  doable now, not for those words: say what to do and when it naturally happens ("before the next renewal",
+  "in your next pilot review"). Never "Here's a move for this week" or "Your move:".
+- A list in every post. When the author's own rules ask for a checklist or list in their posts, keep it every
+  time: their rules win over this one. Otherwise use a list only when the content really is a set of parallel
+  items, and write connected short paragraphs the rest of the time."""
+
 
 def author_rules(company: dict | None) -> str:
     """The profile's facts and writing rules, whole, then their partner's house rules."""
@@ -366,7 +389,8 @@ WRITING CRAFT:
   turn gets cut. Past 300 words only for a step-by-step process. Never summarize yourself at
   the end or restate the hook as a closer.
 - SAVE-WORTHY: build the post so a reader thinks "I need this later" — a usable framework, a
-  checklist, a concrete before→after. That reader keeps reading (dwell) and comes back.
+  concrete example, a clear before→after, or a checklist when the content really is one.
+  That reader keeps reading (dwell) and comes back.
 - Keep it self-contained: no promotional URLs in the body (off-platform links drag reach —
   a link belongs in the first comment, not the post).
 - END ON A STATEMENT by default: the takeaway, the sharpest claim, or the last point
@@ -391,7 +415,9 @@ NEVER USE (instant AI tells):
   furthermore, moreover, "Ultimately,", "it is worth noting", "the takeaway is simple". Say it
   like a human instead.
 - Em-dashes (—) or en-dashes (–): the SINGLE biggest AI tell. Use commas, periods, or
-  parentheses instead. A plain hyphen is fine only inside a number range (e.g. 85-90%)."""
+  parentheses instead. A plain hyphen is fine only inside a number range (e.g. 85-90%).
+
+""" + SAMENESS_RULES
 
 
 HUMANIZE_PROMPT = """You are the final editor before publishing. Your only job: remove every
@@ -437,6 +463,13 @@ Hunt and fix:
     the single most non-obvious specific in the source. Two consensus lines in a row is an
     automatic rewrite; a post with zero checkable specifics (no number, no name, no artifact)
     is an automatic rewrite.
+16. TEMPLATE TELLS: a last line (before any closing question or hashtags) that is a mirrored
+    two-sentence contrast ("X is easy to price. Y is where the cost sits.", "A dashboard can hide
+    it. An answer can't.") becomes ONE plain sentence with the same idea. Stock objection phrases
+    ("The obvious objection is", "Some will say", "I don't buy it", "I'd push back on that") become
+    the author's own words. Bracket citations ("(TechTarget, Nov 2026)") become a source named in
+    words ("TechTarget reported..."). A practical step opened with "This week," "Here's a move for
+    this week" or "Your move:" is reworded to say what to do and when it naturally happens.
 
 Preserve:
 - The opening line's claim (you may sharpen its wording, not change its idea)
@@ -508,23 +541,33 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
 
     # Humanize pass on the LinkedIn post only. It sees what the post was written from (main.py puts the
     # source after "Content to repurpose:"), so it can check the post's facts against it.
-    source = raw_text.split("Content to repurpose:\n", 1)[-1]
-    try:
-        post = draft.get("linkedin_post", "")
-        if post:
-            edited = generate(
-                f"{editor_brief(company, source)}Post to edit:\n\n{post}",
-                system=HUMANIZE_PROMPT,
-                max_tokens=1024,
-                temperature=0.6,
-                model=CLAUDE_EDIT_MODEL, effort=CLAUDE_EDIT_EFFORT,   # better and cheaper than Opus here (llm.py)
-            )
-            if edited:
-                draft["linkedin_post"] = edited
-    except Exception:
-        pass  # keep the draft if humanize fails
-
     if draft.get("linkedin_post"):
-        draft["linkedin_post"] = drop_author_furniture(_strip_markdown(draft["linkedin_post"]), company)
-        draft["linkedin_post"] = _strip_markdown(fit_length(uncopy(draft["linkedin_post"], company), company))
+        draft["linkedin_post"] = polish_post(draft["linkedin_post"], company, source_of(raw_text))
     return draft
+
+
+def source_of(context_text: str) -> str:
+    """What a post was written from: main.py puts the profile's context first, then "Content to repurpose:"."""
+    return (context_text or "").split("Content to repurpose:\n", 1)[-1]
+
+
+def polish_post(post: str, company: dict | None = None, source: str = "") -> str:
+    """What every Write post goes through after its writer: the final editor (who knows the author's rules and
+    checks facts against the source), then the copied-line check and the author's length. Image captions used
+    to skip all of it and keep their own 60-120-word rule (21 Nov 2026 audit)."""
+    if not (post or "").strip():
+        return post
+    try:
+        edited = generate(
+            f"{editor_brief(company, source)}Post to edit:\n\n{post}",
+            system=HUMANIZE_PROMPT,
+            max_tokens=1024,
+            temperature=0.6,
+            model=CLAUDE_EDIT_MODEL, effort=CLAUDE_EDIT_EFFORT,   # better and cheaper than Opus here (llm.py)
+        )
+        if edited and edited.strip():
+            post = edited
+    except Exception:
+        pass  # keep the draft if the editor fails
+    post = drop_author_furniture(_strip_markdown(post), company)
+    return _strip_markdown(fit_length(uncopy(post, company), company))

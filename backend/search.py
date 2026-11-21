@@ -132,6 +132,13 @@ _GENERIC = {"india", "indian", "inc", "global", "new", "the", "and", "for", "wit
 _SOCIAL = re.compile(r"linkedin\.com/(posts|pulse|feed)|instagram\.com|facebook\.com|//(www\.)?(x|twitter)\.com/|"
                      r"youtube\.com|youtu\.be|tiktok\.com|reddit\.com|quora\.com|threads\.(net|com)", re.I)
 
+# Anonymous forums and rumour boards, and trading brokers' "education" pages: no one stands behind what they
+# say. A paying consultant's post (21 Nov 2026) was built on a Blind post about ServiceNow layoffs that its own
+# author called a rumour; another took Snowflake facts from a broker's explainer.
+_UNSOURCED = re.compile(r"teamblind\.com|thelayoff\.com|fishbowlapp\.com|news\.ycombinator\.com|4chan\.org|"
+                        r"admiralmarkets\.|admirals\.com|capital\.com/|etoro\.com|plus500\.|xtb\.com|avatrade\.|"
+                        r"fxpro\.", re.I)
+
 
 def _screen(topic: str, query: str, items: list) -> list:
     """Claude keeps only the results that are real news or reports on the topic. Words alone can't
@@ -146,7 +153,9 @@ def _screen(topic: str, query: str, items: list) -> list:
 Search: {query}
 Which of these are real news, announcements, data or reports about the topic, that someone who writes
 on LinkedIn about it could react to? Not: product documentation, help pages, courses or adverts,
-generic how-to guides, stories that only share a word with the topic.
+generic how-to guides, stories that only share a word with the topic, anonymous posts or rumours
+(forums, "a post claims…"), investing or trading explainer pages, a writer's personal "I tried
+these apps" review.
 {lines}
 Return ONLY JSON: {{"keep": [the numbers of the ones to keep]}}""")
     keep = (v or {}).get("keep")
@@ -162,10 +171,11 @@ _PR_SPAM = re.compile(r"openpr\.com|einpresswire\.com|einnews\.com/pr_news|marke
 
 
 def _off_topic(r: dict, topic: str) -> bool:
-    """A sports story, unless the topic itself is about sport; any job ad, social media post or
-    market-research press release."""
+    """A sports story, unless the topic itself is about sport; any job ad, social media post,
+    market-research press release, rumour board or broker's explainer."""
     where = " ".join((r.get("title", ""), r.get("url", "")))
-    if _LISTING.search(where) or _SOCIAL.search(r.get("url", "")) or _PR_SPAM.search(where):
+    if _LISTING.search(where) or _SOCIAL.search(r.get("url", "")) or _PR_SPAM.search(where) \
+            or _UNSOURCED.search(r.get("url", "")):
         return True
     if _SPORTS.search(topic or ""):
         return False
