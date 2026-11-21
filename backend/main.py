@@ -305,7 +305,13 @@ def _check_gen_limit(user: dict):
             raise HTTPException(status_code=402, detail=(
                 f"PASS_LIMIT_REACHED:You've used this month's {info['limit']} drafts. They refill on {refill}."))
         if info.get("plan") == "pro":
-            # An India pass with its generations used up — not a free account.
+            # An India plan with its generations used up — not a free account.
+            ap = info.get("autopay") or {}
+            if ap.get("on") and ap.get("next_charge_at"):
+                r = datetime.fromisoformat(ap["next_charge_at"])
+                raise HTTPException(status_code=402, detail=(
+                    f"PASS_LIMIT_REACHED:You've used this month's {info['limit']} generations. "
+                    f"They refill on {r.day} {r.strftime('%b')}, when your plan renews."))
             raise HTTPException(status_code=402, detail=(
                 f"PASS_LIMIT_REACHED:You've used this pass's {info['limit']} generations. "
                 "Renew to get more — renewing early adds to the days you have left."))
@@ -868,9 +874,10 @@ class AccountTypeRequest(BaseModel):
 
 
 class PaymentVerifyRequest(BaseModel):
-    razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
+    razorpay_order_id: str = ""          # a one-time order (passes bought before autopay)
+    razorpay_subscription_id: str = ""   # autopay: the first month, charged at checkout
 
 
 class TopicSuggestRequest(BaseModel):
@@ -1314,9 +1321,58 @@ def payments_create_order(request: Request, x_token: str = Header(None)):
     }
 
 
+@app.post("/payments/create-subscription")
+def payments_create_subscription(request: Request, x_token: str = Header(None)):
+    """Pro is sold on autopay: start a monthly subscription. The first month is charged when the
+    buyer approves the mandate (UPI Autopay or card) in Razorpay checkout."""
+    user = _require_user(x_token)
+    if not payments.is_configured():
+        raise HTTPException(status_code=503, detail="Payments are not configured")
+    region = _pricing_region(request)
+    try:
+        sub = payments.create_subscription(user["id"], user.get("email", ""), region)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Autopay is already on for your account. "
+                                                    "Your plan renews by itself each month.")
+    except Exception:
+        logging.exception("Razorpay subscription creation failed")
+        raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
+    analytics.capture(user["id"], "checkout_started", {"region": region, "autopay": True})
+    meta_ads.checkout(user["id"], {"id": sub["id"], "amount": sub["amount"], "currency": sub["currency"]})
+    return {"subscription_id": sub["id"], "amount": sub["amount"], "currency": sub["currency"],
+            "key_id": payments.RAZORPAY_KEY_ID}
+
+
+@app.post("/payments/subscription/cancel")
+def payments_cancel_subscription(x_token: str = Header(None)):
+    """Turn autopay off. Pro stays on until the end of the month already paid for."""
+    user = _require_user(x_token)
+    try:
+        payments.cancel_subscription(user["id"])
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Autopay isn't on for your account.")
+    except Exception:
+        logging.exception("Razorpay subscription cancel failed")
+        raise HTTPException(status_code=502, detail="Couldn't turn autopay off just now. Please try again, "
+                                                    "or email hello@voyce.co.in and we'll do it for you.")
+    analytics.capture(user["id"], "autopay_cancelled", {})
+    return {"ok": True, "gen_info": auth_module.get_gen_info(user["id"])}
+
+
 @app.post("/payments/verify")
 def payments_verify(req: PaymentVerifyRequest, x_token: str = Header(None)):
     user = _require_user(x_token)
+    if req.razorpay_subscription_id:   # autopay: the first month, charged as the mandate was approved
+        sub = payments.get_subscription_record(req.razorpay_subscription_id)
+        if not sub or sub.get("user_id") != user["id"]:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        if not payments.verify_subscription_signature(
+            req.razorpay_subscription_id, req.razorpay_payment_id, req.razorpay_signature
+        ):
+            raise HTTPException(status_code=400, detail="Payment verification failed")
+        payments.update_subscription(req.razorpay_subscription_id, status="active")
+        payments.record_subscription_charge(sub, req.razorpay_payment_id, source="checkout")
+        return {"ok": True, "gen_info": auth_module.get_gen_info(user["id"])}
     record = payments.get_order_record(req.razorpay_order_id)
     if not record or record.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -1345,6 +1401,10 @@ def payments_restore(x_token: str = Header(None)):
         if captured:
             payments.activate_pro(user["id"], record["order_id"], captured.get("id", ""), source="restore")
             restored = True
+    try:
+        restored = payments.restore_subscriptions(user["id"]) or restored
+    except Exception:
+        logging.exception("Razorpay subscription restore failed")
     return {"restored": restored, "gen_info": auth_module.get_gen_info(user["id"])}
 
 
@@ -1368,6 +1428,14 @@ async def payments_webhook(request: Request):
         record = payments.get_order_record(order_id)
         if record and user_id and record.get("user_id") == user_id:
             payments.activate_pro(user_id, order_id, entity.get("id", ""), source="webhook")
+    elif str(event.get("event", "")).startswith("subscription."):
+        # Autopay: activated, charged (each month: one more month of Pro), pending/halted (a charge
+        # failed), cancelled, completed. Razorpay retries failed charges itself.
+        try:
+            payments.handle_subscription_event(event)
+        except Exception:
+            logging.exception("Razorpay subscription webhook failed")
+            raise HTTPException(status_code=500, detail="retry")   # Razorpay sends it again
     return {"ok": True}
 
 

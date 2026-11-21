@@ -62,8 +62,8 @@
         "description": "Voyce is an AI LinkedIn ghostwriter for consultants, coaches, and fractional executives. It finds this week's news in your niche, writes your take in a voice learned from your past posts, and has it ready each morning for you to approve in one tap, through the official LinkedIn API.",
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 free tries (posts, carousels, image cards, previews or idea lists) including 1 AI picture, manual posting to LinkedIn, no credit card." },
-          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited posts, carousels, image cards, previews and idea lists, 40 AI pictures, a daily post to approve, 3 profiles each on its own LinkedIn. A 30-day pass with no auto-charge." },
-          { "@type": "Offer", "name": "Pro (India)", "price": "2999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "India price: 60 posts, carousels or images per pass (previews and idea lists included), and 3 profiles, one on daily posting. A 30-day pass with no auto-charge." }
+          { "@type": "Offer", "name": "Pro", "price": "4699", "priceCurrency": "INR", "description": "Unlimited posts, carousels, image cards, previews and idea lists, 40 AI pictures, a daily post to approve, 3 profiles each on its own LinkedIn. Monthly, renews automatically, cancel anytime." },
+          { "@type": "Offer", "name": "Pro (India)", "price": "2999", "priceCurrency": "INR", "eligibleRegion": { "@type": "Country", "name": "IN" }, "description": "India price: 60 posts, carousels or images a month (previews and idea lists included), and 3 profiles, one on daily posting. Monthly by UPI Autopay or card, cancel anytime." }
         ]
       },
       {
@@ -76,8 +76,8 @@
           { "@type": "Question", "name": "Won't LinkedIn ban my account?", "acceptedAnswer": { "@type": "Answer", "text": "Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration, and by default you approve every post." } },
           { "@type": "Question", "name": "What do I get for free?", "acceptedAnswer": { "@type": "Answer", "text": "5 free tries: each post, carousel, image card, preview or list of post ideas uses one, and one of them can be an AI picture. You can post them to LinkedIn yourself. No credit card required." } },
           { "@type": "Question", "name": "Is my content private?", "acceptedAnswer": { "@type": "Answer", "text": "Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI providers: Anthropic (Claude) writes and checks them, and Google Gemini draws AI pictures and reads YouTube videos. The Privacy Policy has the details." } },
-          { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to." } },
-          { "@type": "Question", "name": "How much does Voyce cost?", "acceptedAnswer": { "@type": "Answer", "text": "Free for 5 posts, with no card. Pro is a 30-day pass: ₹2,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel." } },
+          { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Pro renews monthly by autopay, and you can turn autopay off in Settings at any time. Pro then stays on until the end of the month you've paid for, and you won't be charged again." } },
+          { "@type": "Question", "name": "How much does Voyce cost?", "acceptedAnswer": { "@type": "Answer", "text": "Free for 5 posts, with no card. Pro is ₹2,999 a month in India (UPI Autopay or card) and $49 a month elsewhere (billed as ₹4,699 by card). It renews monthly until you cancel." } },
           { "@type": "Question", "name": "What is an AI LinkedIn ghostwriter?", "acceptedAnswer": { "@type": "Answer", "text": "Software that writes LinkedIn posts for you in your own voice, the way a human ghostwriter would. A human LinkedIn ghostwriter typically charges $1,000–$5,000 a month and needs a weekly call. Voyce learns your style from your past posts, finds this week's news in your field, and has a post ready each morning for you to approve." } },
           { "@type": "Question", "name": "Does it work for a company page too?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them." } }
         ]
@@ -661,7 +661,7 @@ With their latest announcement, the platform is rolling out features designed to
   <div class="eyebrow">The honest comparison</div>
   <h2 style="margin-top:22px">What staying visible costs.</h2>
   <div class="opts">
-    <div class="opt us"><h3>Voyce</h3><div class="cost" id="cmp-voyce-price">$49</div><div class="per" id="cmp-voyce-per">for 30 days, billed as ₹4,699</div><ul><li>Sounds like you</li><li>Finds the news for you</li><li>Minutes a week</li></ul></div>
+    <div class="opt us"><h3>Voyce</h3><div class="cost" id="cmp-voyce-price">$49</div><div class="per" id="cmp-voyce-per">a month, billed as ₹4,699</div><ul><li>Sounds like you</li><li>Finds the news for you</li><li>Minutes a week</li></ul></div>
     <div class="opt"><h3>A ghostwriter</h3><div class="cost" id="cmp-gw-price">$1,000–5,000</div><div class="per">a month</div><ul><li>Sounds like you, after briefing</li><li>Needs a weekly call</li><li>Minutes a week, once set up</li></ul></div>
     <div class="opt"><h3>Other AI tools</h3><div class="cost" id="cmp-ai-price">$20–100</div><div class="per">a month</div><ul><li>Varies: often generic</li><li>Some find the news</li><li>Hours: you bring the ideas</li></ul></div>
     <div class="opt"><h3>Doing it yourself</h3><div class="cost" id="cmp-diy-price">$0</div><div class="per">plus your evenings</div><ul><li>Sounds like you</li><li>You hunt for the news</li><li>Hours a week, when it happens</li></ul></div>
@@ -671,14 +671,14 @@ With their latest announcement, the platform is rolling out features designed to
 <section class="pricing" id="pricing"><div class="wrap">
   <div class="eyebrow" style="justify-content:center">Pricing</div>
   <h2 style="margin-top:22px">Start free. Pay for a month when it's worth it.</h2>
-  <p class="lead">No subscription. Pro is a 30-day pass that simply runs out, so there's nothing to cancel.</p>
+  <p class="lead">Pro renews monthly by autopay. Turn it off in Settings any time, and you won't be charged again.</p>
   <div class="plans">
     <div class="plan free"><h3>Free</h3><div class="price" id="free-amt">$0</div><p class="fine">No card needed</p><a class="btn" href="/signup">Get my first post free</a>
       <ul><li>5 free tries: posts, carousels or image cards</li><li>1 AI picture to try</li><li>Post them to LinkedIn yourself</li></ul></div>
-    <div class="plan pro"><h3>Pro</h3><div class="price" id="pro-amt">$49 <small>/ 30 days</small></div><p class="fine" id="pro-per">billed as ₹4,699 · never renews by itself</p><a class="btn" href="/signup">Get Pro</a>
-      <ul><li>A post every morning, ready to approve</li><li id="pro-gens">Unlimited posts, carousels and image cards</li><li id="pro-ai">40 AI pictures per pass</li><li id="pro-profiles">Up to 3 profiles, each on its own LinkedIn</li><li>Every post logged with its source</li></ul></div>
+    <div class="plan pro"><h3>Pro</h3><div class="price" id="pro-amt">$49 <small>/ month</small></div><p class="fine" id="pro-per">billed as ₹4,699 · cancel anytime</p><a class="btn" href="/signup">Get Pro</a>
+      <ul><li>A post every morning, ready to approve</li><li id="pro-gens">Unlimited posts, carousels and image cards</li><li id="pro-ai">40 AI pictures a month</li><li id="pro-profiles">Up to 3 profiles, each on its own LinkedIn</li><li>Every post logged with its source</li></ul></div>
   </div>
-  <p class="safe">Payments by Razorpay · Pro starts straight away · no subscription</p>
+  <p class="safe">Payments by Razorpay · Pro starts straight away · cancel anytime</p>
 </div></section>
 
 <section class="founder"><div class="wrap">
@@ -696,8 +696,8 @@ With their latest announcement, the platform is rolling out features designed to
       <details><summary>Won't LinkedIn ban my account?</summary><p>Voyce connects through LinkedIn's official API, the same kind of access scheduling tools use. It never asks for your password, never uses a browser extension, never scrapes LinkedIn, and never sends DMs, connection requests or pod activity. No tool can promise how LinkedIn treats an account, but Voyce stays inside the official integration, and by default you approve every post.</p></details>
       <details><summary>What do I get for free?</summary><p>5 free tries: each post, carousel, image card, preview or list of post ideas uses one, and one of them can be an AI picture. You can post them to LinkedIn yourself. No credit card required.</p></details>
       <details><summary>Is my content private?</summary><p>Your profile data and posts are yours, and Voyce never sells them. To write your posts, Voyce sends the relevant text to its AI providers: Anthropic (Claude) writes and checks them, and Google Gemini draws AI pictures and reads YouTube videos. The <a href="/privacy">Privacy Policy</a> has the details.</p></details>
-      <details><summary>Can I cancel anytime?</summary><p>There's nothing to cancel — Pro is a 30-day pass with no auto-charge. You renew only when you want to.</p></details>
-      <details><summary>How much does Voyce cost?</summary><p>Free for 5 posts, with no card. Pro is a 30-day pass: ₹2,999 in India and $49 (billed as ₹4,699) elsewhere. It never renews by itself, so there is nothing to cancel.</p></details>
+      <details><summary>Can I cancel anytime?</summary><p>Yes. Pro renews monthly by autopay, and you can turn autopay off in Settings at any time. Pro then stays on until the end of the month you've paid for, and you won't be charged again.</p></details>
+      <details><summary>How much does Voyce cost?</summary><p>Free for 5 posts, with no card. Pro is ₹2,999 a month in India (UPI Autopay or card) and $49 a month elsewhere (billed as ₹4,699 by card). It renews monthly until you cancel.</p></details>
       <details><summary>What is an AI LinkedIn ghostwriter?</summary><p>Software that writes LinkedIn posts for you in your own voice, the way a human ghostwriter would. A human LinkedIn ghostwriter typically charges $1,000–$5,000 a month and needs a weekly call. Voyce learns your style from your past posts, finds this week's news in your field, and has a post ready each morning for you to approve.</p></details>
       <details><summary>Does it work for a company page too?</summary><p>Not yet; company pages need a separate LinkedIn approval. On Pro, each of your 3 profiles can post to a different personal LinkedIn account: invite a client and, once they connect their LinkedIn, that profile publishes as them.</p></details>
   </div>
@@ -727,13 +727,13 @@ With their latest announcement, the platform is rolling out features designed to
     var rupees = (c.amount / 100).toLocaleString("en-IN");
     function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
     set("free-amt", "₹0");
-    set("pro-amt", "₹" + rupees + " <small>/ 30 days</small>");
-    set("pro-per", "India price · never renews by itself");
-    set("pro-gens", (c.pass_generations || 60) + " posts, carousels or images per pass (the daily post uses about 30)");
+    set("pro-amt", "₹" + rupees + " <small>/ month</small>");
+    set("pro-per", "India price · UPI Autopay or card · cancel anytime");
+    set("pro-gens", (c.pass_generations || 60) + " posts, carousels or images a month (the daily post uses about 30)");
     set("pro-ai", (c.pass_ai_pictures || 10) + " of them can be AI pictures");
     set("pro-profiles", "3 profiles, each on its own LinkedIn · 1 on daily posting");
     set("cmp-voyce-price", "₹" + rupees);
-    set("cmp-voyce-per", "for 30 days");
+    set("cmp-voyce-per", "a month");
     // One currency on the page: the AI tools bill in dollars (converted at
     // ~₹95), and a ghostwriter in India charges less than one in the US.
     set("cmp-ai-price", "₹1,900–9,500");

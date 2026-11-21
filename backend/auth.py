@@ -206,6 +206,14 @@ def get_gen_info(user_id: str) -> dict:
         info["expires_at"] = expires_at
     if plan == "pro":
         info["plan_region"] = region   # "IN": 1 daily-posting profile, capped generations
+        # Autopay: on (with the next charge date) or turned off; none for a pass bought before autopay
+        from payments import autopay_info
+        try:
+            ap = autopay_info(user_id)
+        except Exception:
+            ap = None
+        if ap:
+            info["autopay"] = ap
     # AI pictures: a pass counts them from its purchase (a pass bought before they were counted
     # starts from none used); a free account counts them for good
     from payments import INDIA_PASS_AI_PICTURES, INTL_PASS_AI_PICTURES, FREE_AI_PICTURES

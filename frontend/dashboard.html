@@ -779,11 +779,11 @@
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:13px;font-weight:700;color:#24365e;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Pro Plan</div>
           <div style="font-size:48px;font-weight:900;line-height:1;color:#16181d;"><sup id="upgrade-currency" style="font-size:22px;vertical-align:top;margin-top:10px;display:inline-block;">₹</sup><span id="upgrade-price">4,699</span></div>
-          <div id="upgrade-sub" style="font-size:13px;color:#6b7280;margin-top:4px;">That's $49 · a 30-day pass · no auto-charge</div>
+          <div id="upgrade-sub" style="font-size:13px;color:#6b7280;margin-top:4px;">That's $49 a month · renews monthly by card · cancel anytime</div>
         </div>
         <ul style="list-style:none;margin-bottom:28px;">
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-gens"><strong>Unlimited</strong> generations</span></li>
-          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-ai"><strong>40 AI pictures</strong> per pass · image cards unlimited</span></li>
+          <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-ai"><strong>40 AI pictures</strong> a month · image cards unlimited</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span><strong>A post every morning</strong>, ready for you to approve</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span id="upgrade-profiles">Up to <strong>3 profiles</strong>, each can post to its own LinkedIn</span></li>
           <li style="padding:8px 0;border-bottom:1px solid #eef1f6;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Carousels in your daily posts</span></li>
@@ -791,9 +791,10 @@
           <li style="padding:8px 0;font-size:14px;color:#444;display:flex;gap:10px;align-items:flex-start;"><span style="color:#24365e;font-weight:800;">✓</span><span>Every daily post logged with its source</span></li>
         </ul>
         <button id="upgrade-pay-btn" onclick="startUpgradePayment()" style="display:block;width:100%;padding:14px;background:#24365e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1c2b4d'" onmouseout="this.style.background='#24365e'">
-          Upgrade now — pay securely →
+          Start Pro with autopay →
         </button>
-        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:hello@voyce.co.in?subject=Upgrade to Voyce Pro" style="color:#24365e;">need help?</a></div>
+        <div id="upgrade-autopay-note" style="text-align:center;font-size:12px;color:#6b7280;margin-top:10px;line-height:1.5;">Charged monthly until you turn autopay off in Settings → Account. Turning it off stops the next charge; payments already made aren't refunded.</div>
+        <div style="text-align:center;font-size:12px;color:#aaa;margin-top:8px;">Secured by Razorpay · Pro activates instantly · <a href="mailto:hello@voyce.co.in?subject=Upgrade to Voyce Pro" style="color:#24365e;">need help?</a></div>
         <div style="text-align:center;font-size:12px;color:#aaa;margin-top:6px;">
           <a href="#" onclick="restorePurchase();return false;" style="color:#888;">Paid but still on Free? Restore purchase</a>
           &nbsp;·&nbsp;
@@ -839,6 +840,7 @@
         <h3>Plan</h3>
         <p id="acct-plan-text">Loading…</p>
         <button class="act-btn primary" id="acct-plan-btn" style="display:none;" onclick="openUpgradeModal()">⚡ Upgrade to Pro</button>
+        <div id="acct-autopay"></div>
       </div>
     </div>
 
@@ -2283,7 +2285,9 @@
       const until = g.expires_at ? new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
       document.getElementById("sm-k").textContent = g.plan === "admin" ? "Team account"
         : g.plan === "partner" ? `${(window.PARTNER || {}).brand || "Your"} seat · refills ${g.refills_at ? new Date(g.refills_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "monthly"}`
-      : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
+      : g.plan === "pro" ? ((g.autopay && g.autopay.on && g.autopay.next_charge_at)
+          ? `Pro · renews ${new Date(g.autopay.next_charge_at).toLocaleDateString([], { day: "numeric", month: "short" })}`
+          : `${g.autopay ? "Pro" : "Your pass"}${until ? ` · until ${until}` : ""}`) : "Free plan";
       box.hidden = false;
     }
     function _todayIdleText() {
@@ -3115,8 +3119,8 @@
         const inIndia = _payConfig.region === "IN";
         const sub = document.getElementById("upgrade-sub");
         if (sub) sub.textContent = inIndia
-          ? "Founding India price · a 30-day pass · no auto-charge"
-          : "That's $49 · a 30-day pass · no auto-charge";
+          ? "a month · founding India price · UPI Autopay or card · cancel anytime"
+          : "That's $49 a month · renews monthly by card · cancel anytime";
         const prof = document.getElementById("upgrade-profiles");
         if (prof) prof.innerHTML = inIndia
           ? "<strong>1 profile</strong> on daily posting · 3 profiles in all"
@@ -3125,10 +3129,10 @@
         if (drafts) drafts.innerHTML = inIndia ? "Previews and idea lists come out of the " + (_payConfig.pass_generations || 60) : "<strong>Unlimited</strong> previews and idea lists";
         const gens = document.getElementById("upgrade-gens");
         if (gens) gens.innerHTML = inIndia
-          ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> per pass (daily posts included)"
+          ? "<strong>" + (_payConfig.pass_generations || 60) + " generations</strong> a month (daily posts included)"
           : "<strong>Unlimited</strong> generations";
         const ai = document.getElementById("upgrade-ai");
-        if (ai) ai.innerHTML = "<strong>" + (_payConfig.pass_ai_pictures || (inIndia ? 10 : 40)) + " AI pictures</strong> per pass · image cards unlimited";
+        if (ai) ai.innerHTML = "<strong>" + (_payConfig.pass_ai_pictures || (inIndia ? 10 : 40)) + " AI pictures</strong> a month · image cards unlimited";
         }
       } catch (_) {}
       return _payConfig;
@@ -3157,17 +3161,17 @@
       btn.textContent = "Starting secure checkout…";
       try {
         await loadRazorpayScript();
-        const res = await fetch("/payments/create-order", { method: "POST", headers: { "x-token": getToken() } });
+        // Pro is sold on autopay: a monthly subscription. Razorpay asks the buyer to approve a
+        // mandate (UPI Autopay or card in India, card abroad) and charges the first month then.
+        const res = await fetch("/payments/create-subscription", { method: "POST", headers: { "x-token": getToken() } });
         if (!res.ok) throw new Error((await res.json()).detail || "Could not start payment");
-        const order = await res.json();
+        const sub = await res.json();
 
         const rzp = new Razorpay({
-          key: order.key_id,
-          order_id: order.order_id,
-          amount: order.amount,
-          currency: order.currency,
+          key: sub.key_id,
+          subscription_id: sub.subscription_id,
           name: "Voyce",
-          description: "Voyce Pro — 1 month",
+          description: "Voyce Pro · monthly, cancel anytime",
           theme: { color: "#24365e" },
           handler: async (response) => {
             try {
@@ -3175,13 +3179,13 @@
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-token": getToken() },
                 body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_subscription_id: response.razorpay_subscription_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
                 }),
               });
               if (!vres.ok) throw new Error("verification failed");
-              toast("🎉 Welcome to Voyce Pro! Your 30-day pass is on.", "success");
+              toast("🎉 Welcome to Voyce Pro! Autopay is on, and you can turn it off any time in Settings.", "success");
               closeUpgradeModal();
               loadPlanBanner();
             } catch (_) {
@@ -3196,7 +3200,22 @@
         toast("Error: " + err.message, "error");
       } finally {
         btn.disabled = false;
-        btn.textContent = "Upgrade now — pay securely →";
+        btn.textContent = "Start Pro with autopay →";
+      }
+    }
+
+    async function turnOffAutopay() {
+      const pi = window._planInfo || {};
+      const when = pi.expires_at
+        ? new Date(pi.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+      if (!confirm("Turn off autopay? You won't be charged again." + (when ? ` Pro stays on until ${when}.` : ""))) return;
+      try {
+        const res = await fetch("/payments/subscription/cancel", { method: "POST", headers: { "x-token": getToken() } });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Couldn't turn autopay off");
+        toast("Autopay is off. You won't be charged again." + (when ? ` Pro stays on until ${when}.` : ""), "success");
+        loadPlanBanner();
+      } catch (err) {
+        toast(err.message, "error");
       }
     }
 
@@ -3565,7 +3584,7 @@
           // An India pass has an allowance; the international pass is unlimited.
           const capped = info.limit !== -1;
           const gensLine = capped
-            ? `<strong>${Math.max(0, info.limit - info.used)} of ${info.limit} generations left</strong> this pass`
+            ? `<strong>${Math.max(0, info.limit - info.used)} of ${info.limit} generations left</strong> ${info.autopay ? "this month" : "this pass"}`
             : "<strong>Unlimited generations</strong>";
           const aiLine = info.ai_limit > 0
             ? ` · ${Math.max(0, info.ai_limit - (info.ai_used || 0))} of ${info.ai_limit} AI pictures left` : "";
@@ -3578,14 +3597,20 @@
             const expiry = new Date(info.expires_at);
             const daysLeft = Math.ceil((expiry - new Date()) / 86400000);
             const dateStr = expiry.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-            if (daysLeft <= 5) {
-              text.innerHTML = `<strong style="color:#b9770e">Pro expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}</strong> &nbsp;·&nbsp; renew to keep posting`;
+            const autopay = info.autopay;   // none for a pass bought before autopay
+            if (autopay && autopay.on) {
+              // Renews by itself; Razorpay tells them before each charge. Nothing to nag about.
+              const nxt = autopay.next_charge_at ? new Date(autopay.next_charge_at) : expiry;
+              text.innerHTML = `${gensLine}${aiLine} — renews ${nxt.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+            } else if (daysLeft <= 5) {
+              text.innerHTML = `<strong style="color:#b9770e">Pro ends in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}</strong> &nbsp;·&nbsp; `
+                + (autopay ? "autopay is off" : "renew to keep posting");
               btn.style.display = "";
-              btn.textContent = "🔄 Renew Pro";
+              btn.textContent = autopay ? "🔄 Restart Pro" : "🔄 Renew Pro";
               banner.style.borderColor = "#f6d68a";
               banner.style.background = "#fffbf0";
             } else {
-              text.innerHTML = `${gensLine}${aiLine} — Pro active until ${dateStr}`;
+              text.innerHTML = `${gensLine}${aiLine} — Pro active until ${dateStr}` + (autopay ? " · autopay off" : "");
             }
           }
         } else {
@@ -3606,6 +3631,20 @@
         if (ap) ap.innerHTML = `<span class="${badge.className}">${_escHtml(badge.textContent)}</span> ${text.innerHTML}`;
         const quietPro = (info.plan === "pro" || info.plan === "admin") && btn.style.display === "none";
         if (apb) { apb.style.display = quietPro ? "none" : ""; apb.textContent = btn.textContent.trim() || "⚡ Upgrade to Pro"; }
+        const aa = document.getElementById("acct-autopay");
+        if (aa) {
+          const a = info.plan === "pro" ? info.autopay : null;
+          const fmt = d => new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+          if (a && a.on) {
+            aa.innerHTML = `<p>Autopay is on${a.next_charge_at ? ` · next charge on ${fmt(a.next_charge_at)}` : ""}. `
+              + `You can turn it off any time; Pro then stays on until the end of the month you've paid for.</p>`
+              + `<button class="act-btn" onclick="turnOffAutopay()">Turn off autopay</button>`;
+          } else if (a) {
+            aa.innerHTML = `<p>Autopay is off, so you won't be charged again. Pro stays on until ${fmt(info.expires_at)}.</p>`;
+          } else {
+            aa.innerHTML = "";
+          }
+        }
         // On every page only while it asks something of you (free allowance, a pass ending, a seat nearly used up).
         if (quietPro || (info.plan === "partner" && info.limit - info.used > 5)) banner.style.display = "none";
         updateLiBanner(liConnected);

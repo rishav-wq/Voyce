@@ -368,6 +368,15 @@ def client_connected(company: dict, li_name: str = "") -> bool:
                 "client_connected", subject, text, body)
 
 
+def _autopay(uid: str) -> dict | None:
+    """The user's autopay as the dashboard sees it (payments.autopay_info), or None."""
+    try:
+        import payments
+        return payments.autopay_info(uid)
+    except Exception:
+        return None
+
+
 def autopilot_paused(company: dict, reason: str = "") -> bool:
     """Autopilot is still switched on but can't run — usually the Pro pass ended."""
     uid = company.get("user_id", "")
@@ -388,6 +397,23 @@ def autopilot_paused(company: dict, reason: str = "") -> bool:
                     f"{intro}\n\n{nxt}\n\n{url}", _layout("Daily posts paused", [intro, nxt], button=(f"Open {p['brand']}", url),
                                                         partner=p))
     subject = "Voyce autopilot is paused"
+    ap = _autopay(uid)
+    if reason == "pass_limit" and ap and ap.get("on") and ap.get("next_charge_at"):
+        r = datetime.fromisoformat(ap["next_charge_at"])
+        when = f"{r.day} {r.strftime('%b')}"
+        intro = ("You've used all the generations in this month's Pro plan, so Voyce has paused "
+                 "your daily posts. Your profiles, voice and schedule are all still saved.")
+        nxt = f"They start again on {when}, when your plan renews by itself."
+        return send(uid, f"paused:pass_limit:{uid}:{marker}", "autopilot_paused", subject,
+                    f"{intro}\n\n{nxt}\n\n{_QUEUE_URL}",
+                    _layout("Autopilot is paused", [intro, nxt], button=("Open Voyce", _QUEUE_URL)))
+    if reason != "pass_limit" and ap and ap.get("status") == "halted":
+        intro = ("Your monthly payment for Voyce Pro didn't go through, so Pro has ended and Voyce has "
+                 "stopped writing your daily posts. Your profiles, voice and schedule are all still saved.")
+        nxt = "Restart Pro from Settings, and posting picks up again at the next scheduled time."
+        return send(uid, f"paused:halted:{uid}:{marker}", "autopilot_paused", "Your Voyce Pro payment didn't go through",
+                    f"{intro}\n\n{nxt}\n\n{_QUEUE_URL}",
+                    _layout("Your payment didn't go through", [intro, nxt], button=("Restart Pro", _QUEUE_URL)))
     if reason == "pass_limit":
         intro = ("You've used all the generations included in this Pro pass, so Voyce has paused "
                  "your daily posts. Your profiles, voice and schedule are all still saved.")
@@ -432,8 +458,11 @@ def sweep_expiries():
                              f"{intro}\n\nReconnect: {_QUEUE_URL}",
                              _layout("Reconnect LinkedIn before it expires", [intro],
                                      button=("Reconnect LinkedIn", _QUEUE_URL)))
-            # Pro pass: a one-off 31-day pass, so nothing renews unless they act.
-            if u.get("plan") == "pro" and u.get("plan_expires_at"):
+            # Pro ending: a pass bought before autopay never renews by itself, and autopay that was
+            # turned off doesn't either. Autopay that's on renews by itself, and Razorpay tells the
+            # buyer before each charge, so there's nothing to warn about.
+            ap = _autopay(uid) if u.get("plan") == "pro" else None
+            if u.get("plan") == "pro" and u.get("plan_expires_at") and not (ap and ap.get("on")):
                 pexp = datetime.fromisoformat(u["plan_expires_at"])
                 if pexp.tzinfo:
                     pexp = pexp.astimezone().replace(tzinfo=None)
@@ -441,12 +470,15 @@ def sweep_expiries():
                 for limit, tag in ((timedelta(days=1), "1"), (timedelta(days=5), "5")):
                     if timedelta(0) <= left <= limit:
                         when = "tomorrow" if tag == "1" else f"on {pexp.strftime('%b')} {pexp.day}"
-                        intro = (f"Your Voyce Pro pass ends {when}. Passes never auto-charge, so autopilot "
+                        intro = (f"Your Voyce Pro ends {when}. Autopay is off, so autopilot stops then unless "
+                                 "you restart Pro. Restarting early adds to the days you have left." if ap else
+                                 f"Your Voyce Pro pass ends {when}. Passes never auto-charge, so autopilot "
                                  "stops then unless you renew. Renewing early adds to the days you have left.")
+                        what, act = ("Pro", "Restart Pro") if ap else ("Pro pass", "Renew Pro")
                         send(uid, f"pro_exp{tag}:{uid}:{pexp.date().isoformat()}", f"pro_expiring_{tag}",
-                             f"Your Voyce Pro pass ends {when}",
-                             f"{intro}\n\nRenew: {_QUEUE_URL}",
-                             _layout("Your Pro pass is ending", [intro], button=("Renew Pro", _QUEUE_URL)))
+                             f"Your Voyce {what} ends {when}",
+                             f"{intro}\n\n{act}: {_QUEUE_URL}",
+                             _layout(f"Your {what} is ending", [intro], button=(act, _QUEUE_URL)))
                         break
         except Exception:
             logger.exception(f"[notify] expiry sweep failed for {uid}")

@@ -151,7 +151,8 @@ function showError(msg) {
     if (window.PARTNER) {   // a seat's month: the partner adds drafts, there's nothing to renew here
       a.href = `mailto:${window.PARTNER.support_email}`; a.textContent = `Ask ${window.PARTNER.company} for more`; a.onclick = null;
     }
-    el.appendChild(a);
+    // On autopay the message already says when they refill; there's nothing to buy
+    if (window.PARTNER || !/refill/i.test(msg)) el.appendChild(a);
   } else {
     el.textContent = msg;
   }
@@ -1882,7 +1883,9 @@ function _renderMeter(g) {
   if (k) {
     const until = g.expires_at ? new Date(g.expires_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "";
     k.textContent = g.plan === "admin" ? "Team account" : g.plan === "partner" ? `${(window.PARTNER || {}).brand || "Your"} seat · refills ${g.refills_at ? new Date(g.refills_at).toLocaleDateString([], { day: "numeric", month: "short" }) : "monthly"}`
-      : g.plan === "pro" ? (until ? `Your pass · until ${until}` : "Your pass") : "Free plan";
+      : g.plan === "pro" ? ((g.autopay && g.autopay.on && g.autopay.next_charge_at)
+          ? `Pro · renews ${new Date(g.autopay.next_charge_at).toLocaleDateString([], { day: "numeric", month: "short" })}`
+          : `${g.autopay ? "Pro" : "Your pass"}${until ? ` · until ${until}` : ""}`) : "Free plan";
   }
   box.hidden = false;
 }
