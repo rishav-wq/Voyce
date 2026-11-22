@@ -1074,21 +1074,118 @@ def _revise_post(draft: str, industry: str, company: dict | None = None, source:
 # Claim-shaped post types automatically ship with a card of their hook line (deterministic
 # typography — no AI-image lottery, safe to run unattended). Since 21 Nov 2026 it is a 4:5 card
 # in the author's look, signed with their photo, not the black 2.6:1 "tweet" strip that looked the
-# same for every client. Drawn pictures remain manual-only by design.
+# same for every client. Since 22 Nov 2026 the daily post gets a picture by its job (_daily_picture, above); this card
+# is what hot takes, predictions and stat reactions fall back to when there is none.
 TWEET_CARD_TYPES = ("hot_take", "prediction", "stat_reaction")
 
 
-def _tweet_card_for(post_text: str, company: dict):
-    """Render the post's hook line as the post's card PNG. Fail-open: any problem -> None
-    and the post ships as plain text."""
+# ── the daily post's picture, chosen by the post's job (22 Nov 2026 image-type audit) ───────────────────────────
+# The evidence (studies + our 111 top posts + a judge proven on 42 labelled images): not a picture on every post, but
+# the right one when it earns its place. The author's real photo wins reactions; teaching visuals (explainer sketch,
+# checklist, notebook, before/after) win reposts; text only when no picture adds anything; never an AI photo of a
+# person. AI-drawn pictures pass the words check and the craft judge (carousel.JUDGE_MIN) or fall back to an exact
+# drawn card, and an author gets at most DAILY_AI_PER_WEEK of them, so no feed turns into "the AI account". Before this,
+# 39 of 67 daily drafts (1-22 Nov) went out as text only, teaching posts included. DAILY_PICTURES=0 turns it off.
+DAILY_PICTURES = os.getenv("DAILY_PICTURES", "1") != "0"
+DAILY_AI_PER_WEEK = int(os.getenv("DAILY_AI_PER_WEEK", "3") or 3)
+_AI_DRAWN = ("concept", "explainer", "notebook")
+
+
+def _ai_pictures_this_week(company_id: str) -> int:
+    """AI-drawn daily pictures in the last 7 days, from the run log (every run writes it; a profile that posts straight
+    away never makes a queue item)."""
+    since = (datetime.now() - timedelta(days=7)).isoformat()
+    return db.post_log.count_documents({"company_id": company_id, "timestamp": {"$gte": since},
+                                        "status": {"$ne": "failed"}, "picture_format": {"$in": list(_AI_DRAWN)}})
+
+
+def _last_daily_picture(company_id: str) -> tuple:
+    """(format, kind) of the author's last daily picture, so today's isn't the same kind."""
+    p = db.post_log.find_one({"company_id": company_id, "picture_format": {"$exists": True}},
+                             {"_id": 0, "picture_format": 1, "picture_kind": 1}, sort=[("timestamp", -1)]) or {}
+    return p.get("picture_format", ""), p.get("picture_kind", "")
+
+
+def _recent_bands(company_id: str, n: int = 4) -> list:
+    """The backgrounds of the author's last few daily pictures, newest first."""
     try:
-        from carousel import render_statement_card_png
+        rows = db.post_log.find({"company_id": company_id, "picture_band": {"$exists": True}, "status": {"$ne": "failed"}},
+                                {"_id": 0, "picture_band": 1}, sort=[("timestamp", -1)], limit=n)
+        return [r.get("picture_band", "") for r in rows]
+    except Exception:
+        return []
+
+
+HANDWRITTEN_PER_MONTH = int(os.getenv("HANDWRITTEN_PER_MONTH", "2"))
+
+
+def _notes_this_month(company_id: str) -> int:
+    since = (datetime.now() - timedelta(days=30)).isoformat()
+    return db.post_log.count_documents({"company_id": company_id, "timestamp": {"$gte": since},
+                                        "status": {"$ne": "failed"}, "picture_format": "note_card"})
+
+
+def _daily_picture(post_text: str, company: dict) -> dict | None:
+    """{png, format, kind, alt} for today's post, or None: the post goes out as text (fail-open, never blocks a post)."""
+    try:
+        import carousel as C
+        import author_photos
+        has_photos = author_photos.count(company.get("id", "")) > 0
+        last_fmt, last_kind = _last_daily_picture(company.get("id", ""))
+        subject = {**company, "last_picture_format": last_fmt or company.get("last_picture_format", ""),
+                   "last_picture_kind": last_kind if last_fmt else company.get("last_picture_kind", ""),
+                   "recent_bands": _recent_bands(company.get("id", ""))}
+        content = C.generate_ai_image_post(post_text, company=subject, has_photos=has_photos)
+        if content.get("post_shape") == "moment" and not has_photos:
+            return None   # a story: the author's real photo or nothing; a card adds nothing to a moment
+        fmt = content.get("format")
+        if fmt == "note_card" and _notes_this_month(company.get("id", "")) >= HANDWRITTEN_PER_MONTH:
+            # the handwritten note is a rare signal in top creators' feeds (a median 3% of their pictures): at most
+            # twice a month, then the dark typed note (22 Nov 2026 variety research)
+            content["format"] = fmt = "dark_note"
+        if fmt in _AI_DRAWN and _ai_pictures_this_week(company.get("id", "")) >= DAILY_AI_PER_WEEK:
+            # this week's AI pictures are used: the same point on an exact card Voyce draws
+            if fmt == "notebook" and len(content.get("dg_levels") or []) >= 3:
+                content.update(format="diagram", diagram_kind="ladder")
+            elif fmt == "notebook" and len(content.get("dg_pairs") or []) >= 3:
+                content.update(format="diagram", diagram_kind="pairs")
+            elif fmt == "notebook" and len(content.get("nb_items") or []) >= 3:
+                content.update(format="diagram", diagram_kind="steps", dg_title=content.get("dg_title") or content.get("nb_title", ""),
+                               dg_items=content.get("dg_items") or content.get("nb_items") or [])
+            elif fmt == "explainer" and content.get("dg_left") and content.get("dg_right"):
+                content.update(format="diagram", diagram_kind="compare")
+            elif content.get("card_headline"):
+                content["format"] = C._LINE_CARD          # the handwritten note (statement card with NOTE_CARD=0)
+            else:
+                return None
+        author = li.author_for_profile(company, company.get("user_id", ""))
+        meta: dict = {}
+        png = C.render_ai_image_png(content, company, author=author, meta=meta)
+        if not png:
+            return None
+        first = next((l.strip() for l in post_text.splitlines() if l.strip()), "")
+        return {"png": png, "format": meta.get("format") or content.get("format", ""), "kind": meta.get("kind", ""),
+                "band": C.picture_band(meta, content, company),
+                "alt": (content.get("alt_text") or first or "post picture")[:200]}
+    except Exception as e:
+        logger.warning(f"[Autonomous] daily picture failed, posting text: {e}")
+        return None
+
+
+def _tweet_card_for(post_text: str, company: dict):
+    """Render the post's hook line as the post's card PNG: a handwritten note (22 Nov 2026: the tweet-screenshot card
+    was the weakest single-line picture; NOTE_CARD=0 brings it back). Fail-open: any problem -> None and the post
+    ships as plain text."""
+    try:
+        import carousel as C
         hook = next((l.strip() for l in post_text.splitlines() if l.strip()), "")
         if not (10 <= len(hook) <= 180):
             return None
         # The account it posts as: its LinkedIn name and photo, else the profile name
         author = li.author_for_profile(company, company.get("user_id", ""))
-        return render_statement_card_png(hook, company, author=author)
+        if C.NOTE_CARD and len(hook.split()) <= 30:
+            return C.render_ai_image_png({"format": "note_card", "card_headline": hook}, company, author=author, meta={})
+        return C.render_statement_card_png(hook, company, author=author)
     except Exception as e:
         logger.warning(f"[Autonomous] card render failed, posting plain text: {e}")
         return None
@@ -1742,7 +1839,10 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
         else:
             post_text = generate_autonomous_post(subject, news_context, post_type,
                                                  gate_context=gate_context, report=report)
-            card_png = _tweet_card_for(post_text, subject) if post_type in TWEET_CARD_TYPES else None
+            # The picture by the post's job (see _daily_picture); the old hook card for hot takes, predictions and stat
+            # reactions when there's no picture (or pictures are switched off)
+            pic = _daily_picture(post_text, subject) if DAILY_PICTURES and report.get("passed", True) else None
+            card_png = pic["png"] if pic else (_tweet_card_for(post_text, subject) if post_type in TWEET_CARD_TYPES else None)
             if card_png:
                 # The text keeps its hook. On LinkedIn the text sits above the picture and its first lines
                 # are all anyone sees before "...see more"; with the hook moved onto the card, 8 of 13 such
@@ -1751,8 +1851,18 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
                 first_idx = next((i for i, l in enumerate(lines) if l.strip()), 0)
                 payload = {"format": "tweet_card", "post_text": post_text, "publish_text": post_text,
                            "asset_b64": _b64.b64encode(card_png).decode(),
-                           "alt_text": (lines[first_idx].strip()[:120] if lines else "post card"),
-                           "title": company["name"]}
+                           "alt_text": (pic["alt"] if pic else (lines[first_idx].strip()[:120] if lines else "post card")),
+                           "title": company["name"],
+                           # what was drawn: the weekly AI-picture count and the no-repeat rule read it
+                           "picture_format": (pic["format"] if pic else
+                                              "note_card" if __import__("carousel").NOTE_CARD else "tweet_card")}
+                log_entry["picture_format"] = payload["picture_format"]
+                if pic and pic.get("kind"):
+                    log_entry["picture_kind"] = pic["kind"]
+                if pic and pic.get("band"):
+                    log_entry["picture_band"] = pic["band"]
+                elif card_png:
+                    log_entry["picture_band"] = "paper" if payload["picture_format"] == "note_card" else "light"
             else:
                 payload = {"format": "text", "post_text": post_text, "publish_text": post_text,
                            "asset_b64": "", "alt_text": "", "title": company["name"]}

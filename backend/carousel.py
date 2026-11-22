@@ -1056,6 +1056,14 @@ Return ONLY valid JSON:
 IMG_POST_W, IMG_POST_H = 1080, 1350
 
 
+# A one-line opinion goes on a handwritten note (22 Nov 2026 research, 12 creators / 650 image posts against each
+# creator's own median: handwritten note 1.2-1.9x, designed statement card ~0.95x, tweet-screenshot card 0.5-0.7x).
+# NOTE_CARD=0 puts the statement card back as Auto's line card.
+NOTE_CARD = os.getenv("NOTE_CARD", "1") != "0"
+_LINE_CARD = "note_card" if NOTE_CARD else "statement_card"
+# The author's own photo goes out untouched (the same study: real photo with no text 1.2-1.45x, photo with a text
+# overlay 0.9-1.0x). YOUR_PHOTO_LINE=1 puts the post's line back on it.
+YOUR_PHOTO_LINE = os.getenv("YOUR_PHOTO_LINE", "0") == "1"
 TWEET_CARD_STYLE = os.getenv("TWEET_CARD_STYLE", "post")   # "post" (a real post, round 2) or "statement" (the poster)
 
 
@@ -1167,11 +1175,18 @@ STEP 1, post_shape: what the post IS, judged from its body, not its topic:
 - "options": it compares 2-4 named options (tools, approaches, models, roles) across several criteria.
 - "journey": it tells how the author (or a company) got here through dated milestones over years.
 - "claim": it builds to one sharp, quotable line.
+- "mechanism": it explains HOW something works or WHY it fails: a cause and its effect, how a thing plays out
+  early vs later, or what most people do vs what works, as something you could sketch on a napkin.
 - "argument": it argues a point or names a mistake that one visual metaphor can make at a glance.
 - "moment": it tells a real moment the author lived (a visit, an event, a meeting).
 STEP 2, format, from post_shape (follow this table; a picked format the table doesn't give is wrong):
-- list → "notebook" (or "diagram" with diagram_kind "steps" when the items are a strict sequence, or
-  "checklist" when they are checks the reader can tick off before something).
+- list → "diagram" with diagram_kind "ladder" when its points can be read as levels from worse to better
+  practice (most advice lists can: what weak teams do, up to what the best do), "pairs" when they are separate
+  fixes, each for a problem the reader would admit to, "steps" when they are a strict sequence; "notebook" only for
+  a framework of named parts that is none of these. Checks to tick off before something are a ladder too: from the
+  team that has none of them in place up to the team that has them all. For any list post fill dg_levels AND
+  dg_pairs, whichever kind you pick (22 Nov 2026: plain numbered lists and checklists are the least-saved visual;
+  ladders and pairs are among the most saved, and scored 7 to the plain checklist's 5-6 on the same posts).
 - contrast → "diagram" with diagram_kind "compare" (or "before_after" when the post shows ONE thing
   rewritten or changed: a line, a page, an offer, a process, best with its result).
 - self_check → "diagram" with diagram_kind "scorecard".
@@ -1183,10 +1198,12 @@ STEP 2, format, from post_shape (follow this table; a picked format the table do
 - range → "diagram" with diagram_kind "spectrum".
 - overlap → "diagram" with diagram_kind "venn".
 - gap → "diagram" with diagram_kind "gap".
-- claim → "object_quote", or "tweet_card" when it's a bold, argument-starting hot take, or
-  "statement_card" when it's one principle that stands alone as a single big sentence.
+- claim → "note_card" when the line stands alone (most claims and hot takes), or "page_card" when it lands
+  hardest after two or three sentences of setup.
+- mechanism → "explainer".
 - argument → "concept".
-- moment → "your_photo" when the request says the author has photos, else "photo_card".
+- moment → "your_photo" when the request says the author has photos, else "note_card" (never an AI photo of
+  a person: in the 22 Nov 2026 image audit stock-like photos were the weakest picture of all).
 When a post fits two shapes, take the one its middle is built on (a post that lists four controls is
 a list, even if it opens with a claim).
 The formats:
@@ -1222,6 +1239,15 @@ The formats:
   "gap": dg_title (the claim) + dg_top (the line that climbs, max 4 words) + dg_bottom (the line that
     stays low, max 4 words) + dg_gap (the name of the gap: the point, max 4 words) + dg_x (the time
     span or axis, max 4 words, may be empty).
+  "ladder": hand-lettered levels the reader places themselves on. dg_title = a question the reader answers
+    about themselves (max 7 words: "How ready is your migration plan?") + dg_levels (3-5, from WORST to BEST, each
+    max 11 words, what a team at that level would say, in quotes ("We'll convert the code and see what breaks."),
+    or a plain habit; each clearly better than the one below, built only from the post's points) + dg_from /
+    dg_to (the bottom and top labels, 2-3 words: "Least ready" / "Most ready").
+  "pairs": hand-lettered "when this -> do that". dg_pairs_title (2-4 words naming the moment: "Before AWS
+    validation", never "Tips" or "Checklist") + dg_line (optional, when it applies, max 8 words) + dg_pairs (4-6
+    of {"when": 1-3 words, a symptom the reader would admit to, "do": 1-3 words, an imperative}: short like
+    "OVERTHINKING -> WRITE", never a sentence; under 30 words in all).
   "checklist": dg_title (what it checks, max 8 words: "Before an agent touches production") + dg_items
     (4-7 checks, each max 8 words, each a thing the reader can tick off as true) + dg_line (an optional
     footer, max 8 words, e.g. "Tick all five before go-live").
@@ -1240,8 +1266,17 @@ The formats:
     date exactly as given, "what": max 8 words}, oldest first) + dg_pick (the turning point, 0-based).
     ONLY dates and facts the post or the author's profile states: never a year you worked out or made up.
   In every diagram the shape IS the argument: one accent on the one element that matters.
-- "your_photo": the author's own photo with ONE short line under it: card_headline = the post's
-  point in max 9 words, card_emphasis = 1-3 words of it.
+- "explainer": a hand-drawn explainer sketch in the style of Sketchplanations: simple black ink lines on warm
+  paper that show the post's MECHANISM, with a few hand-lettered labels and ONE red accent on the thing to
+  notice. ex_title = max 6 words; ex_scene = 2-4 sentences saying exactly what is drawn where: one simple scene,
+  or two panels side by side with short headers (e.g. "WHAT BOARDS HEAR" / "WHAT YOU GET", "EARLY" / "LATER");
+  ordinary objects, simple stick figures, speech bubbles; specific to THIS post. ex_labels = 2-6 hand-lettered
+  labels, max 4 words each, every word easy to spell (the panel headers and any speech-bubble words count as
+  labels); ex_accent = what gets the red accent. Never lightbulbs, rockets, gears, puzzle pieces, handshakes,
+  chess, robots, brains, mountains or charts going up.
+- "your_photo": the author's own photo, posted as it is (no text on it: the caption tells the story);
+  card_headline = the post's point in max 9 words (used only when the account asks for a line on its photos),
+  card_emphasis = 1-3 words of it.
 - "photo_card": a realistic PHOTOGRAPH of the moment (fill image_concept) with ONE short line under
   it: card_headline = the post's point in max 9 words, card_emphasis = 1-3 words of it.
 - "scene": the same kind of photo with no text, when the picture alone says it.
@@ -1257,6 +1292,12 @@ The formats:
   (one item per line), with a blank line between blocks (use \\n\\n between blocks, \\n only between list
   items). Never one sentence per line: a stack of one-line sentences reads as AI. No hashtags, emojis,
   quotation marks, bold or a question to the reader at the end.
+- "note_card": the post's one line written by hand in pen on plain paper, signed small (like Sahil Bloom's
+  and Gary Vaynerchuk's handwritten notes): card_headline = the line, 8-22 words, complete and quotable on its
+  own, in the author's plain words; card_emphasis = 1-2 of its words to underline (the turn) or "".
+- "page_card": a cropped printed page: page_setup = two or three short sentences (30-55 words) that lead up to
+  the claim, in the author's voice, only what the post says; card_headline = the claim, 4-12 words, set in bold
+  as the page's last line.
 - "statement_card": ONE principle the author stands by, as a single big sentence on a plain card (like
   Steven Bartlett's "If you don't care about tiny details you'll produce bad work..."): card_headline = the
   sentence, 8-22 words, complete and quotable on its own; card_emphasis = its turn (max 9 words) or "".
@@ -1628,13 +1669,63 @@ def _small_jpeg(im: Image.Image, edge: int = 1500) -> bytes:
     return buf.getvalue()
 
 
-def _checked_image(prompt: str, check: str, ratio: str = "4:5", size: str = "1K", compose=None, quick: bool = False):
+# ── the craft gate (22 Nov 2026 image-type audit) ───────────────────────────────────────────────────────────────
+# A Claude judge scores a finished picture 1-10 for top-level vs generic, seeing only the image. Proven first on 42
+# labelled images (our research): it sorted 41 correctly, every generic one (stock clichés, AI desks, slogans on
+# billboards) 2-4, editorial artists 8-10. Craft isn't performance (viral plain visuals scored 4-5), so it gates only
+# AI-drawn pictures, with a floor per format; exact drawn cards never go through it. A judge that can't answer lets
+# the picture through. IMAGE_JUDGE=0 turns it off.
+IMAGE_JUDGE = os.getenv("IMAGE_JUDGE", "1") != "0"
+JUDGE_MIN = {"concept": 7, "explainer": 6, "notebook": 5}
+
+_CRAFT_SYSTEM = """You are a strict art director for senior B2B LinkedIn creators (consultants, founders, CXOs). You judge ONE
+image the way a busy senior reader sees it on a phone in the feed: is it top-level, the kind that stops the scroll and
+gets saved, or generic, the kind that reads as a template, stock or AI filler and gets scrolled past?
+Score 1-10:
+9-10: one clear idea made visible in a memorable, crafted way (an Economist cover, an Aaron Tilley still life, a
+  hand-drawn framework a reader would save); nothing decorative; specific, not interchangeable.
+7-8: clearly made for a point, crafted and readable, no clichés; you'd post it.
+5-6: competent but template or stock in feel; interchangeable with a thousand posts.
+1-4: generic: stock clichés (handshakes, rockets, lightbulbs, chess pieces, glowing brains, robots, mountains/flags,
+  puzzle pieces), 3D mascots or clay figures for no reason, purple/blue gradients and glow, a cosy desk with coffee,
+  plant and laptop, a slogan pasted on a billboard or object, AI sheen, decoration unrelated to any point, text too
+  dense or small to read on a phone, misspellings.
+Judge the image itself, not whether you agree with its message."""
+
+
+def _craft_score(im) -> int | None:
+    """The judge's 1-10 for a finished picture; None when it can't answer (then nothing is blocked)."""
+    if not IMAGE_JUDGE:
+        return None
+    try:
+        from llm import look_json
+        r = look_json('Return JSON: {"score": 1-10, "verdict": "top|ok|generic", "why": "one sentence"}',
+                      _small_jpeg(im.copy(), 1100), system=_CRAFT_SYSTEM) or {}
+        s = r.get("score")
+        return int(s) if isinstance(s, (int, float)) else None
+    except Exception:
+        return None
+
+
+def _checked_image(prompt: str, check: str, ratio: str = "4:5", size: str = "1K", compose=None, quick: bool = False,
+                   judge_min: int = 0):
     """Draw an image (a second drawing if the first fails or can't be finished), finish it
     (compose: our type on top), and have Claude look at the finished image against what was
     asked. When it finds a problem the image model repairs that one thing on the same drawing and
     Claude looks again. The PIL image, or None when no drawing passes, so the caller shows a card
-    instead of a picture known to be wrong. A check that can't run lets the drawing through."""
+    instead of a picture known to be wrong. A check that can't run lets the drawing through.
+    judge_min: a picture that passes must also score at least this with the craft judge (above); one that reads as
+    generic gets one fresh drawing (none when quick), then None, so the caller's exact fallback is used."""
     from llm import generate_image, look_json
+
+    def _good(im) -> bool:
+        if not judge_min:
+            return True
+        s = _craft_score(im)
+        if s is not None and s < judge_min:
+            logging.info(f"[Image] craft judge {s} < {judge_min}: reads as generic, not used")
+            return False
+        return True
 
     def _finish(b: bytes | None):
         if not b:
@@ -1663,29 +1754,33 @@ def _checked_image(prompt: str, check: str, ratio: str = "4:5", size: str = "1K"
         logging.warning("[Image] no usable drawing in 2 tries")
         return None
     verdict = _verdict(final)
+    generic = False
     if verdict.get("ok") is not False:
-        return final
-    fix = (verdict.get("fix") or "").strip()
-    logging.info(f"[Image] check: {verdict.get('problems')} -> repair: {fix}")
-    fixed = _finish(generate_image(
-        f"Edit this image. {fix} Keep everything else exactly as it is: the same layout, colours, words "
-        "and style, and empty space empty.", aspect_ratio=ratio, size=size, edit=b)) if fix else None
-    if fixed is not None:
-        again = _verdict(fixed)
-        logging.info(f"[Image] after repair: {'ok' if again.get('ok') is not False else again.get('problems')}")
-        if again.get("ok") is not False:
-            return fixed
+        if _good(final):
+            return final
+        generic = True   # right, but reads as generic: a repair can't fix that, so straight to a fresh drawing
+    if not generic:
+        fix = (verdict.get("fix") or "").strip()
+        logging.info(f"[Image] check: {verdict.get('problems')} -> repair: {fix}")
+        fixed = _finish(generate_image(
+            f"Edit this image. {fix} Keep everything else exactly as it is: the same layout, colours, words "
+            "and style, and empty space empty.", aspect_ratio=ratio, size=size, edit=b)) if fix else None
+        if fixed is not None:
+            again = _verdict(fixed)
+            logging.info(f"[Image] after repair: {'ok' if again.get('ok') is not False else again.get('problems')}")
+            if again.get("ok") is not False and _good(fixed):
+                return fixed
     if quick:   # a first try with a fallback behind it (the Idea picture's metaphor): no third drawing
-        logging.info(f"[Image] quick try failed the check: {verdict.get('problems')}")
+        logging.info(f"[Image] quick try failed the check: {verdict.get('problems') or 'reads as generic'}")
         return None
     # The repair didn't take: one fresh, simpler drawing, kept only if it passes as drawn. Without it 1 in 5
     # Idea pictures came back as a plain card (21 Nov 2026 audit).
     fresh = _finish(generate_image(
         prompt + " Keep it simple: fewer, larger objects, every word large and printed clearly, nothing else.",
         aspect_ratio=ratio, size=size))
-    if fresh is not None and _verdict(fresh).get("ok") is not False:
+    if fresh is not None and _verdict(fresh).get("ok") is not False and _good(fresh):
         return fresh
-    logging.warning(f"[Image] no drawing passed the check: {verdict.get('problems')}")
+    logging.warning(f"[Image] no drawing passed the check: {verdict.get('problems') or 'read as generic'}")
     return None
 
 
@@ -1715,12 +1810,14 @@ def _concept_image(content: dict, company: dict, look: dict, footer: str):
                          .replace(f"WHAT THE PICTURE SHOULD SHOW: {content.get('image_concept', '')}",
                                   f"WHAT THE PICTURE SHOULD SHOW: {meta_c['image_concept']}")
         img = _checked_image(_build_concept_prompt(meta_c, look, _region_for(company), "metaphor"), meta_check, ratio="4:5",
-                             size="1K", compose=lambda pic: _letter_concept(pic, meta_c, look, footer, font_key), quick=True)
+                             size="1K", compose=lambda pic: _letter_concept(pic, meta_c, look, footer, font_key), quick=True,
+                             judge_min=JUDGE_MIN["concept"])
         if img is not None:
             content["concept_used"] = "metaphor"
     if img is None:
         img = _checked_image(_build_concept_prompt(content, look, _region_for(company), medium), check, ratio="4:5",
-                             size="1K", compose=lambda pic: _letter_concept(pic, content, look, footer, font_key))
+                             size="1K", compose=lambda pic: _letter_concept(pic, content, look, footer, font_key),
+                             judge_min=JUDGE_MIN["concept"])
         if img is not None and content.get("metaphor_concept"):
             content["concept_used"] = "artifact"
     if img is not None:
@@ -1746,6 +1843,30 @@ def _words_check(kind: str, words: list, shows: str) -> str:
             f"(handwriting is fine; capitals may differ): {json.dumps([w for w in words if w], ensure_ascii=False)}.\n"
             f"A misspelt, garbled, doubled or extra word is a blocker, and so are page numbers, margin notes or writing "
             f"on another page.\nWHAT IT SHOULD SHOW: {shows}")
+
+
+def _explainer_image(content: dict, company: dict | None):
+    """The hand-drawn explainer sketch (22 Nov 2026 image-type audit): the post's mechanism in Sketchplanations' style,
+    simple ink lines on warm paper, a few hand-lettered labels, one red accent. Teaching visuals earn the most
+    reposts (our 111 top posts: 10-20 per 100 reactions); on four real posts this scored 6-8 with the craft judge,
+    level with the metaphor Idea picture and above our notebooks. Checked like every drawing, then gated."""
+    title = (content.get("ex_title") or "").strip()
+    labels = [str(l).strip() for l in content.get("ex_labels") or [] if str(l).strip()][:6]
+    sig = _signature_name(company)
+    words = ([title] if title else []) + labels + ([sig] if sig else [])
+    prompt = ("A hand-drawn explainer sketch in the style of Sketchplanations: simple, confident black ink lines on warm "
+              "off-white paper, lots of empty space, flat, no shading, no photo, no frame, no desk. "
+              + (f'Hand-lettered title at the top: "{title}". ' if title else "")
+              + f"{content.get('ex_scene', '')} Hand-lettered labels, exactly these words and no others: "
+              + "; ".join(f'"{w}"' for w in labels)
+              + f". The only colour is a red accent on {content.get('ex_accent') or 'the one thing to notice'}. "
+              + (f'Signed small at the bottom right in the same hand: "{sig}". ' if sig else "")
+              + "Spell every word exactly as given; no other text, no logos. Vertical 4:5, everything large enough to "
+                "read on a phone.")
+    check = _words_check("a hand-drawn explainer sketch", words,
+                         f"a simple ink sketch: {content.get('ex_scene', '')} Red accent on {content.get('ex_accent', '')}.")
+    return _checked_image(prompt, check, ratio="4:5", size="1K",
+                          compose=lambda pic: _cover_crop(pic, IMG_POST_W, IMG_POST_H), judge_min=JUDGE_MIN["explainer"])
 
 
 def _notebook_image(content: dict, company: dict | None):
@@ -1791,7 +1912,7 @@ def _notebook_image(content: dict, company: dict | None):
     check = _words_check("a notebook sketchnote", words, "a hand-drawn framework on a notebook page: " + "; ".join(items)
                          + ". Section numbers (1, 2, 3...) and small hand-drawn icons are part of the design, not extra words.")
     return _checked_image(prompt, check, ratio="4:5", size="1K",
-                          compose=lambda pic: _cover_crop(pic, IMG_POST_W, IMG_POST_H))
+                          compose=lambda pic: _cover_crop(pic, IMG_POST_W, IMG_POST_H), judge_min=JUDGE_MIN["notebook"])
 
 
 def _house_highlighter(company: dict | None) -> str:
@@ -1902,6 +2023,12 @@ def render_diagram_png(content: dict, company: dict | None, author: dict | None 
         # round 2 kinds (22 Nov 2026)
         elif kind == "checklist" and len(g("dg_items")) >= 3:
             img = designs.checklist_card(t, g("dg_title"), g("dg_items"), g("dg_line"), name, title, avatar)
+        elif kind == "ladder" and len(g("dg_levels")) >= 3 and g("dg_title"):
+            img = designs.ladder_card(t["accent"], g("dg_title"), g("dg_levels"), g("dg_from") or "Least",
+                                      g("dg_to") or "Most", _signature_name(company), surface=_surface_of(content))
+        elif kind == "pairs" and len(g("dg_pairs")) >= 3:
+            img = designs.pairs_card(t["accent"], g("dg_pairs_title") or g("dg_title"), g("dg_line"), g("dg_pairs"),
+                                     _signature_name(company), surface=_surface_of(content))
         elif kind == "before_after" and g("dg_left") and g("dg_right"):
             before, after = " ".join(g("dg_left")), " ".join(g("dg_right"))   # the writer may split a line into rows
             img = designs.before_after_card(t, g("dg_title"), before, after, g("dg_left_head") or "Before",
@@ -1925,9 +2052,24 @@ def render_diagram_png(content: dict, company: dict | None, author: dict | None 
         return None
     if meta is not None:
         meta.update(format="diagram", theme=theme, kind=kind)
+        if kind in ("ladder", "pairs"):
+            meta["band"] = _BAND_OF_SURFACE[_surface_of(content)]
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _portrait_crop(img: Image.Image) -> Image.Image:
+    """The author's photo at 4:5 for the feed, nothing added. A tall photo keeps more of its top (faces sit in the
+    upper third), a wide one stays centred."""
+    img = img.convert("RGB")
+    sw, sh = img.size
+    w, h = IMG_POST_W, IMG_POST_H
+    scale = max(w / sw, h / sh)
+    r = img.resize((max(1, round(sw * scale)), max(1, round(sh * scale))), Image.LANCZOS)
+    nw, nh = r.size
+    left, top = (nw - w) // 2, int((nh - h) * 0.3)
+    return r.crop((left, top, left + w, top + h))
 
 
 def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
@@ -1942,9 +2084,11 @@ def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
 
 
 _IMAGE_FORMATS = ("concept", "photo_card", "scene", "quote_card", "list_card", "tweet_card",
-                  "notebook", "object_quote", "diagram", "your_photo", "statement_card")
+                  "notebook", "object_quote", "diagram", "your_photo", "statement_card", "explainer",
+                  "note_card", "page_card", "dark_note")
 _DIAGRAM_KINDS = ("steps", "compare", "matrix", "stat", "chart", "spectrum", "venn", "gap",
-                  "checklist", "before_after", "scorecard", "table", "timeline")   # round 2 (22 Nov 2026)
+                  "checklist", "before_after", "scorecard", "table", "timeline",   # round 2 (22 Nov 2026)
+                  "ladder", "pairs")                                                # hand-lettered (22 Nov 2026)
 
 
 def _tweet_text(raw, company: dict | None = None) -> str:
@@ -2055,6 +2199,18 @@ def _chart_bars(bars, text: str) -> list:
     return out[:6]
 
 
+def _pairs(xs, n: int = 6, words: int = 4) -> list:
+    """Up to n (when, do) pairs, both sides non-empty and short ('OVERTHINKING -> WRITE'); a side over `words` words
+    drops the pair rather than cutting it mid-phrase."""
+    out = []
+    for x in xs or []:
+        if isinstance(x, dict):
+            a, b = " ".join(str(x.get("when") or "").split()), " ".join(str(x.get("do") or "").split())
+            if a and b and len(a.split()) <= words and len(b.split()) <= words:
+                out.append((a, b))
+    return out[:n]
+
+
 def _short_list(xs, n: int, words: int) -> list:
     """Up to n non-empty strings, each cut to its first `words` words."""
     out = []
@@ -2063,6 +2219,59 @@ def _short_list(xs, n: int, words: int) -> list:
         if s:
             out.append(s)
     return out[:n]
+
+
+# ── variety: the background of each picture (22 Nov 2026 variety research) ──────────────────────────────────────
+# Keep the author's identity (hand, ink, accent, signature), change the form: never two paper pictures in a row and
+# at least 3 of the backgrounds in any 5 posts. A picture's background ("band"): photo, paper, light, dark, art.
+_BAND_OF_SURFACE = {"paper": "paper", "white": "light", "dark": "dark"}
+_SURFACE_OF_BAND = {"paper": "paper", "light": "white", "dark": "dark"}
+VARY_BACKGROUNDS = os.getenv("VARY_BACKGROUNDS", "1") != "0"
+
+
+def _surface_of(content: dict) -> str:
+    s = str((content or {}).get("surface") or "paper")
+    return s if s in _BAND_OF_SURFACE else "paper"
+
+
+def _least_used(recent: list, allowed: tuple) -> str:
+    """The band in allowed the last few pictures used least, never the last one's when another is allowed; ties go
+    to allowed's order (its first is the default)."""
+    last = recent[0] if recent else ""
+    choices = [b for b in allowed if b != last] or list(allowed)
+    return min(choices, key=lambda b: (recent[:4].count(b), allowed.index(b)))
+
+
+def picture_band(meta: dict, content: dict, company: dict | None) -> str:
+    """What a drawn picture's background reads as, for the next one to differ."""
+    if meta.get("band"):
+        return meta["band"]
+    fmt = meta.get("format") or content.get("format") or ""
+    if fmt == "your_photo":
+        return "photo"
+    if fmt in ("explainer", "notebook", "page_card", "note_card"):
+        return "paper"
+    if fmt in ("concept", "photo_card", "scene", "object_quote"):
+        return "art"
+    try:
+        look = _v2_look(_card_look(meta.get("theme") or "", company), company)
+        return "dark" if _luminance(look["bg"]) < 0.4 else "light"
+    except Exception:
+        return "light"
+
+
+def _vary(out: dict, company: dict | None) -> dict:
+    """The hand-made cards and notes take the background the author's last pictures used least; a note or a page
+    right after a paper picture becomes the dark typed note."""
+    recent = [b for b in (company or {}).get("recent_bands") or [] if b]
+    if not VARY_BACKGROUNDS or not recent:
+        return out
+    f, k = out["format"], out["diagram_kind"]
+    if f == "diagram" and k in ("ladder", "pairs"):
+        out["surface"] = _SURFACE_OF_BAND[_least_used(recent, ("paper", "light", "dark"))]
+    elif f in ("note_card", "page_card") and recent[0] == "paper" and (out["card_headline"] or out["tweet_text"]):
+        out["format"] = "dark_note"
+    return out
 
 
 def generate_ai_image_post(raw_text: str, company: dict = None, force_format: str = None,
@@ -2116,9 +2325,12 @@ Return ONLY valid JSON (fill only the fields your format uses; leave the rest em
 {{"reader": "who the picture is for, in a few words", "reader_artifact": "(concept) the reader's own thing the picture is built on", "post_shape": "list|contrast|tradeoff|stat|claim|argument|moment", "format": "{'|'.join(_IMAGE_FORMATS)}",
 "image_concept": "... (concept, photo_card and scene)", "image_words": ["... (concept)"],
 "card_tag": "...", "card_headline": "...", "card_emphasis": "...", "card_subtext": "...", "tweet_text": "... (tweet_card)",
+"page_setup": "... (page_card)",
+"ex_title": "... (explainer)", "ex_scene": "...", "ex_labels": ["..."], "ex_accent": "...",
 "card_points": ["...", "..."], "card_icons": ["...", "..."],
 "nb_title": "...", "nb_items": ["..."], "nb_lines": ["..."], "nb_style": "sections|flow|checklist", "nb_footer": "...",
-"diagram_kind": "steps|compare|matrix|stat|chart|spectrum|venn|gap|checklist|before_after|scorecard|table|timeline", "dg_title": "...", "dg_items": ["..."], "dg_left_head": "...",
+"diagram_kind": "ladder|pairs|steps|compare|matrix|stat|chart|spectrum|venn|gap|checklist|before_after|scorecard|table|timeline", "dg_title": "...", "dg_items": ["..."],
+"dg_levels": ["... (ladder, worst first)"], "dg_pairs_title": "...", "dg_pairs": [{{"when": "...", "do": "..."}}], "dg_left_head": "...",
 "dg_right_head": "...", "dg_left": ["..."], "dg_right": ["..."], "dg_x": "...", "dg_y": "...", "dg_cells": ["...", "...", "...", "..."],
 "dg_pick": 0, "dg_number": "...", "dg_line": "...", "dg_source": "...", "dg_bars": [{{"label": "...", "value": "..."}}],
 "dg_from": "...", "dg_to": "...", "dg_stops": ["..."], "dg_a": "...", "dg_b": "...", "dg_overlap": "...",
@@ -2155,9 +2367,16 @@ Return ONLY JSON: {{"post_text": "..."}}""",
     if force_format in _IMAGE_FORMATS:
         fmt = force_format
     if fmt not in _IMAGE_FORMATS:
-        fmt = "photo_card" if (result.get("image_concept") or "").strip() else "quote_card"
+        fmt = _LINE_CARD if (result.get("card_headline") or "").strip() else "quote_card"
     if fmt == "your_photo" and not has_photos:
-        fmt = "photo_card" if (result.get("image_concept") or "").strip() else "quote_card"
+        fmt = _LINE_CARD if (result.get("card_headline") or "").strip() else "quote_card"
+    # Retired from Auto (22 Nov 2026 image audit, both in the craft judge's generic band, 4-5): the AI stock-like
+    # photo and the whiteboard quote. Still made when asked for by name.
+    # And (22 Nov 2026 opinion-visual research) the tweet-screenshot card, the weakest single-line picture, and the
+    # designed statement card: a line goes on the handwritten note instead.
+    retired = ("photo_card", "scene", "object_quote") + (("tweet_card", "statement_card") if NOTE_CARD else ())
+    if force_format not in _IMAGE_FORMATS and fmt in retired:
+        fmt = _LINE_CARD if (result.get("card_headline") or result.get("key_line") or "").strip() else "quote_card"
     g = lambda k: str(result.get(k) or "").strip()
     try:
         pick = int(result.get("dg_pick") or 0)
@@ -2209,7 +2428,14 @@ Return ONLY JSON: {{"post_text": "..."}}""",
         "dg_rows":       _short_list(result.get("dg_rows"), 6, 5),
         "dg_marks":      _short_list(result.get("dg_marks"), 24, 2),
         "dg_events":     _timeline_events(result.get("dg_events"), raw_text),
+        "dg_levels":     _short_list(result.get("dg_levels"), 5, 14),
+        "dg_pairs":      _pairs(result.get("dg_pairs")),
+        "dg_pairs_title": " ".join(g("dg_pairs_title").split()[:6]),
         "dg_pick_n":     pick if 0 <= pick <= 9 else 0,
+        "ex_title":      " ".join(g("ex_title").split()[:7]),
+        "ex_scene":      " ".join(g("ex_scene").split()[:90]),
+        "ex_labels":     _short_list(result.get("ex_labels"), 6, 5),
+        "ex_accent":     " ".join(g("ex_accent").split()[:12]),
         "image_concept": (result.get("image_concept") or "").strip(),
         "image_words":   [str(x).strip() for x in (result.get("image_words") or []) if str(x).strip()][:12],
         "card_tag":      drop_author_furniture((result.get("card_tag") or "").strip(), company),
@@ -2217,6 +2443,7 @@ Return ONLY JSON: {{"post_text": "..."}}""",
         "card_emphasis": (result.get("card_emphasis") or "").strip(),
         "card_subtext":  (result.get("card_subtext") or "").strip(),
         "tweet_text":    _tweet_text(result.get("tweet_text"), company),
+        "page_setup":    " ".join(g("page_setup").split()[:70]),
         "card_points":   [str(x).strip() for x in (result.get("card_points") or []) if str(x).strip()][:4],
         "card_icons":    [(str(x).strip().lower() if str(x).strip().lower() in CARD_ICONS else "")
                           for x in (result.get("card_icons") or [])][:4],
@@ -2224,12 +2451,23 @@ Return ONLY JSON: {{"post_text": "..."}}""",
         "key_line":      (result.get("key_line") or "").strip(),
         "post_text":     drop_author_furniture(_strip_markdown(result.get("post_text", "") or ""), company),
     }
+    # The plain checklist is the weakest list picture (22 Nov 2026: the writer still chose it for 3 of 4 list posts):
+    # the same checks go on the ladder, else as pairs. Kept only when neither was written.
+    if out["format"] == "diagram" and out["diagram_kind"] == "checklist":
+        if len(out["dg_levels"]) >= 3 and out["dg_title"]:
+            out["diagram_kind"] = "ladder"
+        elif len(out["dg_pairs"]) >= 3:
+            out["diagram_kind"] = "pairs"
     # The writer names the post's shape first; a format that doesn't fit it is put right when the fields for the
     # right one are there (22 Nov 2026: Auto drew an Idea picture for a ✔-checklist post)
     if force_format not in _IMAGE_FORMATS:
         shape, f = out["post_shape"], out["format"]
         if shape == "list" and f not in ("notebook", "diagram"):
-            if len(out["nb_items"]) >= 3:
+            if len(out["dg_levels"]) >= 3:
+                out.update(format="diagram", diagram_kind="ladder")
+            elif len(out["dg_pairs"]) >= 3:
+                out.update(format="diagram", diagram_kind="pairs")
+            elif len(out["nb_items"]) >= 3:
                 out["format"] = "notebook"
             elif len(out["dg_items"]) >= 3:
                 out.update(format="diagram", diagram_kind="steps")
@@ -2248,14 +2486,26 @@ Return ONLY JSON: {{"post_text": "..."}}""",
                      "gap": out["dg_top"] and out["dg_bottom"] and out["dg_gap"]}[kind]
             if ready:
                 out.update(format="diagram", diagram_kind=kind)
-        elif shape == "claim" and f not in ("object_quote", "tweet_card", "statement_card") and out["card_headline"]:
-            out["format"] = "object_quote"
+        elif shape == "mechanism" and f != "explainer" and out["ex_scene"] and len(out["ex_labels"]) >= 2:
+            out["format"] = "explainer"
+        elif shape == "claim" and f not in ("tweet_card", "statement_card", "note_card", "page_card") and out["card_headline"]:
+            out["format"] = _LINE_CARD
         # Never the same kind of picture twice in a row for one author (22 Nov 2026: with list posts common, four
         # Auto pictures in a row came out as notebooks): a list alternates notebook and Voyce's steps diagram, a
         # claim alternates handwritten quote and statement card.
         last = str((company or {}).get("last_picture_format") or "")
-        f = out["format"]
-        if f == "notebook" and last == "notebook" and len(out["nb_items"]) >= 3:
+        last_kind = str((company or {}).get("last_picture_kind") or "")
+        f, k = out["format"], out["diagram_kind"]
+        if f == "diagram" and k in ("ladder", "pairs") and last == "diagram" and last_kind == k:
+            # the other hand-lettered structure, else the notebook
+            other = "pairs" if k == "ladder" else "ladder"
+            if len(out["dg_pairs" if other == "pairs" else "dg_levels"]) >= 3:
+                out["diagram_kind"] = other
+            elif len(out["nb_items"]) >= 3:
+                out["format"] = "notebook"
+        elif f == "notebook" and last == "notebook" and (len(out["dg_levels"]) >= 3 or len(out["dg_pairs"]) >= 3):
+            out.update(format="diagram", diagram_kind="ladder" if len(out["dg_levels"]) >= 3 else "pairs")
+        elif f == "notebook" and last == "notebook" and len(out["nb_items"]) >= 3:
             out.update(format="diagram", diagram_kind="steps", dg_title=out["dg_title"] or out["nb_title"],
                        dg_items=out["dg_items"] or out["nb_items"])
         elif f == "diagram" and out["diagram_kind"] in ("steps", "checklist") and last == "diagram" and len(out["nb_items"] or out["dg_items"]) >= 3:
@@ -2263,10 +2513,18 @@ Return ONLY JSON: {{"post_text": "..."}}""",
                        nb_items=out["nb_items"] or out["dg_items"][:5])
         elif f == "object_quote" and last == "object_quote":
             out["format"] = "tweet_card"
-        elif f == "tweet_card" and last == "tweet_card" and out["card_headline"] and len(out["card_headline"].split()) <= 14:
-            out["format"] = "object_quote"
+        elif f == "tweet_card" and last == "tweet_card" and out["card_headline"]:
+            out["format"] = "statement_card"
+        elif f == "explainer" and last == "explainer" and (out["dg_left"] and out["dg_right"] or len(out["dg_items"]) >= 3):
+            out.update(format="diagram", diagram_kind="compare" if out["dg_left"] and out["dg_right"] else "steps")
         elif f == "statement_card" and last == "statement_card":
-            out["format"] = "object_quote" if len(out["card_headline"].split()) <= 12 else "tweet_card"
+            out["format"] = "tweet_card" if out["tweet_text"] else "quote_card"
+        elif f == "note_card" and last == "note_card":
+            out["format"] = "page_card" if out["page_setup"] else "statement_card"
+        elif f == "page_card" and last == "page_card":
+            out["format"] = "note_card"
+    if force_format not in _IMAGE_FORMATS:
+        out = _vary(out, company)
     if out["format"] == "concept" and out["image_concept"] and out["card_headline"]:
         out.update(concept_metaphor(out, company))
     return out
@@ -2375,7 +2633,8 @@ def render_ai_image_options(content: dict, company: dict, author: dict | None = 
             photo = None
     designed = ((fmt == "list_card" and content.get("card_points"))
                 or (fmt in ("quote_card", "tweet_card", "statement_card") and (content.get("card_headline") or content.get("key_line")))
-                or (fmt in ("photo_card", "your_photo") and photo is not None)
+                or (fmt == "photo_card" and photo is not None)
+                or (fmt == "your_photo" and photo is not None and YOUR_PHOTO_LINE)
                 or (fmt == "diagram" and content.get("diagram_kind")))
     out = []
     themes = _option_themes(theme, n, company) if designed else [theme]
@@ -2434,6 +2693,18 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
             meta.update(format="object_quote", theme="")
             return _png(img)
         fmt = "quote_card"   # the line on a designed card
+    if fmt == "explainer" and content.get("ex_scene") and len(content.get("ex_labels") or []) >= 2:
+        img = _explainer_image(content, company)
+        if img is not None:
+            meta.update(format="explainer", theme="")
+            return _png(img)
+        # the sketch didn't pass (words or the craft gate): the same point on an exact card Voyce draws
+        if content.get("dg_left") and content.get("dg_right"):
+            content, fmt = {**content, "format": "diagram", "diagram_kind": "compare"}, "diagram"
+        elif len(content.get("dg_items") or []) >= 3:
+            content, fmt = {**content, "format": "diagram", "diagram_kind": "steps"}, "diagram"
+        else:
+            fmt = _LINE_CARD if content.get("card_headline") else "quote_card"
     if fmt == "diagram":
         png = render_diagram_png(content, company, author=author, theme=theme, meta=meta)
         if png:
@@ -2444,7 +2715,7 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
             fmt = "list_card"
         else:
             fmt = "quote_card"
-    if fmt == "your_photo" and content.get("card_headline"):
+    if fmt == "your_photo" and (content.get("card_headline") or not YOUR_PHOTO_LINE):
         if photo is None:
             try:
                 import author_photos
@@ -2452,6 +2723,9 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
             except Exception:
                 logging.exception("[Image] could not read the author's photos")
                 photo = None
+        if photo is not None and photo is not False and not (YOUR_PHOTO_LINE and content.get("card_headline")):
+            meta.update(format="your_photo", theme="")
+            return _png(_portrait_crop(photo))           # the photo as it is: the caption tells the story
         if photo is not None and photo is not False:
             name, avatar_img = _card_author(brand, author)
             theme = _pick_card_theme(theme, company)
@@ -2530,6 +2804,39 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         if TWEET_CARD_STYLE == "post" and (content.get("tweet_text") or "").strip():
             card_line = content["tweet_text"].strip()   # the post-shaped text, line breaks kept
         return render_statement_card_png(card_line, company, author=author, theme=theme, meta=meta)
+    if fmt == "page_card" and not (content.get("page_setup") or "").strip():
+        fmt = "note_card"                                 # no setup written: the line on its own
+    if fmt == "dark_note" and (content.get("tweet_text") or content.get("page_setup") or content.get("card_headline")
+                               or content.get("key_line")):
+        try:
+            import designs
+            accent = _v2_look(_card_look(_pick_card_theme(theme, company), company), company)["accent"]
+            text = (content.get("tweet_text") or "").strip() or " ".join(
+                x for x in ((content.get("page_setup") or "").strip(),
+                            (content.get("card_headline") or content.get("key_line") or "").strip()) if x)
+            img = designs.typed_note(accent, " ".join(text.split()[:120]) if "\n\n" not in text else text,
+                                     _signature_name(company), "dark")
+            meta.update(format="dark_note", theme="", band="dark")
+            return _png(img)
+        except Exception:
+            logging.exception("[Image] dark note failed; drawing the note")
+            fmt = "note_card"
+    if fmt in ("note_card", "page_card") and (content.get("card_headline") or content.get("key_line")):
+        try:
+            import designs
+            accent = _v2_look(_card_look(_pick_card_theme(theme, company), company), company)["accent"]
+            line = (content.get("card_headline") or content.get("key_line", "")).strip()
+            if fmt == "note_card":
+                img = designs.note_card(accent, " ".join(line.split()[:30]), content.get("card_emphasis", ""),
+                                        _signature_name(company), surface=_surface_of(content))
+            else:
+                img = designs.page_card(accent, content["page_setup"], " ".join(line.split()[:16]),
+                                        (company or {}).get("name", "") if (company or {}).get("profile_type") != "company" else "")
+            meta.update(format=fmt, theme="", band=_BAND_OF_SURFACE[_surface_of(content)] if fmt == "note_card" else "paper")
+            return _png(img)
+        except Exception:
+            logging.exception("[Image] %s failed; drawing the statement card", fmt)
+            fmt = "statement_card"
     if fmt == "statement_card" and (content.get("card_headline") or content.get("key_line")):
         # One big sentence on a plain card (top-posts research, 22 Nov 2026: Steven Bartlett's 11,146-reaction card),
         # its own format again beside the post-style tweet card
@@ -2721,16 +3028,21 @@ def render_source_card_png(meta: dict, company: dict = None) -> bytes:
 _CAROUSEL_SYSTEM = """You are a world-class LinkedIn carousel strategist for founders and creators.
 
 GOAL — SAVE-WORTHY: carousels win because people SAVE them, and saves drive reach far more than
-likes. Build a keepable reference: a step-by-step playbook, a numbered framework, or a checklist —
-something a reader thinks "I need this later." These formats earn the most saves; prefer them.
+likes. Build a keepable reference the reader thinks "I need this later" about. Build it as a CONTRAST
+whenever the content allows: every point slide shows what most people do against what works (in our
+2026 study of real decks, contrast decks ran about 2.5x their authors' usual reactions; "N tips" list
+decks ran 0.2-0.8x, even when illustrated).
 
 DECK STRUCTURE — a five-part narrative, follow it exactly:
 1. hook_slide     — the cover. The single most important slide.
-2. context_slide  — slide 2: answers "why should I keep swiping?" Name the stakes/pain in 1-2 lines.
+2. context_slide  — slide 2 earns slide 3 (three in four readers stop at the cover): the stakes as a
+   number or a moment from the content, the proof, or a preview of the payoff. Max 20 words in all.
+   Never the cover's number again, never point 1 early.
 3. content_slides — 4 to 6 slides, ONE idea per slide, in a logical progression.
 4. recap_slide    — 3 to 5 one-line takeaways the reader can screenshot.
 5. cta_slide      — a single, specific next action.
-Total deck = 8 to 10 slides. Never fewer than 7, never more than 10: a tight deck gets swiped to the end.
+Total deck = 9 to 12 slides (Voyce adds a cheat-sheet slide built from your points): decks of 11-15 pages
+did 16% better than decks of 1-10 in a 2026 study of 134,522 posts. Never pad to get there.
 
 ONE IDEA PER SLIDE (the rule most people break):
 - Each content slide makes exactly one point. If a slide has two ideas, split it.
@@ -2747,7 +3059,8 @@ HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formul
   deck; NEVER first-person research claims ("I analyzed", "I studied", "my data") unless the
   provided content proves the author actually did it.
 Make it specific (use a real number/name where you can), and pick the formula that fits this
-content best. The cover carries a NUMBER ("5 mistakes", "24 years", "₹2.4 Cr", "3 checks") or an
+content best. A moment, a surprising number or a contrarian claim; never a question (question openers did
+worst in two 2026 studies). The cover carries a NUMBER ("5 mistakes", "24 years", "₹2.4 Cr", "3 checks") or an
 "X vs Y" ("Busy vs effective", "Old LinkedIn vs new"): 8 of the 9 top-performing carousel covers in our
 2026 study of real posts did. Use one unless the content truly has neither (never invent a number).
 When the content sets two ways against each other, build the whole deck as a comparison (each point
@@ -2763,8 +3076,8 @@ CONTENT SLIDES — each has a "kind":
   company or number that proves the point (max ~18 words: the slide must read on a phone), never the
   advice in other words: wrong and right already say it, and a body that repeats them says it twice. wrong = what most people
   do instead, concrete, max 8 words ("Promote the top closer to manager"); right = the move that
-  works, max 8 words, starts with a verb ("Write the method down first"). The slide shows them as a
-  crossed-out line and a ticked line, the proof the best decks put on every slide. label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
+  works, max 8 words, starts with a verb ("Write the method down first"). The slide shows them as two
+  big cards, crossed out and ticked: they are the slide, so make the difference sharp and concrete. label = a short tag ("STEP 1", "MISTAKE 2", "MYTH",
   "TRUTH") fitting the arc, in the cover's unit: a deck of mistakes says MISTAKE 1, MISTAKE 2,
   never LESSON 1. action = leave empty when right is filled (the ticked line is the move); else the
   one move the reader can make (max 10 words, starts with a verb). tag = the point's
@@ -2774,9 +3087,24 @@ CONTENT SLIDES — each has a "kind":
   for a price, clock for time, people for a team); "" otherwise: a decorative icon is noise.
 - "stat": use when one number IS the story. stat = the number ("43%", "3x", "₹2.4 Cr"); title =
   what it means; body = one line of context. Use at most one stat slide.
+- ONE visual slide (optional, at most one per deck, and not with a stat slide) that draws a point
+  instead of saying it: text-only slides cost 15-25% in van der Blom's study. Pick the kind the content
+  gives you, place it after the point it proves:
+  "chart": title = the claim the numbers prove (max 12 words); bars = 2-5 of {"label": max 4 words,
+    "value": exactly as the content states it, e.g. "28%"}; pick = the bar the claim is about (0-based);
+    source. Only numbers the content states.
+  "flow": title (max 10 words) + steps (3-5, in order, each max 4 words) + mark (0-based: the step most
+    people start at or skip) + note (max 4 words, e.g. "Most start here").
+  "table": title + cols (2-3 headers, max 3 words each) + rows (3-5 lists of cells, max 4 words each, one
+    cell per column) + example (true when row 1 is a filled example from the content and the other rows
+    are left blank for the reader).
+  Never a visual that only restates a point slide.
 - source (any content slide) = where its number or study comes from, exactly as the content given
   names it, in 2-5 words ("Gartner, Oct 2025"); empty when the slide has none. Never the author or
   their own firm, and never a source the content doesn't name.
+
+PULL QUOTE (pull_quote): the deck's sharpest line in 7-12 words, in the author's voice, set alone on a dark
+slide halfway through; never a slide title copied; empty when none stands out.
 
 RECAP SLIDE: title = a short recap heading; bullets = 3-5 one-liners, each a point's name in max 7 words,
 so the deck reads at a glance; never a slide's line copied word for word.
@@ -2784,13 +3112,17 @@ so the deck reads at a glance; never a slide's line copied word for word.
 WORKSHEET SLIDE (worksheet_slide, optional; it takes the recap's place): when the deck teaches a method the
 reader can apply to their OWN work, turn it into a sheet they fill in: title = what they'll end up with
 (max 8 words, e.g. "Your one-sentence test"); prompts = 2-4 fill-in questions in the deck's order, each max
-10 words, answerable in a line ("What do you want clients to repeat?"). The best decks end on a sheet people
+10 words, answerable in a line ("What do you want clients to repeat?"); example = the answer to prompt 1
+for a real case the content names, max 12 words, so the sheet shows what an answer looks like (empty when
+the content has no real case: never invent one). The best decks end on a sheet people
 save to use. Leave it empty when the deck is a story, a teardown or an opinion.
 
-CTA SLIDE: headline = the ONE thing to remember (a declaration). cta = a SINGLE specific ask tied
-to the topic ("Save this for your next launch", "DM me PLAYBOOK for the template", or a genuine
-question). NEVER engagement bait ("Comment YES", "Like if you agree", "Tag a friend") — LinkedIn
-penalizes it. Never stack multiple asks.
+CTA SLIDE: headline = the ONE thing to remember (a declaration). cta = a SINGLE save ask tied to the
+topic ("Save this for your next board review"). NEVER a question (an open question at the end cost 7% of
+engagement in a 2026 study of 134,522 posts), never an offer of a template or guide unless the content
+says the author has one, and never engagement bait ("Comment YES", "Like if you agree", "Tag a friend").
+follow = what the author posts about, 2-5 words, from their profile ("cloud and data decisions"): the slide
+says "Follow <name> for <follow>" beside their photo.
 
 VOICE: if a voice/author profile is provided, write every slide the way that author talks.
 
@@ -2800,6 +3132,10 @@ Attribute third-party results to their source ("Razorpay's report found...", "Fo
 interviewed said..."). Any stat anywhere in the deck must name its source on the same slide or
 be cut — an unverifiable number is worse than no number. Numbers come only from the content or
 context given, never from memory.
+
+COPY (strict): at most ONE "X, not Y" / "not X but Y" / "isn't X, it's Y" line in the whole deck: it is
+the most retained AI structure and readers mark it. No point slide restates slide 2 or another point.
+Every point slide carries one specific from the content: a name, a number, a tool or a real example.
 
 OUTPUT HYGIENE (strict):
 - No markdown (**, ##, backticks), no placeholder tokens like [X] or [Company], no numbered
@@ -2818,16 +3154,18 @@ own line: a caption of one-line sentences reads as a stack of fragments, not a p
 Return ONLY valid JSON."""
 
 _CAROUSEL_SCHEMA = """{
-  "hook_slide": {"headline": "...", "subtext": "...", "audience": "...", "unit": "steps"},
+  "hook_slide": {"headline": "...", "subtext": "...", "audience": "...", "unit": "steps", "wrong_head": "Most teams", "right_head": "Do this"},
   "context_slide": {"title": "...", "body": "..."},
   "content_slides": [
     {"kind": "point", "label": "STEP 1", "title": "...", "body": "...", "wrong": "...", "right": "...", "action": "...", "tag": "...", "icon": "...", "source": ""},
     {"kind": "stat", "label": "THE NUMBER", "stat": "43%", "title": "...", "body": "...", "source": "..."},
-    {"kind": "point", "label": "STEP 2", "title": "...", "body": "...", "wrong": "...", "right": "...", "action": "...", "tag": "...", "icon": "...", "source": ""}
+    {"kind": "point", "label": "STEP 2", "title": "...", "body": "...", "wrong": "...", "right": "...", "action": "...", "tag": "...", "icon": "...", "source": ""},
+    {"kind": "chart|flow|table (one at most; or leave it out)", "title": "...", "bars": [{"label": "...", "value": "..."}], "pick": 0, "steps": ["..."], "mark": 0, "note": "...", "cols": ["..."], "rows": [["...", "..."]], "example": false, "source": ""}
   ],
+  "pull_quote": "...",
   "recap_slide": {"title": "The recap", "bullets": ["...", "...", "..."]},
-  "worksheet_slide": {"title": "...", "prompts": ["...", "..."]},
-  "cta_slide": {"headline": "...", "cta": "..."},
+  "worksheet_slide": {"title": "...", "prompts": ["...", "..."], "example": "..."},
+  "cta_slide": {"headline": "...", "cta": "...", "follow": "..."},
   "post_text": "..."
 }"""
 
@@ -2932,7 +3270,8 @@ def _sentence_case(text: str, deck_text: str) -> str:
 
 def _guard_deck(result: dict) -> dict:
     hook, ctx = result.get("hook_slide") or {}, result.get("context_slide")
-    pts = [s for s in result.get("content_slides") or [] if s.get("kind") != "stat"]
+    # a chart, flow or table slide draws a point; it isn't one of the cover's points ("5 lessons" over 4, 22 Nov 2026)
+    pts = [s for s in result.get("content_slides") or [] if s.get("kind") not in ("stat", "chart", "flow", "table")]
     for s in pts:
         if s.get("wrong") and s.get("right"):
             s["body"] = _drop_repeats(s.get("body", ""), s["wrong"], s["right"])
@@ -2956,7 +3295,100 @@ def _guard_deck(result: dict) -> dict:
     return result
 
 
-def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
+def _visual_slide(s: dict, source_text: str | None) -> dict | None:
+    """A chart, flow or table slide from the writer, checked: a chart keeps only numbers the source states (any
+    number when re-cleaning a deck the user already has); a flow needs 3-5 short steps; a table 2-3 columns and
+    2-5 rows. None when it doesn't hold together."""
+    kind = s.get("kind")
+    out = {"kind": kind, "title": _clean_slide_text(s.get("title", "")) if s.get("title") else "",
+           "source": _clean_slide_text(str(s.get("source", "")).split(";")[0])[:48] if s.get("source") else ""}
+    if not out["title"]:
+        return None
+    try:
+        idx = int(s.get("pick", s.get("mark", -1)) if s.get("pick", s.get("mark")) is not None else -1)
+    except (TypeError, ValueError):
+        idx = -1
+    if kind == "chart":
+        if source_text is None:
+            bars = []
+            for b in s.get("bars") or []:
+                if isinstance(b, dict):
+                    m = re.search(r"\d+(?:[.,]\d+)?", str(b.get("value") or "").replace(",", ""))
+                    if m and str(b.get("label") or "").strip():
+                        bars.append({"label": " ".join(str(b["label"]).split()[:5]), "value": str(b["value"]).strip()[:12],
+                                     "num": float(m.group(0))})
+            bars = bars[:5]
+        else:
+            bars = _chart_bars(s.get("bars"), source_text)[:5]
+        if len(bars) < 2:
+            return None
+        out.update(bars=bars, pick=idx if 0 <= idx < len(bars) else 0)
+    elif kind == "flow":
+        steps = [st for st in _short_list(s.get("steps"), 5, 6)]
+        if len(steps) < 3:
+            return None
+        out.update(steps=steps, mark=idx if 0 <= idx < len(steps) else -1,
+                   note=" ".join(_clean_slide_text(s.get("note", "")).split()[:5]) if s.get("note") else "")
+    elif kind == "table":
+        cols = _short_list(s.get("cols"), 3, 4)
+        rows = []
+        for r in s.get("rows") or []:
+            if isinstance(r, list):
+                cells = [" ".join(_clean_slide_text(str(c)).split()[:5]) if str(c).strip() else "" for c in r][:len(cols)]
+                cells += [""] * (len(cols) - len(cells))
+                rows.append(cells)
+        rows = rows[:5]
+        if len(cols) < 2 or len(rows) < 2:
+            return None
+        out.update(cols=cols, rows=rows, example=bool(s.get("example")) and any(rows[0]))
+    else:
+        return None
+    return out
+
+
+_NOT_X = re.compile(r"\b(?:not|never|isn['’]t|aren['’]t|wasn['’]t)\b[^.!?]{1,60}?[,;—–-]\s*(?:but\s+|it['’]s\s+)?\w|"
+                    r",\s*not\s+\w", re.I)
+
+
+def _deck_lines(result: dict) -> list:
+    """(slot, key, text) for every line a reader sees on the deck's slides."""
+    out = []
+    hook, ctx = result.get("hook_slide") or {}, result.get("context_slide") or {}
+    out += [(hook, k, hook.get(k, "")) for k in ("headline", "subtext")]
+    out += [(ctx, k, ctx.get(k, "")) for k in ("title", "body")] if ctx else []
+    for c in result.get("content_slides") or []:
+        out += [(c, k, c.get(k, "")) for k in ("title", "body", "wrong", "right") if c.get(k)]
+    if result.get("pull_quote"):
+        out.append((result, "pull_quote", result["pull_quote"]))
+    cta = result.get("cta_slide") or {}
+    out.append((cta, "headline", cta.get("headline", "")))
+    return [o for o in out if o[2]]
+
+
+def _one_not_x(result: dict) -> dict:
+    """At most one "X, not Y" line in a deck (22 Nov 2026 carousel audit: 2-4 per deck, the most retained AI
+    structure): the others are rewritten in one short call, same meaning, the first kept. Fail-open."""
+    hits = [o for o in _deck_lines(result) if _NOT_X.search(o[2])]
+    if len(hits) < 2:
+        return result
+    extra = hits[1:6]
+    try:
+        fix = generate_json("Rewrite each line so it no longer uses a contrast built on 'not' (\"X, not Y\", \"not X but Y\", "
+                            "\"isn't X, it's Y\"). Same meaning, same or fewer words, plain words, no new facts. Return JSON "
+                            "{\"lines\": [...]} in the same order.\n\n" + "\n".join(f"{i + 1}. {o[2]}" for i, o in enumerate(extra)),
+                            system="You edit LinkedIn carousel lines. Keep every fact and the author's voice.",
+                            max_tokens=600, temperature=0.3, model=CLAUDE_CAROUSEL_MODEL, effort=CLAUDE_CAROUSEL_EFFORT)
+        new = [str(x).strip() for x in (fix or {}).get("lines") or []]
+        if len(new) == len(extra):
+            for (slot, key, old), line in zip(extra, new):
+                if line and len(line.split()) <= len(old.split()) + 3:
+                    slot[key] = _clean_slide_text(line)
+    except Exception:
+        logging.exception("[Carousel] could not rewrite the extra 'not X' lines")
+    return result
+
+
+def _sanitize_carousel_result(result: dict, company: dict = None, source_text: str | None = None) -> dict:
     hook = result.get("hook_slide") or {}
     hook["headline"] = _clean_slide_text(hook.get("headline", ""))
     hook["subtext"] = _clean_slide_text(hook.get("subtext", ""))
@@ -2964,6 +3396,9 @@ def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
     hook["audience"] = aud if len(aud) <= 36 else ""          # longer is cut mid-word on the cover
     unit = re.sub(r"[^a-z]", "", str(hook.get("unit") or "").lower())
     hook["unit"] = unit if 3 <= len(unit) <= 12 else ""
+    for k in ("wrong_head", "right_head"):   # who does each, named once for the deck ("Most boards" / "Do this")
+        v = " ".join(_clean_slide_text(hook.get(k, "")).split()[:4]) if hook.get(k) else ""
+        hook[k] = v if len(v) <= 26 else ""
     result["hook_slide"] = hook
 
     ctx = result.get("context_slide") or {}
@@ -2971,10 +3406,16 @@ def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
     ctx_body = _clean_slide_text(ctx.get("body", "")) if ctx.get("body") else ""
     result["context_slide"] = {"title": ctx_title, "body": ctx_body} if (ctx_title or ctx_body) else None
 
-    cleaned_content = []
+    cleaned_content, visual_done = [], False
     for s in (result.get("content_slides") or []):
         s = s or {}
         kind = s.get("kind", "point")
+        if kind in ("chart", "flow", "table"):
+            v = None if visual_done else _visual_slide(s, source_text)
+            if v:
+                cleaned_content.append(v)
+                visual_done = True
+            continue
         cleaned = {
             "kind":  kind if kind in ("point", "stat") else "point",
             "label": _clean_slide_text(s.get("label", ""))[:24] if s.get("label") else "",
@@ -3008,11 +3449,23 @@ def _sanitize_carousel_result(result: dict, company: dict = None) -> dict:
     ws = result.get("worksheet_slide") or {}
     prompts = [" ".join(_clean_slide_text(p).split()[:12]) for p in (ws.get("prompts") or []) if p and str(p).strip()][:4]
     result["worksheet_slide"] = ({"title": " ".join(_clean_slide_text(ws.get("title", "")).split()[:9]) if ws.get("title") else "",
-                                  "prompts": prompts} if len(prompts) >= 2 else None)
+                                  "prompts": prompts,
+                                  "example": " ".join(_clean_slide_text(ws.get("example", "")).split()[:14]) if ws.get("example") else ""}
+                                 if len(prompts) >= 2 else None)
+    # a chart with a stat slide said the numbers twice: the stat goes
+    if visual_done and any(c.get("kind") == "chart" for c in cleaned_content):
+        result["content_slides"] = [c for c in result["content_slides"] if c.get("kind") != "stat"]
+    pq = " ".join(_clean_slide_text(result.get("pull_quote", "")).split()) if result.get("pull_quote") else ""
+    titles = {(c.get("title") or "").lower().strip(" .") for c in result["content_slides"]}
+    result["pull_quote"] = pq if 5 <= len(pq.split()) <= 14 and pq.lower().strip(" .") not in titles else ""
 
     cta = result.get("cta_slide") or {}
     cta["headline"] = _clean_slide_text(cta.get("headline", ""))
     cta["cta"] = _clean_slide_text(cta.get("cta", ""))
+    if cta["cta"].rstrip().endswith("?"):
+        # an open question at the end cost 7% of engagement (22 Nov 2026 carousel audit): the save ask instead
+        cta["cta"] = "Save this and fill in the sheet this week." if result.get("worksheet_slide") else "Save this for later."
+    cta["follow"] = " ".join(_clean_slide_text(cta.get("follow", "")).split()[:6]) if cta.get("follow") else ""
     result["cta_slide"] = cta
 
     if "post_text" in result:
@@ -3052,12 +3505,16 @@ def _caption_paragraphs(text: str) -> str:
 
 _SLIDE_CONSTRAINTS = """Slide constraints (follow exactly):
 - hook_slide (cover): headline uses ONE proven formula, max 6 words (it is set huge), specific, in sentence case (a capital only on the first word and on names), with a number or an "X vs Y" in it whenever the content has one, best at the start ("5 controls before…": the number is drawn huge). No colon labels ("Cloud exit: …"). subtext: one line, max 14 words. audience + unit. A number of things on the cover ("4 gaps") means exactly that many point slides labelled in that unit: count them before you answer. A slide that isn't one of them (PROOF, MYTH) isn't counted.
-- context_slide: title (max 8 words) + body (max ~35 words) that makes the reader want to keep swiping. Never say how many points follow: the cover does.
+- context_slide: title (max 8 words) + body, max 20 words in all: the stakes (a number or moment from the content), the proof, or the payoff preview. Never the cover's number again. Never say how many points follow: the cover does.
 - content_slides: 4-6 slides, ONE idea each. title max 6 words as a claim; body max ~18 words: the EVIDENCE for the point (a company, number, quote or example from the content), never the advice again, because wrong and right carry the advice; wrong and right differ in what the reader DOES, not in one word or a date; source where it fits; every point slide gets a tag (2-4 words); an icon only when it literally pictures the point.
 - recap_slide: title + 3-5 bullets, each the point's name in max 7 words: never a slide's line copied.
 - worksheet_slide (only for a method the reader applies to their own work): title + 2-4 fill-in prompts, max 10 words each.
-- cta_slide: headline (the one takeaway) + a SINGLE specific ask (no engagement bait).
-Aim for 8-10 total slides. Prefer a step-by-step playbook, numbered framework, or checklist."""
+- one visual slide (chart, flow or table) when the content gives you the numbers, the order or the grid; never with a stat slide.
+- worksheet example: the answer to prompt 1 for a real case the content names, or empty.
+- pull_quote: 7-12 words, or empty.
+- cta_slide: headline (the one takeaway) + a SINGLE save ask (never a question, no engagement bait) + follow (2-5 words).
+- copy: at most one "X, not Y" line in the deck; one specific per point slide; no slide restates slide 2.
+Aim for 9-12 total slides. Build it as a contrast (what most do vs what works) whenever the content allows."""
 
 
 def generate_carousel_from_text(raw_text: str, company: dict = None) -> dict:
@@ -3081,7 +3538,7 @@ Return ONLY valid JSON in this shape:
 
     result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85,
                            model=CLAUDE_CAROUSEL_MODEL, effort=CLAUDE_CAROUSEL_EFFORT)   # Sonnet: better and a third of the cost (llm.py)
-    return _sanitize_carousel_result(result, company)
+    return _one_not_x(_sanitize_carousel_result(result, company, source_text=raw_text))
 
 
 # ── Autonomous content generation ────────────────────────────────────────────
@@ -3126,7 +3583,7 @@ Return ONLY valid JSON in this shape:
 
     result = generate_json(prompt, system=_CAROUSEL_SYSTEM, max_tokens=6000, temperature=0.85,
                            model=CLAUDE_CAROUSEL_MODEL, effort=CLAUDE_CAROUSEL_EFFORT)   # Sonnet: better and a third of the cost (llm.py)
-    return _sanitize_carousel_result(result, company)
+    return _one_not_x(_sanitize_carousel_result(result, company, source_text="\n".join([news_context or "", company_brief, knowledge or ""])))
 
 
 # ── PDF assembly ──────────────────────────────────────────────────────────────

@@ -1050,13 +1050,16 @@
             <label title="Your framework hand-drawn in a real notebook, photographed"><input type="radio" name="img-style" value="notebook"><span>Notebook</span></label>
             <label title="Your sharpest line written on a whiteboard, a notebook page, a book page or a sticky note"><input type="radio" name="img-style" value="handwritten"><span>Handwritten quote</span></label>
             <label title="Steps, a comparison, a 2x2 or one big number, drawn with every word exact"><input type="radio" name="img-style" value="diagram"><span>Diagram</span></label>
-            <label title="Your own photo with the post's point under it"><input type="radio" name="img-style" value="your_photo"><span>Your photo</span></label>
+            <label title="How your point works, drawn by hand: a simple ink sketch with a few labels"><input type="radio" name="img-style" value="explainer"><span>Explainer sketch</span></label>
+            <label title="Your own photo, posted as it is"><input type="radio" name="img-style" value="your_photo"><span>Your photo</span></label>
             <label title="A realistic photo of a moment from the post's world, with its point in one short line"><input type="radio" name="img-style" value="photo_text"><span>Photo + headline</span></label>
             <label title="A realistic photo of a moment from the post's world, no text"><input type="radio" name="img-style" value="scene"><span>Photo</span></label>
             <label title="Headline and numbered points"><input type="radio" name="img-style" value="list"><span>List card</span></label>
             <label title="One strong line, large"><input type="radio" name="img-style" value="quote"><span>Quote card</span></label>
             <label title="Your take as a real post: your photo, your name, your words"><input type="radio" name="img-style" value="tweet"><span>Tweet-style post</span></label>
             <label title="One principle you stand by, as a single big sentence"><input type="radio" name="img-style" value="statement"><span>Statement card</span></label>
+            <label title="Your one line, handwritten in pen on paper and signed"><input type="radio" name="img-style" value="note"><span>Handwritten note</span></label>
+            <label title="A few lines from your 'book', the point in bold at the end"><input type="radio" name="img-style" value="page"><span>Book page</span></label>
             <label title="Cites the article: needs a link in the Website URL tab"><input type="radio" name="img-style" value="source"><span>Source card</span></label>
           </div>
         </div>
@@ -1210,6 +1213,11 @@
           <div class="fmt-thumb"><img src="/static/write-examples/diagram.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('diagram', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
+        <div class="fmt" data-fmt="explainer">
+          <div class="fmt-hd"><b>Explainer sketch</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/explainer.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('explainer', this)">Make it</button></div>
+          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
+        </div>
         <div class="fmt" data-fmt="your_photo">
           <div class="fmt-hd"><b>Your photo</b><a href="#" class="fmt-link" onclick="openPhotos();return false;">Your photos</a></div>
           <div class="fmt-thumb"><img src="/static/write-examples/your-photo.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('your_photo', this)">Make it</button></div>
@@ -1233,6 +1241,16 @@
         <div class="fmt" data-fmt="tweet">
           <div class="fmt-hd"><b>Tweet-style post</b></div>
           <div class="fmt-thumb"><img src="/static/write-examples/tweet-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('tweet', this)">Make it</button></div>
+          <div class="fmt-cost">Uses 1 generation</div>
+        </div>
+        <div class="fmt" data-fmt="note">
+          <div class="fmt-hd"><b>Handwritten note</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/note-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('note', this)">Make it</button></div>
+          <div class="fmt-cost">Uses 1 generation</div>
+        </div>
+        <div class="fmt" data-fmt="page">
+          <div class="fmt-hd"><b>Book page</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/page-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('page', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="statement">
@@ -1448,7 +1466,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=41"></script>
+  <script src="/static/app.js?v=43"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async

@@ -411,8 +411,28 @@ _COVER_NUM = re.compile(r"^((?:₹|\$|€)?\d[\d,.]*\s?(?:%|x|×|k|K|Cr|L|M|B)?)
 COVER_BIG_NUMBER = os.getenv("COVER_BIG_NUMBER", "1") != "0"
 
 
+def _pair_rows(d, t: dict, wrong: str, right: str, y: int, draw: bool = True) -> int:
+    """The crossed-out and the ticked line, compact, for the cover's preview; their height."""
+    mw = W - 2 * M
+    r, pad = 17 * S, 24 * S
+    tw = mw - 2 * pad - 2 * r - 22 * S
+    f = _fit(d, max((wrong, right), key=len), (36, 34, 32, 30), lambda z: _body(z, bold=True), tw, 2)
+    y0 = y
+    for ok, text in ((False, wrong), (True, right)):
+        hb = _block_h(d, text, f, tw, 6 * S)
+        h = max(hb, 2 * r) + 2 * pad
+        if draw:
+            d.rounded_rectangle([M, y, W - M, y + h], radius=22 * S,
+                                fill=C._mix(t["bg"], t["accent"], 0.16) if ok else C._mix(t["bg"], t["ink"], 0.06))
+            cx, cy = M + pad + r, y + h // 2
+            _mark(d, ok, cx, cy, r, t["accent"] if ok else C._mix(t["bg"], t["ink"], 0.35), _on(t["accent"], t) if ok else t["bg"])
+            _write(d, text, f, cx + r + 22 * S, y + (h - hb) // 2, tw, t["ink"] if ok else t["muted"], 6 * S)
+        y += h + 12 * S
+    return y - y0 - 12 * S
+
+
 def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise: str,
-          name: str, title: str, avatar, total: int, tiles: list | None = None) -> Image.Image:
+          name: str, title: str, avatar, total: int, tiles: list | None = None, pair: tuple | None = None) -> Image.Image:
     """The slide the feed shows. The promise as big as it fits, what's inside (the points' icons
     and how long it takes), the author's face and a swipe cue, all above LinkedIn's page dots."""
     img, d = _page(t)
@@ -423,7 +443,7 @@ def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise:
         eb, px = _fit_eyebrow(d, eb, mw - lw - 40 * S)
         _eyebrow(d, eb, M, M + int((8 + (30 - px) / 2) * S), t["accent"], px)
     # the bottom: author left, swipe right, clear of the dots
-    ph = 112 * S
+    ph = 132 * S      # the face reads at feed size (22 Nov 2026 carousel audit: a face lifts a deck's reach)
     author_y = SAFE - 16 * S - ph
     fp = _body(32, bold=True)
     cue = "Swipe  →"
@@ -440,6 +460,12 @@ def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise:
     inside_h = 0
     if show_row or promise:
         inside_h = (tile if show_row else _lh(d, fpr)) + 56 * S
+    # the difference the deck is about, as a preview above the author (the top decks show it on the cover;
+    # a cover with a visual drew 1.6x the clicks of a text-only one, van der Blom 2025)
+    pair_h = _pair_rows(d, t, pair[0], pair[1], 0, draw=False) if pair and pair[0] and pair[1] else 0
+    if pair_h:
+        show_row, promise = False, ""
+        inside_h = pair_h + 50 * S
     bottom = author_y - inside_h
     # the headline, as big as fits with the subline above the inside row
     top = M + (96 * S if eb or lw else 30 * S)
@@ -482,7 +508,9 @@ def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise:
         y = _write(d, full, f, M, top, mw, t["ink"], 10 * S, kicker, t["accent"]) + 26 * S
     if sub:
         y = _write(d, sub, fs, M, y, mw, t["body"], 10 * S) + 30 * S
-    if inside_h:
+    if pair_h:
+        _pair_rows(d, t, pair[0], pair[1], author_y - 34 * S - pair_h)
+    elif inside_h:
         ry = min(bottom, y + 40 * S)   # under the words; the space left over sits above the author
         x = M
         if show_row:
@@ -512,59 +540,62 @@ _NUMBERED_LABEL = re.compile(r"^[A-Za-z]+[\s#.]*\d{1,2}$")   # "STEP 2", "MISTAK
 
 def _point_content(t: dict, label: str, title: str, body: str, action: str, kind: str, step: int, source: str = "",
                    wrong: str = "", right: str = ""):
-    """A point slide's content, drawn from y at scale k (see _centred). With wrong/right (22 Nov 2026 audit: the
-    best decks put one proof on every slide), the slide ends on what most do, crossed out, and what works, ticked,
-    in place of a decorative icon; the step's number leads the slide instead."""
+    """A point slide's content, drawn from y at scale k (see _centred). With wrong/right the difference IS the slide
+    (22 Nov 2026 carousel audit: decks where every slide shows a difference ran ~2.5x their creators' median, "N tips"
+    decks 0.2-0.8x): the step as a small label, the claim, then what most do and what works as two big cards filling
+    most of the slide, the evidence under them. The faded "01" went: with the counter and the progress bar it was a
+    third progress cue."""
     mw = W - 2 * M
     act_label = (t.get("action_label") or "Try this").strip()
     proof = bool(wrong and right)
 
     def content(layer, ld, y, k):
-        numfill = C._mix(t["bg"], t["accent"], 0.45)
-        if proof and step and (not label or _NUMBERED_LABEL.match(label.strip())):
-            # the step's number, big, with its unit word beside it ("02  MISTAKE"): "MISTAKE 2" above "02" said
-            # the number twice (22 Nov 2026 audit, round 2)
-            fn = _display(150 * k, t)
-            num = f"{step:02d}"
-            b = ld.textbbox((0, 0), num, font=fn)
-            ld.text((M - int(6 * S * k) - b[0], y - b[1]), num, font=fn, fill=numfill)
-            word = re.sub(r"[\s#.]*\d{1,2}$", "", label or "").strip() or "Step"
-            fe = _body(23 * k, semi=True)
-            _eyebrow(ld, word, M - int(6 * S * k) + (b[2] - b[0]) + int(26 * S * k),
-                     y + (b[3] - b[1]) - _lh(ld, fe) - int(4 * S * k), t["accent"], 23 * k)
-            y += (b[3] - b[1]) + int(40 * S * k)
-        else:
-            y = _eyebrow(ld, label or (f"Step {step}" if step else ""), M, y, t["accent"]) + int(34 * S * k)
-            if proof and step:
-                fn = _display(150 * k, t)
-                b = ld.textbbox((0, 0), f"{step:02d}", font=fn)
-                ld.text((M - int(6 * S * k) - b[0], y - b[1]), f"{step:02d}", font=fn, fill=numfill)
-                y += (b[3] - b[1]) + int(40 * S * k)
-            elif not proof and (step or kind in ICONS):
-                size = int(128 * S * k)
-                _tile(ld, t, kind, str(step) if step else "", M, y, size)
-                y += size + int(46 * S * k)
-        ft = _fit(ld, title, [z * k for z in ((96, 90, 84, 78, 72, 66) if proof else (84, 78, 72, 66, 60))],
-                  lambda z: _display(z, t), mw, 3, even=True)
+        if proof:
+            lab = label or (f"Step {step}" if step else "")
+            if lab:
+                y = _eyebrow(ld, lab, M, y, t["accent"], 26 * k) + int(28 * S * k)
+            ft = _fit(ld, title, [z * k for z in (78, 72, 66, 62, 58)], lambda z: _display(z, t), mw, 3, even=True)
+            y = _write(ld, title, ft, M, y, mw, t["ink"], int(10 * S * k)) + int(42 * S * k)
+            pad = int(38 * S * k)
+            tw = mw - 2 * pad
+            fr = _fit(ld, max((wrong, right), key=len), [z * k for z in (56, 52, 48, 45, 42)],
+                      lambda z: _body(z, bold=True), tw, 3)
+            r = int(19 * S * k)
+            fe = 24 * k
+            eh = max(_lh(ld, _body(fe, semi=True)), 2 * r)
+            for ok, head, text in ((False, t.get("wrong_head") or "Most teams", wrong),
+                                   (True, t.get("right_head") or "Do this", right)):
+                hb = _block_h(ld, text, fr, tw, int(8 * S * k))
+                h = pad + eh + int(20 * S * k) + hb + pad
+                fill = C._mix(t["bg"], t["accent"], 0.16) if ok else C._mix(t["bg"], t["ink"], 0.06)
+                ld.rounded_rectangle([M, y, W - M, y + h], radius=28 * S, fill=fill)
+                cx, cy = M + pad + r, y + pad + eh // 2
+                _mark(ld, ok, cx, cy, r, t["accent"] if ok else C._mix(t["bg"], t["ink"], 0.35),
+                      _on(t["accent"], t) if ok else t["bg"])
+                fh = _body(fe, semi=True)
+                _eyebrow(ld, head, cx + r + int(18 * S * k), cy - _lh(ld, fh) // 2, t["accent"] if ok else t["muted"], fe)
+                _write(ld, text, fr, M + pad, y + pad + eh + int(20 * S * k), tw, t["ink"] if ok else t["muted"],
+                       int(8 * S * k))
+                y += h + int(18 * S * k)
+            if body:
+                fb = _fit(ld, body, [z * k for z in (38, 36, 34, 32)], _body, mw, 3)
+                y = _write(ld, body, fb, M, y + int(16 * S * k), mw, t["body"], int(8 * S * k)) + int(18 * S * k)
+            if source:
+                fs = _body(26 * k)
+                ld.text((M, y), C._fit_one_line(ld, f"Source: {source}", fs, mw), font=fs, fill=t["muted"])
+                y += _lh(ld, fs)
+            return y
+        y = _eyebrow(ld, label or (f"Step {step}" if step else ""), M, y, t["accent"]) + int(34 * S * k)
+        if step or kind in ICONS:
+            size = int(128 * S * k)
+            _tile(ld, t, kind, str(step) if step else "", M, y, size)
+            y += size + int(46 * S * k)
+        ft = _fit(ld, title, [z * k for z in (84, 78, 72, 66, 60)], lambda z: _display(z, t), mw, 3, even=True)
         y = _write(ld, title, ft, M, y, mw, t["ink"], int(10 * S * k)) + int(22 * S * k)
         if body:
-            fb = _fit(ld, body, [z * k for z in (44, 41, 38)], _body, mw, 6 if not proof else 4)
+            fb = _fit(ld, body, [z * k for z in (44, 41, 38)], _body, mw, 6)
             y = _write(ld, body, fb, M, y, mw, t["body"], int(10 * S * k)) + int(36 * S * k)
-        if proof:
-            r = int(26 * S * k)
-            tw = mw - 2 * int(30 * S * k) - 2 * r - int(26 * S * k)
-            fr = _fit(ld, max((wrong, right), key=len), [z * k for z in (42, 39, 36, 33)], lambda z: _body(z, bold=True), tw, 2)
-            for ok, text in ((False, wrong), (True, right)):
-                hb = _block_h(ld, text, fr, tw, int(8 * S * k))
-                h = max(hb, 2 * r) + int(52 * S * k)
-                fill = C._mix(t["bg"], t["accent"], 0.16) if ok else C._mix(t["bg"], t["ink"], 0.06)
-                ld.rounded_rectangle([M, y, W - M, y + h], radius=24 * S, fill=fill)
-                cx, cy = M + int(30 * S * k) + r, y + h // 2
-                _mark(ld, ok, cx, cy, r, t["accent"] if ok else C._mix(t["bg"], t["ink"], 0.35), _on(t["accent"], t) if ok else t["bg"])
-                _write(ld, text, fr, cx + r + int(26 * S * k), y + (h - hb) // 2, tw, t["ink"] if ok else t["muted"], int(8 * S * k))
-                y += h + int(16 * S * k)
-            y += int(14 * S * k)
-        elif action:
+        if action:
             fa = _fit(ld, action, [z * k for z in (42, 39, 36)], lambda z: _body(z, bold=True), mw - 64 * S, 3)
             h = _block_h(ld, action, fa, mw - 64 * S, int(10 * S * k)) + int(90 * S * k)
             ld.rounded_rectangle([M, y, W - M, y + h], radius=26 * S, fill=C._mix(t["bg"], t["accent"], 0.13))
@@ -572,8 +603,9 @@ def _point_content(t: dict, label: str, title: str, body: str, action: str, kind
             _write(ld, action, fa, M + 32 * S, y + int(58 * S * k), mw - 64 * S, t["ink"], int(10 * S * k))
             y += h + int(24 * S * k)
         if source:
-            ld.text((M, y), C._fit_one_line(ld, f"Source: {source}", _body(22 * k), mw), font=_body(22 * k), fill=t["muted"])
-            y += _lh(ld, _body(22 * k))
+            fs = _body(26 * k)
+            ld.text((M, y), C._fit_one_line(ld, f"Source: {source}", fs, mw), font=fs, fill=t["muted"])
+            y += _lh(ld, fs)
         return y
 
     return content
@@ -671,7 +703,7 @@ def recap(t: dict, num: int, total: int, name: str, avatar, title: str, bullets:
     return _done(_centred(img, content))
 
 
-def last(t: dict, headline: str, kicker: str, cta: str, name: str, title: str, avatar) -> Image.Image:
+def last(t: dict, headline: str, kicker: str, cta: str, name: str, title: str, avatar, follow: str = "") -> Image.Image:
     t = _loud(t)
     img, d = _page(t)
     _logo(img, t, W - M, M, 50 * S)
@@ -680,8 +712,8 @@ def last(t: dict, headline: str, kicker: str, cta: str, name: str, title: str, a
     full = (headline + " " + kicker).strip() if kicker and kicker.lower() not in headline.lower() else headline
     # The author's face, big, next to the one ask (round 2 research: the best decks end on the person; a face lifted
     # reach 80-90% in van der Blom's 2022 study). Only a real photo is shown big; an initial stays small.
-    face = 190 * S if avatar is not None else 110 * S
-    author_y = H - M - face - 60 * S
+    face = 270 * S if avatar is not None else 110 * S     # ~20% of the slide (22 Nov 2026 carousel audit)
+    author_y = H - M - face - 40 * S
     # The ask's room is kept first and the takeaway sized into what's left: a long takeaway used to push the
     # ask off the slide without a word (Thahseen's deck, 22 Nov 2026 audit, round 2)
     h = 0
@@ -702,14 +734,24 @@ def last(t: dict, headline: str, kicker: str, cta: str, name: str, title: str, a
         if y + h < author_y - 20 * S:
             d.rounded_rectangle([M, y, W - M, y + h], radius=26 * S, fill=t["accent"])
             _write(d, cta, fc, M + 40 * S, y + 35 * S, mw - 80 * S, _on(t["accent"], t), 10 * S)
-    if avatar is not None:
+    if follow:   # who to follow for what, beside the face: the end slide's one ask after the save
+        _photo(img, avatar, name, M, author_y, face, t)
+        tx = M + face + 30 * S
+        mwx = W - M - tx
+        fn = _body(44 if avatar is not None else 34, bold=True)
+        ff = _fit(d, follow, (32, 30, 28, 26), lambda z: _body(z, semi=True), mwx, 3)
+        hf = _block_h(d, follow, ff, mwx, 6 * S)
+        ty = author_y + (face - _lh(d, fn) - 12 * S - hf) // 2
+        d.text((tx, ty), C._fit_one_line(d, name, fn, mwx), font=fn, fill=t["ink"])
+        _write(d, follow, ff, tx, ty + _lh(d, fn) + 12 * S, mwx, t["accent"], 6 * S)
+    elif avatar is not None:
         _author(img, d, t, avatar, name, _short_title(title), M, author_y, face, 44, 28, W - 2 * M - face - 40 * S)
     else:
         _author(img, d, t, avatar, name, _short_title(title), M, author_y, face, 34, 24, W - 2 * M - 130 * S)
     return _done(img)
 
 
-def worksheet(t: dict, num: int, total: int, name: str, avatar, title: str, prompts: list) -> Image.Image:
+def worksheet(t: dict, num: int, total: int, name: str, avatar, title: str, prompts: list, example: str = "") -> Image.Image:
     """The deck's method as a sheet to fill in: each prompt numbered, with lines to write on (round 2 research:
     Chris Donnelly's decks show each step blank, then filled, so people save them to use). It takes the recap's
     place: a recap repeats the deck; a worksheet is the slide people keep."""
@@ -725,8 +767,14 @@ def worksheet(t: dict, num: int, total: int, name: str, avatar, title: str, prom
         fp = _fit(ld, max(prompts, key=len) if prompts else "", [z * k for z in (38, 35, 32, 30, 28)],
                   lambda z: _body(z, bold=True), mw, 2)
         lines = 2 if len(prompts) <= 3 else 1
+        fx = _fit(ld, "e.g. " + example, [z * k for z in (34, 32, 30, 28)], lambda z: _body(z, semi=True), mw, 2) if example else None
         for i, p in enumerate(prompts):
             y = _write(ld, f"{i + 1}. {p}", fp, M, y, mw, t["ink"], int(8 * S * k))
+            if i == 0 and example:   # one row filled in from the deck, so the sheet shows what an answer looks like
+                y = _write(ld, "e.g. " + example, fx, M, y + int(18 * S * k), mw, t["accent"], int(8 * S * k)) + int(10 * S * k)
+                ld.line([(M, y), (W - M, y)], fill=C._mix(t["bg"], t["ink"], 0.25), width=max(2, int(3 * S * k)))
+                y += int(44 * S * k)
+                continue
             for _ in range(lines):
                 y += int(58 * S * k)
                 ld.line([(M, y), (W - M, y)], fill=C._mix(t["bg"], t["ink"], 0.25), width=max(2, int(3 * S * k)))
@@ -750,43 +798,68 @@ def _singular(unit: str) -> str:
 _GENERIC_LABEL = re.compile(r"^(lesson|step|point|tip|idea|part|insight|item|no\.?|#)\s*\d{1,2}$", re.I)
 
 
+_VISUAL_KINDS = ("stat", "chart", "flow", "table")
+CHEATSHEET = os.getenv("DECK_CHEATSHEET", "1") != "0"
+
+
+def _is_visual(s: dict) -> bool:
+    """A content slide that draws its point (a number, bars, a flow, a table) rather than making one: not counted
+    among the cover's points."""
+    k = s.get("kind")
+    return (k == "stat" and bool(s.get("stat"))) or (k == "chart" and len(s.get("bars") or []) >= 2) \
+        or (k == "flow" and len(s.get("steps") or []) >= 3) or (k == "table" and len(s.get("cols") or []) >= 2
+                                                                  and len(s.get("rows") or []) >= 2)
+
+
 def carousel_slides(content: dict, t: dict, t_cover: dict, name: str, title: str, avatar, promise: str = "") -> list:
     """The whole deck in the v2 design, from the writer's deck (carousel.py's schema)."""
     hook, ctx = content["hook_slide"], content.get("context_slide")
     c_slides, rcp, cta = content.get("content_slides", []), content.get("recap_slide"), content["cta_slide"]
+    # what most do / what works, named once for the deck ("Most boards" / "Do this")
+    heads = {"wrong_head": (hook.get("wrong_head") or "").strip(), "right_head": (hook.get("right_head") or "").strip()}
+    t, t_cover = {**t, **heads}, {**t_cover, **heads}
     ws = content.get("worksheet_slide") or {}
-    if len([p for p in ws.get("prompts") or [] if str(p).strip()]) >= 2:
-        rcp = None   # the worksheet takes the recap's place (round 2): a recap repeats the deck, a worksheet gets kept
-    else:
+    if len([p for p in ws.get("prompts") or [] if str(p).strip()]) < 2:
         ws = {}
     unit = (hook.get("unit") or "").strip()
     one = _singular(unit)
     if one:   # a generic label takes the cover's unit: "LESSON 1" sat in a deck of "4 mistakes" (21 Nov 2026)
         n, fixed = 0, []
         for s in c_slides:
-            if not (s.get("kind") == "stat" and s.get("stat")):
+            if not _is_visual(s):
                 n += 1
                 lab = (s.get("label") or "").strip()
                 if one.lower() not in lab.lower() and _GENERIC_LABEL.match(lab):
                     s = {**s, "label": f"{one.upper()} {n}"}
             fixed.append(s)
         c_slides = fixed
-    points = [s for s in c_slides if not (s.get("kind") == "stat" and s.get("stat"))]
+    points = [s for s in c_slides if not _is_visual(s)]
     tiles = [((s.get("icon") or "").strip().lower(), (s.get("tag") or "").strip()) for s in points]
     said = re.search(r"\b([2-9]|10)\b", hook.get("headline", ""))
     if said and int(said.group(1)) != len(points):
         tiles = []
-    # The at-a-glance slide only in a deck without a recap: with both, the points were listed twice in nine
-    # slides and point 1 waited until slide 4 (21 Nov 2026 audit)
-    show_overview = 3 <= len(points) <= 6 and bool(tiles) and all(tg for _, tg in tiles) and not rcp and not ws
-    # "The 5 fixes" only when every point is one: a deck of 2 traps and 3 fixes was counted as 5 fixes
+    # The deck on one page to keep, each point and its move (22 Nov 2026 carousel audit): it comes back beside the
+    # worksheet, built from the point slides themselves so it never says something the deck didn't.
+    cheat = [((s.get("tag") or s.get("title") or "").strip(), (s.get("right") or s.get("action") or "").strip())
+             for s in points] if CHEATSHEET else []
+    cheat = cheat if len([a for a, _ in cheat if a]) >= 3 else []
+    if cheat or ws:
+        rcp = None
+    show_overview = 3 <= len(points) <= 6 and bool(tiles) and all(tg for _, tg in tiles) and not rcp and not ws and not cheat
     counted = bool(one) and all(one.lower() in (s.get("label") or "").lower() for s in points)
     if unit and not counted and promise.startswith(f"{len(points)} {unit} · "):
         promise = promise[len(f"{len(points)} {unit} · "):]
-    total = 1 + (1 if ctx else 0) + (1 if show_overview else 0) + len(c_slides) + (1 if (rcp or ws) else 0) + 1
+    # one dark line to break the rhythm, after the second point (only in a deck of 3+ points)
+    quote = " ".join(str(content.get("pull_quote") or "").split())
+    quote_at = 2 if quote and len(points) >= 3 else -1
+    total = (1 + (1 if ctx else 0) + (1 if show_overview else 0) + len(c_slides) + (1 if quote_at >= 0 else 0)
+             + (1 if cheat else 0) + (1 if ws else 0) + (1 if (rcp and not cheat and not ws) else 0) + 1)
     base, kicker = C._split_hook_pill(hook.get("headline", ""))
+    # the cover already shows the difference the deck is about: the first point's crossed-out and ticked lines
+    first = next((s for s in points if s.get("wrong") and s.get("right")), None)
+    pair = (first["wrong"], first["right"]) if first else None
     slides = [cover(t_cover, base or hook.get("headline", ""), kicker, hook.get("subtext", ""), hook.get("audience", ""),
-                    promise, name, title, avatar, total, [])]   # no icon row: decoration, not a promise (22 Nov audit)
+                    promise, name, title, avatar, total, [], pair=pair)]
     num = 2
     if ctx:
         slides.append(_context(t, num, total, name, avatar, ctx.get("title", ""), ctx.get("body", "")))
@@ -805,26 +878,50 @@ def carousel_slides(content: dict, t: dict, t_cover: dict, name: str, title: str
     # Only the slides the cover counts get a number: "4 answers" then a PROOF slide numbered 05 broke the
     # cover's promise (22 Nov 2026 audit, round 2). Without a unit every point is counted.
     in_count = lambda s: not one or one.lower() in (s.get("label") or "").lower() or not (s.get("label") or "").strip()
-    step = 0
+    step = done_points = 0
     for s in c_slides:
-        if s.get("kind") == "stat" and s.get("stat"):
-            slides.append(stat(t, num, total, name, avatar, s.get("label", ""), s["stat"], s.get("title", ""),
-                               s.get("body", ""), s.get("source", "")))
+        kind = s.get("kind")
+        if _is_visual(s):
+            if kind == "stat":
+                slides.append(stat(t, num, total, name, avatar, s.get("label", ""), s["stat"], s.get("title", ""),
+                                   s.get("body", ""), s.get("source", "")))
+            elif kind == "chart":
+                bars = [(b["label"], b["value"], b["num"]) for b in s["bars"]]
+                pick = int(s.get("pick") or 0)
+                slides.append(chart_slide(t, num, total, name, avatar, s.get("title", ""), bars,
+                                          pick if 0 <= pick < len(bars) else 0, s.get("source", "")))
+            elif kind == "flow":
+                slides.append(flow_slide(t, num, total, name, avatar, s.get("title", ""), s["steps"],
+                                         int(s.get("mark", -1) if s.get("mark") is not None else -1), s.get("note", "")))
+            else:
+                slides.append(table_slide(t, num, total, name, avatar, s.get("title", ""), s["cols"], s["rows"],
+                                          bool(s.get("example"))))
         else:
             counted_here = in_count(s)
             step += counted_here
             slides.append(point(t, num, total, name, avatar, s.get("label", ""), s.get("title", ""), s.get("body", ""),
                                 s.get("action", ""), (s.get("icon") or "").strip().lower(), step if counted_here else 0,
                                 s.get("source", ""), pts_scales, s.get("wrong", ""), s.get("right", "")))
+            done_points += 1
+            if done_points == quote_at:
+                num += 1
+                slides.append(quote_slide(t, num, total, name, avatar, quote))
+        num += 1
+    if cheat:
+        slides.append(cheatsheet(t, num, total, name, avatar, (rcp or {}).get("title") or "The cheat sheet", cheat))
         num += 1
     if ws:
-        slides.append(worksheet(t, num, total, name, avatar, ws.get("title", "") or "Your turn", ws.get("prompts", [])))
+        slides.append(worksheet(t, num, total, name, avatar, ws.get("title", "") or "Your turn", ws.get("prompts", []),
+                                ws.get("example", "")))
         num += 1
     elif rcp:
         slides.append(recap(t, num, total, name, avatar, rcp.get("title", ""), rcp.get("bullets", [])))
         num += 1
     cbase, ckicker = C._split_hook_pill(cta.get("headline", ""))
-    slides.append(last(t, cbase or cta.get("headline", ""), ckicker, cta.get("cta", ""), name, title, avatar))
+    first_name = (name or "").split()[0] if name and " " in name.strip() else (name or "")
+    topic = " ".join(str(cta.get("follow") or "").split())
+    follow = f"Follow {first_name} for {topic}" if topic and first_name else ""
+    slides.append(last(t, cbase or cta.get("headline", ""), ckicker, cta.get("cta", ""), name, title, avatar, follow))
     return slides
 
 
@@ -846,6 +943,202 @@ def _context(t: dict, num: int, total: int, name: str, avatar, title: str, body:
         return y
 
     return _done(_centred(img, content))
+
+
+
+
+# ── deck slides from the 22 Nov 2026 carousel audit ──────────────────────────────────────────────────────────────────
+# Every slide in Voyce's decks was text (text-only slides: -15 to -25% in van der Blom 2024). These draw the point
+# instead: a number as bars, an order as a flow, who-owns-what as a table, the deck as a cheat sheet to keep, and one
+# dark line to break the rhythm. Flat, the deck's fonts (no handwriting in carousels: -25% in the same report).
+def cheatsheet(t: dict, num: int, total: int, name: str, avatar, title: str, rows: list) -> Image.Image:
+    """The deck on one page to keep: each point and its move, numbered (recap / cheat-sheet slides are what the best
+    decks end on; the audit's decks of 11-15 pages did +16% over 1-10)."""
+    img, d = _page(t)
+    _top_bar(img, d, t, num, total, name, avatar)
+    mw = W - 2 * M
+    rows = [(str(a).strip(), str(b).strip()) for a, b in rows if str(a).strip()][:6]
+
+    def content(layer, ld, y, k):
+        y = _eyebrow(ld, "Save this", M, y, t["accent"]) + int(36 * S * k)
+        ft = _fit(ld, title, [z * k for z in (76, 70, 64, 58)], lambda z: _display(z, t), mw, 2)
+        y = _write(ld, title, ft, M, y, mw, t["ink"], int(10 * S * k)) + int(44 * S * k)
+        nw = int(74 * S * k)
+        tw = mw - nw - int(40 * S * k)
+        fa = _fit(ld, max((a for a, _ in rows), key=len) if rows else "", [z * k for z in (40, 37, 34, 31)],
+                  lambda z: _body(z, bold=True), tw, 2)
+        fb = _fit(ld, max((b for _, b in rows), key=len) if rows else "", [z * k for z in (34, 32, 30, 28)], _body, tw - 40 * S, 2)
+        fn = _display(44 * k, t)
+        for i, (a, b) in enumerate(rows):
+            ha = _block_h(ld, a, fa, tw, int(6 * S * k))
+            hb = _block_h(ld, "→ " + b, fb, tw, int(6 * S * k)) if b else 0
+            h = int(30 * S * k) + ha + (int(10 * S * k) + hb if b else 0) + int(30 * S * k)
+            ld.rounded_rectangle([M, y, W - M, y + h], radius=24 * S, fill=C._mix(t["bg"], t["ink"], 0.05))
+            n = str(i + 1)
+            nb = ld.textbbox((0, 0), n, font=fn)
+            ld.text((M + int(30 * S * k) - nb[0], y + (h - (nb[3] - nb[1])) // 2 - nb[1]), n, font=fn, fill=t["accent"])
+            tx = M + nw + int(20 * S * k)
+            yy = _write(ld, a, fa, tx, y + int(30 * S * k), tw, t["ink"], int(6 * S * k))
+            if b:
+                _write(ld, "→ " + b, fb, tx, yy + int(4 * S * k), tw, t["body"], int(6 * S * k))
+            y += h + int(14 * S * k)
+        return y
+
+    return _done(_centred(img, content))
+
+
+def quote_slide(t: dict, num: int, total: int, name: str, avatar, line: str) -> Image.Image:
+    """One line, big, on the dark side of the look: a break in the rhythm halfway through the deck."""
+    t = _loud(t)
+    img, d = _page(t)
+    _top_bar(img, d, t, num, total, name, avatar)
+    mw = W - 2 * M
+
+    def content(layer, ld, y, k):
+        ld.rectangle([M, y, M + int(110 * S * k), y + int(10 * S * k)], fill=t["accent"])
+        y += int(70 * S * k)
+        f = _fit(ld, line, [z * k for z in (104, 96, 88, 82, 76, 70)], lambda z: _display(z, t), mw, 5, even=True)
+        return _write(ld, line, f, M, y, mw, t["ink"], int(12 * S * k))
+
+    return _done(_centred(img, content))
+
+
+def chart_slide(t: dict, num: int, total: int, name: str, avatar, title: str, bars: list, pick: int,
+                source: str = "") -> Image.Image:
+    """Numbers the deck states, as horizontal bars (readable on a phone): the one the point is about in the accent,
+    its value at the end of each bar, the source under them. bars: [(label, value, number)]."""
+    img, d = _page(t)
+    _top_bar(img, d, t, num, total, name, avatar)
+    mw = W - 2 * M
+    bars = [b for b in bars if b[0] and b[1]][:5]
+    top = max([b[2] for b in bars] or [1]) or 1
+
+    def content(layer, ld, y, k):
+        y = _eyebrow(ld, "The numbers", M, y, t["accent"]) + int(36 * S * k)
+        ft = _fit(ld, title, [z * k for z in (74, 68, 62, 58)], lambda z: _display(z, t), mw, 3)
+        y = _write(ld, title, ft, M, y, mw, t["ink"], int(10 * S * k)) + int(50 * S * k)
+        fl = _fit(ld, max((b[0] for b in bars), key=len) if bars else "", [z * k for z in (34, 32, 30)],
+                  lambda z: _body(z, semi=True), mw, 1)
+        fv = _display(52 * k, t)
+        vw = max((C._tw(ld, b[1], fv) for b in bars), default=0) + int(24 * S * k)
+        bh = int(64 * S * k)
+        for i, (lab, val, n) in enumerate(bars):
+            hot = i == pick
+            ld.text((M, y), lab, font=fl, fill=t["ink"] if hot else t["body"])
+            y += _lh(ld, fl) + int(10 * S * k)
+            full = mw - vw
+            w = max(int(full * (n / top)), int(18 * S * k))
+            ld.rounded_rectangle([M, y, M + w, y + bh], radius=int(14 * S * k),
+                                 fill=t["accent"] if hot else C._mix(t["bg"], t["ink"], 0.18))
+            vb = ld.textbbox((0, 0), val, font=fv)
+            ld.text((M + w + int(20 * S * k), y + (bh - (vb[3] - vb[1])) // 2 - vb[1]), val, font=fv,
+                    fill=t["accent"] if hot else t["ink"])
+            y += bh + int(30 * S * k)
+        if source:
+            fs = _body(26 * k)
+            ld.text((M, y), C._fit_one_line(ld, f"Source: {source}", fs, mw), font=fs, fill=t["muted"])
+            y += _lh(ld, fs)
+        return y
+
+    return _done(_centred(img, content))
+
+
+def flow_slide(t: dict, num: int, total: int, name: str, avatar, title: str, steps: list, mark: int = -1,
+               note: str = "") -> Image.Image:
+    """An order the deck argues for, as boxes joined by arrows; one step marked with a note ("Most budgets start
+    here"), the turn of the argument."""
+    img, d = _page(t)
+    _top_bar(img, d, t, num, total, name, avatar)
+    mw = W - 2 * M
+    steps = [str(s).strip() for s in steps if str(s).strip()][:5]
+
+    def content(layer, ld, y, k):
+        y = _eyebrow(ld, "The order", M, y, t["accent"]) + int(36 * S * k)
+        ft = _fit(ld, title, [z * k for z in (74, 68, 62, 58)], lambda z: _display(z, t), mw, 3)
+        y = _write(ld, title, ft, M, y, mw, t["ink"], int(10 * S * k)) + int(46 * S * k)
+        fn = _body(22 * k, semi=True)
+        # the note sits inside the marked box, at its right end: beside every box it squeezed them all to half width
+        nw = _eyebrow_w(ld, note, 22 * k) + int(40 * S * k) if note and 0 <= mark < len(steps) else 0
+        bw = mw
+        fs = _fit(ld, max(steps, key=len) if steps else "", [z * k for z in (46, 43, 40, 37)], lambda z: _body(z, bold=True),
+                  bw - int(150 * S * k) - (nw + int(20 * S * k) if nw else 0), 2)
+        fnum = _display(46 * k, t)
+        for i, s in enumerate(steps):
+            hot = i == mark
+            sw = bw - int(150 * S * k) - (nw + int(20 * S * k) if hot and nw else 0)
+            hs = _block_h(ld, s, fs, sw, int(6 * S * k))
+            h = hs + int(56 * S * k)
+            ld.rounded_rectangle([M, y, M + bw, y + h], radius=24 * S,
+                                 fill=C._mix(t["bg"], t["accent"], 0.18) if hot else C._mix(t["bg"], t["ink"], 0.05),
+                                 outline=t["accent"] if hot else None, width=max(2, int(4 * S * k)))
+            n = str(i + 1)
+            nb = ld.textbbox((0, 0), n, font=fnum)
+            ld.text((M + int(40 * S * k) - nb[0], y + (h - (nb[3] - nb[1])) // 2 - nb[1]), n, font=fnum, fill=t["accent"])
+            _write(ld, s, fs, M + int(120 * S * k), y + (h - hs) // 2, sw, t["ink"], int(6 * S * k))
+            if hot and nw:
+                tx = M + bw - nw - int(24 * S * k)
+                th = _lh(ld, fn) + int(24 * S * k)
+                ty = y + (h - th) // 2
+                ld.rounded_rectangle([tx, ty, tx + nw, ty + th], radius=th // 2, fill=t["accent"])
+                _eyebrow(ld, note, tx + int(20 * S * k), ty + int(12 * S * k), _on(t["accent"], t), 22 * k)
+            y += h
+            if i < len(steps) - 1:
+                ax = M + int(40 * S * k) + int(10 * S * k)
+                ah = int(40 * S * k)
+                ld.line([(ax, y + int(6 * S * k)), (ax, y + ah - int(8 * S * k))], fill=C._mix(t["bg"], t["ink"], 0.35),
+                        width=max(2, int(5 * S * k)))
+                ld.polygon([(ax - int(12 * S * k), y + ah - int(18 * S * k)), (ax + int(12 * S * k), y + ah - int(18 * S * k)),
+                            (ax, y + ah - int(2 * S * k))], fill=C._mix(t["bg"], t["ink"], 0.35))
+                y += ah
+        return y
+
+    return _done(_centred(img, content))
+
+
+def table_slide(t: dict, num: int, total: int, name: str, avatar, title: str, cols: list, rows: list,
+                example: bool = False) -> Image.Image:
+    """Who owns what, or options against criteria: a header row in the accent, then the rows. With example, the
+    first row is a filled-in example from the deck, marked as one."""
+    img, d = _page(t)
+    _top_bar(img, d, t, num, total, name, avatar)
+    mw = W - 2 * M
+    cols = [str(c).strip() for c in cols if str(c).strip()][:3]
+    rows = [[str(x).strip() for x in r][:len(cols)] for r in rows if any(str(x).strip() for x in r)][:5]
+
+    def content(layer, ld, y, k):
+        y = _eyebrow(ld, "Fill this in" if example else "At a glance", M, y, t["accent"]) + int(36 * S * k)
+        ft = _fit(ld, title, [z * k for z in (74, 68, 62, 58)], lambda z: _display(z, t), mw, 3)
+        y = _write(ld, title, ft, M, y, mw, t["ink"], int(10 * S * k)) + int(44 * S * k)
+        n = max(1, len(cols))
+        cw = mw // n
+        pad = int(20 * S * k)
+        fh = _fit(ld, max(cols, key=len) if cols else "", [z * k for z in (30, 28, 26)], lambda z: _body(z, bold=True), cw - 2 * pad, 2)
+        cells = [c for r in rows for c in r] or [""]
+        fc = _fit(ld, max(cells, key=len), [z * k for z in (34, 32, 30, 28)], _body, cw - 2 * pad, 3)
+        hh = max(_block_h(ld, c, fh, cw - 2 * pad, int(4 * S * k)) for c in cols) + 2 * pad if cols else 0
+        ld.rounded_rectangle([M, y, W - M, y + hh], radius=20 * S, fill=t["accent"])
+        for j, c in enumerate(cols):
+            _write(ld, c, fh, M + j * cw + pad, y + pad, cw - 2 * pad, _on(t["accent"], t), int(4 * S * k))
+        y += hh
+        for i, r in enumerate(rows):
+            rh = max(_block_h(ld, c or "—", fc, cw - 2 * pad, int(4 * S * k)) for c in (r + [""] * (n - len(r)))) + 2 * pad
+            ex = example and i == 0
+            if ex or i % 2 == 1:
+                ld.rectangle([M, y, W - M, y + rh], fill=C._mix(t["bg"], t["accent"], 0.14) if ex else C._mix(t["bg"], t["ink"], 0.04))
+            for j in range(n):
+                c = r[j] if j < len(r) else ""
+                _write(ld, c or "", fc, M + j * cw + pad, y + pad, cw - 2 * pad, t["ink"] if ex or c else t["muted"], int(4 * S * k))
+            ld.line([(M, y + rh), (W - M, y + rh)], fill=t["rule"], width=max(2, int(2 * S * k)))
+            y += rh
+        if example:
+            fs = _body(24 * k, semi=True)
+            y += int(16 * S * k)
+            ld.text((M, y), "Row 1 is an example. Fill in the rest for your own work.", font=fs, fill=t["muted"])
+            y += _lh(ld, fs)
+        return y
+
+    return _done(_centred(img, content))
+
 
 
 # ── single image cards ───────────────────────────────────────────────────────────────────────────
@@ -1633,3 +1926,353 @@ def timeline_card(t: dict, title: str, events: list, pick: int, name: str, autho
         hb = _block_h(d, what, fi, W - M - tx, 6 * S)
         _write(d, what, fi, tx, cy - hb // 2, W - M - tx, t["accent"] if hot else t["ink"], 6 * S)
     return _diagram_sign(img, d, t, name, author_title, avatar)
+
+
+# ── hand-lettered structures (22 Nov 2026 checklist audit) ──────────────────────────────────────────────────────
+# The most-saved "checklists" aren't lists: they put the items in a structure that carries the logic, and they look
+# hand-made. Isenberg's handwritten pairs ("OVERTHINKING → WRITE", 44.5k saves), Lieberman's 5-level ladder from least
+# to most helpful (19.6k saves; readers place themselves), against a plain numbered list that reached ~3% of its
+# author's followers. Drawn here in a real handwriting face (Kalam, OFL) with slightly uneven lines, so they look
+# hand-lettered while every word stays exact and no image model is involved.
+import random as _random
+
+PAPER = {"bg": (247, 243, 234), "ink": (36, 34, 32), "muted": (110, 104, 96), "rule": (210, 202, 188)}
+
+
+def _hand(px: float, bold: bool = False):
+    from PIL import ImageFont
+    name = "Kalam-Bold.ttf" if bold else "Kalam-Regular.ttf"
+    try:
+        return ImageFont.truetype(os.path.join(C._FONTS_DIR, name), int(px * S))
+    except Exception:
+        return _body(px, bold=bold)
+
+
+# The same hand-made cards on three surfaces (22 Nov 2026 variety research: an author's feed of cream paper every
+# day turns a rare signal into wallpaper; image after image of one kind cost 7-9% of reactions in 33,861 LinkedIn
+# posts). Identity stays (the hand, the ink, the accent, the signature); the background changes.
+SURFACES = {
+    "paper": {"bg": (247, 243, 234), "ink": (36, 34, 32), "muted": (110, 104, 96), "rule": (210, 202, 188), "grain": True},
+    "white": {"bg": (255, 255, 255), "ink": (24, 24, 27), "muted": (113, 113, 122), "rule": (228, 228, 231), "grain": False},
+    "dark":  {"bg": (21, 21, 23), "ink": (242, 240, 234), "muted": (152, 150, 144), "rule": (62, 62, 66), "grain": False},
+}
+
+
+def _readable_on(c: tuple, bg: tuple) -> tuple:
+    """The author's colour moved toward the ink (on a light page) or toward white (on a dark one) until it reads
+    at 3:1 or better."""
+    toward = (24, 24, 27) if C._luminance(bg) > 0.5 else (255, 255, 255)
+    for k in range(0, 11):
+        x = C._mix(c, toward, k * 0.08)
+        if _contrast(x, bg) >= 3.0:
+            return x
+    return toward
+
+
+def _contrast(a: tuple, b: tuple) -> float:
+    def lum(rgb):   # WCAG relative luminance
+        ch = [v / 255 for v in rgb]
+        ch = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in ch]
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+    la, lb = lum(a), lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def _on_paper(c: tuple) -> tuple:
+    """The author's colour darkened until it reads on the paper (3:1 or better): a sky blue or amber house
+    colour would vanish on cream."""
+    def lum(rgb):   # WCAG relative luminance
+        ch = [v / 255 for v in rgb]
+        ch = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in ch]
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+
+    def ratio(a, b):
+        la, lb = lum(a), lum(b)
+        return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+    for k in range(0, 11):
+        x = C._mix(c, PAPER["ink"], k * 0.08)
+        if ratio(x, PAPER["bg"]) >= 3.0:
+            return x
+    return PAPER["ink"]
+
+
+def _paper(accent, surface: str = "paper") -> tuple:
+    """A sheet of warm paper with a faint grain (or a plain white or dark page); the author's colour only on what
+    means something."""
+    base = SURFACES.get(surface) or SURFACES["paper"]
+    t = {k: v for k, v in base.items() if k != "grain"}
+    t["surface"] = surface if surface in SURFACES else "paper"
+    t["accent"] = _on_paper(tuple(accent or (200, 70, 40))) if t["surface"] == "paper" else \
+        _readable_on(tuple(accent or (200, 70, 40)), t["bg"])
+    img = Image.new("RGB", (W, H), t["bg"])
+    if base["grain"]:
+        mask = Image.effect_noise((W // 2, H // 2), 18).filter(ImageFilter.GaussianBlur(S * 0.2))
+        mask = mask.point(lambda v: 70 if v > 160 else 0).resize((W, H), Image.BILINEAR)
+        img.paste(C._mix(t["bg"], (120, 100, 80), 0.07), (0, 0, W, H), mask)
+    return img, ImageDraw.Draw(img), t
+
+
+def _wobble(d, a: tuple, b: tuple, col, w: int, rnd, amp: float = 1.6):
+    """A line as a hand draws it: a few segments, each a hair off the straight path."""
+    import math
+    n = max(3, int(math.hypot(b[0] - a[0], b[1] - a[1]) / (60 * S)))
+    pts = []
+    for i in range(n + 1):
+        f = i / n
+        jitter = 0 if i in (0, n) else rnd.uniform(-amp, amp) * S
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        ln = math.hypot(dx, dy) or 1
+        pts.append((a[0] + dx * f - dy / ln * jitter, a[1] + dy * f + dx / ln * jitter))
+    d.line(pts, fill=col, width=w, joint="curve")
+
+
+def _hand_arrow(d, a: tuple, b: tuple, col, w: int, rnd):
+    _wobble(d, a, b, col, w, rnd)
+    hl = 16 * S
+    d.line([(b[0] - hl, b[1] - hl * 0.6), b], fill=col, width=w, joint="curve")
+    d.line([(b[0] - hl, b[1] + hl * 0.6), b], fill=col, width=w, joint="curve")
+
+
+def _hand_box(d, box: tuple, col, w: int, rnd):
+    x0, y0, x1, y1 = box
+    for a, b in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):
+        _wobble(d, a, b, col, w, rnd, 2.2)
+
+
+def _hand_sign(d, t: dict, sig: str):
+    if sig:
+        f = _hand(30)
+        d.text((W - M - C._tw(d, sig, f), H - M - _lh(d, f)), sig, font=f, fill=t["muted"])
+
+
+def _hand_title(d, t: dict, title: str, sub: str, rnd) -> int:
+    """The name of the thing, hand-lettered inside a hand-drawn box; the y under it."""
+    mw = W - 2 * M - 80 * S
+    f = _fit(d, title.upper(), (64, 58, 52, 47, 42, 38), lambda z: _hand(z, bold=True), mw, 2)
+    fs = _hand(30)
+    th = _block_h(d, title.upper(), f, mw, 4 * S) + ((_lh(d, fs) + 6 * S) if sub else 0)
+    tw = max([_line_w(d, ln, f) for ln in _wrap(d, title.upper(), f, mw)] + [C._tw(d, sub, fs) if sub else 0])
+    x0, y0 = M, M + 10 * S
+    _hand_box(d, (x0, y0, x0 + tw + 70 * S, y0 + th + 50 * S), t["ink"], max(3, 4 * S), rnd)
+    y = _write(d, title.upper(), f, x0 + 35 * S, y0 + 22 * S, mw, t["ink"], 4 * S)
+    if sub:
+        d.text((x0 + 35 * S, y + 2 * S), sub, font=fs, fill=t["muted"])
+    return y0 + th + 50 * S
+
+
+def pairs_card(accent, title: str, sub: str, pairs: list, sig: str = "", surface: str = "paper") -> Image.Image:
+    """Isenberg's handwritten pairs: a state the reader recognises → the one thing to do (4-8 pairs, ~60 words).
+    Both columns wrap; the biggest size where every row fits wins, and the rows sit as one block, never spread thin."""
+    img, d, t = _paper(accent, surface)
+    rnd = _random.Random(sum(map(ord, title)) & 0xFFFF)
+    pairs = [(str(a).strip(), str(b).strip()) for a, b in pairs if str(a).strip() and str(b).strip()][:8]
+    top = _hand_title(d, t, title, sub, rnd) + 60 * S
+    foot = H - M - 80 * S
+    avail, arrow = W - 2 * M, 150 * S
+    for z in (76, 70, 64, 58, 54, 50, 46, 43, 40, 37, 34, 31, 28):
+        fl, fr = _hand(z, bold=True), _hand(z)
+        lw = min(max([C._tw(d, a.upper(), fl) for a, _ in pairs] or [0]), int(avail * 0.48))
+        rw = avail - lw - arrow
+        words_fit = all(C._tw(d, w, fl) <= lw for a, _ in pairs for w in a.upper().split()) and \
+            all(C._tw(d, w, fr) <= rw for _, b in pairs for w in b.upper().split())
+        rows = [max(_block_h(d, a.upper(), fl, lw, 2 * S), _block_h(d, b.upper(), fr, rw, 2 * S)) for a, b in pairs]
+        gap = int(z * S * 0.9)
+        two = all(len(_wrap(d, a.upper(), fl, lw)) <= 2 and len(_wrap(d, b.upper(), fr, rw)) <= 2 for a, b in pairs)
+        if words_fit and two and sum(rows) + gap * (len(rows) - 1) <= foot - top:
+            break
+    gap = min(int(z * S * 1.6), (foot - top - sum(rows)) // max(1, len(rows) - 1)) if len(rows) > 1 else 0
+    y = top + max(0, (foot - top - sum(rows) - gap * (len(rows) - 1)) // 3)     # a little above centre
+    for (a, b), h in zip(pairs, rows):
+        ha, hb = _block_h(d, a.upper(), fl, lw, 2 * S), _block_h(d, b.upper(), fr, rw, 2 * S)
+        _write(d, a.upper(), fl, M, y + (h - ha) // 2, lw, t["ink"], 2 * S)
+        cy = y + h // 2
+        _hand_arrow(d, (M + lw + 28 * S, cy), (M + lw + arrow - 34 * S, cy), t["accent"], max(3, 4 * S), rnd)
+        _write(d, b.upper(), fr, M + lw + arrow, y + (h - hb) // 2, rw, t["ink"], 2 * S)
+        y += h + gap
+    _hand_sign(d, t, sig)
+    return _done(img)
+
+
+def ladder_card(accent, title: str, levels: list, low: str = "Least helpful", high: str = "Most helpful",
+                sig: str = "", surface: str = "paper") -> Image.Image:
+    """Lieberman's ladder: 3-5 levels from worst to best (quotes or habits), the steps of a hand-drawn pyramid; the
+    reader finds the level they're on. levels go least to most."""
+    img, d, t = _paper(accent, surface)
+    rnd = _random.Random(sum(map(ord, title)) & 0xFFFF)
+    levels = [str(x).strip() for x in levels if str(x).strip()][:5]
+    n = max(2, len(levels))
+    y0 = _hand_title(d, t, title, "", rnd) + 60 * S
+    foot = H - M - 80 * S
+    py_w = int((W - 2 * M) * 0.38)
+    px0, px1 = W - M - py_w, W - M
+    cx = (px0 + px1) // 2
+    h_total = foot - y0
+    tw = px0 - M - 40 * S
+    fq = _fit(d, max(levels, key=len) if levels else "", (34, 31, 28, 26, 24), lambda z: _hand(z), tw, 4)
+    fn = _hand(46, bold=True)
+    fl = _hand(24)
+    seg = h_total // n
+    for i in range(n):            # i = 0 is the top (best)
+        lvl = n - i
+        top, bot = y0 + i * seg, y0 + (i + 1) * seg
+        hw_top, hw_bot = py_w / 2 * (i / n), py_w / 2 * ((i + 1) / n)
+        poly = [(cx - hw_top, top), (cx + hw_top, top), (cx + hw_bot, bot), (cx - hw_bot, bot)]
+        if i == 0:
+            d.polygon(poly, fill=C._mix(t["bg"], t["accent"], 0.28))
+        for a, b in ((poly[1], poly[2]), (poly[3], poly[0]), (poly[2], poly[3])):
+            _wobble(d, a, b, t["accent"] if i == 0 else t["ink"], max(3, 4 * S), rnd, 1.4)
+        num = str(lvl)
+        nb = d.textbbox((0, 0), num, font=fn)
+        d.text((cx - (nb[2] - nb[0]) // 2 - nb[0], (top + bot) // 2 - (nb[3] - nb[1]) // 2 - nb[1] + (8 * S if i == 0 else 0)),
+               num, font=fn, fill=t["accent"] if i == 0 else t["ink"])
+        q = levels[lvl - 1] if lvl - 1 < len(levels) else ""
+        hb = _block_h(d, q, fq, tw, 4 * S)
+        _write(d, q, fq, M, (top + bot) // 2 - hb // 2, tw, t["ink"], 4 * S)
+    d.text((cx - C._tw(d, high, fl) // 2, y0 - _lh(d, fl) - 6 * S), high, font=fl, fill=t["accent"])
+    d.text((cx - C._tw(d, low, fl) // 2, foot + 10 * S), low, font=fl, fill=t["muted"])
+    _hand_sign(d, t, sig)
+    return _done(img)
+
+
+# ── one-line opinion cards (22 Nov 2026 opinion-visual research) ─────────────────────────────────────────────────────
+# Across 12 B2B creators' 650 image posts (each against the same creator's median), a handwritten note was the only
+# single-line treatment that beat the creator's baseline across many creators (8 creators, 1.2-1.9x views, ~2.8x
+# likes); a printed-page excerpt with the claim in bold last beat it every time (9/9, mostly Justin Welsh). Designed
+# statement cards sat at ~0.95x and tweet-screenshot cards at 0.5-0.7x. Both drawn exactly, no image model.
+INK_PEN = (28, 38, 72)          # ballpoint blue-black
+
+
+def _serif(px: float, bold: bool = False):
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(os.path.join(C._FONTS_DIR, "CrimsonText-Bold.ttf" if bold else "CrimsonText-Regular.ttf"),
+                                  int(px * S))
+    except Exception:
+        return _body(px, bold=bold)
+
+
+def _hand_words(img, words: list, font, x: int, y: int, ink, rnd) -> list:
+    """Each word drawn on its own, a hair rotated, raised and resized, so the line reads as written by hand rather
+    than typeset. The boxes drawn, for underlining."""
+    sp = C._tw(ImageDraw.Draw(img), " ", font)
+    boxes = []
+    for w in words:
+        f = font
+        z = int(font.size * rnd.uniform(0.97, 1.03))
+        try:
+            f = font.font_variant(size=z)
+        except Exception:
+            pass
+        d0 = ImageDraw.Draw(img)
+        bb = d0.textbbox((0, 0), w, font=f)
+        pad = 12 * S
+        tile = Image.new("L", (bb[2] - bb[0] + 2 * pad, bb[3] + 2 * pad), 0)
+        ImageDraw.Draw(tile).text((pad - bb[0], pad), w, font=f, fill=int(255 * rnd.uniform(0.86, 1.0)))
+        tile = tile.rotate(rnd.uniform(-1.4, 1.4), resample=Image.BICUBIC, expand=True)
+        dy = int(rnd.uniform(-2.2, 2.2) * S)
+        img.paste(Image.new("RGB", tile.size, ink), (x - pad, y - pad + dy), tile)
+        boxes.append((w, x, y + dy, x + bb[2] - bb[0], y + dy + bb[3]))
+        x += bb[2] - bb[0] + sp
+    return boxes
+
+
+def _pen(px: float):
+    """Caveat, a natural pen hand (the craft judge called Kalam 'Comic Sans-like' on a one-line note); Kalam if it's
+    missing. Caveat runs small, so it is set a quarter larger."""
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(os.path.join(C._FONTS_DIR, "Caveat-Variable.ttf"), int(px * S * 1.25))
+    except Exception:
+        return _hand(px)
+
+
+def note_card(accent, line: str, emphasis: str = "", sig: str = "", surface: str = "paper") -> Image.Image:
+    """The post's one line written in pen on plain paper, a flat scan, signed small (Sahil Bloom's and Gary Vee's
+    handwritten notes): 8-30 words, one ink, big hand at ~65% of the width, one hand-drawn underline for emphasis."""
+    img, d, t = _paper(accent, surface)
+    pen = INK_PEN if t["surface"] != "dark" else t["ink"]   # chalk-white on the dark page
+    rnd = _random.Random(sum(map(ord, line)) & 0xFFFF)
+    line = " ".join(str(line or "").split())
+    mx = int(W * 0.14)
+    mw = W - 2 * mx
+    for z in (110, 100, 92, 84, 77, 70, 64, 58, 53, 48):
+        f = _pen(z)
+        lines = [[w for w, _ in ln] for ln in _wrap(d, line, f, mw)]
+        step = int(_lh(d, f) * 1.18)
+        if len(lines) * step <= H * 0.62:
+            break
+    y = (H - len(lines) * step) // 2 - int(H * 0.03)
+    em = [w.lower().strip(".,;:!?\"'") for w in str(emphasis or "").split()]
+    for ln in lines:
+        x = mx + int(rnd.uniform(-6, 10) * S)          # a hand never starts every line at the same point
+        boxes = _hand_words(img, ln, f, x, y, pen, rnd)
+        hot = [b for b in boxes if b[0].lower().strip(".,;:!?\"'") in em]
+        if hot:
+            ux0, ux1 = hot[0][1] - 6 * S, hot[-1][3] + 8 * S
+            uy = max(b[4] for b in hot) + 10 * S
+            _wobble(d, (ux0, uy), (ux1, uy + int(rnd.uniform(-4, 4) * S)), pen, max(3, 5 * S), rnd, 2.0)
+        y += step
+    if sig:
+        fs = _pen(40)
+        d.text((W - mx - C._tw(d, "— " + sig, fs), H - int(H * 0.12)), "— " + sig, font=fs, fill=pen)
+    return _done(img)
+
+
+def typed_note(accent, text: str, sig: str = "", surface: str = "dark") -> Image.Image:
+    """A plain typed note: the take in a regular face, left-aligned, nothing else on the page but a small signature
+    (Dan Koe's black text cards: 1.27x the creator's median views across 24 posts by 5 creators, 22 Nov 2026 variety
+    research). No fake app or post chrome: that is what sank the tweet card. Paragraphs kept; 15-120 words."""
+    img, d, t = _paper(accent, surface)
+    paras = [" ".join(p.split()) for p in str(text or "").split("\n\n") if p.strip()][:4]
+    mx = int(W * 0.12)
+    mw = W - 2 * mx
+    for z in (66, 60, 55, 50, 46, 42, 39, 36, 33):
+        f = _post_font(z)
+        gap = int(z * S * 0.34)
+        pgap = int(z * S * 1.25)
+        h = sum(_block_h(d, p, f, mw, gap) for p in paras) + pgap * (len(paras) - 1)
+        if h <= H * 0.66:
+            break
+    y = (H - h) // 2 - int(H * 0.03)
+    for i, p in enumerate(paras):
+        y = _write(d, p, f, mx, y, mw, t["ink"], gap) - gap + (pgap if i < len(paras) - 1 else 0)
+    if sig:
+        fs = _post_font(28)
+        d.text((mx, H - int(H * 0.11)), "— " + sig, font=fs, fill=t["muted"])
+    return _done(img)
+
+
+def page_card(accent, setup: str, claim: str, byline: str = "") -> Image.Image:
+    """A cropped book page (Justin Welsh's printed excerpts): two or three sentences of setup in a serif, the claim
+    in bold as the last line. Never a made-up book title or running head; the author's name small at the foot."""
+    img, d, t = _paper(accent)
+    img.paste((249, 247, 241), (0, 0, W, H))      # whiter than the note paper: a printed page
+    t["bg"] = (249, 247, 241)
+    mask = Image.effect_noise((W // 2, H // 2), 14).point(lambda v: 40 if v > 170 else 0).resize((W, H), Image.BILINEAR)
+    img.paste((228, 222, 210), (0, 0, W, H), mask)
+    d = ImageDraw.Draw(img)
+    setup, claim = " ".join(str(setup or "").split()), " ".join(str(claim or "").split())
+    mx = int(W * 0.13)
+    mw = W - 2 * mx
+    ink = (34, 32, 30)
+    for z in (60, 56, 52, 49, 46, 43, 40, 37):
+        fr, fb = _serif(z), _serif(z, bold=True)
+        gap = int(z * S * 0.24)
+        hs = _block_h(d, setup, fr, mw, gap) if setup else 0
+        hc = _block_h(d, claim, fb, mw, gap)
+        total = hs + (int(z * S * 1.1) if setup else 0) + hc
+        if total <= H * 0.66:
+            break
+    y = (H - total) // 2 - int(H * 0.02)
+    if setup:
+        y = _write(d, setup, fr, mx, y, mw, ink, gap) + int(z * S * 1.1) - gap
+    _write(d, claim, fb, mx, y, mw, ink, gap)
+    if byline:
+        fs = _serif(30)
+        txt = byline.upper()
+        tw = sum(C._tw(d, ch, fs) for ch in txt) + 4 * S * (len(txt) - 1)
+        x = (W - tw) // 2
+        for ch in txt:                                    # letter-spaced small caps at the foot of the page
+            d.text((x, H - int(H * 0.09)), ch, font=fs, fill=(120, 114, 106))
+            x += C._tw(d, ch, fs) + 4 * S
+    return _done(img)

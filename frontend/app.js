@@ -1667,7 +1667,7 @@ const _CARD_THEMES = [["light", "Cream", "#f4f0e8", "#24365e"], ["mint", "Mint",
   ["sky", "Sky", "#eaf2fb", "#047857"], ["sage", "Sage", "#ecf1e8", "#1e305c"], ["lavender", "Lavender", "#f1edfb", "#5b21b6"],
   ["peach", "Peach", "#fdefe5", "#0f666b"], ["rose", "Rose", "#fcedf1", "#881337"], ["sand", "Sand", "#f3ede0", "#166534"],
   ["forest", "Forest", "#112b22", "#78e2b2"], ["dark", "Charcoal", "#16181d", "#d6aa48"]];
-const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Tweet-style post", statement_card: "Statement card", notebook: "Notebook", object_quote: "Handwritten quote", diagram: "Diagram", your_photo: "Your photo", scene: "Photo", source: "Source card" };
+const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Tweet-style post", statement_card: "Statement card", note_card: "Handwritten note", page_card: "Book page", notebook: "Notebook", object_quote: "Handwritten quote", diagram: "Diagram", your_photo: "Your photo", explainer: "Explainer sketch", scene: "Photo", source: "Source card" };
 const _DESIGNED = ["illustration", "concept", "photo_text", "list", "quote", "diagram", "your_photo", "tweet", "statement"];   // colours apply
 // Drawn by the image model: changeable in words under the picture, and made one at a time
 const _DRAWN_FORMATS = ["concept", "photo_card", "scene", "notebook", "object_quote"];

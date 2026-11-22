@@ -320,7 +320,7 @@ def _check_gen_limit(user: dict):
         raise HTTPException(status_code=402, detail="LIMIT_REACHED")
 
 
-_AI_PICTURE_FORMATS = ("concept", "photo_card", "scene", "notebook", "object_quote")   # drawn by the image model, counted per plan
+_AI_PICTURE_FORMATS = ("concept", "photo_card", "scene", "notebook", "object_quote", "explainer")   # drawn by the image model, counted per plan
 
 
 def _ai_pictures_used_message(info: dict) -> str:
@@ -1970,7 +1970,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
     # refused before anything is spent
     gen_info = auth_module.get_gen_info(user["id"])
     ai_left = gen_info["ai_limit"] == -1 or gen_info["ai_used"] < gen_info["ai_limit"]
-    if request.style in ("concept", "scene", "photo_text", "notebook", "handwritten") and not ai_left:
+    if request.style in ("concept", "scene", "photo_text", "notebook", "handwritten", "explainer") and not ai_left:
         raise HTTPException(status_code=402, detail="AI_PICTURES_USED:" + _ai_pictures_used_message(gen_info)
                             + " Diagram, list, quote and statement cards are still included.")
     notice = ""
@@ -2013,7 +2013,8 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             # The design picked on Write; "illustration" (Auto) lets the writer choose
             force = {"concept": "concept", "tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
                      "list": "list_card", "quote": "quote_card", "notebook": "notebook", "handwritten": "object_quote",
-                     "diagram": "diagram", "your_photo": "your_photo", "statement": "statement_card"}.get(request.style)
+                     "diagram": "diagram", "your_photo": "your_photo", "statement": "statement_card",
+                     "explainer": "explainer", "note": "note_card", "page": "page_card"}.get(request.style)
             if request.style == "your_photo" and not author_photos.count((profile or {}).get("id", "")):
                 raise HTTPException(status_code=400, detail="NO_PHOTOS:Add a photo or two of yourself first, then make it again.")
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
@@ -2021,7 +2022,13 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             # With the plan's AI pictures used up, Auto makes the card its writer would
             # otherwise have drawn (asking for a drawing by name was refused above)
             if content["format"] in _AI_PICTURE_FORMATS and not ai_left:
-                if content["format"] == "notebook" and len(content.get("nb_items") or []) >= 3:
+                if content["format"] == "explainer" and content.get("dg_left") and content.get("dg_right"):
+                    content.update(format="diagram", diagram_kind="compare")   # the same point, drawn exactly
+                elif content["format"] == "notebook" and len(content.get("dg_levels") or []) >= 3:
+                    content.update(format="diagram", diagram_kind="ladder")    # hand-lettered by Voyce, exact
+                elif content["format"] == "notebook" and len(content.get("dg_pairs") or []) >= 3:
+                    content.update(format="diagram", diagram_kind="pairs")
+                elif content["format"] == "notebook" and len(content.get("nb_items") or []) >= 3:
                     # the same framework as steps Voyce draws: no AI picture, every word exact
                     content.update(format="diagram", diagram_kind="steps", dg_title=content.get("nb_title", ""),
                                    dg_items=content.get("nb_items") or [])
@@ -2049,7 +2056,8 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
         polish_pool.shutdown(wait=False)
         if profile and profile.get("id") and opts and opts[0].get("format"):
             try:   # so Auto doesn't make the same kind of picture next time
-                db.companies.update_one({"id": profile["id"]}, {"$set": {"last_picture_format": opts[0]["format"]}})
+                db.companies.update_one({"id": profile["id"]}, {"$set": {"last_picture_format": opts[0]["format"],
+                                                                          "last_picture_kind": opts[0].get("kind", "")}})
             except Exception:
                 logging.exception("could not store the last picture's format")
         auth_module.increment_gens(user["id"])   # one write-up, however many colour versions
