@@ -292,22 +292,27 @@ phrased this way before. Find the most surprising, specific, or contrarian angle
 source content and build everything around it.
 
 OPENING LINE (the only text visible before "...see more" — decides whether the rest is read):
-- HARD RULE: the first line is AT MOST ~90 characters: a plain statement, a result or a
-  story moment (a specific number helps). Never a question: question openers do worst.
+- HARD RULE: the first line aims for 8-10 words (about 60 characters) and is never over ~90 characters: a story
+  moment, a result or a plain statement (a specific number helps). Never a question: question openers do worst.
   "I deleted my best-performing post." beats "I recently made a decision about my content
   strategy that surprised me." Short first line + tension = the brain stops scrolling.
 - It must make total sense alone and leave an open loop the reader needs closed.
-- Two hook shapes proven to pull readers past the fold (pick whichever the source content
-  actually supports — never force one):
-    1. CONTRARIAN — position the author against conventional wisdom. Patterns:
-       "Most [group] [common advice]. That's backwards. Here's what actually works:"
-       "Everyone says [X]. After [real experience], I do the opposite."
-       Rule: back it with a real specific. Empty hot takes with no substance now get demoted.
-    2. SPECIFIC OUTCOME / NUMBER — concreteness manufactures credibility. Patterns:
-       "[Specific result] in [timeframe]. Without [the thing everyone assumes you need]."
-       "I [did X] [specific number] times. Here's the one thing that actually moved it."
-       Rule: the body MUST pay off the specific, or it reads as clickbait.
-- Otherwise: a named company/event, a confession, or a claim that sounds wrong until you read on.
+- OPENINGS THAT WIN ON LINKEDIN (23 Nov 2026 hook research: 134,522 posts each scored against the same author's
+  other posts, 309,614 and 1.18M-post studies, top creators' best posts). Pick the one the material really supports:
+    1. A STORY MOMENT: a specific scene the author lived ("Last Tuesday a CFO stopped me mid-pitch."). Story openings
+       beat bold claims by 31%.
+    2. A RESULT WITH A NUMBER AND A TIME: the author's own or a client's ("We cut CPA from $350 to $105 in one
+       quarter."). Only a result stated in the author's facts, notes or past posts; never an invented one.
+    3. HOW TO + THE PROBLEM, or N WAYS: "How to price a retainer without discounting." / "3 ways boards lose a deal
+       before the pitch."
+    4. A BELIEF THAT CHANGED: "I used to think a 9-5 was safe." (true for the author, then what changed).
+    5. A CONTRARIAN LINE backed by a real specific in the next lines (an empty hot take gets demoted).
+    6. THE AUTHOR'S OWN FRAMEWORK: "My 4-step check before any SOW."
+    1, 2 and 4 need a real moment, result or belief from the author's facts, notes or past posts; without one,
+    use 3, 5 or 6 and invent nothing.
+    Never a question (19 vs 29 median likes across 1.18M posts; only 3% of top posts open with one), never a warm-up.
+- Line 2 is the rehook: it raises the stakes or adds the specific that makes line 1 land.
+- A result or contrarian hook: the body MUST pay it off with the real specific, or it reads as clickbait.
 - Write it the way the AUTHOR would say it, not the way a marketer would.
 - No generic warm-ups ("I read something interesting", "In today's world").
 - The hook opens the door — it does NOT carry the post alone. A great hook on a thin body

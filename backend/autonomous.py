@@ -95,6 +95,11 @@ POST_TYPE_DESCRIPTIONS = {
 
 # ── Hook style hints (from the profile's allowed_hooks setting) ───────────────
 _HOOK_STYLE_HINTS = {
+    "story_moment":    "opening on a specific moment the author lived",
+    "own_result":      "leading with the author's own or a client's result, with a number and a time (only a real one)",
+    "how_to":          "promising how to solve one problem, or N ways to do it",
+    "belief_shift":    "saying what the author used to believe and what changed",
+    "framework":       "naming the author's own framework or method",
     "specific_number": "leading with a striking, specific number or percentage",
     "named_event":     "reacting to a named company, report, or event",
     "counterintuitive": "stating a counterintuitive truth that sounds wrong until explained",
@@ -109,9 +114,25 @@ def _hook_guidance(allowed_hooks: list | None) -> str:
     if hints:
         return ("\nOPENING LINE: open the post by " + ", or by ".join(hints) +
                 ". The first line must be specific and impossible to ignore — no warm-up text.")
-    return ("\nOPENING LINE: the first line must be specific and impossible to ignore — "
-            "a real number, a named company or event, an honest confession, or a claim that "
-            "sounds wrong until explained. No warm-up text.")
+    return ("\nOPENING LINE: 8-10 words (about 60 characters), specific and impossible to ignore. No warm-up text.\n"
+            + _RANKED_OPENINGS + "\nLINE 2 is the rehook: it raises the stakes or adds the specific that makes line 1 "
+            "land (a number, a name, the cost of getting it wrong).")
+
+
+_RANKED_OPENINGS = """OPENINGS THAT WIN ON LINKEDIN (23 Nov 2026 hook research: 134,522 posts each scored against the same author's
+other posts, 309,614 and 1.18M-post studies, top creators' best posts). Pick the one the material really supports:
+  1. A STORY MOMENT: a specific scene the author lived ("Last Tuesday a CFO stopped me mid-pitch."). Story openings
+     beat bold claims by 31%.
+  2. A RESULT WITH A NUMBER AND A TIME: the author's own or a client's ("We cut CPA from $350 to $105 in one
+     quarter."). Only a result stated in the author's facts, notes or past posts; never an invented one.
+  3. HOW TO + THE PROBLEM, or N WAYS: "How to price a retainer without discounting." / "3 ways boards lose a deal
+     before the pitch."
+  4. A BELIEF THAT CHANGED: "I used to think a 9-5 was safe." (true for the author, then what changed).
+  5. A CONTRARIAN LINE backed by a real specific in the next lines (an empty hot take gets demoted).
+  6. THE AUTHOR'S OWN FRAMEWORK: "My 4-step check before any SOW."
+  1, 2 and 4 need a real moment, result or belief from the author's facts, notes or past posts; without one,
+  use 3, 5 or 6 and invent nothing.
+  Never a question (19 vs 29 median likes across 1.18M posts; only 3% of top posts open with one), never a warm-up."""
 
 # ── Company prompt templates ──────────────────────────────────────────────────
 COMPANY_PROMPTS = {
@@ -291,9 +312,10 @@ Return ONLY the post text.""",
 # ── Shared quality rules ──────────────────────────────────────────────────────
 _PERSONAL_QUALITY_RULES = """
 QUALITY RULES (non-negotiable):
-- Line 1 is the ONLY thing visible before "...see more". HARD RULE: at most ~90 characters,
-  self-contained: a plain statement, a result or a story moment (a specific number helps),
-  an open loop the reader needs closed. Never a question: question openers do worst.
+- Line 1 is the ONLY thing visible before "...see more". Aim for 8-10 words (about 60 characters; short first
+  lines do best in every large study), never over ~90 characters, self-contained: a story moment, a result or
+  a plain statement (a specific number helps), an open loop the reader needs closed. Never a question:
+  question openers do worst. Line 2 is the rehook: it raises the stakes or adds the specific.
   Write it the way THIS author would say it, not like a marketer.
 - If voice examples are provided in AUTHOR CONTEXT, match their rhythm, vocabulary, and
   quirks exactly — voice outranks every other rule.
@@ -327,7 +349,9 @@ QUALITY RULES (non-negotiable):
   best, and let the material set it. A real process, story or set of numbers fills it; one
   sharp point can stop near 100 words. Never pad: a line that adds no fact, step, example or
   turn gets cut. Past 300 words only for a step-by-step process. Never summarize yourself at
-  the end or restate the hook as a closer.
+  the end or restate the hook as a closer. Never end on a generic question ("What do you think?", "Agree?",
+  "Thoughts?": it cost 7% of total engagement across 134,522 posts); end on the line that hands the point to
+  the reader.
 - HOLD ATTENTION (dwell time is a confirmed reach signal): one idea per line, whitespace,
   and a shape that pulls the eye down — a narrative arc, a numbered list, or a before→after.
 - SAVE-WORTHY: build the post so a reader wants to keep it — a usable framework, a concrete
