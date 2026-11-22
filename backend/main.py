@@ -42,6 +42,7 @@ import sales
 import analytics
 import meta_ads
 import notes
+import author_photos
 from pymongo.errors import DuplicateKeyError
 
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +51,7 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(sales.router)   # the team's outreach tracker, /sales/*
 app.include_router(notes.router)   # what Voyce knows about each author: weekly question, notes, talks
+app.include_router(author_photos.router)   # photos of the author for "Your photo" images
 app.include_router(partner_panel.router)   # a partner's team panel (/partner/api/*) and Voyce's partner view
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
@@ -318,7 +320,7 @@ def _check_gen_limit(user: dict):
         raise HTTPException(status_code=402, detail="LIMIT_REACHED")
 
 
-_AI_PICTURE_FORMATS = ("concept", "photo_card", "scene")   # drawn by the image model, counted per plan
+_AI_PICTURE_FORMATS = ("concept", "photo_card", "scene", "notebook", "object_quote")   # drawn by the image model, counted per plan
 
 
 def _ai_pictures_used_message(info: dict) -> str:
@@ -791,6 +793,7 @@ class GenerateRequest(BaseModel):
     carousel_theme: str = ""           # override the profile's carousel theme for this render
     theme: str = ""               # image cards: a colour set (carousel._ED_THEMES), "" = a random one
     options: int = 1              # image cards: 1-3 colour versions to choose from (drawn, not generated)
+    reference_b64: str = ""       # AI pictures: a picture the user likes, whose look the new one follows
 
 
 class VariationsRequest(BaseModel):
@@ -1967,14 +1970,19 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
     # refused before anything is spent
     gen_info = auth_module.get_gen_info(user["id"])
     ai_left = gen_info["ai_limit"] == -1 or gen_info["ai_used"] < gen_info["ai_limit"]
-    if request.style in ("concept", "scene", "photo_text") and not ai_left:
+    if request.style in ("concept", "scene", "photo_text", "notebook", "handwritten") and not ai_left:
         raise HTTPException(status_code=402, detail="AI_PICTURES_USED:" + _ai_pictures_used_message(gen_info)
-                            + " List, quote and statement cards are still included.")
+                            + " Diagram, list, quote and statement cards are still included.")
     notice = ""
+    style_token = None
     try:
         import base64
         profile = _resolve_profile(user["id"], request.profile_id)
         context_text = _with_profile_context(profile, raw_text, 6000)
+        ref = _style_reference_bytes(request.reference_b64)
+        if ref:   # a picture they like: every drawing in this request follows its look
+            import llm as _llm
+            style_token = _llm.style_reference.set(ref)
         # The caption gets the same editor, copied-line check and length fit as a text post, while the
         # image is drawn (21 Nov 2026 audit: image captions skipped all three)
         from concurrent.futures import ThreadPoolExecutor
@@ -2004,13 +2012,21 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             from carousel import generate_ai_image_post, render_ai_image_options
             # The design picked on Write; "illustration" (Auto) lets the writer choose
             force = {"concept": "concept", "tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
-                     "list": "list_card", "quote": "quote_card"}.get(request.style)
+                     "list": "list_card", "quote": "quote_card", "notebook": "notebook", "handwritten": "object_quote",
+                     "diagram": "diagram", "your_photo": "your_photo"}.get(request.style)
+            if request.style == "your_photo" and not author_photos.count((profile or {}).get("id", "")):
+                raise HTTPException(status_code=400, detail="NO_PHOTOS:Add a photo or two of yourself first, then make it again.")
             content = generate_ai_image_post(context_text, company=profile, force_format=force)
             caption = _polished(content)
             # With the plan's AI pictures used up, Auto makes the card its writer would
             # otherwise have drawn (asking for a drawing by name was refused above)
             if content["format"] in _AI_PICTURE_FORMATS and not ai_left:
-                content["format"] = "list_card" if content.get("card_points") else "quote_card"
+                if content["format"] == "notebook" and len(content.get("nb_items") or []) >= 3:
+                    # the same framework as steps Voyce draws: no AI picture, every word exact
+                    content.update(format="diagram", diagram_kind="steps", dg_title=content.get("nb_title", ""),
+                                   dg_items=content.get("nb_items") or [])
+                else:
+                    content["format"] = "list_card" if content.get("card_points") else "quote_card"
                 notice = _ai_pictures_used_message(gen_info) + " This one is a card."
             # Tweet, list and quote cards (and the card a failed photo falls back to) carry the
             # author's name and photo
@@ -2031,6 +2047,11 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
                           "picture: this one isn't counted.")
         content["post_text"] = _caption(caption, content)
         polish_pool.shutdown(wait=False)
+        if profile and profile.get("id") and opts and opts[0].get("format"):
+            try:   # so Auto doesn't make the same kind of picture next time
+                db.companies.update_one({"id": profile["id"]}, {"$set": {"last_picture_format": opts[0]["format"]}})
+            except Exception:
+                logging.exception("could not store the last picture's format")
         auth_module.increment_gens(user["id"])   # one write-up, however many colour versions
         _remember_write(user["id"], (profile or {}).get("id"), "image", request,
                         (content.get("card_headline") or headline or "") + "\n\n" + content.get("post_text", ""),
@@ -2046,8 +2067,90 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             "options":      ([{"image_base64": base64.b64encode(o["png"]).decode(), "theme": o.get("theme", "")}
                               for o in opts] if len(opts) > 1 else []),
         }
+    except HTTPException:
+        raise   # a message meant for the user ("add a photo first"), not a generation failure
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
+    finally:
+        if style_token is not None:
+            import llm as _llm
+            _llm.style_reference.reset(style_token)
+
+
+def _style_reference_bytes(b64: str) -> bytes | None:
+    """The style reference picture, checked and shrunk to at most 1024 px (enough for a look, cheaper to send)."""
+    if not (b64 or "").strip():
+        return None
+    import base64, io
+    from PIL import Image
+    try:
+        raw = base64.b64decode(b64.split(",")[-1])
+        if len(raw) > 10 * 1024 * 1024:
+            raise ValueError
+        im = Image.open(io.BytesIO(raw)).convert("RGB")
+        im.thumbnail((1024, 1024))
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=88)
+        return buf.getvalue()
+    except Exception:
+        raise HTTPException(status_code=400, detail="That style picture couldn't be read. Try a PNG or JPG under 10 MB.")
+
+
+class ImageEditRequest(BaseModel):
+    image_base64: str
+    instruction: str
+    profile_id: str = ""
+
+
+@app.post("/generate/image/edit")
+def edit_image(request: ImageEditRequest, x_token: str = Header(None)):
+    """Change a picture in words ("fix the word on the folder", "make the background darker"): the image model
+    edits the same picture, then Claude checks the change was made without breaking any words. Postiv and MagicPost
+    let users do this; Voyce already repaired its own pictures this way behind the scenes. Not counted as a new
+    picture; up to 15 changes a day."""
+    import base64, io
+    from PIL import Image
+    from llm import generate_image, look_json
+    from carousel import _small_jpeg, _cover_crop, _IMAGE_CHECK_SYSTEM, IMG_POST_W, IMG_POST_H
+    user = _require_user(x_token)
+    _rate_limit(f"imgedit:{user['id']}", 5)
+    if not ratelimit.allow(f"imgedit-day:{user['id']}", 15, 86400):
+        raise HTTPException(status_code=429, detail="That's 15 picture changes today. Make a new picture instead.")
+    instr = " ".join((request.instruction or "").split())[:300]
+    if len(instr) < 4:
+        raise HTTPException(status_code=400, detail="Say what to change, for example \"make the folder blue\".")
+    try:
+        raw = base64.b64decode(request.image_base64.split(",")[-1])
+        if not raw or len(raw) > 10 * 1024 * 1024:
+            raise ValueError
+        Image.open(io.BytesIO(raw)).verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="That picture couldn't be read. Make it again.")
+    try:
+        out = generate_image(
+            f"Edit this image. {instr} Keep everything else exactly as it is: the same layout, colours, words, people "
+            "and style. Every word already on it stays spelled exactly as it is now.",
+            aspect_ratio="4:5", size="1K", edit=raw)
+    except Exception:
+        logging.exception("picture change failed")
+        out = None
+    if not out:
+        raise HTTPException(status_code=502, detail="Couldn't make that change. Try saying it another way.")
+    im = _cover_crop(Image.open(io.BytesIO(out)), IMG_POST_W, IMG_POST_H)
+    try:
+        verdict = look_json(
+            f"The author asked for this change to their LinkedIn picture: \"{instr}\". This is the picture after it.\n"
+            "A blocker here is also: the change they asked for was not made.", _small_jpeg(im.copy()),
+            system=_IMAGE_CHECK_SYSTEM) or {}
+    except Exception:
+        verdict = {}
+    if verdict.get("ok") is False:
+        why = "; ".join(str(p) for p in (verdict.get("problems") or [])[:1])
+        raise HTTPException(status_code=422, detail="The change didn't come out cleanly" + (f" ({why[:160]})" if why else "")
+                            + ". Your picture is unchanged: try saying it another way.")
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return {"image_base64": base64.b64encode(buf.getvalue()).decode()}
 
 
 @app.post("/generate/caption")

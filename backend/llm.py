@@ -404,6 +404,14 @@ Return ONLY JSON: {{"top": 0.0, "bottom": 0.35, "left": 0.0, "right": 1.0}}"""
     return None
 
 
+# A picture the user likes, attached on Write as a style reference ("make it look like this"): every new
+# drawing in that request follows its look (Postiv and aiCarousels offer this, Nov 2026). Set per request by
+# main.py; edits of an existing picture never use it.
+style_reference: contextvars.ContextVar = contextvars.ContextVar("style_reference", default=None)
+_STYLE_NOTE = ("STYLE REFERENCE (the picture above): match its look only: its colours, lighting, medium, texture, "
+               "mood and composition. Never copy its words, logos, people or brand. Now make this:\n")
+
+
 def generate_image(prompt: str, model_name: str = None, aspect_ratio: str = "4:5",
                    size: str = "1K", edit: bytes = None) -> bytes:
     """Generate a single image from a text prompt using a Gemini image model, or, with edit,
@@ -416,6 +424,11 @@ def generate_image(prompt: str, model_name: str = None, aspect_ratio: str = "4:5
     parts = [{"text": prompt}]
     if edit:
         parts.insert(0, {"inlineData": {"mimeType": _mime(edit), "data": base64.b64encode(edit).decode()}})
+    else:
+        ref = style_reference.get()
+        if ref:
+            parts = [{"inlineData": {"mimeType": _mime(ref), "data": base64.b64encode(ref).decode()}},
+                     {"text": _STYLE_NOTE + prompt}]
     try:
         # Hard timeout: a hung image call must never hold the HTTP request open for good —
         # callers fall back to a rendered card, which beats a dead connection.

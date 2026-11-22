@@ -791,6 +791,17 @@
     .fmt { border: 1px solid #e4e7ec; border-radius: 12px; background: #fff; overflow: hidden; display: flex; flex-direction: column; text-align: left; }
     .fmt-hd { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 9px 10px 7px; }
     .fmt-hd b { font-size: 13px; color: #16181d; }
+    .img-ref-thumb { width: 30px; height: 30px; object-fit: cover; border-radius: 6px; border: 1px solid #d3d8e0; vertical-align: middle; }
+    .img-ref-thumb[hidden] { display: none; }
+    .fmt-link { font-size: 11.5px; font-weight: 600; color: #24365e; text-decoration: underline; }
+    .img-edit { display: flex; gap: 8px; padding: 10px 20px 0; }
+    .img-edit[hidden] { display: none; }
+    .img-edit input { flex: 1; min-width: 0; border: 1.5px solid #d3d8e0; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; }
+    .photos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 16px; }
+    .photos-grid figure { margin: 0; position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f5f6f9; }
+    .photos-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photos-grid button { position: absolute; top: 4px; right: 4px; border: 0; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 2px 6px; cursor: pointer; }
+    .photos-grid .empty { grid-column: 1 / -1; color: #6b7280; font-size: 13px; }
     .fmt-ai { font-size: 10.5px; font-weight: 700; color: #8a3b12; background: #fdeee2; border-radius: 6px; padding: 2px 6px; }
     .fmt-ok { display: none; font-size: 10.5px; font-weight: 800; color: #fff; background: #18a07a; border-radius: 6px; padding: 2px 7px; }
     .fmt-thumb { position: relative; aspect-ratio: 4 / 5; margin: 0 10px; border-radius: 8px; overflow: hidden; background: #f5f6f9; }
@@ -1036,6 +1047,10 @@
           <div class="img-seg" role="radiogroup" aria-label="Image design">
             <label title="Voyce picks the design that fits the post"><input type="radio" name="img-style" value="illustration" checked><span>Auto</span></label>
             <label title="One picture that makes the post's point, with its headline on it"><input type="radio" name="img-style" value="concept"><span>Idea picture</span></label>
+            <label title="Your framework hand-drawn in a real notebook, photographed"><input type="radio" name="img-style" value="notebook"><span>Notebook</span></label>
+            <label title="Your sharpest line written on a whiteboard, a notebook page, a book page or a sticky note"><input type="radio" name="img-style" value="handwritten"><span>Handwritten quote</span></label>
+            <label title="Steps, a comparison, a 2x2 or one big number, drawn with every word exact"><input type="radio" name="img-style" value="diagram"><span>Diagram</span></label>
+            <label title="Your own photo with the post's point under it"><input type="radio" name="img-style" value="your_photo"><span>Your photo</span></label>
             <label title="A realistic photo of a moment from the post's world, with its point in one short line"><input type="radio" name="img-style" value="photo_text"><span>Photo + headline</span></label>
             <label title="A realistic photo of a moment from the post's world, no text"><input type="radio" name="img-style" value="scene"><span>Photo</span></label>
             <label title="Headline and numbered points"><input type="radio" name="img-style" value="list"><span>List card</span></label>
@@ -1179,6 +1194,26 @@
           <div class="fmt-thumb"><img src="/static/write-examples/idea-picture.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('concept', this)">Make it</button></div>
           <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
         </div>
+        <div class="fmt" data-fmt="notebook">
+          <div class="fmt-hd"><b>Notebook</b><span class="fmt-ai">AI</span></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/notebook.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('notebook', this)">Make it</button></div>
+          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
+        </div>
+        <div class="fmt" data-fmt="handwritten">
+          <div class="fmt-hd"><b>Handwritten quote</b><span class="fmt-ai">AI</span></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/handwritten.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('handwritten', this)">Make it</button></div>
+          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
+        </div>
+        <div class="fmt" data-fmt="diagram">
+          <div class="fmt-hd"><b>Diagram</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/diagram.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('diagram', this)">Make it</button></div>
+          <div class="fmt-cost">Uses 1 generation</div>
+        </div>
+        <div class="fmt" data-fmt="your_photo">
+          <div class="fmt-hd"><b>Your photo</b><a href="#" class="fmt-link" onclick="openPhotos();return false;">Your photos</a></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/your-photo.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('your_photo', this)">Make it</button></div>
+          <div class="fmt-cost">Uses 1 generation</div>
+        </div>
         <div class="fmt" data-fmt="carousel">
           <div class="fmt-hd"><b>Carousel</b></div>
           <div class="fmt-thumb"><span class="fmt-stack"><img src="/static/write-examples/carousel-1.jpg?v=2" alt="" loading="lazy"><img src="/static/write-examples/carousel-2.jpg?v=2" alt="" loading="lazy"><img src="/static/write-examples/carousel-3.jpg?v=2" alt="" loading="lazy"></span><button type="button" class="fmt-make" onclick="makeFormat('carousel', this)">Make it</button></div>
@@ -1212,6 +1247,15 @@
           <label class="img-three"><input type="checkbox" id="img-three"> Show 3 options</label>
           <!-- Colours are for the NEXT card made; they never change one already on the post (filled by _colourHint) -->
           <span class="img-colour-hint" id="img-colour-hint" aria-live="polite"></span>
+        </span>
+        <!-- A picture they like as a style reference: AI pictures follow its look, never its words -->
+        <span class="img-design-line" id="img-ref-line">
+          <span class="img-design-k">Look like</span>
+          <button type="button" class="img-src-btn" id="img-ref-add" onclick="document.getElementById('img-ref-upload').click()">+ A picture you like</button>
+          <img id="img-ref-thumb" class="img-ref-thumb" hidden alt="Style reference">
+          <button type="button" class="img-src-btn danger" id="img-ref-clear" hidden onclick="clearStyleRef()" aria-label="Remove the style picture">✕</button>
+          <input type="file" id="img-ref-upload" accept="image/*" hidden onchange="setStyleRef(event)">
+          <span class="img-colour-hint">AI pictures follow its colours and look, never its words.</span>
         </span>
       </div>
     </section>
@@ -1268,6 +1312,10 @@
               <button type="button" class="img-src-btn" onclick="attachGenerateImage()">🔄 Regenerate</button>
               <button type="button" class="img-src-btn danger" onclick="attachRemove()">✕ Remove</button>
             </div>
+            <form class="img-edit" id="img-edit" hidden onsubmit="attachEditImage(event)">
+              <input id="img-edit-input" maxlength="300" autocomplete="off" placeholder="Change something in the picture, e.g. make the folder blue" aria-label="Change something in the picture">
+              <button type="submit" class="img-src-btn" id="img-edit-btn">Change</button>
+            </form>
           </div>
           <div class="li-attach-loading" id="li-attach-loading" style="display:none;">
             <span class="li-attach-spin"></span>
@@ -1366,6 +1414,20 @@
   </main>
   </div>
 
+  <!-- Your photos: the author's own photos for "Your photo" pictures (stored per profile, used in turn) -->
+  <div class="modal-backdrop" id="photos-modal" style="display:none;" onclick="if(event.target===this)closePhotos()">
+    <div class="modal-box">
+      <h3>Your photos</h3>
+      <p class="modal-hint">Photos of you at work, speaking or with clients. Voyce puts the post's point under one, a different one each time. Up to 8; clear, well lit, at least 400 pixels across.</p>
+      <div class="photos-grid" id="photos-grid"></div>
+      <input type="file" id="photos-upload" accept="image/*" multiple hidden onchange="uploadPhotos(event)" />
+      <div class="modal-footer">
+        <button class="modal-cancel" onclick="closePhotos()">Close</button>
+        <button class="modal-confirm" id="photos-add-btn" onclick="document.getElementById('photos-upload').click()">Add photos</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Schedule modal -->
   <div class="modal-backdrop" id="schedule-modal" style="display:none;" onclick="closeScheduleIfBg(event)">
     <div class="modal-box">
@@ -1380,7 +1442,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=38"></script>
+  <script src="/static/app.js?v=40"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async

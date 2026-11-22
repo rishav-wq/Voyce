@@ -34,3 +34,4 @@ partner_seat_requests = _db["partner_seat_requests"]
 partner_bills = _db["partner_bills"]             # bills sent, so the first one adds the setup fee once
 partner_waitlist = _db["partner_waitlist"]       # the landing page's form: who asked to join, emailed to the partner
 ai_usage = _db["ai_usage"]                       # each Claude call and drawn picture, with its account and cost
+author_photos = _db["author_photos"]             # photos of the author for "Your photo" images (author_photos.py)

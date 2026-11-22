@@ -1648,7 +1648,7 @@ function _renderAttachment(dataUrl) {
 }
 
 function attachRemove() {
-  _setImageMeta("", ""); _showImageOptions([], "");
+  _setImageMeta("", ""); _showImageOptions([], ""); _syncImageEdit("");
   _attachB64 = null;
   _attachMime = "image/png";
   _attachIsUpload = false;
@@ -1667,8 +1667,10 @@ const _CARD_THEMES = [["light", "Cream", "#f4f0e8", "#24365e"], ["mint", "Mint",
   ["sky", "Sky", "#eaf2fb", "#047857"], ["sage", "Sage", "#ecf1e8", "#1e305c"], ["lavender", "Lavender", "#f1edfb", "#5b21b6"],
   ["peach", "Peach", "#fdefe5", "#0f666b"], ["rose", "Rose", "#fcedf1", "#881337"], ["sand", "Sand", "#f3ede0", "#166534"],
   ["forest", "Forest", "#112b22", "#78e2b2"], ["dark", "Charcoal", "#16181d", "#d6aa48"]];
-const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Statement card", scene: "Photo", source: "Source card" };
-const _DESIGNED = ["illustration", "concept", "photo_text", "list", "quote"];   // colours apply
+const _FORMAT_NAMES = { concept: "Idea picture", photo_card: "Photo + headline", list_card: "List card", quote_card: "Quote card", tweet_card: "Statement card", notebook: "Notebook", object_quote: "Handwritten quote", diagram: "Diagram", your_photo: "Your photo", scene: "Photo", source: "Source card" };
+const _DESIGNED = ["illustration", "concept", "photo_text", "list", "quote", "diagram", "your_photo", "tweet"];   // colours apply
+// Drawn by the image model: changeable in words under the picture, and made one at a time
+const _DRAWN_FORMATS = ["concept", "photo_card", "scene", "notebook", "object_quote"];
 let _imgTheme = "";   // "" = surprise me (the author's brand look when the profile has one)
 function _themeName(k) {
   const t = _CARD_THEMES.find(x => x[0] === k);
@@ -1703,16 +1705,16 @@ function _colourHint() {
   else if (onPost)
     el.innerHTML = `${pick} for your next card. The card on your post keeps its colours until you press <b>Make it</b> again.`;
   else if (_imgTheme)
-    el.innerHTML = `${pick}. Now press <b>Make it</b> on an Idea picture, Quote, List or Photo + headline card.`;
+    el.innerHTML = `${pick}. Now press <b>Make it</b> on an Idea picture, Diagram, Quote, List, Statement, Your photo or Photo + headline card.`;
   else
-    el.innerHTML = "Pick colours before you press <b>Make it</b>. They're used for Idea picture, Quote, List and Photo + headline cards. With <b>Surprise me</b>, Voyce chooses.";
+    el.innerHTML = "Pick colours before you press <b>Make it</b>. They're used for Idea pictures, Diagrams, Quote, List, Statement, Your photo and Photo + headline cards. With <b>Surprise me</b>, Voyce chooses.";
 }
 // "Show 3 options" is for the designed cards; an idea picture is made one at a time
 function _syncDesignRow() {
   const style = (document.querySelector('input[name="img-style"]:checked') || {}).value || "illustration";
   // An idea picture is drawn whole, so each colour would be a new picture: one at a time
   const three = document.querySelector(".img-three");
-  if (three) three.style.display = style === "concept" ? "none" : "";
+  if (three) three.style.display = ["concept", "notebook", "handwritten"].includes(style) ? "none" : "";
 }
 document.querySelectorAll('input[name="img-style"]').forEach(r => r.addEventListener("change", _syncDesignRow));
 _paintSwatches();
@@ -1768,6 +1770,7 @@ async function attachGenerateImage() {
         imgStyle === "source"
           ? { input_type: "url", content: articleUrl, style: "source", post_text: source, profile_id: getActiveProfileId() }
           : { input_type: "text", content: source, style: imgStyle, profile_id: getActiveProfileId(), theme: _imgTheme,
+              reference_b64: _styleRefB64 && _AI_STYLES.includes(imgStyle) ? _styleRefB64 : "",
               options: (document.getElementById("img-three") || {}).checked && _DESIGNED.includes(imgStyle) ? 3 : 1 }
       )
     });
@@ -1778,6 +1781,12 @@ async function attachGenerateImage() {
           : String(data.detail).slice("PASS_LIMIT_REACHED:".length), "warn");
         if (typeof openUpgradeModal === "function") openUpgradeModal();
         _attachState(_attachB64 ? "has" : "empty");
+        return;
+      }
+      if (String(data.detail || "").startsWith("NO_PHOTOS:")) {   // "Your photo" needs one of theirs first
+        toast(String(data.detail).slice("NO_PHOTOS:".length), "warn");
+        _attachState(_attachB64 ? "has" : "empty");
+        openPhotos();
         return;
       }
       if (String(data.detail || "").startsWith("AI_PICTURES_USED:")) {   // the plan's AI pictures, not its generations
@@ -1793,6 +1802,7 @@ async function attachGenerateImage() {
     _renderAttachment("data:image/png;base64," + data.image_base64);
     const fmt = imgStyle === "source" ? "source" : data.format;
     _setImageMeta(fmt, data.theme);
+    _syncImageEdit(fmt);
     _showImageOptions(data.options, fmt);
     _madeKind = imgStyle; _madeTheme = _imgTheme; _colourHint();
     saveDraft();
@@ -2301,3 +2311,128 @@ document.addEventListener("keydown", e => {
   if (up && up.style.display === "flex") return;
   closePreview();
 });
+
+
+// ── Change the picture in words (Nov 2026): the image model edits the same picture, Claude checks it ──────────
+function _syncImageEdit(format) {
+  const f = document.getElementById("img-edit");
+  if (!f) return;
+  f.hidden = !_DRAWN_FORMATS.includes(format || "");
+  const inp = document.getElementById("img-edit-input");
+  if (inp) inp.value = "";
+}
+async function attachEditImage(ev) {
+  if (ev) ev.preventDefault();
+  const inp = document.getElementById("img-edit-input"), btn = document.getElementById("img-edit-btn");
+  const instruction = (inp && inp.value || "").trim();
+  if (!instruction) { toast("Say what to change, for example \"make the folder blue\".", "warn"); return; }
+  if (!_attachB64) return;
+  await _refreshToken();
+  if (btn) { btn.disabled = true; btn.textContent = "Changing…"; }
+  try {
+    const res = await fetch("/generate/image/edit", { method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ image_base64: _attachB64, instruction, profile_id: getActiveProfileId() }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't change the picture.");
+    _attachB64 = data.image_base64; _attachMime = "image/png"; _attachIsUpload = false;
+    _renderAttachment("data:image/png;base64," + data.image_base64);
+    _showImageOptions([], "");
+    if (inp) inp.value = "";
+    saveDraft();
+    toast("Picture changed.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Change"; }
+  }
+}
+
+// ── Your photos: the author's own photos for "Your photo" pictures ────────────────────────────────────────
+function openPhotos() {
+  const pid = getActiveProfileId();
+  if (!pid) { toast("Pick a profile first.", "warn"); return; }
+  document.getElementById("photos-modal").style.display = "flex";
+  _loadPhotos();
+}
+function closePhotos() { document.getElementById("photos-modal").style.display = "none"; }
+async function _loadPhotos() {
+  const grid = document.getElementById("photos-grid");
+  grid.replaceChildren(Object.assign(document.createElement("div"), { className: "empty", textContent: "Loading…" }));
+  try {
+    await _refreshToken();
+    const res = await fetch(`/profiles/${encodeURIComponent(getActiveProfileId())}/photos`, { headers: authHeaders() });
+    const list = await res.json();
+    if (!res.ok) throw new Error(list.detail || "Couldn't load your photos.");
+    if (!list.length) {
+      grid.replaceChildren(Object.assign(document.createElement("div"), { className: "empty",
+        textContent: "No photos yet. Add one or two, then make a \"Your photo\" picture." }));
+      return;
+    }
+    grid.replaceChildren(...list.map(p => {
+      const fig = document.createElement("figure"), im = document.createElement("img"), del = document.createElement("button");
+      im.src = "data:image/jpeg;base64," + p.thumb; im.alt = "";
+      del.type = "button"; del.textContent = "Remove"; del.onclick = () => _deletePhoto(p.id);
+      fig.append(im, del);
+      return fig;
+    }));
+  } catch (e) {
+    grid.replaceChildren(Object.assign(document.createElement("div"), { className: "empty", textContent: e.message }));
+  }
+}
+async function uploadPhotos(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = "";
+  if (!files.length) return;
+  const btn = document.getElementById("photos-add-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
+  let added = 0;
+  try {
+    await _refreshToken();
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) continue;
+      const dataUrl = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file); });
+      const res = await fetch(`/profiles/${encodeURIComponent(getActiveProfileId())}/photos`, { method: "POST",
+        headers: authHeaders(), body: JSON.stringify({ image_base64: String(dataUrl).split(",")[1] }) });
+      const data = await res.json();
+      if (!res.ok) { toast(data.detail || "Couldn't add that photo.", "warn"); break; }
+      added++;
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Add photos"; }
+  }
+  if (added) toast(added === 1 ? "Photo added." : `${added} photos added.`, "success");
+  _loadPhotos();
+}
+async function _deletePhoto(id) {
+  await _refreshToken();
+  const res = await fetch(`/profiles/${encodeURIComponent(getActiveProfileId())}/photos/${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: authHeaders() });
+  if (!res.ok) toast("Couldn't remove that photo.", "error");
+  _loadPhotos();
+}
+
+
+// ── A picture they like as a style reference (Nov 2026): AI pictures follow its look, never its words ──────
+let _styleRefB64 = null;
+const _AI_STYLES = ["illustration", "concept", "notebook", "handwritten", "scene", "photo_text"];
+async function setStyleRef(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { toast("Please choose a picture (PNG or JPG).", "warn"); return; }
+  if (file.size > 10 * 1024 * 1024) { toast("That picture is too large: use one under 10 MB.", "warn"); return; }
+  const dataUrl = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file); });
+  _styleRefB64 = String(dataUrl).split(",")[1];
+  const th = document.getElementById("img-ref-thumb");
+  th.src = dataUrl; th.hidden = false;
+  document.getElementById("img-ref-clear").hidden = false;
+  document.getElementById("img-ref-add").textContent = "Change";
+  toast("Your next AI picture will follow this look.", "success");
+}
+function clearStyleRef() {
+  _styleRefB64 = null;
+  const th = document.getElementById("img-ref-thumb");
+  th.hidden = true; th.removeAttribute("src");
+  document.getElementById("img-ref-clear").hidden = true;
+  document.getElementById("img-ref-add").textContent = "+ A picture you like";
+}
