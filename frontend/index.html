@@ -1055,7 +1055,8 @@
             <label title="A realistic photo of a moment from the post's world, no text"><input type="radio" name="img-style" value="scene"><span>Photo</span></label>
             <label title="Headline and numbered points"><input type="radio" name="img-style" value="list"><span>List card</span></label>
             <label title="One strong line, large"><input type="radio" name="img-style" value="quote"><span>Quote card</span></label>
-            <label title="Your sharpest line, large, signed with your photo"><input type="radio" name="img-style" value="tweet"><span>Statement card</span></label>
+            <label title="Your take as a real post: your photo, your name, your words"><input type="radio" name="img-style" value="tweet"><span>Tweet-style post</span></label>
+            <label title="One principle you stand by, as a single big sentence"><input type="radio" name="img-style" value="statement"><span>Statement card</span></label>
             <label title="Cites the article: needs a link in the Website URL tab"><input type="radio" name="img-style" value="source"><span>Source card</span></label>
           </div>
         </div>
@@ -1230,8 +1231,13 @@
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="tweet">
+          <div class="fmt-hd"><b>Tweet-style post</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/tweet-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('tweet', this)">Make it</button></div>
+          <div class="fmt-cost">Uses 1 generation</div>
+        </div>
+        <div class="fmt" data-fmt="statement">
           <div class="fmt-hd"><b>Statement card</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/statement-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('tweet', this)">Make it</button></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/statement-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('statement', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
       </div>
@@ -1442,7 +1448,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=40"></script>
+  <script src="/static/app.js?v=41"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async

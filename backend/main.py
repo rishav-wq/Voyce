@@ -2013,7 +2013,7 @@ async def generate_image_manual(request: GenerateRequest, x_token: str = Header(
             # The design picked on Write; "illustration" (Auto) lets the writer choose
             force = {"concept": "concept", "tweet": "tweet_card", "scene": "scene", "photo_text": "photo_card",
                      "list": "list_card", "quote": "quote_card", "notebook": "notebook", "handwritten": "object_quote",
-                     "diagram": "diagram", "your_photo": "your_photo"}.get(request.style)
+                     "diagram": "diagram", "your_photo": "your_photo", "statement": "statement_card"}.get(request.style)
             if request.style == "your_photo" and not author_photos.count((profile or {}).get("id", "")):
                 raise HTTPException(status_code=400, detail="NO_PHOTOS:Add a photo or two of yourself first, then make it again.")
             content = generate_ai_image_post(context_text, company=profile, force_format=force)

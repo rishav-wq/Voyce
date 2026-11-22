@@ -406,6 +406,11 @@ def _short_title(title: str) -> str:
     return re.split(r"\s+[·|•–—]\s+|\s*\|\s*", (title or "").strip())[0].strip()
 
 
+# A cover that opens on a number ("5 controls…", "₹2.4 Cr…", "3x…", "40%…"): the number is drawn huge (cover())
+_COVER_NUM = re.compile(r"^((?:₹|\$|€)?\d[\d,.]*\s?(?:%|x|×|k|K|Cr|L|M|B)?)\s+(\S.*)$")
+COVER_BIG_NUMBER = os.getenv("COVER_BIG_NUMBER", "1") != "0"
+
+
 def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise: str,
           name: str, title: str, avatar, total: int, tiles: list | None = None) -> Image.Image:
     """The slide the feed shows. The promise as big as it fits, what's inside (the points' icons
@@ -441,16 +446,40 @@ def cover(t: dict, headline: str, kicker: str, sub: str, audience: str, promise:
     full = (headline + " " + kicker).strip() if kicker and kicker.lower() not in headline.lower() else headline
     fs = _fit(d, sub, (42, 39, 36), _body, mw, 3) if sub else None
     hs = (_block_h(d, sub, fs, mw, 10 * S) + 36 * S) if sub else 0
-    f = None
-    for z in (132, 124, 116, 108, 100, 94, 88, 82, 76, 70, 64):
-        cand = _display(z, t)
-        lines = _wrap(d, full, cand, mw, kicker)
-        if len(lines) <= 5 and all(_line_w(d, ln, cand) <= mw for ln in lines) and not _ragged(lines) \
-                and top + _block_h(d, full, cand, mw, 10 * S, kicker) + hs <= bottom - 30 * S:
-            f = cand
-            break
-    f = f or _display(64, t)
-    y = _write(d, full, f, M, top, mw, t["ink"], 10 * S, kicker, t["accent"]) + 26 * S
+    y = None
+    m = _COVER_NUM.match(full) if COVER_BIG_NUMBER else None
+    if m and not re.fullmatch(r"(19|20)\d\d", m.group(1).strip()):
+        # The number as the cover's hero, huge in the accent, the rest of the headline under it (top-posts research,
+        # 22 Nov 2026: the strongest covers set the number big, as Ruben Hassid's do, not inside a line of words).
+        # Measured first; drawn only when the rest of the headline fits under it, else the usual cover below.
+        num, rest = m.group(1).strip(), m.group(2).strip()
+        fnum = next((_display(z, t) for z in (440, 400, 360, 320, 280, 240, 200)
+                     if C._tw(d, num, _display(z, t)) <= mw), None)
+        if fnum is not None:
+            nb = d.textbbox((0, 0), num, font=fnum)
+            ry = top + (nb[3] - nb[1]) + 40 * S
+            fr = None
+            for z in (100, 94, 88, 82, 76, 70, 64, 58):
+                cand = _display(z, t)
+                lines = _wrap(d, rest, cand, mw)
+                if len(lines) <= 4 and all(_line_w(d, ln, cand) <= mw for ln in lines) and not _ragged(lines) \
+                        and ry + _block_h(d, rest, cand, mw, 10 * S) + hs <= bottom - 30 * S:
+                    fr = cand
+                    break
+            if fr is not None:
+                d.text((M - nb[0] - 4 * S, top - nb[1]), num, font=fnum, fill=t["accent"])
+                y = _write(d, rest, fr, M, ry, mw, t["ink"], 10 * S) + 26 * S
+    if y is None:
+        f = None
+        for z in (132, 124, 116, 108, 100, 94, 88, 82, 76, 70, 64):
+            cand = _display(z, t)
+            lines = _wrap(d, full, cand, mw, kicker)
+            if len(lines) <= 5 and all(_line_w(d, ln, cand) <= mw for ln in lines) and not _ragged(lines) \
+                    and top + _block_h(d, full, cand, mw, 10 * S, kicker) + hs <= bottom - 30 * S:
+                f = cand
+                break
+        f = f or _display(64, t)
+        y = _write(d, full, f, M, top, mw, t["ink"], 10 * S, kicker, t["accent"]) + 26 * S
     if sub:
         y = _write(d, sub, fs, M, y, mw, t["body"], 10 * S) + 30 * S
     if inside_h:

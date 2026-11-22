@@ -1070,7 +1070,7 @@ def _post_mode(theme: str, company: dict | None) -> str:
 
 
 def render_statement_card_png(line: str, company: dict | None, author: dict | None = None, theme: str = "",
-                              meta: dict | None = None) -> bytes:
+                              meta: dict | None = None, style: str = "") -> bytes:
     """A hook line as the post's card (the "tweet card" format): 4:5, in the author's brand look (else a colour
     set), signed with their LinkedIn photo at the top. The old black strip is drawn only if this fails."""
     brand = (company or {}).get("name", "Voyce")
@@ -1078,7 +1078,7 @@ def render_statement_card_png(line: str, company: dict | None, author: dict | No
     title = (company or {}).get("designation", "")
     theme = _pick_card_theme(theme, company)
     img = None
-    if TWEET_CARD_STYLE == "post":
+    if TWEET_CARD_STYLE == "post" and style != "statement":
         # a real post (22 Nov 2026 audit, round 2): near-black or off-white by the author's house look
         try:
             import designs
@@ -1183,7 +1183,8 @@ STEP 2, format, from post_shape (follow this table; a picked format the table do
 - range → "diagram" with diagram_kind "spectrum".
 - overlap → "diagram" with diagram_kind "venn".
 - gap → "diagram" with diagram_kind "gap".
-- claim → "object_quote", or "tweet_card" when it's a bold, argument-starting hot take.
+- claim → "object_quote", or "tweet_card" when it's a bold, argument-starting hot take, or
+  "statement_card" when it's one principle that stands alone as a single big sentence.
 - argument → "concept".
 - moment → "your_photo" when the request says the author has photos, else "photo_card".
 When a post fits two shapes, take the one its middle is built on (a post that lists four controls is
@@ -1256,6 +1257,9 @@ The formats:
   (one item per line), with a blank line between blocks (use \\n\\n between blocks, \\n only between list
   items). Never one sentence per line: a stack of one-line sentences reads as AI. No hashtags, emojis,
   quotation marks, bold or a question to the reader at the end.
+- "statement_card": ONE principle the author stands by, as a single big sentence on a plain card (like
+  Steven Bartlett's "If you don't care about tiny details you'll produce bad work..."): card_headline = the
+  sentence, 8-22 words, complete and quotable on its own; card_emphasis = its turn (max 9 words) or "".
 
 CONCEPT (format "concept") — it has to make a stranger stop scrolling and get the point in two
 seconds on a phone, so it is as good as anything the author would make by hand:
@@ -1938,7 +1942,7 @@ def _cover_crop(img: Image.Image, w: int, h: int) -> Image.Image:
 
 
 _IMAGE_FORMATS = ("concept", "photo_card", "scene", "quote_card", "list_card", "tweet_card",
-                  "notebook", "object_quote", "diagram", "your_photo")
+                  "notebook", "object_quote", "diagram", "your_photo", "statement_card")
 _DIAGRAM_KINDS = ("steps", "compare", "matrix", "stat", "chart", "spectrum", "venn", "gap",
                   "checklist", "before_after", "scorecard", "table", "timeline")   # round 2 (22 Nov 2026)
 
@@ -2244,7 +2248,7 @@ Return ONLY JSON: {{"post_text": "..."}}""",
                      "gap": out["dg_top"] and out["dg_bottom"] and out["dg_gap"]}[kind]
             if ready:
                 out.update(format="diagram", diagram_kind=kind)
-        elif shape == "claim" and f not in ("object_quote", "tweet_card") and out["card_headline"]:
+        elif shape == "claim" and f not in ("object_quote", "tweet_card", "statement_card") and out["card_headline"]:
             out["format"] = "object_quote"
         # Never the same kind of picture twice in a row for one author (22 Nov 2026: with list posts common, four
         # Auto pictures in a row came out as notebooks): a list alternates notebook and Voyce's steps diagram, a
@@ -2261,6 +2265,8 @@ Return ONLY JSON: {{"post_text": "..."}}""",
             out["format"] = "tweet_card"
         elif f == "tweet_card" and last == "tweet_card" and out["card_headline"] and len(out["card_headline"].split()) <= 14:
             out["format"] = "object_quote"
+        elif f == "statement_card" and last == "statement_card":
+            out["format"] = "object_quote" if len(out["card_headline"].split()) <= 12 else "tweet_card"
     if out["format"] == "concept" and out["image_concept"] and out["card_headline"]:
         out.update(concept_metaphor(out, company))
     return out
@@ -2368,7 +2374,7 @@ def render_ai_image_options(content: dict, company: dict, author: dict | None = 
         except Exception:
             photo = None
     designed = ((fmt == "list_card" and content.get("card_points"))
-                or (fmt in ("quote_card", "tweet_card") and (content.get("card_headline") or content.get("key_line")))
+                or (fmt in ("quote_card", "tweet_card", "statement_card") and (content.get("card_headline") or content.get("key_line")))
                 or (fmt in ("photo_card", "your_photo") and photo is not None)
                 or (fmt == "diagram" and content.get("diagram_kind")))
     out = []
@@ -2524,6 +2530,14 @@ def render_ai_image_png(content: dict, company: dict, author: dict | None = None
         if TWEET_CARD_STYLE == "post" and (content.get("tweet_text") or "").strip():
             card_line = content["tweet_text"].strip()   # the post-shaped text, line breaks kept
         return render_statement_card_png(card_line, company, author=author, theme=theme, meta=meta)
+    if fmt == "statement_card" and (content.get("card_headline") or content.get("key_line")):
+        # One big sentence on a plain card (top-posts research, 22 Nov 2026: Steven Bartlett's 11,146-reaction card),
+        # its own format again beside the post-style tweet card
+        line = (content.get("card_headline") or content.get("key_line", "")).strip()
+        png = render_statement_card_png(line, company, author=author, theme=theme, meta=meta, style="statement")
+        if meta is not None:
+            meta["format"] = "statement_card"
+        return png
     if fmt == "photo_card":
         # photo: the one already made, False when it was tried and failed, None to make it here
         photo = _ai_photo(content, company) if photo is None else photo
@@ -2733,7 +2747,11 @@ HOOK / COVER SLIDE (80% of success) — headline uses ONE of these proven formul
   deck; NEVER first-person research claims ("I analyzed", "I studied", "my data") unless the
   provided content proves the author actually did it.
 Make it specific (use a real number/name where you can), and pick the formula that fits this
-content best. Don't open with "Stop" when another formula works: it is the most worn cover on
+content best. The cover carries a NUMBER ("5 mistakes", "24 years", "₹2.4 Cr", "3 checks") or an
+"X vs Y" ("Busy vs effective", "Old LinkedIn vs new"): 8 of the 9 top-performing carousel covers in our
+2026 study of real posts did. Use one unless the content truly has neither (never invent a number).
+When the content sets two ways against each other, build the whole deck as a comparison (each point
+slide one pair, what most do vs what works, on the same layout): the top 3 carousels were all comparisons. Don't open with "Stop" when another formula works: it is the most worn cover on
 LinkedIn. NEVER generic titles like "Tips for X",
 "X Is Important", "Why X Matters", "The Future of X". subtext adds a fact or the promise — never
 restates the headline. audience = who the deck is for in 2-6 words ("OEM partner leaders", "First-time
@@ -3033,7 +3051,7 @@ def _caption_paragraphs(text: str) -> str:
 
 
 _SLIDE_CONSTRAINTS = """Slide constraints (follow exactly):
-- hook_slide (cover): headline uses ONE proven formula, max 6 words (it is set huge), specific, in sentence case (a capital only on the first word and on names). subtext: one line, max 14 words. audience + unit. A number of things on the cover ("4 gaps") means exactly that many point slides labelled in that unit: count them before you answer. A slide that isn't one of them (PROOF, MYTH) isn't counted.
+- hook_slide (cover): headline uses ONE proven formula, max 6 words (it is set huge), specific, in sentence case (a capital only on the first word and on names), with a number or an "X vs Y" in it whenever the content has one, best at the start ("5 controls before…": the number is drawn huge). No colon labels ("Cloud exit: …"). subtext: one line, max 14 words. audience + unit. A number of things on the cover ("4 gaps") means exactly that many point slides labelled in that unit: count them before you answer. A slide that isn't one of them (PROOF, MYTH) isn't counted.
 - context_slide: title (max 8 words) + body (max ~35 words) that makes the reader want to keep swiping. Never say how many points follow: the cover does.
 - content_slides: 4-6 slides, ONE idea each. title max 6 words as a claim; body max ~18 words: the EVIDENCE for the point (a company, number, quote or example from the content), never the advice again, because wrong and right carry the advice; wrong and right differ in what the reader DOES, not in one word or a date; source where it fits; every point slide gets a tag (2-4 words); an icon only when it literally pictures the point.
 - recap_slide: title + 3-5 bullets, each the point's name in max 7 words: never a slide's line copied.
