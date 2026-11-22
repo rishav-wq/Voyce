@@ -16,7 +16,7 @@ import re
 import secrets
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 
 import auth as auth_module
@@ -44,7 +44,7 @@ QUESTIONS = [
     ("experience", "What's a mistake you've seen (or made) lately that others could learn from?"),
 ]
 MAX_NOTES = 80
-MIN_LEN, MAX_LEN = 12, 1500
+MIN_LEN, MAX_LEN = 12, 3000   # 3000: a spoken answer of up to ~3 minutes (voice.py, 22 Nov 2026)
 
 
 def _now() -> str:
@@ -101,6 +101,12 @@ def pick(company: dict) -> dict | None:
     notes = company.get("author_notes") or []
     if not notes:
         return None
+    # "Use it today" (22 Nov 2026): the answer just given is the one today's rewrite is built on
+    forced = company.get("_force_note_id")
+    if forced:
+        hit = next((n for n in notes if n.get("id") == forced), None)
+        if hit:
+            return hit
     return sorted(notes, key=lambda n: (int(n.get("uses") or 0), n.get("used_at") or "", n.get("created_at") or ""))[0]
 
 
@@ -221,6 +227,22 @@ def delete_note(company_id: str, note_id: str, x_token: str = Header(None)):
     c = _owned(company_id, user["id"])
     db.companies.update_one({"id": c["id"]}, {"$set": {"author_notes": [n for n in (c.get("author_notes") or []) if n.get("id") != note_id]}})
     return {"ok": True}
+
+
+@router.post("/companies/{company_id}/notes/transcribe")
+async def transcribe_answer(company_id: str, file: UploadFile = File(...), x_token: str = Header(None)):
+    """A spoken answer (voice.py) as text, for the answer box in Queue: the author checks it, then saves it as usual.
+    Nothing is stored here."""
+    import voice
+    user = _user(x_token)
+    ratelimit.allow(f"voice:{user['id']}", 20, 3600) or _too_fast()
+    _owned(company_id, user["id"])
+    try:
+        return {"text": voice.transcribe(await file.read(), file.filename or "answer.webm", file.content_type or "audio/webm")}
+    except voice.VoiceRejected as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except voice.VoiceUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @router.post("/companies/{company_id}/notes/skip-week")

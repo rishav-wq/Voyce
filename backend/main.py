@@ -2817,17 +2817,57 @@ def _question_box(pend: dict, token: str) -> str:
         q = None
     if not q or q["status"] == "skipped":
         return ""
+    t = html_escape(token)
     if q["status"] == "answered":
+        from autonomous import is_expired
+        # "Use it today" (22 Nov 2026): while today's draft still waits, it can be rewritten around the answer now
+        if pend.get("status") == "pending" and not pend.get("rewrite_started") and not is_expired(pend) \
+                and pend.get("format") != "diy_video" and not partners.current():
+            return (f'<form method="post" action="/approve/{t}/use-today" style="margin:22px 0 0;padding:14px 16px;'
+                    'border-radius:12px;background:#e6f4ea;color:#05603a;font-size:14px;line-height:1.5;">'
+                    '<p style="margin:0 0 10px;">Thanks, your answer is saved.</p>'
+                    '<button type="submit" style="background:#05603a;color:#fff;border:0;border-radius:10px;padding:10px 16px;'
+                    'font:inherit;font-weight:600;font-size:14px;cursor:pointer;">Rewrite today\'s post around it</button>'
+                    '<p style="margin:10px 0 0;font-size:12.5px;color:#346a4d;">Or leave it: Voyce will build an upcoming '
+                    'post around it.</p></form>')
         return ('<div style="margin:22px 0 0;padding:14px 16px;border-radius:12px;background:#e6f4ea;color:#05603a;'
                 'font-size:14px;line-height:1.5;">Thanks, your answer is saved. Voyce will build an upcoming post around it.</div>')
-    return (f'<form method="post" action="/approve/{html_escape(token)}/note" style="margin:22px 0 0;padding:16px;'
+    import voice
+    # Record instead of typing (voice.py): the words land in the box for the author to check, then save as usual
+    rec = ('<div id="vq-rec" style="display:none;margin-top:10px;">'
+           '<button type="button" id="vq-btn" style="background:#fff;color:#24365e;border:1px solid #24365e;border-radius:10px;'
+           'padding:10px 16px;font:inherit;font-weight:600;font-size:14px;cursor:pointer;">Record instead of typing</button>'
+           '<span id="vq-msg" style="margin-left:10px;font-size:13px;color:#6b7280;"></span></div>'
+           '<script>(function(){var w=document.getElementById("vq-rec"),b=document.getElementById("vq-btn"),'
+           'm=document.getElementById("vq-msg"),ta=document.getElementById("vq-text");'
+           'if(!window.MediaRecorder||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;w.style.display="block";'
+           'var rec=null,chunks=[],timer=null,secs=0;'
+           'function say(s){m.textContent=s;}'
+           'b.onclick=function(){if(rec&&rec.state==="recording"){rec.stop();return;}'
+           'navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){chunks=[];secs=0;'
+           'rec=new MediaRecorder(st);rec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data);};'
+           'rec.onstop=function(){clearInterval(timer);st.getTracks().forEach(function(x){x.stop();});'
+           'b.textContent="Record instead of typing";b.disabled=true;say("Turning it into text…");'
+           'var type=(rec.mimeType||"audio/webm").split(";")[0],fd=new FormData();'
+           'fd.append("file",new Blob(chunks,{type:type}),"answer."+(type.indexOf("mp4")>=0?"m4a":type.indexOf("ogg")>=0?"ogg":"webm"));'
+           f'fetch("/approve/{t}/voice",{{method:"POST",body:fd}}).then(function(r){{return r.json().then(function(j){{return [r.ok,j];}});}})'
+           '.then(function(x){b.disabled=false;if(x[0]&&x[1].text){ta.value=(ta.value?ta.value+" ":"")+x[1].text;'
+           'say("Check the words, then save your answer.");ta.focus();}else{say((x[1]&&x[1].detail)||"That didn\'t work. Type it instead.");}})'
+           '.catch(function(){b.disabled=false;say("That didn\'t work. Type it instead.");});};'
+           'rec.start();b.textContent="Stop";say("Recording… 0s");'
+           'timer=setInterval(function(){secs++;say("Recording… "+secs+"s");if(secs>=170)rec.stop();},1000);'
+           '}).catch(function(){say("Allow the microphone to record, or type instead.");});};})();</script>'
+           ) if voice.available() else ""
+    return (f'<form method="post" action="/approve/{t}/note" style="margin:22px 0 0;padding:16px;'
             'border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfe;">'
             '<p style="font-weight:600;margin:0 0 4px;color:#16181d;">This week\'s question '
             '<span style="font-weight:400;color:#6b7280;">(optional)</span></p>'
             f'<p style="margin:0 0 10px;color:#333;line-height:1.5;">{html_escape(q["text"])}</p>'
-            '<textarea name="text" rows="3" required minlength="12" maxlength="1500" placeholder="A sentence or two is plenty." '
+            '<textarea id="vq-text" name="text" rows="3" required minlength="12" maxlength="3000" '
+            'placeholder="A sentence or two is plenty. Or record it and talk for a minute." '
             'style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d3d8e0;border-radius:9px;'
             'font:inherit;font-size:14px;line-height:1.5;"></textarea>'
+            + rec +
             '<button type="submit" style="margin-top:10px;background:#24365e;color:#fff;border:0;border-radius:10px;'
             'padding:11px 18px;font:inherit;font-weight:600;font-size:14px;cursor:pointer;">Save my answer</button>'
             '<p style="font-size:12.5px;color:#6b7280;margin:10px 0 0;line-height:1.5;">Voyce builds an upcoming post '
@@ -2863,6 +2903,124 @@ def answer_from_link(token: str, request: Request, text: str = Form("")):
             except HTTPException:
                 pass   # too short: the page shows the box again
     return approve_page(token, request)
+
+
+# ── voice answers and "use it today" (22 Nov 2026) ─────────────────────────────────────────────────
+# Senior authors skip a typing box but will talk for a minute (voice.py); and an answer that only shows up in
+# tomorrow's post feels like it went nowhere, so the author can have today's waiting draft rewritten around it.
+def _link_question(token: str):
+    """(pend, company, question) when this approve link may take this week's answer now, by the same rules as
+    answer_from_link (while the post waits or in the hour after approving it here; one answer a week), else None."""
+    pend = _pending_by_token(token)
+    if not pend or partners.current():
+        return None
+    try:
+        status = pend.get("status")
+        fresh = status == "pending" or (status == "approved" and
+                                        datetime.fromisoformat(pend.get("approved_at", "")) > datetime.now() - timedelta(hours=1))
+    except ValueError:
+        fresh = False
+    company = get_company(pend.get("company_id", "")) if fresh else None
+    if not company or company.get("user_id") != pend.get("user_id"):
+        return None
+    return pend, company, notes.question_for(company)
+
+
+def _transcribed(data: bytes, filename: str, mime: str) -> dict:
+    import voice
+    try:
+        return {"text": voice.transcribe(data, filename or "answer.webm", mime or "audio/webm")}
+    except voice.VoiceRejected as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except voice.VoiceUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.post("/approve/{token}/voice")
+async def voice_from_link(token: str, request: Request, file: UploadFile = File(...)):
+    """A spoken answer to this week's question, as text for the author to check in the box before saving."""
+    _rate_limit(f"approvevoice:{_client_ip(request)}", 6)
+    if not ratelimit.allow(f"approvevoice-token:{token[:24]}", 8, 3600):
+        raise HTTPException(status_code=429, detail="That's a lot of recordings. Type your answer, or try again later.")
+    found = _link_question(token)
+    if not found or found[2].get("status") in ("answered", "skipped"):
+        raise HTTPException(status_code=404, detail="This link can't take an answer right now.")
+    return _transcribed(await file.read(), file.filename, file.content_type)
+
+
+def _rewrite_type_key(pend: dict, company: dict) -> str:
+    """The waiting draft's post type as the run's key ("Personal Story" → personal_story); "" when unknown."""
+    from autonomous import POST_TYPE_LABELS, PERSONAL_ROTATION, COMPANY_ROTATION
+    valid = set((PERSONAL_ROTATION if company.get("profile_type") == "personal" else COMPANY_ROTATION).values())
+    label = str(pend.get("post_type") or "")
+    key = next((k for k, v in POST_TYPE_LABELS.items() if v == label or k == label), "")
+    return key if key in valid else ""
+
+
+def _start_rewrite(company: dict, pend: dict, note_id: str) -> bool:
+    """Rewrite today's waiting draft around the author's new answer, once per draft, in the background. The new
+    draft replaces the old one and is always held for approval (never posted straight to LinkedIn); its approval
+    email goes out as usual. False when this draft was already rewritten or isn't waiting any more."""
+    from autonomous import is_expired
+    if pend.get("status") != "pending" or is_expired(pend) or pend.get("format") == "diy_video":
+        return False
+    got = db.pending_posts.update_one({"id": pend["id"], "status": "pending", "rewrite_started": {"$exists": False}},
+                                      {"$set": {"rewrite_started": datetime.now().isoformat()}})
+    if not got.modified_count:
+        return False
+    scheduler.add_job(_rewrite_job, trigger="date", run_date=datetime.now() + timedelta(seconds=1),
+                      args=[company["id"], note_id, _rewrite_type_key(pend, company)])
+    return True
+
+
+def _rewrite_job(company_id: str, note_id: str, type_key: str):
+    company = get_company(company_id)
+    if not company:
+        return
+    try:
+        run_for_company({**company, "_force_note_id": note_id, "approval_mode": True},
+                        post_type_override=type_key, respect_approval=True, notify_user=True)
+    except Exception:
+        logging.exception("[Notes] rewrite around the new answer failed")
+
+
+def _newest_note(company: dict) -> dict | None:
+    ns = [n for n in (company.get("author_notes") or []) if n.get("id")]
+    return max(ns, key=lambda n: n.get("created_at") or "") if ns else None
+
+
+@app.post("/approve/{token}/use-today")
+def use_today_from_link(token: str, request: Request):
+    """'Rewrite today's post around it': the answer just saved here becomes today's draft."""
+    _rate_limit(f"approveuse:{_client_ip(request)}", 5)
+    found = _link_question(token)
+    if not found:
+        return approve_page(token, request)
+    pend, company, q = found
+    note = _newest_note(company)
+    if q.get("status") != "answered" or not note or not _start_rewrite(company, pend, note["id"]):
+        return approve_page(token, request)
+    return _approve_shell("Rewriting today's post", (
+        '<h1 style="font-size:22px;margin:0 0 10px;">Rewriting today\'s post around your answer</h1>'
+        '<p style="color:#444;line-height:1.6;margin:0;">A new draft built on what you just told Voyce arrives by email '
+        'in about two minutes, for you to approve as usual. It replaces the one on this page.</p>'))
+
+
+@app.post("/companies/{company_id}/notes/{note_id}/use-today")
+def use_today_signed_in(company_id: str, note_id: str, x_token: str = Header(None)):
+    """The same from Queue: rewrite this profile's waiting draft around one of its notes."""
+    user = _require_user(x_token)
+    _rate_limit(f"usetoday:{user['id']}", 5)
+    company = db.companies.find_one({"id": company_id, "user_id": user["id"]}, {"_id": 0})
+    if not company or not any(n.get("id") == note_id for n in company.get("author_notes") or []):
+        raise HTTPException(status_code=404, detail="Not found")
+    pend = db.pending_posts.find_one({"company_id": company_id, "user_id": user["id"], "status": "pending"},
+                                     {"_id": 0}, sort=[("created_at", -1)])
+    if not pend:
+        raise HTTPException(status_code=409, detail="NO_DRAFT: There's no draft waiting today. Voyce will use your answer in an upcoming post.")
+    if not _start_rewrite(company, pend, note_id):
+        raise HTTPException(status_code=409, detail="ALREADY: Today's draft is already being rewritten, or can't be any more.")
+    return {"ok": True, "message": "Rewriting today's draft around your answer. The new one arrives in about two minutes."}
 
 
 @app.post("/approve/{token}")

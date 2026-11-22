@@ -2081,6 +2081,7 @@
           <textarea id="q-ans-${id}" rows="3" oninput="_qDraft['${id}'] = this.value" placeholder="A sentence or two is plenty. Say it the way you would to a colleague.">${_escHtml(_qDraft[q.company_id] || "")}</textarea>
           <div class="q-row">
             <button class="act-btn primary" onclick="answerQuestion('${id}', this)">Save answer</button>
+            ${window.MediaRecorder && navigator.mediaDevices ? `<button class="act-btn quiet" id="q-rec-${id}" onclick="recordAnswer('${id}', this)">Record instead</button>` : ""}
             <button class="act-btn quiet" onclick="skipQuestion('${id}')">Skip this week</button>
             <span class="q-hint">${doneMsg ? doneMsg.replace(/<[^>]+>/g, "") : "Voyce builds an upcoming post around it, in your words."}</span>
           </div>
@@ -2105,9 +2106,53 @@
         (currentProfiles || []).forEach(p => { if (p.id === id) p.author_notes = (p.author_notes || []).concat([d]); });
         _notesBtnCount(id);
         _qNext(id);
+        // While today's draft waits, it can be rewritten around this answer now, instead of tomorrow
+        const useToday = window._draftWaiting && window._draftWaiting.has(id) && d.id
+          ? ` <button class="act-btn primary" style="margin-left:6px;" onclick="useAnswerToday('${id}', '${_escHtml(d.id)}', this)">Rewrite today's draft around it</button>` : "";
         _renderQuestions(_qOpen.length
           ? `Saved for ${_escHtml(q.name || "this profile")}. Voyce will build an upcoming post around it.`
-          : `<div class="q-done">Saved. Voyce will build an upcoming post around it. <a class="nav-link" style="margin-left:6px;" onclick="openNotes('${id}')">See what Voyce knows</a></div>`);
+          : `<div class="q-done">Saved. Voyce will build an upcoming post around it.${useToday} <a class="nav-link" style="margin-left:6px;" onclick="openNotes('${id}')">See what Voyce knows</a></div>`);
+      } catch (e) { toast(e.message, "warn"); btn.disabled = false; }
+    }
+    // Voice answers (22 Nov 2026): talk for a minute instead of typing; the words land in the box to check, then save
+    let _qRec = null;
+    async function recordAnswer(id, btn) {
+      if (_qRec && _qRec.rec.state === "recording") { _qRec.rec.stop(); return; }
+      let stream;
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (_) { toast("Allow the microphone to record, or type your answer.", "warn"); return; }
+      const rec = new MediaRecorder(stream), chunks = [];
+      let secs = 0;
+      const tick = setInterval(() => { secs++; btn.textContent = `Stop (${secs}s)`; if (secs >= 170) rec.stop(); }, 1000);
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = async () => {
+        clearInterval(tick); stream.getTracks().forEach(t => t.stop()); _qRec = null;
+        btn.textContent = "Turning it into text…"; btn.disabled = true;
+        const type = (rec.mimeType || "audio/webm").split(";")[0];
+        const fd = new FormData();
+        fd.append("file", new Blob(chunks, { type }), "answer." + (type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm"));
+        try {
+          const r = await fetch(`/companies/${id}/notes/transcribe`, { method: "POST", headers: { "x-token": getToken() }, body: fd });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || !d.text) throw new Error(d.detail || "That didn't work. Type your answer instead.");
+          const ta = document.getElementById("q-ans-" + id);
+          if (ta) { ta.value = (ta.value ? ta.value + " " : "") + d.text; _qDraft[id] = ta.value; ta.focus(); }
+          toast("Check the words, then save your answer.");
+        } catch (e) { toast(e.message, "warn"); }
+        btn.disabled = false; btn.textContent = "Record instead";
+      };
+      _qRec = { rec };
+      rec.start(); btn.textContent = "Stop (0s)";
+    }
+    async function useAnswerToday(id, noteId, btn) {
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/companies/${id}/notes/${noteId}/use-today`, { method: "POST", headers: ah() });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(String(d.detail || "That didn't work.").replace(/^[A-Z_]+:\s*/, ""));
+        btn.textContent = "Rewriting… new draft in ~2 min";
+        toast(d.message || "Rewriting today's draft around your answer.");
+        setTimeout(() => { try { loadPending(); } catch (_) {} }, 150000);
       } catch (e) { toast(e.message, "warn"); btn.disabled = false; }
     }
     async function skipQuestion(id) {
@@ -2202,6 +2247,8 @@
         const res = await fetch("/pending", { headers: { "x-token": getToken() } });
         if (res.ok) items = await res.json();
       } catch (e) { /* leave hidden */ }
+      // Profiles with a draft waiting: a fresh answer can rewrite it now ("use it today", 22 Nov 2026)
+      window._draftWaiting = new Set((Array.isArray(items) ? items : []).filter(x => x && x.format !== "diy_video").map(x => x.company_id));
       // Sidebar badge: the whole point of Today is that this number is visible.
       const badge = document.getElementById("nav-pending-count");
       if (badge) { badge.textContent = items.length; badge.hidden = !items.length; }
