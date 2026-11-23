@@ -2237,6 +2237,22 @@ async function makeFormat(kind, el) {
     if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || "Make it"; }
   }
 }
+// Six formats on show, the rest behind one button (23 Nov 2026: fourteen at once was too much). The open or
+// closed state is a per-browser convenience, so storage failing only means it starts closed.
+function toggleMoreStyles(force) {
+  const b = document.getElementById("fmt-toggle"), x = document.getElementById("fmt-extra");
+  if (!b || !x) return;
+  const open = typeof force === "boolean" ? force : x.hidden;
+  x.hidden = !open;
+  b.setAttribute("aria-expanded", String(open));
+  b.textContent = open ? "Fewer styles" : `More styles (${x.querySelectorAll(".fmt").length})`;
+  if (typeof force !== "boolean") { try { localStorage.setItem("cm_more_styles", open ? "1" : "0"); } catch (e) {} }
+}
+document.addEventListener("DOMContentLoaded", () => {
+  let open = false;
+  try { open = localStorage.getItem("cm_more_styles") === "1"; } catch (e) {}
+  toggleMoreStyles(open);
+});
 (() => {   // the tiles and the ready bar follow the post: shown, cleared, edited, or opened from a draft
   // The slide-out and its scrim move to the page's top level, so the scrim covers the menu too
   // instead of stacking inside the page's column.

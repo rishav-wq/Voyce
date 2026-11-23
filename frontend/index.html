@@ -823,6 +823,11 @@
     .formats[data-mode="make"] .fmt[data-fmt="post"] { border: 2px solid #18a07a; }
     .formats[data-mode="make"] .fmt[data-fmt="post"] .fmt-ok { display: inline-block; }
     .fmt.made { border: 2px solid #18a07a; }
+    .fmt-toggle { display: inline-flex; align-items: center; gap: 7px; margin-top: 10px; background: #fff; border: 1.5px solid #d3d8e0; border-radius: 9px;
+      padding: 7px 13px; font: inherit; font-size: 13px; font-weight: 700; color: #24365e; cursor: pointer; }
+    .fmt-toggle:hover { border-color: #24365e; } .fmt-toggle::after { content: "▾"; font-size: 11px; }
+    .fmt-toggle[aria-expanded="true"]::after { content: "▴"; }
+    .fmt-extra { margin-top: 10px; } .fmt-extra[hidden] { display: none; }
     .fmt-more { display: flex; justify-content: space-between; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: #6d7482; }
     .fmt-more a { color: #24365e; font-weight: 600; } .fmt-note { color: #98a0ae; }
     .fmt-more .img-design-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1187,36 +1192,12 @@
     <!-- Every format, shown before anything is made. With a post written, each one is a click away. -->
     <section class="formats" id="formats" data-mode="examples">
       <div class="sec-k"><span id="formats-k">What Voyce makes from your idea</span> <span id="formats-sub">examples · write your post above, then make any of these from it</span></div>
+      <!-- The six that do best on LinkedIn (picture research, 22 Nov 2026) on show; the rest one click away -->
       <div class="fmt-grid">
         <div class="fmt" data-fmt="post">
           <div class="fmt-hd"><b>Post text</b><span class="fmt-ok">✓ Ready</span></div>
           <div class="fmt-thumb fmt-text"><b>Your best salesperson is often your worst sales coach.</b><br>They close because of instinct they can't explain. Promote them to manager and the team gets stories, not a method.</div>
           <div class="fmt-cost" data-cost-made="Used 1 generation">Uses 1 generation</div>
-        </div>
-        <div class="fmt" data-fmt="concept">
-          <div class="fmt-hd"><b>Idea picture</b><span class="fmt-ai">AI</span></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/idea-picture.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('concept', this)">Make it</button></div>
-          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
-        </div>
-        <div class="fmt" data-fmt="notebook">
-          <div class="fmt-hd"><b>Notebook</b><span class="fmt-ai">AI</span></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/notebook.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('notebook', this)">Make it</button></div>
-          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
-        </div>
-        <div class="fmt" data-fmt="handwritten">
-          <div class="fmt-hd"><b>Handwritten quote</b><span class="fmt-ai">AI</span></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/handwritten.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('handwritten', this)">Make it</button></div>
-          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
-        </div>
-        <div class="fmt" data-fmt="diagram">
-          <div class="fmt-hd"><b>Diagram</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/diagram.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('diagram', this)">Make it</button></div>
-          <div class="fmt-cost">Uses 1 generation</div>
-        </div>
-        <div class="fmt" data-fmt="explainer">
-          <div class="fmt-hd"><b>Explainer sketch</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/explainer.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('explainer', this)">Make it</button></div>
-          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
         </div>
         <div class="fmt" data-fmt="your_photo">
           <div class="fmt-hd"><b>Your photo</b><a href="#" class="fmt-link" onclick="openPhotos();return false;">Your photos</a></div>
@@ -1228,9 +1209,27 @@
           <div class="fmt-thumb"><span class="fmt-stack"><img src="/static/write-examples/carousel-1.jpg?v=2" alt="" loading="lazy"><img src="/static/write-examples/carousel-2.jpg?v=2" alt="" loading="lazy"><img src="/static/write-examples/carousel-3.jpg?v=2" alt="" loading="lazy"></span><button type="button" class="fmt-make" onclick="makeFormat('carousel', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
-        <div class="fmt" data-fmt="quote">
-          <div class="fmt-hd"><b>Quote card</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/quote-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('quote', this)">Make it</button></div>
+        <div class="fmt" data-fmt="explainer">
+          <div class="fmt-hd"><b>Explainer sketch</b><span class="fmt-ai">AI</span></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/explainer.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('explainer', this)">Make it</button></div>
+          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
+        </div>
+        <div class="fmt" data-fmt="note">
+          <div class="fmt-hd"><b>Handwritten note</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/note-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('note', this)">Make it</button></div>
+          <div class="fmt-cost">Uses 1 generation</div>
+        </div>
+        <div class="fmt" data-fmt="concept">
+          <div class="fmt-hd"><b>Idea picture</b><span class="fmt-ai">AI</span></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/idea-picture.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('concept', this)">Make it</button></div>
+          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
+        </div>
+      </div>
+      <button type="button" class="fmt-toggle" id="fmt-toggle" aria-expanded="false" aria-controls="fmt-extra" onclick="toggleMoreStyles()">More styles</button>
+      <div class="fmt-grid fmt-extra" id="fmt-extra" hidden>
+        <div class="fmt" data-fmt="diagram">
+          <div class="fmt-hd"><b>Diagram</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/diagram.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('diagram', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="list">
@@ -1238,24 +1237,19 @@
           <div class="fmt-thumb"><img src="/static/write-examples/list-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('list', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
-        <div class="fmt" data-fmt="tweet">
-          <div class="fmt-hd"><b>Tweet-style post</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/tweet-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('tweet', this)">Make it</button></div>
-          <div class="fmt-cost">Uses 1 generation</div>
+        <div class="fmt" data-fmt="notebook">
+          <div class="fmt-hd"><b>Notebook</b><span class="fmt-ai">AI</span></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/notebook.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('notebook', this)">Make it</button></div>
+          <div class="fmt-cost ai">Uses 1 generation + 1 AI picture</div>
         </div>
-        <div class="fmt" data-fmt="note">
-          <div class="fmt-hd"><b>Handwritten note</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/note-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('note', this)">Make it</button></div>
+        <div class="fmt" data-fmt="quote">
+          <div class="fmt-hd"><b>Quote card</b></div>
+          <div class="fmt-thumb"><img src="/static/write-examples/quote-card.jpg?v=2" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('quote', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
         <div class="fmt" data-fmt="page">
           <div class="fmt-hd"><b>Book page</b></div>
           <div class="fmt-thumb"><img src="/static/write-examples/page-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('page', this)">Make it</button></div>
-          <div class="fmt-cost">Uses 1 generation</div>
-        </div>
-        <div class="fmt" data-fmt="statement">
-          <div class="fmt-hd"><b>Statement card</b></div>
-          <div class="fmt-thumb"><img src="/static/write-examples/statement-card.jpg" alt="" loading="lazy"><button type="button" class="fmt-make" onclick="makeFormat('statement', this)">Make it</button></div>
           <div class="fmt-cost">Uses 1 generation</div>
         </div>
       </div>
@@ -1466,7 +1460,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=43"></script>
+  <script src="/static/app.js?v=44"></script>
   <script src="/static/upgrade.js?v=2"></script>
   <script
     async
