@@ -339,6 +339,11 @@
     .pend-text:hover { border-color: #d9c78f; }
     .pend-text:focus { border-color: #24365e; box-shadow: 0 0 0 3px rgba(36,54,94,.10); }
     .pend-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .pend-styles { margin-top: 10px; padding: 10px 12px; border: 1px solid #e4e7ec; border-radius: 10px; background: #fbfcfe; }
+    .pend-styles .st-hint { font-size: 12px; color: #6b7280; margin: 0 0 8px; line-height: 1.5; }
+    .pend-styles .st-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pend-styles .st-chips .act-btn { border-radius: 999px; font-size: 12.5px; padding: 5px 12px; }
+    .pend-styles .st-back { background: none; border: 0; padding: 0; margin-top: 8px; color: #6b7280; text-decoration: underline; font: inherit; font-size: 12px; cursor: pointer; }
     /* "Coming up": one Change button per planned day, opening a grouped menu */
     .up-change { font-family: inherit; font-size: 12.5px; font-weight: 600; color: #24365e; background: #fff; border: 1px solid #d3d8e0; border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
     .up-change:hover { border-color: #24365e; }
@@ -2287,6 +2292,47 @@
         ? list.map(x => `<button type="button" class="use" title="Use this photo" onclick="setDraftPicture('${pid}', {mode: 'photo', photo_id: '${_escHtml(x.id)}'})"><img src="data:image/jpeg;base64,${x.thumb || ""}" alt="Your photo"></button>`).join("")
         : `<div class="pm-hint">No photos yet. <a href="#" onclick="openProfilePhotos('${p.company_id}');return false;">Add some</a>, then come back to this post.</div>`;
     }
+    // Try another style (24 Nov 2026, Thahseen: "I need a regeneration with different styles... the tone, it's very flat"):
+    // the same draft rewritten, facts unchanged (backend/draft_styles.py). Uses the day's rewrites, not a post.
+    const DRAFT_STYLES = [["story", "More story"], ["bolder", "Bolder"], ["warmer", "Warmer"], ["shorter", "Shorter"]];
+    function _styleRow(p) {
+      const pic = (p.format === "tweet_card" || p.format === "carousel") ? " The picture stays: change it if it no longer fits." : "";
+      return `<div id="pend-styles-${p.id}" class="pend-styles" hidden>
+          <p class="st-hint">The same post, told differently. Your facts and numbers stay exactly as they are.${pic}</p>
+          <div class="st-chips">${DRAFT_STYLES.map(([k, v]) => `<button class="act-btn" onclick="restyleDraft('${p.id}', '${k}', this)">${v}</button>`).join("")}</div>
+          <button class="st-back" id="st-back-${p.id}" onclick="restyleDraft('${p.id}', 'first', this)" ${p.style ? "" : "hidden"}>Back to the first version</button>
+        </div>`;
+    }
+    function toggleDraftStyles(pid) {
+      const row = document.getElementById(`pend-styles-${pid}`), b = document.getElementById(`style-btn-${pid}`);
+      if (!row) return;
+      row.hidden = !row.hidden;
+      if (b) b.setAttribute("aria-expanded", String(!row.hidden));
+    }
+    async function restyleDraft(pid, style, btn) {
+      const row = document.getElementById(`pend-styles-${pid}`);
+      const box = document.getElementById(`diy-caption-${pid}`);
+      const buttons = row ? [...row.querySelectorAll("button")] : [];
+      const label = btn.textContent;
+      buttons.forEach(b => b.disabled = true);
+      btn.textContent = style === "first" ? "Bringing it back…" : "Rewriting… about 20 seconds";
+      try {
+        const hint = document.getElementById(`edit-hint-${pid}`);
+        const edited = hint && hint.dataset.touched;
+        const r = await fetch(`/pending/${pid}/style`, { method: "POST", headers: ah(),
+          body: JSON.stringify({ style, text: edited && box ? box.innerText.trim() : "" }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "Couldn't change the style. Try again.");
+        if (box) box.innerText = d.post_text;
+        if (hint) { delete hint.dataset.touched; hint.textContent = "Click the text to edit it. Your version is what gets posted."; hint.style.color = ""; }
+        const sb = document.getElementById(`style-btn-${pid}`); if (sb) sb.textContent = d.style ? `Style: ${d.style}` : "Try another style";
+        const back = document.getElementById(`st-back-${pid}`); if (back) back.hidden = !d.has_first;
+        const cur = (window._pendingById || {})[pid]; if (cur) { cur.post_text = d.post_text; cur.style = d.style; }
+        toast(style === "first" ? "Back to the first version." : `Rewritten: ${d.style}.`, "success");
+      } catch (e) { toast(e.message, "warn"); }
+      buttons.forEach(b => b.disabled = false);
+      btn.textContent = label;
+    }
     async function setDraftPicture(pid, req) {
       const st = document.getElementById("dp-status");
       const controls = () => document.querySelectorAll("#preview-modal-body button, #preview-modal-body input");
@@ -2655,6 +2701,7 @@
             <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>` : `
             <button class="act-btn primary" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
             <button class="act-btn" id="pic-btn-${p.id}" onclick="openDraftPicture('${p.id}')">${(p.format === "tweet_card" || p.format === "carousel") ? "Change picture" : "Add a picture"}</button>
+            <button class="act-btn" id="style-btn-${p.id}" onclick="toggleDraftStyles('${p.id}')" aria-expanded="false">${p.style ? "Style: " + _escHtml(p.style) : "Try another style"}</button>
             <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>`;
         return `
         <div id="pending-${p.id}" class="pend-card">
@@ -2674,6 +2721,7 @@
           ${srcLine}
           ${diyBlock}
           <div class="pend-actions">${actions}</div>
+          ${isDiy ? "" : _styleRow(p)}
         </div>`;
       }).join("");
     }

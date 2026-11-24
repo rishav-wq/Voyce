@@ -56,6 +56,8 @@ app.include_router(author_photos.router)   # photos of the author for "Your phot
 app.include_router(partner_panel.router)   # a partner's team panel (/partner/api/*) and Voyce's partner view
 import draft_pictures
 app.include_router(draft_pictures.router)   # a waiting draft's picture, changed from the Queue (24 Nov 2026)
+import draft_styles
+app.include_router(draft_styles.router)   # a waiting draft in another style: More story, Bolder, Warmer, Shorter
 import sample_requests
 app.include_router(sample_requests.router)   # POST /sample: free sample posts, the profile's lead magnet
 
@@ -2826,6 +2828,7 @@ def approve_page(token: str, request: Request):
              f'{slides}'
              f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
              f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
+             + _style_box(pend, token)
              + ("" if partners.current() else _picture_box(pend, token))
              + (_partner_approve_actions() if partners.current() else
                 f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
@@ -2836,6 +2839,56 @@ def approve_page(token: str, request: Request):
                 'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>'
                 + _question_box(pend, token)))
     return _approve_shell("Ready for your OK", inner)
+
+
+def _style_box(pend: dict, token: str) -> str:
+    """Try another style on the review page (24 Nov 2026, Thahseen: "at the time of approval, I need a regeneration
+    with different styles... the tone, it's very flat"): the same draft as More story, Bolder, Warmer or Shorter, with
+    the facts unchanged (draft_styles). The first version is one tap away."""
+    import draft_styles
+    if pend.get("format") == "diy_video":
+        return ""
+    t = html_escape(token)
+    busy = ("onsubmit=\"this.querySelectorAll('button').forEach(function(b){b.disabled=true;});"
+            "var s=this.querySelector('.st-busy');if(s){s.style.display='block';}\"")
+    btn = ("background:#fff;color:#24365e;border:1px solid #d3d8e0;border-radius:999px;padding:8px 14px;font:inherit;"
+           "font-weight:600;font-size:14px;cursor:pointer;")
+    chips = "".join(f'<button type="submit" name="style" value="{k}" style="{btn}">{html_escape(v[0])}</button>'
+                    for k, v in draft_styles.STYLES.items())
+    now = pend.get("style") or ""
+    back = (f'<button type="submit" name="style" value="first" style="background:none;border:0;padding:0;color:#6b7280;'
+            'text-decoration:underline;font:inherit;font-size:13px;cursor:pointer;margin-top:10px;">'
+            'Back to the first version</button>' if now else "")
+    pic = (" The picture stays. Change it below if it no longer fits." if pend.get("format") in ("tweet_card", "carousel") else "")
+    return (
+        f'<details {"open " if now else ""}style="margin:16px 0 0;border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfe;padding:12px 16px;">'
+        f'<summary style="cursor:pointer;font-weight:600;color:#24365e;font-size:14.5px;">'
+        f'{"Try another style" if not now else "Style: " + html_escape(now) + " (try another)"}</summary>'
+        f'<p style="font-size:13px;color:#6b7280;margin:10px 0 12px;line-height:1.5;">The same post, told differently. '
+        f'Your facts and numbers stay exactly as they are.{pic}</p>'
+        f'<form method="post" action="/approve/{t}/style" style="margin:0;" {busy}>'
+        f'<div style="display:flex;gap:8px;flex-wrap:wrap;">{chips}</div>{back}'
+        '<span class="st-busy" style="display:none;font-size:13px;color:#6b7280;margin-top:10px;">Rewriting… about 20 seconds</span>'
+        '</form></details>')
+
+
+@app.post("/approve/{token}/style")
+async def style_from_link(token: str, request: Request):
+    from starlette.concurrency import run_in_threadpool
+    import draft_styles
+    _rate_limit(f"approvelink:{_client_ip(request)}", 10)
+    pend = _pending_by_token(token)
+    if not pend or pend.get("status") != "pending":
+        return approve_page(token, request)
+    form = await request.form()
+    try:
+        await run_in_threadpool(draft_styles.apply, pend, str(form.get("style") or ""))
+    except HTTPException as e:
+        if e.status_code in (409,):
+            return approve_page(token, request)
+        return _approve_shell("Couldn't change the style", f'<p style="color:#444;line-height:1.6;">{html_escape(str(e.detail))}</p>'
+                              f'<p style="margin:22px 0 0;">{_btn("Back to the post", f"/approve/{token}", primary=True)}</p>')
+    return RedirectResponse(f"/approve/{token}", status_code=303)
 
 
 def _picture_box(pend: dict, token: str) -> str:
