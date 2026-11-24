@@ -1404,7 +1404,7 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
 
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
-    author = _author_record(company)
+    author = _author_record(company, note)
     verdict = _value_gate(post, industry, facts, author_context=author)
     chosen, chosen_v = post, verdict
     if not verdict.get("passes", True):
@@ -1436,11 +1436,12 @@ def _knows_their_past(company: dict) -> bool:
                 or (company.get("analysis") or {}).get("description"))
 
 
-def _author_record(company: dict) -> str:
+def _author_record(company: dict, day_note: dict | None = None) -> str:
     """What is actually known about the author's past, for the invented-history check:
     their own posts, own site, background and facts. No writing instructions: given the
     full writer brief, the judge enforced those too and failed real memories as
-    "retelling an example's story"."""
+    "retelling an example's story". day_note: the note today's post was built on, as long as
+    the writer saw it, or a real number from past the notes' 500-character view reads as invented."""
     role = (company.get("designation") or "").strip()
     parts = [f"Author: {company.get('name', '')}" + (f", {role}" if role else "")]
     analysis = company.get("analysis") or {}
@@ -1459,6 +1460,9 @@ def _author_record(company: dict) -> str:
     told = notes_mod.record_block(company)
     if told:
         parts.append(told)
+    if day_note and (day_note.get("text") or "").strip():
+        parts.append("The note today's post was built on (theirs, real):\n"
+                     + str(day_note["text"]).strip()[:notes_mod.DAY_NOTE_CHARS])
     return "\n".join(parts)
 
 

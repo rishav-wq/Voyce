@@ -12,8 +12,10 @@ before. Questions follow LinkedIn ghostwriters' interview practice: ask about a 
 moment, never "what do you want to write about".
 """
 import hashlib
+import logging
 import re
 import secrets
+import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
@@ -44,7 +46,14 @@ QUESTIONS = [
     ("experience", "What's a mistake you've seen (or made) lately that others could learn from?"),
 ]
 MAX_NOTES = 80
-MIN_LEN, MAX_LEN = 12, 3000   # 3000: a spoken answer of up to ~3 minutes (voice.py, 22 Nov 2026)
+MIN_LEN, MAX_LEN = 12, 8000   # 8000: a written story of a page or two (it was 3000, cut silently: Thahseen, 24 Nov 2026)
+# Long notes (24 Nov 2026): the writer reads each note's first 500 characters (record_block) and the day's note's
+# first DAY_NOTE_CHARS, so a story pasted as an article lost its moment and its numbers ("40% of deals closed in 27
+# days" sat at character 1,100). A note over SPLIT_OVER is split into post-sized story cards, in the author's words;
+# the original stays, counted as used once so its cards come first.
+SPLIT_OVER, CARD_MAX, MAX_CARDS = 700, 480, 6
+DAY_NOTE_CHARS = 1500
+logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -93,7 +102,71 @@ def add(company: dict, text: str, kind: str = "other", source: str = "added", qu
     if source in ("weekly", "email"):
         update["$set"] = {"weekly_q": {"week": week_key(), "status": "answered"}}
     db.companies.update_one({"id": company["id"]}, update)
+    if len(note["text"]) > SPLIT_OVER:
+        note = {**note, "split": True}   # the story cards follow in a few seconds
+        threading.Thread(target=split_and_store, args=(company["id"], note["id"], note["text"],
+                                                       company.get("name") or "the author"), daemon=True).start()
     return note
+
+
+def split_story(text: str, name: str) -> list[dict]:
+    """A long note -> post-sized story cards: each moment with its numbers, in the author's own words."""
+    from llm import generate_json
+    prompt = f"""Below is a note {name} wrote about their own work or life. It is too long to build one post on.
+
+Split it into up to {MAX_CARDS} short story cards. Each card is one moment, result, method or opinion that a single
+LinkedIn post could be built on.
+
+Rules:
+- Use only what the note says. Never invent, embellish or generalise. Keep every number, name and detail exactly
+  as written, and never add one.
+- Each card: 1 to 3 plain sentences in the first person, the way {name} wrote it, under {CARD_MAX} characters.
+- Put the specific moment and its number in each card: what happened, and what it led to.
+- Skip scene-setting and anything generic that any professional could say.
+- If the note stops mid-sentence, leave the unfinished part out.
+
+NOTE:
+{text[:MAX_LEN]}
+
+Return ONLY JSON: {{"cards": [{{"kind": "experience|achievement|process|data|opinion", "text": "..."}}]}}"""
+    data = generate_json(prompt, max_tokens=1400, temperature=0.2) or {}
+    out = []
+    for c in (data.get("cards") or [])[:MAX_CARDS]:
+        t = " ".join(str(c.get("text") or "").split())
+        if MIN_LEN <= len(t):
+            out.append({"kind": c.get("kind") if c.get("kind") in KINDS else "experience", "text": t[:CARD_MAX + 120]})
+    return out
+
+
+def split_and_store(company_id: str, note_id: str, text: str, name: str) -> list[dict]:
+    """Store a long note's story cards after it, and count the note as used once so its cards are picked first.
+    Never raises: if splitting fails, the note stays as it was."""
+    try:
+        cards = split_story(text, name)
+        if not cards:
+            return []
+        c = db.companies.find_one({"id": company_id}, {"_id": 0, "author_notes": 1}) or {}
+        notes = c.get("author_notes") or []
+        orig = next((n for n in notes if n.get("id") == note_id), None)
+        if not orig or orig.get("split_into"):
+            return []   # deleted meanwhile, or already split
+        cards = cards[:max(0, MAX_NOTES - len(notes))]
+        title = re.sub(r"^#+\s*", "", orig["text"].strip().split("\n")[0]).strip()
+        title = title if len(title) <= 90 else title[:87].rsplit(" ", 1)[0] + "…"
+        new = [{"id": "n_" + secrets.token_urlsafe(6), "text": x["text"],
+                "kind": x.get("kind") if x.get("kind") in KINDS else "experience", "source": "split",
+                "question": f"From your note: {title}"[:200], "created_at": _now(), "uses": 0, "used_at": "",
+                "from_note": note_id} for x in cards]
+        if not new:
+            return []
+        db.companies.update_one({"id": company_id, "author_notes.id": note_id},
+                                {"$set": {"author_notes.$.split_into": [n["id"] for n in new],
+                                          "author_notes.$.uses": max(1, int(orig.get("uses") or 0))}})
+        db.companies.update_one({"id": company_id}, {"$push": {"author_notes": {"$each": new}}})
+        return new
+    except Exception:
+        logger.exception("[notes] splitting a long note failed")
+        return []
 
 
 def pick(company: dict) -> dict | None:
@@ -135,7 +208,7 @@ def record_block(company: dict) -> str:
 def prompt_block(note: dict) -> str:
     """Today's material: the post is built around this note, with the news as the hook."""
     return ("\n\nTODAY'S MATERIAL FROM THE AUTHOR (their own words, real):\n"
-            f"\"{str(note.get('text', ''))[:600]}\"\n"
+            f"\"{str(note.get('text', ''))[:DAY_NOTE_CHARS]}\"\n"
             "Build the post around this. Use today's news as the hook or the context where it genuinely "
             "connects; if it doesn't, write from this alone and leave the news out. Keep every detail exactly "
             "as they said it: don't add numbers, names, dates or events they didn't give.")
@@ -180,7 +253,8 @@ def _user(x_token: str | None) -> dict:
 
 
 def _public(note: dict) -> dict:
-    return {k: note.get(k) for k in ("id", "text", "kind", "source", "question", "created_at", "uses", "used_at")}
+    return {k: note.get(k) for k in ("id", "text", "kind", "source", "question", "created_at", "uses", "used_at",
+                                     "from_note", "split_into", "split")}
 
 
 class NoteIn(BaseModel):

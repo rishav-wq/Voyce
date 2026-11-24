@@ -469,6 +469,7 @@
     .nt-list li { border: 1px solid #e4e7ec; border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
     .nt-list .t { font-size: 14px; line-height: 1.55; color: #16181d; white-space: pre-wrap; overflow-wrap: anywhere; }
     .nt-list .m { font-size: 12px; color: #98a0ae; grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .nt-list .nt-from { font-size: 12.5px; color: #5b6270; grid-column: 1 / -1; }
     .nt-kind { font-size: 11.5px; font-weight: 700; color: #24365e; background: #e7ebf4; border-radius: 999px; padding: 2px 9px; }
     .nt-empty { margin: 18px 0 0; color: #5b6270; font-size: 13.5px; line-height: 1.55; padding: 14px; border: 1px dashed #d3d8e0; border-radius: 12px; }
     .act-btn {
@@ -1150,7 +1151,7 @@
               <div class="form-group"><label>Tone</label><select id="p-tone"><option value="conversational">Conversational</option><option value="educational">Educational</option><option value="thought leadership">Thought Leadership</option><option value="professional">Professional</option><option value="bold and direct">Bold &amp; Direct</option></select>
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-weight:400;font-size:13px;">
                   <input type="checkbox" id="p-tone-shift" style="width:auto;accent-color:#24365e;" />
-                  <span>Shift the voice toward this tone <span class="optional-tag">(only with past posts)</span></span>
+                  <span>My old posts aren't how I want to sound now: keep my words, but write in this tone <span class="optional-tag">(changes how your past posts are copied)</span></span>
                 </label>
               </div>
             </div>
@@ -2517,7 +2518,7 @@
       if (b && p) { const n = (p.author_notes || []).length; b.textContent = "📝 Notes" + (n ? ` (${n})` : ""); }
     }
     const NOTE_KINDS = { experience: "Experience", achievement: "A win", process: "How they do it", data: "A number", opinion: "Opinion", other: "Note" };
-    const NOTE_SOURCES = { weekly: "weekly question", email: "answered from email", added: "added by you", talk: "from a talk" };
+    const NOTE_SOURCES = { weekly: "weekly question", email: "answered from email", added: "added by you", talk: "from a talk", split: "from a longer note" };
     function _fmtNoteDate(iso) { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
     async function openNotes(id, kind) {
       const m = _previewModal(); const body = document.getElementById("preview-modal-body");
@@ -2555,6 +2556,8 @@
       wrap.innerHTML = `<ul class="nt-list">${notes.map(n => `<li>
           <div class="t">${_escHtml(n.text)}</div>
           <button class="act-btn quiet danger" onclick="deleteNote('${id}', '${_escHtml(n.id)}')" aria-label="Delete this note">Delete</button>
+          ${n.source === "split" && n.question ? `<div class="nt-from">${_escHtml(n.question)}</div>` : ""}
+          ${(n.split_into || []).length ? `<div class="nt-from">Split into ${n.split_into.length} short story cards, so every detail reaches your posts.</div>` : ""}
           <div class="m"><span class="nt-kind">${NOTE_KINDS[n.kind] || "Note"}</span><span>${NOTE_SOURCES[n.source] || ""} · ${_fmtNoteDate(n.created_at)}</span>
             ${n.uses ? `<span>used in ${n.uses} post${n.uses === 1 ? "" : "s"}</span>` : "<span>not used yet</span>"}</div></li>`).join("")}</ul>`;
     }
@@ -2567,7 +2570,12 @@
           body: JSON.stringify({ text, kind: document.getElementById("nt-kind").value, source: "added" }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.detail || "That didn't save. Try again.");
-        ta.value = ""; toast("Note saved", "success"); await renderNotes(id);
+        ta.value = "";
+        if (d.split) {
+          toast("Saved. It's a long story, so Voyce is splitting it into short story cards. They'll appear below in a few seconds.", "success");
+          await renderNotes(id);
+          [8000, 20000].forEach(ms => setTimeout(() => { if (document.getElementById("nt-list-wrap")) renderNotes(id); }, ms));
+        } else { toast("Note saved", "success"); await renderNotes(id); }
       } catch (e) { toast(e.message, "warn"); }
       btn.disabled = false;
     }
