@@ -26,6 +26,7 @@ pending_posts = _db["pending_posts"]   # approval queue: generated posts held fo
 write_history = _db["write_history"]   # what each profile made on Write (text only), kept 90 days (TTL)
 daily_ideas = _db["daily_ideas"]       # each profile's ideas for one day ("<profile>:<date>"), kept 14 days (TTL)
 sales_leads = _db["sales_leads"]       # Voyce team outreach tracker (/sales): one doc per lead
+sample_requests = _db["sample_requests"]   # free sample posts asked for at /sample (sample_requests.py)
 sales_config = _db["sales_config"]     # its shared message scripts
 # Partners (partners.py, partner_panel.py): firms that offer Voyce to their clients under their own brand
 partner_invites = _db["partner_invites"]         # a seat offered to one email, 14 days

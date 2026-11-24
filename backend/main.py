@@ -56,6 +56,8 @@ app.include_router(author_photos.router)   # photos of the author for "Your phot
 app.include_router(partner_panel.router)   # a partner's team panel (/partner/api/*) and Voyce's partner view
 import draft_pictures
 app.include_router(draft_pictures.router)   # a waiting draft's picture, changed from the Queue (24 Nov 2026)
+import sample_requests
+app.include_router(sample_requests.router)   # POST /sample: free sample posts, the profile's lead magnet
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
@@ -75,7 +77,7 @@ app.add_middleware(
 # Partners (partners.py): a request on a partner's address runs as that partner. Added last, so it runs first.
 _PARTNER_BLOCKED = ("/payments",)   # a partner's clients never pay Voyce: the partner bills them
 # Voyce's own marketing, legal and team pages: not on a partner's address
-_PARTNER_HIDDEN = ("/voice-check", "/how-to-not-sound-like-ai-on-linkedin", "/about", "/contact", "/refund",
+_PARTNER_HIDDEN = ("/voice-check", "/sample", "/how-to-not-sound-like-ai-on-linkedin", "/about", "/contact", "/refund",
                    "/refunds", "/cancellation", "/shipping", "/delivery", "/pricing", "/sales", "/llms.txt",
                    "/waitlist", "/analytics", "/emails")
 # The partner's own files (frontend/<partner assets>/): its landing page and its Terms and Privacy
@@ -89,6 +91,7 @@ SITE_URL = "https://voyce.co.in"
 PUBLIC_PAGES = {
     "/": "2026-11-02",
     "/voice-check": "2026-11-01",
+    "/sample": "2026-11-25",
     "/how-to-not-sound-like-ai-on-linkedin": "2026-11-01",
     "/about": "2026-11-01",
     "/contact": "2026-10-18",
@@ -169,7 +172,7 @@ async def _visitor_context(request: Request, call_next):
 
 # The forms anyone can post to, and the most each may send: a few huge bodies used to be read whole into the
 # small server's memory, and stored (security review, 3 Nov 2026)
-_PUBLIC_POSTS = ("/waitlist", "/partner/waitlist", "/voice-check", "/approve/", "/emails/")
+_PUBLIC_POSTS = ("/waitlist", "/partner/waitlist", "/voice-check", "/sample", "/approve/", "/emails/")
 _PUBLIC_MAX_BYTES = 256 * 1024
 
 
@@ -927,6 +930,11 @@ def serve_dashboard():
 @app.get("/voice-check")
 def serve_voice_check():
     return _page("voice-check.html")
+
+
+@app.get("/sample")
+def serve_sample():
+    return _page("sample.html")
 
 
 @app.get("/how-to-not-sound-like-ai-on-linkedin")

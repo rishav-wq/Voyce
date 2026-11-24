@@ -181,6 +181,40 @@ def create_lead(body: LeadIn, x_token: str = Header(None)):
     return _public(doc)
 
 
+# Stages a request for samples may move a lead out of: nobody has spoken to them yet, or they went quiet. A lead
+# that's further along (sample sent, meeting, customer) keeps its stage and only gets the note.
+_INBOUND_CAN_MOVE = {"tocall", "try1", "try2", "try3", "new", "dm", "fu1", "fu2", "fu3", "wa1", "wa2", "lost"}
+
+
+def add_inbound(fields: dict, note: str, next_due: str) -> dict:
+    """A lead that came in on its own (the free-sample page, sample_requests.py): no teammate added it, so it has
+    no owner yet, and its history says where it came from. Someone the tracker already has (same LinkedIn profile
+    or email) gets the request noted on their lead, and any contact detail it was missing, instead of a second
+    copy. Returns the stored lead."""
+    by = {"id": "", "name": fields.get("source") or "Sample page"}
+    f = _clean(fields, {"id": "", "email": ""})
+    f.pop("stage", None)
+    now = _now()
+    slug = re.search(r"linkedin\.com/in/([^/?#\s]+)", f.get("linkedin", ""), re.I)
+    same = ([{"linkedin": re.compile(r"linkedin\.com/in/" + re.escape(slug.group(1)) + r"/?(\?.*)?$", re.I)}] if slug else []) \
+        + ([{"email": re.compile("^" + re.escape(f["email"]) + "$", re.I)}] if f.get("email") else [])
+    cur = db.sales_leads.find_one({"$or": same}, {"_id": 0, "id": 1, "stage": 1, "email": 1, "linkedin": 1,
+                                                 "phone": 1}) if same else None
+    if cur:
+        upd = {"updated_at": now, **{k: f[k] for k in ("email", "linkedin", "phone") if f.get(k) and not cur.get(k)}}
+        if cur.get("stage") in _INBOUND_CAN_MOVE:
+            upd.update(stage="spoke", next_due=next_due)
+        db.sales_leads.update_one({"id": cur["id"]}, {
+            "$set": upd, "$push": {"history": {"$each": [_entry(by, note, upd.get("stage", ""))], "$slice": -HISTORY_KEEP}}})
+        return _public(db.sales_leads.find_one({"id": cur["id"]}, {"_id": 0}))
+    doc = {**{k: "" for k in TEXT_FIELDS}, "next_due": next_due, "dm_at": "", "meeting_at": "",
+           "lookup": "", "lookup_note": "", "lookup_at": "", **f, "stage": "spoke",
+           "id": "l_" + secrets.token_urlsafe(9), "owner": "", "owner_name": "",
+           "created_by": "", "created_at": now, "updated_at": now, "history": [_entry(by, note, "spoke")]}
+    db.sales_leads.insert_one(dict(doc))
+    return _public(doc)
+
+
 @router.patch("/sales/leads/{lead_id}")
 def update_lead(lead_id: str, body: LeadIn, x_token: str = Header(None)):
     user = _team_user(x_token)
