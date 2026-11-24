@@ -203,10 +203,60 @@
     /* ── Profile cards ── */
     .profiles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
+      grid-template-columns: minmax(0, 1fr);   /* one profile per row: its card, and what Voyce knows beside it */
       gap: 16px;
       margin-bottom: 36px;
     }
+    /* ── Settings row (24 Nov 2026, Thahseen: "see what my profile uses, beside the card") ── */
+    .prof-row { display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); gap: 16px; align-items: start; }
+    @media (max-width: 1100px) { .prof-row { grid-template-columns: minmax(0, 1fr); } }
+    .prof-av { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid #e4e7ec; }
+    .prof-sub { font-size: 12.5px; color: #6b7280; font-weight: 500; margin-top: 1px; }
+    .wk-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 12px; color: #5b6270; font-weight: 600; }
+    .wk-head .act-btn { font-size: 12px; padding: 4px 10px; }
+    .wk-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 0 0 6px; }
+    .wk-day { border: 1px solid #e4e7ec; border-radius: 8px; padding: 5px 3px; text-align: center; background: #fbfcfe; min-width: 0; }
+    .wk-day b { display: block; font-size: 9.5px; color: #98a0ae; text-transform: uppercase; letter-spacing: .4px; }
+    .wk-day span { display: block; font-size: 10.5px; color: #3f4554; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wk-day i { display: block; font-style: normal; font-size: 9.5px; color: #8a3b12; min-height: 12px; }
+    .wk-day.mine { border-color: #9fb0d3; background: #f2f5fb; }
+    .wk-day.today { box-shadow: inset 0 0 0 1.5px #18a07a; }
+    .knows { background: #fff; border: 1px solid #e4e7ec; border-radius: 16px; padding: 20px 22px; min-width: 0; }
+    .kn-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px 24px; flex-wrap: wrap; margin-bottom: 14px; }
+    .kn-head h3 { margin: 0; font-size: 15px; color: #16181d; } .kn-head p { margin: 3px 0 0; font-size: 12.5px; color: #6b7280; }
+    .kn-meter { min-width: 220px; flex: 0 1 280px; }
+    .kn-meter .lbl { display: flex; justify-content: space-between; font-size: 12px; color: #3f4554; margin-bottom: 5px; }
+    .kn-meter .bar { height: 8px; border-radius: 6px; background: #eef1f5; overflow: hidden; }
+    .kn-meter .bar i { display: block; height: 100%; background: #18a07a; border-radius: 6px; }
+    .kn-next { font-size: 12.5px; margin-top: 7px; color: #5b6270; } .kn-next a { color: #24365e; font-weight: 600; }
+    .kn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+    .kn-tile { border: 1px solid #eef0f4; border-radius: 12px; padding: 12px 14px; background: #fbfcfe; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+    .kn-tile.gap { background: #fffaf2; border-color: #f1e1bf; }
+    .kn-t { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #16181d; }
+    .kn-st { font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+    .kn-st.ok { background: #e6f4ea; color: #057642; } .kn-st.no { background: #fdeee2; color: #8a3b12; }
+    .kn-b { font-size: 12.5px; color: #5b6270; line-height: 1.45; overflow-wrap: anywhere; }
+    .kn-b em { color: #3f4554; }
+    .kn-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .kn-chip { font-size: 11.5px; background: #eef1f6; color: #3f4554; border-radius: 20px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; }
+    .kn-chip.next { background: #e6f4ea; color: #057642; }
+    .kn-chip button { border: 0; background: none; cursor: pointer; color: #8a909c; font-size: 13px; line-height: 1; padding: 0; }
+    .kn-act { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; } .kn-act .act-btn { font-size: 12px; padding: 5px 10px; }
+    .kn-thumbs { display: flex; gap: 5px; flex-wrap: wrap; } .kn-thumbs img { width: 44px; height: 44px; object-fit: cover; border-radius: 7px; border: 1px solid #e4e7ec; }
+    .kn-sw { display: flex; gap: 6px; } .kn-sw span { width: 22px; height: 22px; border-radius: 6px; border: 1px solid #d3d8e0; }
+    .kn-site { display: flex; gap: 6px; } .kn-site input { flex: 1; min-width: 0; border: 1.5px solid #d3d8e0; border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12.5px; }
+    .wk-ed { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+    .wk-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+    .wk-row b { font-size: 13px; color: #16181d; }
+    .wk-row select { font: inherit; font-size: 13px; padding: 6px 8px; border: 1.5px solid #d3d8e0; border-radius: 8px; min-width: 0; background: #fff; }
+    .wk-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: #5b6270; border-top: 1px solid #eef0f4; padding-top: 12px; }
+    @media (max-width: 640px) { .wk-row { grid-template-columns: 38px minmax(0, 1fr); } .wk-row .seg { grid-column: 2; } }
+    .pm-grid { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; } .pm-grid figure { margin: 0; position: relative; }
+    .pm-grid img { width: 84px; height: 84px; object-fit: cover; border-radius: 9px; border: 1px solid #e4e7ec; display: block; }
+    .pm-grid .del { position: absolute; top: 3px; right: 3px; border: 0; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 1px 6px; cursor: pointer; }
+    .pm-grid .use { padding: 0; border: 2px solid transparent; border-radius: 11px; background: none; cursor: pointer; } .pm-grid .use:hover, .pm-grid .use:focus { border-color: #24365e; }
+    .pm-sec { font-size: 13px; font-weight: 700; color: #16181d; margin: 14px 0 6px; }
+    .pm-hint { font-size: 12.5px; color: #6b7280; line-height: 1.5; margin: 0 0 8px; }
     .profile-card {
       background: #ffffff;
       border-radius: 16px;
@@ -221,7 +271,7 @@
     .badge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 20px; }
     .badge-type.company  { background: #e8f0fe; color: #1a73e8; }
     .badge-type.personal { background: #fce8f3; color: #c2185b; }
-    .badge-active   { background: #e6f4ea; color: #057642; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+    .badge-active   { background: #e6f4ea; color: #057642; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex: none; }
 
     .carousel-toggle-row {
       display: flex;
@@ -273,6 +323,12 @@
     .cal-chip.wait  { background: #fff4dc; color: #8a5a00; }
     /* Waiting-post card */
     .pend-card { border: 1px solid #ecdca6; background: #fffdf6; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
+    #skip-offer[hidden] { display: none; }
+    .skip-offer-card { display: flex; align-items: center; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap;
+      border: 1px solid #d9e1ef; background: #f6f8fc; border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; }
+    .skip-offer-card .so-text { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; color: #3f4554; }
+    .skip-offer-card .so-text b { color: #16181d; font-size: 14.5px; }
+    .skip-offer-card .so-acts { display: flex; gap: 8px; flex-wrap: wrap; }
     .pend-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
     .pend-av { width: 32px; height: 32px; border-radius: 50%; background: #24365e; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
     .pend-who { font-size: 14px; font-weight: 600; color: #16181d; line-height: 1.2; }
@@ -928,6 +984,9 @@
       </div>
     </div>
 
+    <!-- After a skip: "Want a different post for today?" (_showSkipOffer) -->
+    <div id="skip-offer" hidden></div>
+
     <!-- Approval queue: posts Voyce wrote and is holding for the user's OK -->
     <div id="pending-section" style="display:none;">
       <div class="section-head">
@@ -1168,7 +1227,7 @@
     // elements, same ids — so every render function keeps working untouched.
     const VIEW_LAYOUT = {
       // stats-row carries "next up: type · time", so it belongs with today's work.
-      today:     ["pending-section", "question-section", "queue-empty", "upcoming-section"],
+      today:     ["skip-offer", "pending-section", "question-section", "queue-empty", "upcoming-section"],
       profiles:  ["profiles-head", "profiles-grid"],
       analytics: ["analytics-section", "log-section"],
       account:   [],
@@ -1490,23 +1549,23 @@
           <button class="act-btn" onclick="toggleLiPanel('${p.id}')">Add posts</button></div>`;
         const cpw = String(raw.carousels_per_week ?? (raw.carousel_enabled ? "alt" : 0));
 
-        return `<div class="profile-card" id="card-${p.id}">
+        return `<div class="prof-row"><div class="profile-card" id="card-${p.id}">
           <div class="profile-card-top">
             <div class="profile-card-name" style="display:flex;align-items:center;gap:10px;">
-              <span style="width:38px;height:38px;border-radius:50%;background:${isPersonal ? '#24365e' : '#16181d'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>
-              ${p.name}
-              <span class="badge-type ${typeClass}">${typeLabel}</span>
+              ${/^[A-Za-z0-9+/=]+$/.test(raw.li_photo || "") ? `<img class="prof-av" src="data:image/jpeg;base64,${raw.li_photo}" alt="">`
+                : `<span style="width:42px;height:42px;border-radius:50%;background:${isPersonal ? '#24365e' : '#16181d'};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;font-family:'Space Grotesk',sans-serif;flex:none;">${(p.name || "?").trim()[0].toUpperCase()}</span>`}
+              <div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${p.name}
+                <span class="badge-type ${typeClass}">${typeLabel}</span></div>
+                ${raw.designation ? `<div class="prof-sub">${_escHtml(raw.designation)}</div>` : ""}</div>
             </div>
             ${p.active ? `<span class="badge-active">${p.approval_mode ? "On · asks first" : "On · posts automatically"}</span>` : ""}
           </div>
 
+          <!-- Voice, topics and the rest live in "What Voyce knows" beside the card now (24 Nov 2026) -->
           <div style="font-size:12.5px;color:#5b6270;line-height:1.5;margin:2px 0 14px;">
-            ${voiceLine}<br>
-            ${_topicsHtml(raw)}
             ${_liRow(raw)}
           </div>
 
-          ${voiceCta}
           <div style="border:1px solid #e4e7ec;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
             <label class="carousel-toggle-row" role="switch" tabindex="0" aria-checked="${p.active}" style="margin-bottom:${p.active ? "10px" : "0"};"
                    aria-label="Daily posting for ${p.name}"
@@ -1541,14 +1600,12 @@
                    daily is the switch above; the rest is setup, so it sits behind
                    one disclosure. The selects stay in the DOM either way, which is
                    all runNow and previewPost need to read them. -->
-              <div class="auto-more-row" style="margin:2px 0 8px;">
-                <span>Carousels a week:</span>
-                <div class="seg" role="radiogroup" aria-label="Carousels per week for ${p.name}">
-                  ${CAROUSEL_MIX.map(([v, l, short]) => `<button type="button" role="radio" aria-checked="${cpw === String(v)}" class="${cpw === String(v) ? "on" : ""}"
-                      title="${l}" onclick="setCarouselsPerWeek('${p.id}', '${v}')">${short}</button>`).join("")}
-                </div>
-              </div>
-              <div class="seg-hint">${(CAROUSEL_MIX.find(m => String(m[0]) === cpw) || CAROUSEL_MIX[0])[3]}</div>
+              <!-- Your week (24 Nov 2026, Thahseen: "choose what order he wants"): the next seven days as they'll go
+                   out, and one button to set each weekday's type and format, carousels included -->
+              <div class="wk-head"><span>This week</span>
+                <button type="button" class="act-btn" onclick="openWeekEditor('${p.id}')">Edit your week</button></div>
+              ${_weekStrip(raw)}
+              <div class="seg-hint">${raw.week_pattern ? "Days in blue follow your week." : "Voyce picks each day's post. Set your own order with Edit your week."}</div>
               <details class="auto-more">
                 <summary>More options</summary>
               ${cpw !== "0" ? `<div class="auto-more-row">
@@ -1605,8 +1662,9 @@
             </div>
             <div class="card-li-status" id="li-status-${p.id}"></div>
           </div>
-        </div>`;
+        </div>${_knowsPanel(raw)}</div>`;
       }).join("");
+      _fillKnowsPhotos(profiles);
     }
 
     async function runNow(id) {
@@ -1966,6 +2024,298 @@
       else toast("Couldn't update the theme — try again.", "warn");
     }
 
+    // ── Settings, 24 Nov 2026 (Thahseen's asks): your week, what Voyce knows, sites it reads, photos ───────────
+    const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const TYPES_PERSONAL = [["trend_reaction", "Trend Reaction"], ["hot_take", "Hot Take"], ["lesson_learned", "Lesson Learned"],
+      ["expert_insight_p", "Expert Insight"], ["stat_reaction", "Stat Reaction"], ["personal_story", "Personal Story"],
+      ["how_to", "How-To / Playbook"], ["listicle", "Listicle"], ["teardown", "Teardown"], ["prediction", "Prediction"],
+      ["open_question", "Open Question"]];
+    const TYPES_COMPANY = [["trend_commentary", "Trend Commentary"], ["expert_insight", "Expert Insight"],
+      ["how_to_playbook", "Playbook / How-To"], ["product_spotlight", "Product Spotlight"], ["industry_stat", "Industry Stat"],
+      ["case_study", "Case Study / Story"], ["myth_vs_reality", "Myth vs Reality"], ["teardown", "Teardown"], ["prediction", "Prediction"]];
+    const WEEK_FMTS = [["auto", "Auto"], ["text", "Text"], ["picture", "Picture"], ["carousel", "Carousel"]];
+    const _SHORT_TYPE = { "How-To / Playbook": "How-to", "Playbook / How-To": "How-to", "Expert Insight": "Insight",
+      "Trend Reaction": "Trend", "Trend Commentary": "Trend", "Personal Story": "Story", "Lesson Learned": "Lesson",
+      "Stat Reaction": "Stat", "Industry Stat": "Stat", "Open Question": "Question", "Listicle": "List",
+      "Case Study / Story": "Case study", "Myth vs Reality": "Myth", "Product Spotlight": "Spotlight" };
+
+    // The next seven days as they'll go out (the server's forecast: your week, a date picked in Queue, or Voyce's pick)
+    function _weekStrip(raw) {
+      const fc = (raw.week_forecast || []).slice(0, 7);
+      if (!fc.length) return "";
+      const pat = Array.isArray(raw.week_pattern) && raw.week_pattern.length === 7 ? raw.week_pattern : null;
+      return `<div class="wk-strip">${fc.map((d, i) => {
+        const wd = (new Date(d.date + "T12:00:00").getDay() + 6) % 7;
+        const s = (pat && pat[wd]) || {};
+        const mine = !!(d.planned || s.type || (s.format && s.format !== "auto"));
+        const fmt = d.format === "carousel" ? "carousel" : (d.format === "picture" || d.format === "card") ? "picture" : d.format === "video" ? "video" : "";
+        return `<div class="wk-day${mine ? " mine" : ""}${i === 0 ? " today" : ""}" title="${_escHtml(WEEK_DAYS[wd] + ": " + (d.post_type || "") + (fmt ? ", " + fmt : ""))}">
+          <b>${i === 0 ? "Today" : WEEK_DAYS[wd]}</b><span>${_escHtml(_SHORT_TYPE[d.post_type] || d.post_type || "—")}</span><i>${fmt}</i></div>`;
+      }).join("")}</div>`;
+    }
+
+    let _wkState = null;   // the week being edited: {id, slots: [{type, format}] Monday first, cpw, cpw0, had}
+    function openWeekEditor(id) {
+      const p = (currentProfiles || []).find(x => x.id === id); if (!p) return;
+      const pat = Array.isArray(p.week_pattern) && p.week_pattern.length === 7 ? p.week_pattern : null;
+      const cpw = String(p.carousels_per_week ?? (p.carousel_enabled ? "alt" : 0));
+      _wkState = { id, slots: WEEK_DAYS.map((_, i) => ({ type: (pat && pat[i].type) || "", format: (pat && pat[i].format) || "auto" })),
+                   cpw, cpw0: cpw, had: !!pat };
+      _renderWeekEditor();
+    }
+    function _renderWeekEditor() {
+      const st = _wkState; if (!st) return;
+      const p = (currentProfiles || []).find(x => x.id === st.id) || {};
+      const types = p.profile_type === "personal" ? TYPES_PERSONAL : TYPES_COMPANY;
+      const m = _previewModal(); const body = document.getElementById("preview-modal-body"); m.style.display = "flex";
+      const seg = (label, opts, cur, call) => `<div class="seg" role="radiogroup" aria-label="${label}">${opts.map(([v, l]) =>
+        `<button type="button" role="radio" aria-checked="${cur === String(v)}" class="${cur === String(v) ? "on" : ""}" onclick="${call(v)}">${l}</button>`).join("")}</div>`;
+      body.innerHTML = `<div class="nt-head"><h3>Your week</h3>
+          <p>Choose each weekday's post and how it goes out. Days on <b>Voyce's choice</b> get the type that fits that day's news best.
+          A date you change in Queue still wins for that one day.</p></div>
+        <div class="wk-ed">${WEEK_DAYS.map((d, i) => `<div class="wk-row"><b>${d}</b>
+          <select aria-label="${d}: the post" onchange="_wkState.slots[${i}].type=this.value"><option value="">Voyce's choice</option>${
+            types.map(([k, l]) => `<option value="${k}" ${st.slots[i].type === k ? "selected" : ""}>${l}</option>`).join("")}</select>
+          ${seg(d + ": how it goes out", WEEK_FMTS, st.slots[i].format, v => `_wkFmt(${i}, '${v}')`)}</div>`).join("")}</div>
+        <div class="wk-foot"><span>Carousels on Auto days:</span>${seg("Carousels on Auto days", CAROUSEL_MIX.map(x => [x[0], x[2]]), st.cpw, v => `_wkCpw('${v}')`)}</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;">
+          ${st.had ? `<button class="act-btn quiet" onclick="saveWeek(true, this)">Back to Voyce's choice</button>` : ""}
+          <button class="act-btn" onclick="closePreviewModal()">Cancel</button>
+          <button class="act-btn primary" onclick="saveWeek(false, this)">Save my week</button></div>`;
+    }
+    function _wkFmt(i, v) { if (_wkState) { _wkState.slots[i].format = v; _renderWeekEditor(); } }
+    function _wkCpw(v) { if (_wkState) { _wkState.cpw = String(v); _renderWeekEditor(); } }
+    async function saveWeek(reset, btn) {
+      const st = _wkState; if (!st) return;
+      if (btn) btn.disabled = true;
+      try {
+        const r = await fetch(`/companies/${st.id}/week-pattern`, { method: "PUT", headers: ah(), body: JSON.stringify({ pattern: reset ? null : st.slots }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (r.status === 402) { toast(d.detail || "Carousel days are part of Pro.", "warn"); openUpgradeModal(); }
+          else toast(d.detail || "Couldn't save your week. Try again.", "warn");
+          if (btn) btn.disabled = false;
+          return;
+        }
+        if (!reset && st.cpw !== st.cpw0) {
+          const per_week = st.cpw === "alt" ? "alt" : Number(st.cpw);
+          const r2 = await fetch(`/companies/${st.id}/carousel`, { method: "PATCH", headers: ah(), body: JSON.stringify({ per_week }) });
+          const d2 = await r2.json().catch(() => ({}));
+          if (!r2.ok && isProRequired(d2)) { toast("Carousels on daily posts are a Pro feature.", "warn"); openUpgradeModal(); }
+        }
+        toast(reset ? "Back to Voyce's choice for every day." : "Your week is saved. Queue shows the next seven days.", "success");
+        _wkState = null;
+        closePreviewModal();
+        loadProfiles();
+      } catch (_) { toast("Couldn't save your week. Try again.", "warn"); if (btn) btn.disabled = false; }
+    }
+
+    // What Voyce knows: each part, how much it matters to the posts (the meter), and the one thing to add next
+    function _knowsItems(raw) {
+      const id = raw.id, notes = raw.author_notes || [];
+      return {
+        voice:  { w: 20, ok: !!(raw.linkedin_analysis && raw.linkedin_analysis.writing_style), next: "Add 2–3 of your posts, so it writes in your voice", act: `toggleLiPanel('${id}')` },
+        career: { w: 15, ok: !!String(raw.profile_facts || "").trim(), next: "Upload your LinkedIn profile PDF", act: `editProfile('${id}')` },
+        stories:{ w: 15, ok: notes.length >= 3, next: "Add a story only you could tell", act: `openNotes('${id}')` },
+        wins:   { w: 10, ok: notes.some(n => n.kind === "achievement"), next: "Add a win you're proud of", act: `openNotes('${id}', 'achievement')` },
+        topics: { w: 10, ok: _splitTopics(raw.industry || "").length >= 2, next: "Add a second topic", act: `editProfile('${id}')` },
+        rules:  { w: 10, ok: String(raw.knowledge || "").trim().length >= 80, next: "Write the rules Voyce must follow", act: `editProfile('${id}')` },
+        photos: { w: 10, ok: (raw.photo_count || 0) > 0, next: "Add a photo of yourself", act: `openProfilePhotos('${id}')` },
+        sites:  { w: 10, ok: (raw.news_sites || []).length > 0, next: "Add a site you read for news", act: `document.getElementById('kn-site-${id}')?.focus()` },
+      };
+    }
+    function _knowsPanel(raw) {
+      const id = raw.id, it = _knowsItems(raw), all = Object.values(it);
+      const pct = Math.round(all.reduce((s, x) => s + (x.ok ? x.w : 0), 0) * 100 / all.reduce((s, x) => s + x.w, 0));
+      const next = all.filter(x => !x.ok).sort((a, b) => b.w - a.w)[0];
+      const first = _escHtml(String(raw.name || "").trim().split(/\s+/)[0] || "you");
+      const notes = raw.author_notes || [];
+      const count = k => notes.filter(n => n.kind === k).length;
+      const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+      const cut = (s, n) => _escHtml(String(s || "").slice(0, n)) + (String(s || "").length > n ? "…" : "");
+      const btn = (label, js, primary) => `<button type="button" class="act-btn${primary ? " primary" : ""}" onclick="${js}">${label}</button>`;
+      const tile = (title, ok, body, acts, label) => `<div class="kn-tile${ok || label === "Default" ? "" : " gap"}"><div class="kn-t"><span>${title}</span>
+          <span class="kn-st ${ok ? "ok" : "no"}">${label || (ok ? "✓ In use" : "Not yet")}</span></div>
+          <div class="kn-b">${body}</div>${acts ? `<div class="kn-act">${acts}</div>` : ""}</div>`;
+      const style = String((raw.linkedin_analysis || {}).writing_style || "");
+      const vposts = (raw.linkedin_top_posts || []).length;
+      const facts = String(raw.profile_facts || "").split("\n").map(s => s.trim()).filter(Boolean);
+      const factLine = facts.slice(1, 3).join(" · ") || facts[0] || "";
+      const topics = _splitTopics(raw.industry || ""), nextTopic = String(raw.next_topic || "").toLowerCase();
+      const rules = String(raw.knowledge || "").trim();
+      const sites = raw.news_sites || [];
+      const looks = ((raw.brand_kit || {}).looks || []).slice(0, 2);
+      const swatches = looks.flatMap(l => [l.bg, l.accent || l.marker]).filter(c => /^#[0-9a-fA-F]{3,8}$/.test(c || "")).slice(0, 4);
+      const kinds = [["experience", "story", "stories"], ["achievement", "win", "wins"], ["opinion", "opinion", "opinions"],
+                     ["data", "number", "numbers"], ["process", "how-to", "how-tos"]].filter(([k]) => count(k));
+      const recent = notes.slice(-2).reverse().map(n => `<div style="margin-top:4px;">“${cut(n.text, 80)}”</div>`).join("");
+      const tiles = [
+        tile("Voice", it.voice.ok, it.voice.ok ? `<em>${cut(style, 120)}</em>${vposts ? `<br>Learned from ${plural(vposts, "post", "posts")}.` : ""}`
+             : `Not learned yet. Until then it writes in a clear, conversational voice.`,
+             btn(it.voice.ok ? "Refresh with new posts" : "Add your posts", `toggleLiPanel('${id}')`, !it.voice.ok)),
+        tile("Career", it.career.ok, it.career.ok ? cut(factLine, 150)
+             : "Voyce doesn't know your roles and years yet, so it never tells career stories.",
+             btn(it.career.ok ? "Update" : "Upload LinkedIn PDF", `editProfile('${id}')`, !it.career.ok)),
+        tile("Stories &amp; wins", it.stories.ok && it.wins.ok,
+             notes.length ? `${kinds.map(([k, a, b]) => plural(count(k), a, b)).join(" · ") || plural(notes.length, "note", "notes")}${recent}`
+             : "None yet. Each daily post is built around one; without them posts stay general.",
+             btn("Add a win", `openNotes('${id}', 'achievement')`, !it.wins.ok) + btn(notes.length ? "See all" : "Add a story", `openNotes('${id}')`),
+             notes.length ? `${notes.length} saved` : "Not yet"),
+        tile("Topics", it.topics.ok, `<div class="kn-chips">${topics.map(t => `<span class="kn-chip${t.toLowerCase() === nextTopic ? " next" : ""}"${t.toLowerCase() === nextTopic ? ' title="Next daily post"' : ""}>${_escHtml(t)}</span>`).join("") || "None yet"}</div>`,
+             btn("Edit topics", `editProfile('${id}')`)),
+        tile("Writing rules", it.rules.ok, rules ? cut(rules, 160)
+             : "None yet. Add what it must always do or never say: words to avoid, names never to mention, how long posts run.",
+             btn(rules ? "Edit rules" : "Add rules", `editProfile('${id}')`, !rules)),
+        tile("Sites Voyce reads first", it.sites.ok, `Voyce looks here first for the week's news, then the wider web.
+             ${sites.length ? `<div class="kn-chips" style="margin-top:6px;">${sites.map(s => `<span class="kn-chip">${_escHtml(s)}<button type="button" aria-label="Remove ${_escHtml(s)}" onclick="removeSite('${id}', '${_escHtml(s)}')">×</button></span>`).join("")}</div>` : ""}
+             ${sites.length < 5 ? `<div class="kn-site" style="margin-top:8px;"><input id="kn-site-${id}" placeholder="e.g. searchengineland.com" aria-label="Add a site Voyce reads first" onkeydown="if(event.key==='Enter'){event.preventDefault();addSite('${id}', this);}">${btn("Add", `addSite('${id}', this)`)}</div>` : ""}`,
+             "", sites.length ? `✓ ${plural(sites.length, "site", "sites")}` : "Not yet"),
+        tile("Your photos", it.photos.ok, it.photos.ok ? `<div class="kn-thumbs" id="kn-ph-${id}"></div>For picture posts, used as they are.`
+             : "Real photos of you for picture posts. AI never changes them.",
+             btn(it.photos.ok ? "Manage" : "Add photos", `openProfilePhotos('${id}')`, !it.photos.ok), it.photos.ok ? `✓ ${raw.photo_count}` : "Not yet"),
+        tile("Brand look", looks.length > 0, looks.length ? `<div class="kn-sw">${swatches.map(c => `<span style="background:${c}"></span>`).join("")}</div>Your colours on cards and carousels.`
+             : "Voyce's own colours for now. Ask us and we'll set up your brand colours.", "", looks.length ? "✓ Set" : "Default"),
+      ];
+      return `<section class="knows" aria-label="What Voyce knows about ${_escHtml(raw.name || "")}">
+        <div class="kn-head"><div><h3>What Voyce knows about ${first}</h3><p>Every post is built from this. The more it knows, the less it guesses.</p></div>
+          <div class="kn-meter"><div class="lbl"><span>Profile strength</span><b>${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div>
+            ${next ? `<div class="kn-next">Next: <a href="#" onclick="${next.act};return false;">${next.next}</a></div>` : `<div class="kn-next">Everything's in place.</div>`}</div></div>
+        <div class="kn-grid">${tiles.join("")}</div></section>`;
+    }
+    async function _fillKnowsPhotos(profiles) {
+      window._phCache = window._phCache || {};
+      for (const p of profiles || []) {
+        if (!(p.photo_count > 0)) continue;
+        let list = window._phCache[p.id];
+        if (!list || list.length !== p.photo_count) {
+          try { const r = await fetch(`/profiles/${encodeURIComponent(p.id)}/photos`, { headers: ah() }); list = r.ok ? await r.json() : []; } catch (_) { list = []; }
+          window._phCache[p.id] = list;
+        }
+        const box = document.getElementById(`kn-ph-${p.id}`);
+        if (box) box.innerHTML = list.slice(0, 5).map(x => x.thumb ? `<img src="data:image/jpeg;base64,${x.thumb}" alt="">` : "").join("");
+      }
+    }
+
+    // Sites Voyce reads first (the news search tries them before the open web)
+    async function _saveSites(id, sites) {
+      const r = await fetch(`/companies/${id}/news-sites`, { method: "PUT", headers: ah(), body: JSON.stringify({ sites }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.detail || "Couldn't save that site.", "warn"); return null; }
+      (currentProfiles || []).forEach(p => { if (p.id === id) p.news_sites = d.news_sites; });
+      renderProfiles(currentProfiles);
+      return d.news_sites || [];
+    }
+    async function addSite(id) {
+      const inp = document.getElementById(`kn-site-${id}`); const v = ((inp && inp.value) || "").trim();
+      if (!v) { if (inp) inp.focus(); return; }
+      const before = ((currentProfiles || []).find(x => x.id === id) || {}).news_sites || [];
+      const after = await _saveSites(id, [...before, v]);
+      if (after === null) return;
+      if (after.length > before.length) toast("Added. Voyce searches it first for news.", "success");
+      else toast(before.length >= 5 ? "Up to 5 sites. Remove one first." : "That doesn't look like a website, or it's already there.", "warn");
+    }
+    async function removeSite(id, s) {
+      const p = (currentProfiles || []).find(x => x.id === id) || {};
+      await _saveSites(id, (p.news_sites || []).filter(x => x !== s));
+    }
+
+    // Photos of the author, managed from Settings too (until now only from Write's "Your photo" tile)
+    function _fileB64(file) { return new Promise((ok, bad) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1] || ""); fr.onerror = bad; fr.readAsDataURL(file); }); }
+    async function openProfilePhotos(id) {
+      const p = (currentProfiles || []).find(x => x.id === id) || {};
+      const m = _previewModal(); const body = document.getElementById("preview-modal-body"); m.style.display = "flex";
+      body.innerHTML = `<div class="nt-head"><h3>Photos of ${_escHtml(String(p.name || "you").trim().split(/\s+/)[0])}</h3>
+          <p>Real photos for picture posts: speaking, working with a client, at an event. Voyce posts them as they are and never changes your face. Up to 8.</p></div>
+        <div class="pm-grid" id="pm-grid"><div class="pm-hint">Loading…</div></div>
+        <label class="act-btn primary" style="display:inline-block;cursor:pointer;">Add photos<input type="file" accept="image/*" multiple hidden onchange="uploadProfilePhotos('${id}', this)"></label>
+        <span class="pm-hint" id="pm-status" style="margin-left:8px;"></span>`;
+      await _renderProfilePhotos(id);
+    }
+    async function _renderProfilePhotos(id) {
+      const grid = document.getElementById("pm-grid"); if (!grid) return;
+      let list = [];
+      try { const r = await fetch(`/profiles/${encodeURIComponent(id)}/photos`, { headers: ah() }); if (r.ok) list = await r.json(); } catch (_) {}
+      (window._phCache = window._phCache || {})[id] = list;
+      (currentProfiles || []).forEach(p => { if (p.id === id) p.photo_count = list.length; });
+      grid.innerHTML = list.length ? list.map(x => `<figure><img src="data:image/jpeg;base64,${x.thumb || ""}" alt="Your photo">
+          <button type="button" class="del" onclick="deleteProfilePhoto('${id}', '${_escHtml(x.id)}')" aria-label="Remove this photo">Remove</button></figure>`).join("")
+        : `<div class="pm-hint">No photos yet.</div>`;
+    }
+    async function uploadProfilePhotos(id, input) {
+      const files = [...(input.files || [])]; const st = document.getElementById("pm-status");
+      for (const [i, f] of files.entries()) {
+        if (st) st.textContent = `Adding ${i + 1} of ${files.length}…`;
+        try {
+          const r = await fetch(`/profiles/${encodeURIComponent(id)}/photos`, { method: "POST", headers: ah(), body: JSON.stringify({ image_base64: await _fileB64(f) }) });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { toast(d.detail || "That photo didn't upload.", "warn"); break; }
+        } catch (_) { toast("That photo didn't upload.", "warn"); break; }
+      }
+      if (st) st.textContent = "";
+      input.value = "";
+      await _renderProfilePhotos(id);
+      renderProfiles(currentProfiles);
+    }
+    async function deleteProfilePhoto(id, pid) {
+      try { await fetch(`/profiles/${encodeURIComponent(id)}/photos/${encodeURIComponent(pid)}`, { method: "DELETE", headers: ah() }); } catch (_) {}
+      await _renderProfilePhotos(id);
+      renderProfiles(currentProfiles);
+    }
+
+    // A waiting draft's picture, changed in the Queue (24 Nov 2026): drawn from the post, one of your photos, an upload,
+    // or none. The card's picture updates in place, so text you've edited on it isn't lost.
+    async function openDraftPicture(pid) {
+      const p = (window._pendingById || {})[pid]; if (!p) return;
+      const hasPic = p.format === "tweet_card" || p.format === "carousel";
+      const m = _previewModal(); const body = document.getElementById("preview-modal-body"); m.style.display = "flex";
+      body.innerHTML = `<div class="nt-head"><h3>${hasPic ? "Change the picture" : "Add a picture"}</h3>
+          <p>${p.format === "carousel" ? "It becomes one picture, and the lines about swiping come out." : "The words stay as they are. Only the picture changes."}</p></div>
+        <div class="pm-sec">A new picture from this post</div>
+        <p class="pm-hint">Voyce draws one that fits what the post says. It can use 1 AI picture from your plan.</p>
+        <button type="button" class="act-btn primary" onclick="setDraftPicture('${pid}', {mode: 'make'})">Draw a picture</button>
+        <div class="pm-sec">One of your photos</div>
+        <div class="pm-grid" id="dp-photos"><div class="pm-hint">Loading…</div></div>
+        <div class="pm-sec">Or upload one</div>
+        <label class="act-btn" style="display:inline-block;cursor:pointer;">Choose a picture<input type="file" accept="image/*" hidden onchange="uploadDraftPicture('${pid}', this)"></label>
+        ${hasPic ? `<div style="margin-top:16px;"><button type="button" class="act-btn quiet" onclick="setDraftPicture('${pid}', {mode: 'none'})">No picture: post the words only</button></div>` : ""}
+        <div class="pm-hint" id="dp-status" style="margin-top:12px;" aria-live="polite"></div>`;
+      let list = [];
+      try { const r = await fetch(`/profiles/${encodeURIComponent(p.company_id)}/photos`, { headers: ah() }); if (r.ok) list = await r.json(); } catch (_) {}
+      const g = document.getElementById("dp-photos");
+      if (g) g.innerHTML = list.length
+        ? list.map(x => `<button type="button" class="use" title="Use this photo" onclick="setDraftPicture('${pid}', {mode: 'photo', photo_id: '${_escHtml(x.id)}'})"><img src="data:image/jpeg;base64,${x.thumb || ""}" alt="Your photo"></button>`).join("")
+        : `<div class="pm-hint">No photos yet. <a href="#" onclick="openProfilePhotos('${p.company_id}');return false;">Add some</a>, then come back to this post.</div>`;
+    }
+    async function setDraftPicture(pid, req) {
+      const st = document.getElementById("dp-status");
+      const controls = () => document.querySelectorAll("#preview-modal-body button, #preview-modal-body input");
+      controls().forEach(b => b.disabled = true);
+      if (st) st.textContent = req.mode === "make" ? "Drawing a picture from your post… up to a minute." : "Updating the picture…";
+      try {
+        const r = await fetch(`/pending/${encodeURIComponent(pid)}/picture`, { method: "POST", headers: ah(), body: JSON.stringify(req) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "Couldn't change the picture. Try again.");
+        const p = (window._pendingById || {})[pid] || {};
+        const before = p.post_text;
+        Object.assign(p, { format: d.format, slide_previews: d.slide_previews || [], post_text: d.post_text });
+        const pics = document.getElementById(`pend-pics-${pid}`); if (pics) pics.innerHTML = _slidesStrip(p);
+        const b = document.getElementById(`pic-btn-${pid}`); if (b) b.textContent = d.format === "tweet_card" ? "Change picture" : "Add a picture";
+        const cap = document.getElementById(`diy-caption-${pid}`);   // a carousel's swipe lines came out: unless they edited it
+        if (cap && d.post_text !== before && cap.textContent.trim() === String(before || "").trim()) cap.textContent = d.post_text;
+        closePreviewModal();
+        toast(req.mode === "none" ? "Picture removed. The words go out on their own." : "Picture updated on your draft.", "success");
+      } catch (e) {
+        toast(e.message, "warn");
+        if (st) st.textContent = "";
+        controls().forEach(b => b.disabled = false);
+      }
+    }
+    async function uploadDraftPicture(pid, input) {
+      const f = (input.files || [])[0]; if (!f) return;
+      await setDraftPicture(pid, { mode: "upload", image_base64: await _fileB64(f) });
+      input.value = "";
+    }
+
     async function deleteProfile(id) {
       if (!(await voyceConfirm("Delete this profile? This cannot be undone.", { title: "Delete profile", confirmText: "Delete", danger: true }))) return;
       await fetch(`/companies/${id}`, { method:"DELETE", headers: {"x-token": getToken()} });
@@ -2166,20 +2516,25 @@
       const b = document.getElementById("notes-btn-" + id); const p = (currentProfiles || []).find(x => x.id === id);
       if (b && p) { const n = (p.author_notes || []).length; b.textContent = "📝 Notes" + (n ? ` (${n})` : ""); }
     }
-    const NOTE_KINDS = { experience: "Experience", process: "How they do it", data: "A number", opinion: "Opinion", other: "Note" };
+    const NOTE_KINDS = { experience: "Experience", achievement: "A win", process: "How they do it", data: "A number", opinion: "Opinion", other: "Note" };
     const NOTE_SOURCES = { weekly: "weekly question", email: "answered from email", added: "added by you", talk: "from a talk" };
     function _fmtNoteDate(iso) { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
-    async function openNotes(id) {
+    async function openNotes(id, kind) {
       const m = _previewModal(); const body = document.getElementById("preview-modal-body");
       m.style.display = "flex";
       const p = (currentProfiles || []).find(x => x.id === id) || {};
       const first = String(p.name || "").split(" ")[0] || "you";
-      body.innerHTML = `<div class="nt-head"><h3>What Voyce knows about ${_escHtml(p.name || "this profile")}</h3>
-          <p>Things only ${_escHtml(first)} could say: a real experience, how they do something, a number from their work, an opinion they'd argue.
-          Each daily post is built around one of these, in their words, with the week's news as the hook. All optional.</p></div>
+      // "Add a win" (24 Nov 2026, Thahseen: achievements for his profile) opens on that kind, with an example to match
+      const ph = kind === "achievement"
+        ? "e.g. Took a SaaS client from 40 to 160 demo requests a month in two quarters, by rewriting 12 comparison pages."
+        : "e.g. Most of my clients come to me after their first funding round, when the books stop matching the pitch deck.";
+      body.innerHTML = `<div class="nt-head"><h3>${kind === "achievement" ? "Add a win" : `Stories and wins: ${_escHtml(p.name || "this profile")}`}</h3>
+          <p>${kind === "achievement" ? `A result ${_escHtml(first)} is proud of, with the number, the client type and the time it took. Posts use it as proof, never exaggerated.`
+            : `Things only ${_escHtml(first)} could say: a real experience, a win, how they do something, a number from their work, an opinion they'd argue.
+          Each daily post is built around one of these, in their words, with the week's news as the hook. All optional.`}</p></div>
         <div class="nt-add">
-          <textarea id="nt-text" rows="3" placeholder="e.g. Most of my clients come to me after their first funding round, when the books stop matching the pitch deck."></textarea>
-          <div class="row"><select id="nt-kind" aria-label="What kind of note">${Object.entries(NOTE_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+          <textarea id="nt-text" rows="3" placeholder="${ph}"></textarea>
+          <div class="row"><select id="nt-kind" aria-label="What kind of note">${Object.entries(NOTE_KINDS).map(([k, v]) => `<option value="${k}" ${k === kind ? "selected" : ""}>${v}</option>`).join("")}</select>
             <button class="act-btn primary" onclick="addNote('${id}', this)">Add note</button></div>
           <div class="row" style="margin-top:6px;"><input id="nt-talk" type="url" placeholder="Or paste a YouTube link to a talk or podcast of yours">
             <button class="act-btn" onclick="notesFromTalk('${id}', this)">Pull notes from it</button></div>
@@ -2249,6 +2604,8 @@
       } catch (e) { /* leave hidden */ }
       // Profiles with a draft waiting: a fresh answer can rewrite it now ("use it today", 22 Nov 2026)
       window._draftWaiting = new Set((Array.isArray(items) ? items : []).filter(x => x && x.format !== "diy_video").map(x => x.company_id));
+      // A skip needs the draft's profile afterwards, to offer a different post for today
+      window._pendingById = Object.fromEntries((Array.isArray(items) ? items : []).filter(x => x && x.id).map(x => [x.id, x]));
       // Sidebar badge: the whole point of Today is that this number is visible.
       const badge = document.getElementById("nav-pending-count");
       if (badge) { badge.textContent = items.length; badge.hidden = !items.length; }
@@ -2289,6 +2646,7 @@
             <button class="act-btn primary" onclick="approvePending('${p.id}', this, true)">✓ I posted it</button>
             <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>` : `
             <button class="act-btn primary" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
+            <button class="act-btn" id="pic-btn-${p.id}" onclick="openDraftPicture('${p.id}')">${(p.format === "tweet_card" || p.format === "carousel") ? "Change picture" : "Add a picture"}</button>
             <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>`;
         return `
         <div id="pending-${p.id}" class="pend-card">
@@ -2301,7 +2659,7 @@
             ${_expiresChip(p)}
           </div>
           ${held}
-          ${_slidesStrip(p)}
+          <div id="pend-pics-${p.id}">${_slidesStrip(p)}</div>
           <div id="diy-caption-${p.id}" class="pend-text" contenteditable="true" spellcheck="true"
                oninput="markPendingEdited('${p.id}')">${_escHtml(p.post_text)}</div>
           <div id="edit-hint-${p.id}" style="font-size:11.5px;color:#98a0ae;margin-bottom:10px;">Click the text to edit it. Your version is what gets posted.</div>
@@ -2422,11 +2780,52 @@
     }
 
     async function discardPending(id) {
-      if (!(await voyceConfirm("Skip this post? It won't go out, and Voyce writes a fresh one at the next scheduled time.", { title: "Skip this post", confirmText: "Skip it" }))) return;
+      const p = (window._pendingById || {})[id] || {};
+      if (!(await voyceConfirm("Skip this post? It won't go out. You can ask for a different one for today straight after.", { title: "Skip this post", confirmText: "Skip it" }))) return;
       await fetch(`/pending/${id}/discard`, { method: "POST", headers: { "x-token": getToken() } });
       toast("Skipped. It won't go out.", "");
       loadLog();
       loadPending();
+      if (p.company_id && p.format !== "diy_video") _showSkipOffer(p.company_id, p.company_name || "");
+    }
+
+    // After a skip: a different post for today, only when asked (24 Nov 2026, Thahseen: a skipped draft left the day
+    // with nothing). It's the Write now path, so the plan's limits and the one-waiting-post rule hold as usual.
+    function _showSkipOffer(pid, name) {
+      const box = document.getElementById("skip-offer");
+      if (!box) return;
+      box.innerHTML = `
+        <div class="skip-offer-card">
+          <div class="so-text"><b>Want a different post for today?</b>
+            <span>Voyce writes another one${name ? ` for ${_escHtml(name)}` : ""} for you to approve. It uses 1 generation.</span></div>
+          <div class="so-acts">
+            <button class="act-btn primary" onclick="writeAnother('${pid}', this)">Write another one</button>
+            <button class="act-btn quiet" onclick="_hideSkipOffer()">Not today</button>
+          </div>
+        </div>`;
+      box.hidden = false;
+    }
+    function _hideSkipOffer() { const box = document.getElementById("skip-offer"); if (box) { box.hidden = true; box.innerHTML = ""; } }
+
+    async function writeAnother(pid, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = "Writing… about a minute"; }
+      let res, data = {};
+      try {
+        res = await fetch(`/companies/${pid}/run`, { method: "POST", headers: { "Content-Type": "application/json", "x-token": getToken() },
+                                                     body: JSON.stringify({ post_type: "" }) });
+        data = await res.json().catch(() => ({}));
+      } catch (_) { res = null; }
+      if (!res || !res.ok) {
+        const why = String((data && data.detail) || "").replace(/^[A-Z_]+:/, "");
+        toast(why || "Couldn't write it just now. Try again in a minute.", "warn");
+        if (btn) { btn.disabled = false; btn.textContent = "Write another one"; }
+        return;
+      }
+      _hideSkipOffer();
+      loadLog();
+      if (data.status === "pending_approval") { toast("A different post is waiting for your OK.", "success"); loadPending(); }
+      else if (data.status === "posted") { toast("Posted.", "success"); }
+      else toast("Couldn't write it: " + (data.error || "try again in a minute"), "warn");
     }
 
     async function resetVoice(id) {

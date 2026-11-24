@@ -89,6 +89,7 @@ def save_company(profile: dict) -> dict:
         "created_at":       datetime.now().isoformat(),
         "active":           profile.get("active", True),
         "carousel_enabled": profile.get("carousel_enabled", False),
+        "carousels_per_week": profile.get("carousels_per_week", 0),
         "carousel_theme":   profile.get("carousel_theme", ""),
         "designation":      profile.get("designation", ""),
         "allowed_hooks":    profile.get("allowed_hooks", []),

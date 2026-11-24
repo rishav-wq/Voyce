@@ -918,7 +918,8 @@ def news_search_args(company: dict) -> dict:
     business context, so an Indian coach's "top team effectiveness" finds workplace stories."""
     from carousel import _region_for
     personal = company.get("profile_type") == "personal"
-    return {"region": _region_for(company), "context": "business workplace" if personal else ""}
+    return {"region": _region_for(company), "context": "business workplace" if personal else "",
+            "sites": list(company.get("news_sites") or [])}   # the sites the author reads, searched first
 
 
 def _topic_for_today(company: dict) -> str:
@@ -993,6 +994,13 @@ def _get_post_type(company: dict, runs_today: int | None = None) -> str:
     if runs_today is None:
         runs_today = _runs_today(company_id)
 
+    # The author's own week comes first for the day's scheduled post (week_slot); a second run that day
+    # (Write now, Write another) still varies, so it never repeats the type just skipped.
+    if runs_today == 0:
+        chosen = _slot_type(company, _local_today(company), set(rotation.values()))
+        if chosen and not (chosen == "product_spotlight" and _spotlights_last7(company_id) >= SPOTLIGHT_WEEKLY_CAP):
+            return chosen
+
     # Use a hash of (company_id + date + runs_today) to pick from rotation
     # This gives deterministic but varied results across runs
     seed = hashlib.md5(f"{company_id}{today_str}{runs_today}".encode()).hexdigest()
@@ -1028,6 +1036,46 @@ def _ready_type(rotation: dict, idx: int, company: dict, skip: tuple = ()) -> st
     return rotation[idx]
 
 
+# ── The author's own week (24 Nov 2026, Thahseen: "choose what order he wants") ───────────────────────────
+# week_pattern on the profile: seven slots, Monday first, each {"type": a rotation key or "" for Voyce's
+# choice, "format": "auto" | "text" | "picture" | "carousel"}. A date picked in the Queue still wins over it.
+WEEK_FORMATS = ("auto", "text", "picture", "carousel")
+
+
+def week_slot(company: dict, day) -> dict:
+    """That weekday's slot of the profile's own week, or {} with none set."""
+    pat = company.get("week_pattern")
+    if not isinstance(pat, list) or len(pat) != 7:
+        return {}
+    slot = pat[day.weekday()]
+    return slot if isinstance(slot, dict) else {}
+
+
+def _slot_type(company: dict, day, valid: set) -> str:
+    """The type the author chose for that weekday, if it can be written: a story type needs something true
+    to tell (has_story_material), else the day falls back to Voyce's choice."""
+    t = week_slot(company, day).get("type") or ""
+    if t in valid and (t not in STORY_TYPES or has_story_material(company)):
+        return t
+    return ""
+
+
+def clean_week_pattern(pattern, profile_type: str) -> list | None:
+    """A week from the app, checked: seven slots, known types and formats only. None clears it."""
+    if pattern is None:
+        return None
+    if not isinstance(pattern, list) or len(pattern) != 7:
+        raise ValueError("A week has seven days.")
+    valid = set((PERSONAL_ROTATION if profile_type == "personal" else COMPANY_ROTATION).values())
+    out = []
+    for slot in pattern:
+        slot = slot if isinstance(slot, dict) else {}
+        t = str(slot.get("type") or "")
+        f = str(slot.get("format") or "auto")
+        out.append({"type": t if t in valid else "", "format": f if f in WEEK_FORMATS else "auto"})
+    return None if all(s == {"type": "", "format": "auto"} for s in out) else out
+
+
 def get_week_plan(company: dict, days: int = 7) -> list[str]:
     """Predict the post type for today + the next N-1 days using the same hash
     the daily runner uses (assuming the first run of each day)."""
@@ -1037,8 +1085,13 @@ def get_week_plan(company: dict, days: int = 7) -> list[str]:
     is_personal = company.get("profile_type") == "personal"
     rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
     company_id = company.get("id", "default")
+    local = _local_today(company)
     plan = []
     for i in range(days):
+        chosen = _slot_type(company, local + timedelta(days=i), set(rotation.values()))
+        if chosen:
+            plan.append(POST_TYPE_LABELS.get(chosen, chosen))
+            continue
         day = (date.today() + timedelta(days=i)).isoformat()
         seed = hashlib.md5(f"{company_id}{day}0".encode()).hexdigest()
         idx = int(seed[:4], 16) % len(rotation)
@@ -1543,6 +1596,11 @@ def _last_daily(company: dict) -> dict | None:
 
 
 def _should_post_carousel(company: dict, day: date | None = None) -> bool:
+    fmt = week_slot(company, day or _local_today(company)).get("format")
+    if fmt == "carousel":   # the author's own week decides the day's format when it says
+        return True
+    if fmt in ("text", "picture"):
+        return False
     mode = carousel_mode(company)
     if not mode:
         return False
@@ -1589,11 +1647,15 @@ def get_week_forecast(company: dict, days: int = 7) -> list[dict]:
             label = POST_TYPE_LABELS[planned]   # an explicit type is never a carousel
             fmt = "card" if planned in TWEET_CARD_TYPES else "text"
         else:
-            if mode == "alt":
+            slot_fmt = week_slot(company, d).get("format")
+            if slot_fmt in ("carousel", "text", "picture"):   # the author's own week
+                car = slot_fmt == "carousel"
+            elif mode == "alt":
                 car = (not last_car) if not (i == 0 and ran_today) else last_car
             else:
                 car = bool(mode) and d.weekday() in CAROUSEL_WEEKDAYS[mode]
-            fmt = "carousel" if car else ("card" if key_of.get(label) in TWEET_CARD_TYPES else "text")
+            fmt = "carousel" if car else ("picture" if slot_fmt == "picture" else "text" if slot_fmt == "text"
+                                          else ("card" if key_of.get(label) in TWEET_CARD_TYPES else "text"))
         if not (i == 0 and ran_today):
             last_car = fmt == "carousel"
         out.append({"date": d.isoformat(), "post_type": label, "format": fmt, "planned": planned})
@@ -1750,6 +1812,7 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
     else:
         plan, carousel_type = None, ""
     do_diy_video = False
+    slot_fmt = ""   # "text" / "picture" from the author's own week, for the day's scheduled post only
     if post_type_override and post_type_override in valid_types:
         post_type = post_type_override
         do_carousel = False  # an explicit type choice is a text/tweet intent, never a carousel
@@ -1767,6 +1830,8 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
     else:
         post_type  = _get_post_type(company, runs_today)
         do_carousel = _should_post_carousel(company, local_today)
+        if runs_today == 0:
+            slot_fmt = week_slot(company, local_today).get("format", "")
 
     # The subject for this post is the profile itself (its voice, niche, knowledge). With several
     # topics, today's is taken in turn: the news search, the post and its checks work on that one,
@@ -1865,8 +1930,13 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
                                                  gate_context=gate_context, report=report)
             # The picture by the post's job (see _daily_picture); the old hook card for hot takes, predictions and stat
             # reactions when there's no picture (or pictures are switched off)
-            pic = _daily_picture(post_text, subject) if DAILY_PICTURES and report.get("passed", True) else None
-            card_png = pic["png"] if pic else (_tweet_card_for(post_text, subject) if post_type in TWEET_CARD_TYPES else None)
+            # A "Text" day in the author's week goes out without one; a "Picture" day always gets one (the hook
+            # card when the post's picture can't be drawn, e.g. a story with no photo of them)
+            want_pic = slot_fmt != "text"
+            pic = (_daily_picture(post_text, subject) if want_pic and (DAILY_PICTURES or slot_fmt == "picture")
+                   and report.get("passed", True) else None)
+            card_png = pic["png"] if pic else (_tweet_card_for(post_text, subject)
+                                               if want_pic and (post_type in TWEET_CARD_TYPES or slot_fmt == "picture") else None)
             if card_png:
                 # The text keeps its hook. On LinkedIn the text sits above the picture and its first lines
                 # are all anyone sees before "...see more"; with the hook moved onto the card, 8 of 13 such

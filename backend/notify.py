@@ -728,3 +728,244 @@ def partner_seat_request(partner: dict, seats: int, note: str, by: str) -> bool:
                      f"{partner['brand']}: {seats} more seat{'s' if seats != 1 else ''} requested", text,
                      _layout("More seats requested", paras), to=admin)
     return sent
+
+
+# ── Product emails (24 Nov 2026, MB Sam's ask): a feature tour for new users and "what's new" editions ─────────
+# The tour goes once, a day after a paying account or a partner's seat starts (free accounts have the first-week
+# notes above). "What's new" goes only when the team sends an edition (main: /admin/emails/send), to people who used
+# Voyce lately. Both show real screens of the app, in the partner's look for its clients (frontend/email/<folder>/),
+# and both stop with the same link as the first-week notes.
+TOUR_SINCE = os.getenv("TOUR_SINCE", "2026-11-25")   # accounts older than this don't get the tour on their own
+_TOUR_AFTER = timedelta(days=1)
+_TOUR_LAST_DAY = 21
+_PRODUCT_Q = {"welcome_off": {"$ne": True}, "email": {"$nin": [None, ""]}}
+_PAYING_OR_SEAT = {"$or": [{"plan": {"$in": ["pro", "partner"]}}, {"partner_id": {"$nin": [None, ""]}}]}
+_PRODUCT_FIELDS = {"_id": 0, "id": 1, "name": 1, "email": 1, "email_token": 1, "created_at": 1, "partner_id": 1, "seat": 1}
+
+
+def _shot(partner: dict | None, name: str) -> str:
+    """A screenshot for the emails. Written with Voyce's address; send() moves a partner's links to its own."""
+    return f"{APP_URL}/static/email/{partner['id'] if partner else 'voyce'}/{name}.jpg"
+
+
+def _sections_layout(heading: str, intro: list, sections: list, outro: list | None = None,
+                     footer: str = "", partner: dict | None = None) -> str:
+    """The tour and what's new: a heading and a line or two, then one block per feature: what it does for you,
+    how to use it, a picture of it, and a link straight to it. Plain blocks, no columns, so it reads on a phone."""
+    accent = partner["theme"]["orange"] if partner else "#24365e"
+    parts = []
+    if partner:
+        logo = f"{partners.base_url(partner)}/static/{partner['assets']}/logo-on-light.png"
+        parts.append(f'<img src="{html.escape(logo)}" alt="{html.escape(partner["brand"])}" height="22" '
+                     'style="display:block;height:22px;width:auto;margin:0 0 20px;border:0;">')
+    parts.append(f'<p style="font-size:19px;font-weight:700;color:#16181d;margin:0 0 12px;">{html.escape(heading)}</p>')
+    for p in intro:
+        parts.append(f'<p style="font-size:15px;line-height:1.55;color:#333;margin:0 0 12px;">{p}</p>')
+    for i, s in enumerate(sections, 1):
+        parts.append('<div style="border-top:1px solid #e9ecf1;margin:22px 0 0;padding:20px 0 0;">')
+        parts.append(f'<p style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:{accent};'
+                     f'margin:0 0 4px;">{html.escape(s.get("tag") or str(i))}</p>')
+        parts.append(f'<p style="font-size:17px;font-weight:600;color:#16181d;margin:0 0 8px;">{html.escape(s["title"])}</p>')
+        parts.append(f'<p style="font-size:15px;line-height:1.55;color:#333;margin:0 0 10px;">{s["why"]}</p>')
+        if s.get("how"):
+            parts.append('<ol style="margin:0 0 12px;padding:0 0 0 20px;font-size:14.5px;line-height:1.55;color:#333;">'
+                         + "".join(f'<li style="margin:0 0 4px;">{h}</li>' for h in s["how"]) + "</ol>")
+        if s.get("img"):
+            parts.append(f'<img src="{html.escape(s["img"])}" alt="{html.escape(s.get("alt") or s["title"])}" width="560" '
+                         'style="display:block;width:100%;max-width:560px;height:auto;border:1px solid #e4e7ec;'
+                         'border-radius:10px;margin:4px 0 12px;">')
+        if s.get("link"):
+            label, url = s["link"]
+            parts.append(f'<p style="margin:0 0 4px;"><a href="{html.escape(url)}" style="color:{accent};font-weight:600;'
+                         f'font-size:15px;text-decoration:none;">{html.escape(label)} &rarr;</a></p>')
+        parts.append("</div>")
+    for p in outro or []:
+        parts.append(f'<p style="font-size:15px;line-height:1.55;color:#333;margin:22px 0 0;">{p}</p>')
+    if footer:
+        parts.append(f'<p style="font-size:12.5px;line-height:1.5;color:#7a8190;margin:22px 0 0;">{footer}</p>')
+    font = "'DM Sans'," if partner else ""
+    return (f'<div style="font-family:{font}-apple-system,BlinkMacSystemFont,\'Segoe UI\',Inter,Arial,sans-serif;'
+            'max-width:560px;margin:0 auto;padding:8px 4px;">' + "".join(parts) + "</div>")
+
+
+def _hi(user: dict) -> str:
+    word = ((user.get("name") or "").split() or [""])[0]
+    return f"Hi {html.escape(word)}," if word.isalpha() else "Hi,"
+
+
+def _tour(user: dict, partner: dict | None) -> tuple:
+    """Subject, heading, intro and the four features a new user should set up first (24 Nov 2026 usage audit: the
+    voice gets set up and Write gets used; the morning post, stories and wins, and photos mostly don't)."""
+    setup, tool = f"{APP_URL}/setup", f"{APP_URL}/tool"
+    morning_how = (["Each morning you get an email that your post is ready.",
+                    "Open Voyce to read it, edit it or change its picture, then approve or skip it.",
+                    "Skipped one? Ask for a different post for the same day."] if partner else
+                   ["In Settings, turn on <b>Daily posting</b> and pick a time.",
+                    "Each morning, open the email: approve, edit, change the picture, or skip.",
+                    "Skipped one? Ask for a different post for the same day, right from the email."])
+    sections = [
+        {"tag": "1 · Every morning", "title": "A post waiting for you each morning",
+         "why": "At the time you pick, Voyce writes that day's post from the week's news in your field, in your voice. "
+                "Nothing goes out until you approve it.",
+         "how": morning_how, "img": _shot(partner, "morning-draft"), "alt": "A draft waiting for approval",
+         "link": ("Open your queue", f"{setup}#today")},
+        {"tag": "2 · Your voice", "title": "Teach it how you write",
+         "why": "The more Voyce knows about you, the less it guesses. Settings shows everything your posts are built "
+                "from, with a strength score and the one thing to add next.",
+         "how": ["Add 2&ndash;3 of your LinkedIn posts (or screenshots of them), so it writes in your rhythm.",
+                 "Upload your LinkedIn profile as a PDF, so it knows your real roles and years.",
+                 "Write your rules: words to avoid, names never to mention, how long your posts run."],
+         "img": _shot(partner, "teach-your-voice"), "alt": "What Voyce knows about you",
+         "link": ("See what Voyce knows about you", f"{setup}#profiles")},
+        {"tag": "3 · Stories and wins", "title": "Give it what only you could say",
+         "why": "Each daily post is built around one real thing from your work. A win with its number is the strongest "
+                "proof a post can carry.",
+         "how": ["In Settings, tap <b>Add a win</b>: the result, the kind of client and the time it took.",
+                 "Answer the weekly question when it arrives. Typing or speaking both work, and it takes a minute.",
+                 "Paste a YouTube link to a talk or podcast of yours, and Voyce pulls notes from it."],
+         "img": _shot(partner, "add-a-win"), "alt": "Adding a win",
+         "link": ("Add a win", f"{setup}#profiles")},
+        {"tag": "4 · Write", "title": "Turn any idea into a post",
+         "why": "Saw something worth posting about? Give Voyce the idea, an article link or a YouTube video and it "
+                "writes the post. One more click makes it a picture post or a carousel.",
+         "how": ["Open Write, paste your idea or link, and tap <b>Write my post</b>.",
+                 "Pick a format: your own photo, a carousel, an explainer sketch, a handwritten note or an Idea picture.",
+                 "Edit it, then post it or schedule it."],
+         "img": _shot(partner, "write-formats"), "alt": "The formats Voyce makes",
+         "link": ("Write a post", tool)},
+    ]
+    return ("4 things that make Voyce sound like you", "Get the most from Voyce in four steps",
+            [f"{_hi(user)} here are the four things that make the biggest difference to your posts. Each takes a few minutes."],
+            sections)
+
+
+# Editions of "what's new", newest last. Each goes once to each person, only when the team sends it.
+WHATS_NEW = [
+    {"id": "2026-11-25", "subject": "New in Voyce: plan your week, add your wins, change any picture",
+     "heading": "What's new in Voyce this week",
+     "intro": "here's what's new in Voyce this week. Most of it came from what you told us, and each part shows how to use it.",
+     "items": [
+         {"title": "Plan your week", "img": "your-week", "link": ("Edit your week", "/setup#profiles"),
+          "why": "Choose what each weekday's post is and how it goes out: text, a picture or a carousel. Days you leave "
+                 "on Voyce's choice get the type that fits that day's news best. New profiles start with one carousel a week."},
+         {"title": "See what Voyce knows about you", "img": "what-it-knows-top", "link": ("Open Settings", "/setup#profiles"),
+          "why": "Settings now shows everything your posts are built from (your voice, career, stories and wins, topics, "
+                 "rules, sites and photos) with a strength score and the one thing to add next. You can add a <b>win</b> "
+                 "with its number, and posts use it as proof."},
+         {"title": "Change just the picture", "img": "change-picture", "link": ("Open your queue", "/setup#today"),
+          "email_note": True,
+          "why": "On any draft, draw a new picture from the post, use one of your own photos, upload one, or post the "
+                 "words alone. The words stay as they are. You can do it from the approval email too, and add photos of "
+                 "yourself in Settings."},
+         {"title": "Skipped a draft? Get another one", "img": "write-another",
+          "why": "Skipping no longer leaves your day empty. Tap <b>Write another one</b> and a different post arrives a "
+                 "couple of minutes later, ready to approve."},
+         {"title": "Sites Voyce reads first", "img": "sites", "link": ("Add your sites", "/setup#profiles"),
+          "why": "Add the sites you trust for news in your field. Voyce looks there first for the week's stories, then "
+                 "the wider web."},
+     ]},
+]
+
+
+def _news(edition: dict, user: dict, partner: dict | None) -> tuple:
+    items = []
+    for it in edition["items"]:
+        why = it["why"]
+        if partner and it.get("email_note"):   # a partner's client approves signed in, not from the email
+            why = why.replace(" You can do it from the approval email too, and add", " And you can add")
+        items.append({"title": it["title"], "why": why, "tag": "New",
+                      "img": _shot(partner, it["img"]) if it.get("img") else "",
+                      "link": (it["link"][0], f"{APP_URL}{it['link'][1]}") if it.get("link") else None})
+    return edition["subject"], edition["heading"], [f"{_hi(user)} {edition['intro']}"], items
+
+
+def _strip(s: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", "", s or ""))
+
+
+def _product_email(user: dict, kind: str, edition: dict | None = None, partner: dict | None = None,
+                   partner_known: bool = False) -> tuple:
+    """(subject, text, html, headers, partner) for the tour or an edition, as this person would get it."""
+    if not partner_known:
+        partner = _partner_of(user.get("id", "")) if user.get("id") else None
+    subject, heading, intro, sections = _tour(user, partner) if kind == "tour" else _news(edition, user, partner)
+    stop = _stop_url(user) if user.get("id") else f"{APP_URL}/emails/stop"
+    footer = ("You're getting this because you use Voyce. Reply any time; a person reads every reply.<br>"
+              f"Don't want these? <a href=\"{html.escape(stop)}\" style=\"color:#7a8190;\">Stop them</a>.")
+    body = _sections_layout(heading, intro, sections, outro=["Questions or ideas? Just reply to this email."],
+                            footer=footer, partner=partner)
+    blocks = [_strip(p) for p in intro]
+    for s in sections:
+        block = f"{s['title']}\n{_strip(s['why'])}" + "".join(f"\n- {_strip(h)}" for h in s.get("how") or [])
+        if s.get("link"):
+            block += f"\n{s['link'][0]}: {s['link'][1]}"
+        blocks.append(block)
+    text = "\n\n".join(blocks) + f"\n\nQuestions or ideas? Just reply to this email.\n\nStop these emails: {stop}"
+    headers = {"List-Unsubscribe": f"<{stop}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+    return subject, text, body, headers, partner
+
+
+def _edition(edition_id: str = "") -> dict:
+    return next((e for e in WHATS_NEW if e["id"] == edition_id), WHATS_NEW[-1])
+
+
+def preview_product_email(kind: str, partner_id: str = "", edition_id: str = "") -> tuple:
+    """(subject, html) for the team to check before sending: a made-up reader, in Voyce's or a partner's look."""
+    partner = partners.get(partner_id) if partner_id else None
+    subject, text, body, _, _ = _product_email({"name": "Asha Rao"}, kind, _edition(edition_id), partner=partner,
+                                               partner_known=True)
+    if partner:
+        subject, text, body = _in_partner_name(partner, subject, text, body)
+    return subject, body
+
+
+def _audience(kind: str, days: int) -> list:
+    """Who an email goes to. tour: paying accounts and partner seats made in the last `days` days. news: people seen
+    in the last `days` days. Never anyone who stopped these emails, with no address, or a seat not yet given."""
+    since = (datetime.now() - timedelta(days=days)).isoformat()
+    q = dict(_PRODUCT_Q)
+    if kind == "tour":
+        q.update({"created_at": {"$gte": since}, **_PAYING_OR_SEAT})
+    else:
+        q["last_seen"] = {"$gte": since}
+    users = list(db.users.find(q, _PRODUCT_FIELDS))
+    return [u for u in users if not (u.get("partner_id") and u.get("seat") not in (None, "active"))]
+
+
+def _send_one(u: dict, kind: str, key: str, edition: dict | None = None) -> bool:
+    subject, text, body, headers, partner = _product_email(u, kind, edition)
+    return send(u["id"], key, f"product_{kind}", subject, text, body, partner=partner,
+                sender="" if partner else _WELCOME_FROM, reply_to="" if partner else _WELCOME_REPLY, headers=headers)
+
+
+def send_product_email(kind: str, days: int = 14, edition_id: str = "", dry_run: bool = True) -> dict:
+    """The team's send (main /admin/emails/send): the tour to recent accounts, or an edition of what's new to people
+    who used Voyce lately. Each person gets each one once. dry_run counts without sending."""
+    edition = _edition(edition_id) if kind == "news" else None
+    key_of = (lambda u: f"tour:{u['id']}") if kind == "tour" else (lambda u: f"news:{edition['id']}:{u['id']}")
+    users = _audience(kind, days)
+    due = [u for u in users if not _already_sent(key_of(u))]
+    out = {"kind": kind, "edition": (edition or {}).get("id", ""), "audience": len(users), "already_sent": len(users) - len(due)}
+    if dry_run:
+        return {**out, "would_send": len(due)}
+    return {**out, "sent": sum(1 for u in due if _send_one(u, kind, key_of(u), edition))}
+
+
+def tour_sweep() -> int:
+    """Twice an hour: the feature tour to each paying account or partner seat a day after it started, once."""
+    now = datetime.now()
+    try:
+        users = [u for u in _audience("tour", _TOUR_LAST_DAY) if str(u.get("created_at") or "") >= TOUR_SINCE]
+    except Exception:
+        logger.exception("[notify] tour sweep could not read users")
+        return 0
+    sent = 0
+    for u in users:
+        try:
+            if now - datetime.fromisoformat(str(u["created_at"])[:19]) < _TOUR_AFTER or _already_sent(f"tour:{u['id']}"):
+                continue
+            if _send_one(u, "tour", f"tour:{u['id']}"):
+                sent += 1
+        except Exception:
+            logger.exception(f"[notify] tour failed for {u.get('id')}")
+    return sent

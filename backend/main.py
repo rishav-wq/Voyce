@@ -1,3 +1,4 @@
+import base64
 import os
 import re
 import secrets
@@ -53,6 +54,8 @@ app.include_router(sales.router)   # the team's outreach tracker, /sales/*
 app.include_router(notes.router)   # what Voyce knows about each author: weekly question, notes, talks
 app.include_router(author_photos.router)   # photos of the author for "Your photo" images
 app.include_router(partner_panel.router)   # a partner's team panel (/partner/api/*) and Voyce's partner view
+import draft_pictures
+app.include_router(draft_pictures.router)   # a waiting draft's picture, changed from the Queue (24 Nov 2026)
 
 # Set ALLOWED_ORIGINS=https://yourdomain.com (comma-separated) in production
 _allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
@@ -679,6 +682,13 @@ def startup():
         notify.welcome_sweep,
         trigger=CronTrigger(minute="10,40"),
         id="notify_welcome",
+        replace_existing=True,
+    )
+    # The feature tour, once, a day after a paying account or a partner's seat starts (24 Nov 2026)
+    scheduler.add_job(
+        notify.tour_sweep,
+        trigger=CronTrigger(minute="25,55"),
+        id="notify_tour",
         replace_existing=True,
     )
 
@@ -2369,6 +2379,9 @@ def create_company(request: CompanyRequest, x_token: str = Header(None)):
         if not pro:
             # Automated carousels are a Pro feature
             data["carousel_enabled"] = False
+        # A Pro profile starts with one carousel a week (24 Nov 2026: off by default hid the format that gets
+        # saved most); the card and the author's own week change it
+        data["carousels_per_week"] = 1 if pro else 0
         company = save_company(data)
         if partner:   # save_company keeps only its own fields: the partner's tag goes on here
             db.companies.update_one({"id": company["id"]}, {"$set": {"partner_id": partner["id"]}})
@@ -2460,6 +2473,15 @@ def get_companies(x_token: str = Header(None)):
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(plan, companies))   # list() so an error in one surfaces here, as it did in the loop
+    # How many photos each profile has, for "What Voyce knows" in Settings: one query for all of them
+    try:
+        counts = {r["_id"]: r["n"] for r in db.author_photos.aggregate([
+            {"$match": {"company_id": {"$in": [c["id"] for c in companies]}}},
+            {"$group": {"_id": "$company_id", "n": {"$sum": 1}}}])}
+    except Exception:
+        counts = {}
+    for c in companies:
+        c["photo_count"] = counts.get(c["id"], 0)
     accounts: dict = {}
     for c in companies:
         # Which LinkedIn this profile publishes to: its own (a client's), or the user's.
@@ -2771,14 +2793,15 @@ def approve_page(token: str, request: Request):
             if row.get("post_urn"):
                 live = _btn("View it on LinkedIn", _li_post_url(row["post_urn"]), primary=True) + " "
         return _approve_shell(title, f'<p style="color:#444;line-height:1.6;">{html_escape(msg)}</p>'
-                              f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{live}{_btn("Open Voyce", "/setup")}</p>')
+                              + (_another_box(pend, token) if status == "discarded" else "")
+                              + f'<p style="margin:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;">{live}{_btn("Open Voyce", "/setup")}</p>')
     if pend.get("format") == "diy_video":
         return _approve_shell("Your video day", '<p style="color:#444;line-height:1.6;">This one is a video you make '
                               'yourself. Open Voyce for the caption and the prompt for your video tool.</p>'
                               f'<p style="margin:22px 0 0;">{_btn("Open Voyce", "/setup", primary=True)}</p>')
     exp = expires_at(pend)
     hours = max(1, int((exp - datetime.now()).total_seconds() // 3600)) if exp else 0
-    fmt = {"carousel": "Carousel", "tweet_card": "Image card"}.get(pend.get("format"), "Text post")
+    fmt = {"carousel": "Carousel", "tweet_card": "Picture post"}.get(pend.get("format"), "Text post")
     slides = "".join(f'<img src="data:image/jpeg;base64,{b}" alt="Slide {i}" style="height:220px;width:auto;border-radius:8px;'
                      f'border:1px solid #e4e7ec;flex:none;">' for i, b in enumerate(pend.get("slide_previews") or [], 1))
     if slides:
@@ -2795,6 +2818,7 @@ def approve_page(token: str, request: Request):
              f'{slides}'
              f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
              f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
+             + ("" if partners.current() else _picture_box(pend, token))
              + (_partner_approve_actions() if partners.current() else
                 f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
                 f'{_btn("Approve & post to LinkedIn", primary=True, form_action=f"/approve/{token}")}'
@@ -2804,6 +2828,84 @@ def approve_page(token: str, request: Request):
                 'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>'
                 + _question_box(pend, token)))
     return _approve_shell("Ready for your OK", inner)
+
+
+def _picture_box(pend: dict, token: str) -> str:
+    """Change only the picture, right on the review page (24 Nov 2026, Rishav): a new one drawn from this post, one of
+    their photos, an upload, or none. The words stay; a carousel turned into one picture loses its lines about swiping
+    (draft_pictures.apply). Each form shows it's working, since drawing takes up to a minute."""
+    if pend.get("format") == "diy_video":
+        return ""
+    t = html_escape(token)
+    has_pic = pend.get("format") in ("tweet_card", "carousel")
+    busy = ("onsubmit=\"var b=this.querySelector('button[type=submit]');if(b){b.disabled=true;"
+            "b.textContent='Working on it… up to a minute';}\"")
+    btn = ("background:#fff;color:#24365e;border:1px solid #d3d8e0;border-radius:10px;padding:9px 14px;font:inherit;"
+           "font-weight:600;font-size:14px;cursor:pointer;")
+    try:
+        import author_photos
+        photos = [author_photos._public(d) for d in db.author_photos.find(
+            {"company_id": pend.get("company_id", "")}, {"_id": 0}).sort("created_at", 1).limit(8)]
+    except Exception:
+        photos = []
+    thumbs = "".join(
+        f'<form method="post" action="/approve/{t}/picture" style="margin:0;" {busy}>'
+        f'<input type="hidden" name="mode" value="photo"><input type="hidden" name="photo_id" value="{html_escape(p["id"])}">'
+        f'<button type="submit" title="Use this photo" style="padding:0;border:2px solid #e4e7ec;border-radius:9px;'
+        f'background:none;cursor:pointer;"><img src="data:image/jpeg;base64,{p.get("thumb", "")}" alt="Your photo" '
+        f'style="width:64px;height:64px;object-fit:cover;border-radius:7px;display:block;"></button></form>'
+        for p in photos if p.get("thumb"))
+    note = ("It becomes one picture, and the lines about swiping come out." if pend.get("format") == "carousel"
+            else "The words stay as they are. Only the picture changes.")
+    return (
+        '<details style="margin:16px 0 0;border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfe;padding:12px 16px;">'
+        f'<summary style="cursor:pointer;font-weight:600;color:#24365e;font-size:14.5px;">'
+        f'{"Change the picture" if has_pic else "Add a picture"}</summary>'
+        f'<p style="font-size:13px;color:#6b7280;margin:10px 0 12px;line-height:1.5;">{note}</p>'
+        f'<form method="post" action="/approve/{t}/picture" style="margin:0 0 12px;" {busy}>'
+        f'<input type="hidden" name="mode" value="make"><button type="submit" style="{btn}">Draw a different picture</button>'
+        '<span style="display:block;font-size:12px;color:#6b7280;margin-top:5px;">Drawn from this post. It can use 1 AI '
+        'picture from your plan.</span></form>'
+        + (f'<p style="font-size:13px;color:#1d2027;margin:0 0 6px;font-weight:600;">Use one of your photos</p>'
+           f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;">{thumbs}</div>' if thumbs else "")
+        + f'<form method="post" action="/approve/{t}/picture" enctype="multipart/form-data" style="margin:0 0 4px;" {busy}>'
+        '<input type="hidden" name="mode" value="upload">'
+        '<p style="font-size:13px;color:#1d2027;margin:0 0 6px;font-weight:600;">Or upload a picture</p>'
+        '<input type="file" name="file" accept="image/*" required style="font-size:13px;max-width:100%;">'
+        f'<button type="submit" style="{btn}margin-top:8px;display:block;">Use this picture</button></form>'
+        + (f'<form method="post" action="/approve/{t}/picture" style="margin:12px 0 0;">'
+           '<input type="hidden" name="mode" value="none">'
+           '<button type="submit" style="background:none;border:0;padding:0;color:#6b7280;text-decoration:underline;'
+           'font:inherit;font-size:13px;cursor:pointer;">No picture: post the words only</button></form>' if has_pic else "")
+        + '</details>')
+
+
+@app.post("/approve/{token}/picture")
+async def picture_from_link(token: str, request: Request):
+    from starlette.concurrency import run_in_threadpool
+    import draft_pictures
+    _rate_limit(f"approvelink:{_client_ip(request)}", 10)
+    pend = _pending_by_token(token)
+    if not pend or pend.get("status") != "pending" or partners.current():
+        return approve_page(token, request)
+    form = await request.form()
+    mode = str(form.get("mode") or "")
+    back = _btn("Back to the post", f"/approve/{token}", primary=True)
+    failed = lambda why: _approve_shell("Couldn't change the picture", f'<p style="color:#444;line-height:1.6;">'
+                                        f'{html_escape(why)}</p><p style="margin:22px 0 0;">{back}</p>')
+    upload_b64 = ""
+    if mode == "upload":
+        f = form.get("file")
+        raw = await f.read() if f is not None and hasattr(f, "read") else b""
+        if not raw:
+            return failed("Choose a picture to upload first.")
+        upload_b64 = base64.b64encode(raw).decode()
+    try:   # drawing takes up to a minute: off the event loop
+        await run_in_threadpool(draft_pictures.apply, pend, mode, str(form.get("photo_id") or ""), upload_b64)
+    except HTTPException as e:
+        return failed(str(e.detail))
+    analytics.capture(pend.get("user_id", ""), "draft_picture_changed", {"via": "email", "mode": mode})
+    return RedirectResponse(f"/approve/{token}", status_code=303)
 
 
 def _partner_approve_actions() -> str:
@@ -3068,6 +3170,72 @@ def skip_from_link(token: str, request: Request):
         discard_pending_post(pend["id"], pend["user_id"])
         analytics.capture(pend["user_id"], "post_skipped", {"via": "email"})
     return approve_page(token, request)
+
+
+def _another_box(pend: dict, token: str) -> str:
+    """After a skip, the offer of a different post for today (24 Nov 2026, Thahseen: a skipped draft left the day
+    with nothing). Asked for, never automatic: a skip is sometimes a day off, and each one uses a generation."""
+    if partners.current():   # a partner seat skips signed in; its own panel handles the day
+        return ""
+    if pend.get("replaced_by"):
+        return ('<p style="margin:18px 0 0;padding:12px 14px;border-radius:12px;background:#e6f4ea;color:#05603a;'
+                'font-size:14px;line-height:1.5;">A different post for today is on its way. It arrives by email in a couple '
+                'of minutes and waits in your Voyce queue.</p>')
+    t = html_escape(token)
+    return (f'<form method="post" action="/approve/{t}/another" style="margin:20px 0 0;padding:14px 16px;'
+            'border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfe;">'
+            '<p style="margin:0 0 10px;color:#1d2027;font-weight:600;font-size:15px;">Want a different post for today?</p>'
+            '<button type="submit" style="background:#24365e;color:#fff;border:0;border-radius:10px;padding:10px 16px;'
+            'font:inherit;font-weight:600;font-size:14px;cursor:pointer;">Write another one</button>'
+            '<p style="margin:10px 0 0;font-size:12.5px;color:#6b7280;">It uses 1 generation from your plan and comes to you '
+            'by email to approve, like this one.</p></form>')
+
+
+def _write_another(company: dict, skipped_id: str):
+    """The new post for a skipped day, written after the page has answered (a post takes a minute or two). The
+    usual approval email carries it. The skipped draft remembers it, so a second tap can't write a third."""
+    from autonomous import run_for_company
+    new_id = ""
+    try:
+        new_id = (run_for_company(company, allow_free_manual=True, notify_user=True) or {}).get("pending_id") or ""
+    except Exception:
+        logging.exception("[Another] writing a different post failed")
+    if new_id:
+        db.pending_posts.update_one({"id": skipped_id}, {"$set": {"replaced_by": new_id}})
+    else:   # nothing was written: let them try again from the page
+        db.pending_posts.update_one({"id": skipped_id, "replaced_by": "writing"}, {"$unset": {"replaced_by": ""}})
+
+
+@app.post("/approve/{token}/another")
+def another_from_link(token: str, request: Request):
+    _rate_limit(f"approvelink:{_client_ip(request)}", 10)
+    from autonomous import is_expired
+    pend = _pending_by_token(token)
+    if not pend or pend.get("status") != "discarded" or pend.get("replaced_by") or partners.current():
+        return approve_page(token, request)
+    company = get_company(pend.get("company_id", ""))
+    user = db.users.find_one({"id": pend.get("user_id", "")}, {"_id": 0})
+    if not company or not user or company.get("user_id") != user["id"]:
+        return approve_page(token, request)
+    open_btn = f'<p style="margin:22px 0 0;">{_btn("Open Voyce", "/setup", primary=True)}</p>'
+    try:
+        _check_gen_limit(user)
+    except HTTPException as e:
+        reason = html_escape(str(e.detail).split(":", 1)[-1])
+        return _approve_shell("No drafts left", f'<p style="color:#444;line-height:1.6;">{reason}</p>{open_btn}')
+    waiting = db.pending_posts.find_one({"company_id": company["id"], "status": "pending"}, {"_id": 0, "created_at": 1})
+    if waiting and not is_expired(waiting):
+        return _approve_shell("A post is already waiting", '<p style="color:#444;line-height:1.6;">There\'s already a post '
+                              'waiting for your OK for this profile. Open Voyce to see it.</p>' + open_btn)
+    claimed = db.pending_posts.update_one({"id": pend["id"], "status": "discarded", "replaced_by": {"$exists": False}},
+                                          {"$set": {"replaced_by": "writing"}})
+    if not claimed.modified_count:   # a second tap while the first is writing
+        return approve_page(token, request)
+    threading.Thread(target=_write_another, args=(company, pend["id"]), daemon=True).start()
+    analytics.capture(user["id"], "post_another", {"via": "email"})
+    return _approve_shell("Writing a different one", '<p style="color:#444;line-height:1.6;">Voyce is writing a different '
+                          'post for today. It arrives by email in a couple of minutes, ready to approve, and waits in your '
+                          'Voyce queue.</p>' + open_btn)
 
 
 @app.get("/approve/{token}/slides.pdf")
@@ -3343,6 +3511,91 @@ def run_company_now(company_id: str, request: RunNowRequest | None = None,
     result = run_for_company(company, allow_free_manual=True, post_type_override=override,
                              notify_user=False)   # the result is already on their screen
     return result
+
+
+@app.get("/admin/emails/preview")
+def preview_product_email(kind: str = "tour", partner: str = "", edition: str = "", x_token: str = Header(None),
+                          t: str = ""):
+    """The feature tour or a "what's new" edition as a reader gets it, for the team to check before a send
+    (24 Nov 2026). partner=cusp shows a partner's clients' version. Admins only."""
+    user = _require_user(x_token or t)
+    if not sales._is_admin(user):
+        raise HTTPException(status_code=404, detail="Not found")
+    if kind not in ("tour", "news"):
+        raise HTTPException(status_code=400, detail="kind is tour or news")
+    if partner and not partners.get(partner):
+        raise HTTPException(status_code=400, detail="Unknown partner")
+    import notify
+    subject, body = notify.preview_product_email(kind, partner, edition)
+    return HTMLResponse(f"<!doctype html><meta charset='utf-8'><title>{html_escape(subject)}</title>"
+                        f"<p style='font:13px sans-serif;color:#666;max-width:560px;margin:16px auto;'>Subject: "
+                        f"<b>{html_escape(subject)}</b></p>{body}")
+
+
+class ProductEmailSend(BaseModel):
+    kind: str                 # "tour" (recent accounts) or "news" (people seen lately)
+    days: int = 14
+    edition: str = ""         # a WHATS_NEW id; the newest when empty
+    dry_run: bool = True
+
+
+@app.post("/admin/emails/send")
+def send_product_email(request: ProductEmailSend, x_token: str = Header(None)):
+    """The team sends the tour to recent accounts or an edition of what's new (24 Nov 2026, Sam's ask). Each person
+    gets each one once; dry_run (the default) only counts. Admins only."""
+    user = _require_user(x_token)
+    if not sales._is_admin(user):
+        raise HTTPException(status_code=404, detail="Not found")
+    if request.kind not in ("tour", "news") or not 1 <= request.days <= 90:
+        raise HTTPException(status_code=400, detail="kind is tour or news; days 1-90")
+    import notify
+    return notify.send_product_email(request.kind, request.days, request.edition, request.dry_run)
+
+
+class WeekPatternRequest(BaseModel):
+    pattern: list | None = None   # seven {"type", "format"} slots, Monday first; None goes back to Voyce's choice
+
+
+@app.put("/companies/{company_id}/week-pattern")
+def set_week_pattern(company_id: str, request: WeekPatternRequest, x_token: str = Header(None)):
+    """The author's own week (24 Nov 2026, Thahseen: choose the order): a type and a format per weekday."""
+    user = _require_user(x_token)
+    _rate_limit(f"profile-edit:{user['id']}", 30, 3600)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    from autonomous import clean_week_pattern
+    try:
+        pattern = clean_week_pattern(request.pattern, company.get("profile_type", ""))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if pattern and not _is_pro(user) and any(s["format"] == "carousel" for s in pattern):
+        raise HTTPException(status_code=402, detail="Carousel days are part of Pro.")
+    db.companies.update_one({"id": company_id}, {"$set": {"week_pattern": pattern}} if pattern
+                            else {"$unset": {"week_pattern": ""}})
+    return {"week_pattern": pattern}
+
+
+class NewsSitesRequest(BaseModel):
+    sites: list[str] = []
+
+
+@app.put("/companies/{company_id}/news-sites")
+def set_news_sites(company_id: str, request: NewsSitesRequest, x_token: str = Header(None)):
+    """The sites the author reads (24 Nov 2026, Thahseen): the news search tries them first."""
+    user = _require_user(x_token)
+    _rate_limit(f"profile-edit:{user['id']}", 30, 3600)
+    company = get_company(company_id)
+    if not company or company.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    from search import clean_domains, MAX_SITES
+    if len(request.sites or []) > 20:
+        raise HTTPException(status_code=400, detail="Too many sites.")
+    sites = clean_domains(request.sites)
+    if request.sites and not sites:
+        raise HTTPException(status_code=400, detail="That doesn't look like a website. Try one like searchengineland.com.")
+    db.companies.update_one({"id": company_id}, {"$set": {"news_sites": sites}})
+    return {"news_sites": sites, "max": MAX_SITES}
 
 
 class SchedulePlanRequest(BaseModel):

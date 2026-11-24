@@ -26,8 +26,8 @@ import ratelimit
 
 router = APIRouter()
 
-KINDS = {"experience": "A real experience", "process": "How they do it", "data": "A number from their work",
-         "opinion": "An opinion", "other": "Something else"}
+KINDS = {"experience": "A real experience", "achievement": "A win or result", "process": "How they do it",
+         "data": "A number from their work", "opinion": "An opinion", "other": "Something else"}
 # Interleaved by kind so consecutive weeks never ask the same sort of thing.
 QUESTIONS = [
     ("experience", "What decision took up most of your week, and what made it hard?"),

@@ -189,6 +189,22 @@ _STAT_TYPES = {"industry_stat", "stat_reaction"}
 _FRESH_TYPES = {"hot_take", "prediction"}
 
 
+MAX_SITES = 5
+
+
+def clean_domains(sites) -> list[str]:
+    """The author's sites as bare domains: "https://www.searchengineland.com/library" → "searchengineland.com".
+    Anything that isn't a domain is dropped; at most MAX_SITES."""
+    out = []
+    for s in sites or []:
+        s = str(s or "").strip().lower()
+        s = re.sub(r"^[a-z]+://", "", s).split("/", 1)[0].split("?", 1)[0].split(":", 1)[0]
+        s = s[4:] if s.startswith("www.") else s
+        if re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}", s) and s not in out:
+            out.append(s)
+    return out[:MAX_SITES]
+
+
 def _tavily(query: str, depth: str, num_results: int, **filters) -> dict:
     response = requests.post(
         "https://api.tavily.com/search",
@@ -216,6 +232,7 @@ def search_industry_news(
     region: str = "",
     context: str = "",
     queries: list[str] | None = None,
+    sites: list[str] | None = None,
 ) -> list[dict]:
     """region: where the author works ("India"), so the news is theirs; context: words that keep
     an ambiguous topic in the business world ("business workplace" for a person). queries: search
@@ -299,7 +316,22 @@ def search_industry_news(
                 return []
         return _screen(industry, q, usable(data, q))
 
-    found = gather(query)
+    # The sites the author reads come first (24 Nov 2026, Thahseen: "use a specific website"): the same search
+    # kept to them, then the open web for whatever they don't cover. A quiet week on their sites widens to the
+    # month there before giving up on them.
+    found = []
+    doms = clean_domains(sites)
+    if doms:
+        try:
+            d = _tavily(query, "advanced", fetch, include_domains=doms, **window)
+            if not usable(d, query) and window:
+                d = _tavily(query, "advanced", fetch, include_domains=doms, time_range="month")
+            found = _screen(industry, query, usable(d, query))
+        except Exception:
+            found = []
+    if len(found) < num_results:
+        urls = {r.get("url") for r in found}
+        found += [r for r in gather(query) if r.get("url") not in urls]
     others = [q for q in phrases if q != query]
     if len(found) < 2 and others:   # too little real news for this phrase: try another of the topic's phrases
         urls = {r.get("url") for r in found}
