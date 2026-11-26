@@ -209,7 +209,7 @@
       margin-bottom: 36px;
     }
     /* ── Settings row (24 Nov 2026, Thahseen: "see what my profile uses, beside the card") ── */
-    .prof-row { display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); gap: 16px; align-items: start; }
+    .prof-row { display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); gap: 16px; align-items: stretch; }   /* the card and the panel end on the same line */
     @media (max-width: 1100px) { .prof-row { grid-template-columns: minmax(0, 1fr); } }
     .prof-av { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid #e4e7ec; }
     .prof-sub { font-size: 12.5px; color: #6b7280; font-weight: 500; margin-top: 1px; }
@@ -222,7 +222,7 @@
     .wk-day i { display: block; font-style: normal; font-size: 9.5px; color: #8a3b12; min-height: 12px; }
     .wk-day.mine { border-color: #9fb0d3; background: #f2f5fb; }
     .wk-day.today { box-shadow: inset 0 0 0 1.5px #18a07a; }
-    .knows { background: #fff; border: 1px solid #e4e7ec; border-radius: 16px; padding: 20px 22px; min-width: 0; }
+    .knows { background: #fff; border: 1px solid #e4e7ec; border-radius: 16px; padding: 20px 22px; min-width: 0; display: flex; flex-direction: column; }
     .kn-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px 24px; flex-wrap: wrap; margin-bottom: 14px; }
     .kn-head h3 { margin: 0; font-size: 15px; color: #16181d; } .kn-head p { margin: 3px 0 0; font-size: 12.5px; color: #6b7280; }
     .kn-meter { min-width: 220px; flex: 0 1 280px; }
@@ -230,7 +230,7 @@
     .kn-meter .bar { height: 8px; border-radius: 6px; background: #eef1f5; overflow: hidden; }
     .kn-meter .bar i { display: block; height: 100%; background: #18a07a; border-radius: 6px; }
     .kn-next { font-size: 12.5px; margin-top: 7px; color: #5b6270; } .kn-next a { color: #24365e; font-weight: 600; }
-    .kn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+    .kn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; flex: 1; align-content: stretch; }   /* rows share any extra height from the card beside the panel */
     .kn-tile { border: 1px solid #eef0f4; border-radius: 12px; padding: 12px 14px; background: #fbfcfe; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
     .kn-tile.gap { background: #fffaf2; border-color: #f1e1bf; }
     .kn-t { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #16181d; }
