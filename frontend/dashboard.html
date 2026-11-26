@@ -2263,7 +2263,7 @@
       const p = (currentProfiles || []).find(x => x.id === id) || {};
       const m = _previewModal(); const body = document.getElementById("preview-modal-body"); m.style.display = "flex";
       body.innerHTML = `<div class="nt-head"><h3>Photos of ${_escHtml(String(p.name || "you").trim().split(/\s+/)[0])}</h3>
-          <p>Real photos for picture posts: speaking, working with a client, at an event. Voyce posts them as they are and never changes your face. Up to 8.</p></div>
+          <p>Real photos for picture posts: speaking, working with a client, at an event. Voyce posts them as they are and never changes your face. Up to 40.</p></div>
         <div class="pm-grid" id="pm-grid"><div class="pm-hint">Loading…</div></div>
         <label class="act-btn primary" style="display:inline-block;cursor:pointer;">Add photos<input type="file" accept="image/*" multiple hidden onchange="uploadProfilePhotos('${id}', this)"></label>
         <span class="pm-hint" id="pm-status" style="margin-left:8px;"></span>`;

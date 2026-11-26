@@ -7,6 +7,7 @@ every load, and a few photos there would be megabytes each time. Each photo is r
 long side and stored as JPEG; a profile keeps up to MAX_PHOTOS, used in turn so posts don't repeat one.
 """
 import base64
+import os
 import io
 import secrets
 from datetime import datetime, timezone
@@ -19,7 +20,7 @@ import notes   # its sign-in and ownership checks
 import ratelimit
 
 router = APIRouter()
-MAX_PHOTOS = 8
+MAX_PHOTOS = int(os.getenv("MAX_PHOTOS", "40") or 40)   # was 8 (26 Nov 2026: Vimal filled it on day one); a ceiling, not a target
 MAX_BYTES = 12 * 1024 * 1024   # the upload as sent; what's stored is far smaller
 LONG_SIDE = 1600
 
