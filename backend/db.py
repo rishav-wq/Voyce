@@ -17,6 +17,7 @@ notifications = _db["notifications"]   # one doc per email sent, keyed so nothin
 oauth_states = _db["oauth_states"]     # LinkedIn connect in progress: state → user + browser nonce (TTL)
 run_claims = _db["run_claims"]         # one per profile per local day, so a scheduled post runs once (TTL)
 li_invites = _db["li_invites"]         # links that let someone connect their LinkedIn to a profile (TTL)
+news_pages = _db["news_pages"]         # a news article's text, fetched once for every profile that cites it (TTL)
 usage = _db["usage"]                   # 24-hour allowances for previews, idea lists, rewrites… (TTL)
 payments  = _db["payments"]
 subscriptions = _db["subscriptions"]   # Razorpay autopay: one doc per subscription (Pro renews monthly)

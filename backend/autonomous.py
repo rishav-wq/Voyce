@@ -10,7 +10,7 @@ from generator import (HUMANIZE_PROMPT, _strip_markdown, drop_author_furniture, 
 from llm import CLAUDE_EDIT_MODEL, CLAUDE_EDIT_EFFORT
 import analytics
 import notes as notes_mod
-from search import search_industry_news, format_news_context
+from search import search_industry_news, format_news_context, enrich_lead
 import linkedin as li
 import auth as auth_module
 import db
@@ -2003,6 +2003,7 @@ def _run_for_company(company: dict, allow_free_manual: bool = False,
             extra_angles=subject.get("search_angles") or [], **news_search_args(company),
             queries=topic_queries(company, subject["industry"]),
         )
+        enrich_lead(news_results)   # the lead article's own text, when a Firecrawl key is set
         news_context = format_news_context(news_results)
         # What the post was built from, kept with it so the user can check it. The
         # fact check only accepts real articles as evidence (the search no longer

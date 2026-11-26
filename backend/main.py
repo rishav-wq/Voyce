@@ -623,6 +623,7 @@ def _ensure_indexes():
         db.run_claims.create_index("created", expireAfterSeconds=3 * 86400)
         db.li_invites.create_index("created_at", expireAfterSeconds=8 * 86400)
         db.usage.create_index("started_at", expireAfterSeconds=2 * 86400)
+        db.news_pages.create_index("fetched_at", expireAfterSeconds=7 * 86400)
         db.write_history.create_index("created_at", expireAfterSeconds=90 * 86400)
         db.write_history.create_index([("profile_id", 1), ("created_at", -1)])
         db.daily_ideas.create_index("created_at", expireAfterSeconds=14 * 86400)

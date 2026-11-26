@@ -9,6 +9,7 @@ Key improvements:
 - Tavily advanced search_depth for better result quality on pro key.
 """
 
+import logging
 import os
 import random
 import re
@@ -360,4 +361,85 @@ def format_news_context(results: list[dict]) -> str:
         source = f" ({r['url']})" if r.get("url") else ""
         when = f" — published {r['published']}" if r.get("published") else ""
         lines.append(f"\n[{i}] {r['title']}{source}{when}\n{r['snippet']}")
+        if r.get("body"):   # the lead article's own text (fetch_article): exact figures and lines, not a teaser's
+            lines.append(f"From the article itself:\n{r['body']}")
     return "\n".join(lines)
+
+
+# ── The lead article's own text (26 Nov 2026) ────────────────────────────────────────────────────────────────
+# Tavily gives the writer a title and a search snippet of a few hundred characters, so a post built on a report
+# or a statistic worked from a teaser: the figure, the sample, the quotable line were often not in it. With a
+# Firecrawl key, the first article of a search is fetched once (one credit), cached a week for every profile that
+# meets it, and the writer and the fact check see up to NEWS_ARTICLE_CHARS of it. Without a key, or on any
+# failure, nothing changes: the snippet alone, as before. FIRECRAWL_API_KEY="" switches it off.
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "").strip()
+NEWS_ARTICLE_CHARS = int(os.getenv("NEWS_ARTICLE_CHARS", "1500") or 1500)
+_ARTICLE_SKIP = re.compile(r"\.(pdf|png|jpe?g|gif|mp4|zip)(\?|$)|linkedin\.com|facebook\.com|x\.com|twitter\.com|youtube\.com", re.I)
+
+
+def _article_text(markdown: str, cap: int) -> str:
+    """Readable prose from a page's markdown: links become their text, images, headings, tables, navigation
+    fragments and one-word lines go, and the cut lands on a sentence end."""
+    t = str(markdown or "")
+    t = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", t)              # images
+    t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", t)           # links -> their text
+    t = re.sub(r"<[^>]+>", " ", t)
+    t = re.sub(r"(\*\*|__)(?=\S)|(?<=\S)(\*\*|__)", "", t)      # bold markers
+    lines = []
+    for ln in t.splitlines():
+        ln = re.sub(r"^\s*(#{1,6}|[-*>|]|\d+\.)\s*", "", ln).strip(" *_|")
+        if len(ln.split()) < 6 or ln.endswith(":"):              # menus, bylines, share bars, captions
+            continue
+        lines.append(" ".join(ln.split()))
+    out = "\n".join(lines).strip()
+    if len(out) > cap:
+        cut = out[:cap]
+        end = max(cut.rfind(". "), cut.rfind(".\n"), cut.rfind("? "), cut.rfind("! "))
+        out = (cut[:end + 1] if end > cap // 2 else cut).rstrip()
+    return out
+
+
+def fetch_article(url: str) -> str:
+    """The article at url as plain text, at most NEWS_ARTICLE_CHARS; "" when there is no key, the page is not an
+    article, or anything fails. Never raises: a post must not wait on a page."""
+    url = str(url or "").strip()
+    if not FIRECRAWL_API_KEY or not url.startswith("http") or _ARTICLE_SKIP.search(url):
+        return ""
+    try:
+        import db
+        hit = db.news_pages.find_one({"url": url}, {"_id": 0, "text": 1})
+        if hit is not None:
+            return hit.get("text") or ""
+    except Exception:
+        hit = None
+    text = ""
+    try:
+        r = requests.post("https://api.firecrawl.dev/v1/scrape",
+                          headers={"Authorization": f"Bearer {FIRECRAWL_API_KEY}"},
+                          json={"url": url, "formats": ["markdown"], "onlyMainContent": True, "timeout": 15000},
+                          timeout=20)
+        if r.status_code == 200:
+            data = (r.json() or {}).get("data") or {}
+            text = _article_text(data.get("markdown") or "", NEWS_ARTICLE_CHARS)
+        else:
+            logging.warning(f"[News] article fetch {r.status_code} for {url[:80]}")
+    except Exception as e:
+        logging.warning(f"[News] article fetch failed for {url[:80]}: {e}")
+    try:
+        import db
+        db.news_pages.update_one({"url": url}, {"$set": {"url": url, "text": text, "fetched_at": datetime.now(timezone.utc)}},
+                                 upsert=True)   # a failure is cached too: no retry storm on a page that will not open
+    except Exception:
+        pass
+    return text
+
+
+def enrich_lead(results: list[dict]) -> list[dict]:
+    """The first real article of a search gets its text under "body". One fetch per post; the others stay snippets."""
+    for r in results or []:
+        if r.get("url"):
+            body = fetch_article(r["url"])
+            if body:
+                r["body"] = body
+            break
+    return results
