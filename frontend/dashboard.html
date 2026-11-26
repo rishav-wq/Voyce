@@ -344,6 +344,11 @@
     .pend-styles .st-chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .pend-styles .st-chips .act-btn { border-radius: 999px; font-size: 12.5px; padding: 5px 12px; }
     .pend-styles .st-back { background: none; border: 0; padding: 0; margin-top: 8px; color: #6b7280; text-decoration: underline; font: inherit; font-size: 12px; cursor: pointer; }
+    .pend-styles .st-ask { display: flex; gap: 6px; margin-top: 8px; }
+    .pend-styles .st-ask input { flex: 1; min-width: 0; border: 1px solid #d3d8e0; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 12.5px; }
+    .pend-styles .st-ask input:focus { outline: none; border-color: #24365e; }
+    .pend-styles .st-note { font-size: 12px; color: #a1780a; line-height: 1.5; margin-top: 6px; }
+    .pend-styles .st-rule { background: none; border: 0; padding: 0; color: #24365e; font: inherit; font-size: 12px; font-weight: 700; text-decoration: underline; cursor: pointer; }
     /* "Coming up": one Change button per planned day, opening a grouped menu */
     .up-change { font-family: inherit; font-size: 12.5px; font-weight: 600; color: #24365e; background: #fff; border: 1px solid #d3d8e0; border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
     .up-change:hover { border-color: #24365e; }
@@ -1044,6 +1049,14 @@
             <p class="form-hint">Voyce reads this once to learn the products, style, and positioning.</p>
           </div>
           <div class="form-group"><label>Industry / Niche *</label><input type="text" id="c-industry" placeholder="e.g. B2B SaaS, fintech, healthcare" required /><p class="form-hint">Used to find relevant news for posts.</p></div>
+          <div class="form-group"><label>What do you want from the posts? <span class="optional-tag">(optional)</span></label>
+            <select id="c-goal">
+              <option value="">A balanced mix</option>
+              <option value="leads">Customers and enquiries</option>
+              <option value="authority">To be known for our field</option>
+              <option value="network">Conversations and connections</option>
+            </select><p class="form-hint">Shapes the mix of post types and how each one ends.</p></div>
+          <div class="form-group"><label>Who should read them? <span class="optional-tag">(optional)</span></label><input type="text" id="c-audience" maxlength="200" placeholder="e.g. heads of operations at mid-size logistics firms" /></div>
           <div class="form-group"><label>Product / focus name <span class="optional-tag">(optional)</span></label><input type="text" id="c-product-name" placeholder="e.g. your product or service" /><p class="form-hint">Shown in the carousel lockup (e.g. "Acme | Analytics"). Leave blank to show just the brand.</p></div>
 
           <details class="adv">
@@ -1086,6 +1099,21 @@
             <button type="button" class="topic-add" id="p-topic-add" onclick="addTopicRow()">+ Add a topic</button>
             <div class="topic-suggest" id="p-topic-suggest"></div>
             <p class="form-hint">Each topic is one side of your work: your coaching, your consulting, your book. Voyce writes about one a day, in turns, from this week's news on it.</p>
+          </div>
+
+          <!-- What the posts are for (26 Nov 2026): the mix of post types and how each ends follow the goal; the reader
+               is who the writer pictures. Both optional; blank keeps the balanced mix. -->
+          <div class="form-group"><label>What do you want from your posts? <span class="label-sub">shapes the mix of posts and how each one ends</span></label>
+            <select id="p-goal">
+              <option value="">A balanced mix (not sure yet)</option>
+              <option value="leads">Clients and enquiries</option>
+              <option value="authority">To be known for my field</option>
+              <option value="network">Conversations and connections</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Who should read them? <span class="label-sub">optional</span></label>
+            <input type="text" id="p-audience" maxlength="200" placeholder="e.g. founders of D2C brands doing ₹1–10 crore, mostly in South India" />
+            <p class="form-hint">Voyce writes for them: their situations, their words.</p>
           </div>
 
           <!-- Teaching Voyce (12 Nov 2026): their posts, their career and their rules, each in plain sight. The career PDF
@@ -2294,14 +2322,33 @@
     }
     // Try another style (24 Nov 2026, Thahseen: "I need a regeneration with different styles... the tone, it's very flat"):
     // the same draft rewritten, facts unchanged (backend/draft_styles.py). Uses the day's rewrites, not a post.
-    const DRAFT_STYLES = [["story", "More story"], ["bolder", "Bolder"], ["warmer", "Warmer"], ["shorter", "Shorter"]];
+    // 26 Nov 2026: plus "Stronger hook" and an ask box, in their own words (backend/steer.py). A guardrail the ask
+    // runs into is said in one line; an ask made twice is offered as a standing rule.
+    const DRAFT_STYLES = [["hook", "Stronger hook"], ["story", "More story"], ["bolder", "Bolder"], ["warmer", "Warmer"], ["shorter", "Shorter"]];
     function _styleRow(p) {
       const pic = (p.format === "tweet_card" || p.format === "carousel") ? " The picture stays: change it if it no longer fits." : "";
       return `<div id="pend-styles-${p.id}" class="pend-styles" hidden>
           <p class="st-hint">The same post, told differently. Your facts and numbers stay exactly as they are.${pic}</p>
           <div class="st-chips">${DRAFT_STYLES.map(([k, v]) => `<button class="act-btn" onclick="restyleDraft('${p.id}', '${k}', this)">${v}</button>`).join("")}</div>
+          <div class="st-ask">
+            <input id="st-ask-${p.id}" maxlength="400" autocomplete="off" aria-label="What to change in this post"
+                   placeholder="Or say what to change: less formal, lead with the client moment, cut the last paragraph…"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();restyleDraft('${p.id}', 'custom', this.nextElementSibling);}">
+            <button class="act-btn" onclick="restyleDraft('${p.id}', 'custom', this)">Rewrite</button>
+          </div>
+          <div class="st-note" id="st-note-${p.id}" hidden></div>
           <button class="st-back" id="st-back-${p.id}" onclick="restyleDraft('${p.id}', 'first', this)" ${p.style ? "" : "hidden"}>Back to the first version</button>
         </div>`;
+    }
+    async function makeRuleFromAsk(companyId, text, btn) {
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/companies/${encodeURIComponent(companyId)}/rules`, { method: "POST", headers: ah(), body: JSON.stringify({ text }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || "Couldn't add the rule.");
+        btn.replaceWith(Object.assign(document.createElement("span"), { textContent: "Added to your writing rules: every post follows it now." }));
+        toast("Added to your writing rules.", "success");
+      } catch (e) { toast(e.message, "warn"); btn.disabled = false; }
     }
     function toggleDraftStyles(pid) {
       const row = document.getElementById(`pend-styles-${pid}`), b = document.getElementById(`style-btn-${pid}`);
@@ -2314,22 +2361,31 @@
       const box = document.getElementById(`diy-caption-${pid}`);
       const buttons = row ? [...row.querySelectorAll("button")] : [];
       const label = btn.textContent;
+      const askEl = document.getElementById(`st-ask-${pid}`), note = document.getElementById(`st-note-${pid}`);
+      const instruction = askEl ? askEl.value.trim().slice(0, 400) : "";
+      if (style === "custom" && !instruction) { toast("Say what to change, e.g. \"less formal\" or \"lead with the client moment\".", "warn"); if (askEl) askEl.focus(); return; }
       buttons.forEach(b => b.disabled = true);
       btn.textContent = style === "first" ? "Bringing it back…" : "Rewriting… about 20 seconds";
       try {
         const hint = document.getElementById(`edit-hint-${pid}`);
         const edited = hint && hint.dataset.touched;
         const r = await fetch(`/pending/${pid}/style`, { method: "POST", headers: ah(),
-          body: JSON.stringify({ style, text: edited && box ? box.innerText.trim() : "" }) });
+          body: JSON.stringify({ style, text: edited && box ? box.innerText.trim() : "", instruction: style === "first" ? "" : instruction }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.detail || "Couldn't change the style. Try again.");
+        if (note) {
+          const p0 = (window._pendingById || {})[pid] || {};
+          note.innerHTML = (d.notes || []).map(n => `<div>${_escHtml(n)}</div>`).join("") +
+            (d.suggest_rule && instruction && p0.company_id ? `<div style="color:#6b7280;">You've asked for this before. <button class="st-rule" onclick="makeRuleFromAsk('${_escHtml(p0.company_id)}', this.closest('.st-note').dataset.ask, this)">Make it a rule for every post</button></div>` : "");
+          note.dataset.ask = instruction; note.hidden = !note.innerHTML;
+        }
         if (box) box.innerText = d.post_text;
         if (hint) { delete hint.dataset.touched; hint.textContent = "Click the text to edit it. Your version is what gets posted."; hint.style.color = ""; }
         const sb = document.getElementById(`style-btn-${pid}`); if (sb) sb.textContent = d.style ? `Style: ${d.style}` : "Try another style";
         const back = document.getElementById(`st-back-${pid}`); if (back) back.hidden = !d.has_first;
         const cur = (window._pendingById || {})[pid]; if (cur) { cur.post_text = d.post_text; cur.style = d.style; }
         toast(style === "first" ? "Back to the first version." : `Rewritten: ${d.style}.`, "success");
-      } catch (e) { toast(e.message, "warn"); }
+      } catch (e) { toast(e.message, "warn"); if (note) { note.textContent = e.message; note.hidden = false; } }
       buttons.forEach(b => b.disabled = false);
       btn.textContent = label;
     }
@@ -3938,6 +3994,8 @@
             _renderTopicRows(_splitTopics(p.industry || ""));
             document.getElementById("p-tone").value     = p.tone || "conversational";
             document.getElementById("p-tone-shift").checked = !!p.tone_shift;
+            document.getElementById("p-goal").value     = p.goal || "";
+            document.getElementById("p-audience").value = p.audience || "";
             document.getElementById("p-time").value     = p.post_time || "09:00";
             const wtVal = p.website_type || "own";
             const wtRadio = document.querySelector(`input[name="p-website-type"][value="${wtVal}"]`);
@@ -3949,6 +4007,8 @@
             document.getElementById("c-website").value  = p.website_url || "";
             document.getElementById("c-industry").value = p.industry || "";
             document.getElementById("c-product-name").value = p.product_name || "";
+            document.getElementById("c-goal").value     = p.goal || "";
+            document.getElementById("c-audience").value = p.audience || "";
             document.getElementById("c-tone").value     = p.tone || "professional";
             document.getElementById("c-time").value     = p.post_time || "09:00";
             
@@ -3994,6 +4054,8 @@
         tone_shift: (document.getElementById("p-tone-shift")?.checked || false),
         knowledge: (document.getElementById("p-knowledge")?.value || ""),
         product_name: (document.getElementById("p-product-name")?.value || ""),
+        goal: (document.getElementById("p-goal")?.value || ""),
+        audience: (document.getElementById("p-audience")?.value || "").trim(),
       } : {
         name: document.getElementById("c-name").value,
         website_url: document.getElementById("c-website").value,
@@ -4002,6 +4064,8 @@
         post_time: document.getElementById("c-time").value,
         profile_type: "company",
         product_name: (document.getElementById("c-product-name")?.value || ""),
+        goal: (document.getElementById("c-goal")?.value || ""),
+        audience: (document.getElementById("c-audience")?.value || "").trim(),
       };
       // The post time is the person's local time. An edit keeps the profile's
       // stored zone; the card offers a one-click switch if they've moved.

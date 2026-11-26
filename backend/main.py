@@ -58,6 +58,8 @@ import draft_pictures
 app.include_router(draft_pictures.router)   # a waiting draft's picture, changed from the Queue (24 Nov 2026)
 import draft_styles
 app.include_router(draft_styles.router)   # a waiting draft in another style: More story, Bolder, Warmer, Shorter
+import steer
+app.include_router(steer.router)          # a brief, free-text push-back and "Make it a rule" (26 Nov 2026)
 import sample_requests
 app.include_router(sample_requests.router)   # POST /sample: free sample posts, the profile's lead magnet
 
@@ -552,6 +554,9 @@ def _with_profile_context(profile: dict | None, raw_text: str, limit: int | None
         context.append(f"Designation: {profile.get('designation')}")
     if profile.get("analysis", {}).get("description"):
         context.append(f"Background: {profile['analysis']['description']}")
+    from autonomous import goal_block
+    if goal_block(profile):
+        context.append(goal_block(profile))
     rules = author_rules(profile)
     if rules:
         context.append(
@@ -809,11 +814,13 @@ class GenerateRequest(BaseModel):
     theme: str = ""               # image cards: a colour set (carousel._ED_THEMES), "" = a random one
     options: int = 1              # image cards: 1-3 colour versions to choose from (drawn, not generated)
     reference_b64: str = ""       # AI pictures: a picture the user likes, whose look the new one follows
+    instruction: str = ""         # the author's brief for this post: tone, angle, who it's for, length (steer.py)
 
 
 class VariationsRequest(BaseModel):
     post: str                     # an already-generated post to write alternate versions of
     profile_id: str = ""
+    instruction: str = ""         # the brief the post was written to, so the versions keep to it
 
 
 class HashtagsRequest(BaseModel):
@@ -864,6 +871,8 @@ class CompanyRequest(BaseModel):
     # and the box stops there, so more would only be ignored
     knowledge: str = Field("", max_length=4000)
     li_photo: str = ""      # their photo from "Fill from LinkedIn" (data URL), for previews and image cards
+    goal: str = ""          # what they want from posting: leads | authority | network | "" (26 Nov 2026)
+    audience: str = Field("", max_length=200)   # who should read the posts, in their words
     timezone: str = ""      # IANA zone from the browser, e.g. "America/New_York"; post_time is local to it
 
 
@@ -1724,7 +1733,7 @@ def generate(request: GenerateRequest, x_token: str = Header(None)):
     try:
         profile = _resolve_profile(user["id"], request.profile_id)
         context_text = _with_profile_context(profile, raw_text, 6000)
-        result = generate_content(context_text, company=profile)
+        result = generate_content(context_text, company=profile, instruction=steer.clean(request.instruction))
     except Exception as e:
         raise HTTPException(status_code=502, detail=_friendly_generation_error(e))
     analytics.capture(user["id"], "post_generated", {"input_type": request.input_type, "format": "text"})
@@ -1760,6 +1769,8 @@ async def generate_carousel_manual(request: GenerateRequest, x_token: str = Head
         profile = _resolve_profile(user["id"], request.profile_id)
         if request.carousel_theme:
             profile = {**(profile or {}), "carousel_theme": request.carousel_theme}
+        if steer.clean(request.instruction):   # the brief rides with the source; the carousel writer has no prompt slot for it
+            raw_text = f"{raw_text}\n\n[The author's brief for this carousel: {steer.clean(request.instruction)}]"
         context_text = _with_profile_context(profile, raw_text, 6000)
         content   = generate_carousel_from_text(context_text, company=profile)
         author    = li.author_for_profile(profile, user["id"]) or None   # cover and last slide carry their photo
@@ -1829,6 +1840,7 @@ The author wrote this LinkedIn post:
 \"\"\"{request.post[:1600]}\"\"\"
 
 Write 2 ALTERNATIVE versions of it. Keep the same core facts and the author's voice, but give each a DIFFERENT hook/opening and a different structure. Similar length. No new statistics, no hashtags unless the original used them. Never contradict any facts in the original.
+{steer.prompt_block(request.instruction)}
 Return ONLY JSON: {{"variants": ["full post 1", "full post 2"]}}"""
         data = generate_json(prompt, max_tokens=1600, temperature=0.85)
         variants = [str(v).strip() for v in (data.get("variants") or []) if str(v).strip()][:3]
@@ -2755,14 +2767,16 @@ def _approve_shell_html(title: str, inner: str) -> str:
 </div></div></body></html>""")
 
 
-def _btn(label: str, href: str = "", primary: bool = False, form_action: str = "") -> str:
+def _btn(label: str, href: str = "", primary: bool = False, form_action: str = "", form_id: str = "") -> str:
+    """form_id names the form, so a field elsewhere on the page can belong to it (form="…")."""
     partner = partners.current()   # a partner's page: its orange pill, as on its landing and in the app
     accent, radius = (partner["theme"]["orange"], "999px") if partner else ("#24365e", "10px")
     style = (f"display:inline-block;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:{radius};"
              + (f"background:{accent};color:#fff;border:1px solid {accent};" if primary
                 else "background:#fff;color:#24365e;border:1px solid #d3d8e0;"))
     if form_action:
-        return (f'<form method="post" action="{html_escape(form_action)}" style="display:inline;margin:0;">'
+        fid = f' id="{html_escape(form_id)}"' if form_id else ""
+        return (f'<form{fid} method="post" action="{html_escape(form_action)}" style="display:inline;margin:0;">'
                 f'<button type="submit" style="{style}cursor:pointer;font-family:inherit;">{html_escape(label)}</button></form>')
     return f'<a href="{html_escape(href)}" style="{style}">{html_escape(label)}</a>'
 
@@ -2826,19 +2840,37 @@ def approve_page(token: str, request: Request):
     inner = (f'<p style="font-size:13.5px;color:#6b7280;margin:0;">{html_escape(pend.get("company_name") or "")} · '
              f'{html_escape(pend.get("post_type") or "")} · {fmt} · <b style="color:#b45309;">{when}</b></p>'
              f'{slides}'
-             f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
-             f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
+             + (f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
+                f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
+                if partners.current() else _edit_box(pend))
              + _style_box(pend, token)
              + ("" if partners.current() else _picture_box(pend, token))
              + (_partner_approve_actions() if partners.current() else
                 f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0;">'
-                f'{_btn("Approve & post to LinkedIn", primary=True, form_action=f"/approve/{token}")}'
-                f'{_btn("Edit first", "/setup#today")}</div>'
+                f'{_btn("Approve & post to LinkedIn", primary=True, form_action=f"/approve/{token}", form_id="approve-form")}'
+                f'{_btn("Open in Voyce", "/setup#today")}</div>'
                 f'<div style="margin:14px 0 0;">{_btn("Skip this post", form_action=f"/approve/{token}/skip")}</div>'
                 '<p style="font-size:12.5px;color:#6b7280;margin:18px 0 0;line-height:1.5;">Approving publishes it now to the '
                 'LinkedIn account connected to this profile. This link is just for you, so don\'t forward the email.</p>'
                 + _question_box(pend, token)))
     return _approve_shell("Ready for your OK", inner)
+
+
+def _edit_box(pend: dict) -> str:
+    """The draft as an editable box that belongs to the Approve form (26 Nov 2026, Thahseen: "doesn't ask for any
+    edit… before posting"; the old "Edit first" button opened the app with no hint where to edit). What is in
+    the box is what approve_from_link publishes; untouched text is published as generated."""
+    text = pend.get("post_text") or ""
+    rows = min(28, max(8, text.count("\n") + len(text) // 70 + 2))
+    grow = "this.style.height='auto';this.style.height=(this.scrollHeight+2)+'px';"
+    return (f'<textarea name="text" form="approve-form" rows="{rows}" spellcheck="true" aria-label="The post text; edit it before approving" '
+            f'oninput="{grow}" '
+            'style="display:block;width:100%;box-sizing:border-box;white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;'
+            'border:1px solid #d9dee8;border-radius:12px;padding:16px;margin:14px 0 0;background:#fff;font-family:inherit;resize:vertical;overflow:hidden;">'
+            f'{html_escape(text)}</textarea>'
+            # sized to its text once the page has laid out (no CSS can do this; the handler is the same as oninput)
+            '<script>(function(){var t=document.querySelector(\'textarea[name="text"]\');if(t){' + grow.replace("this", "t") + '}})();</script>'
+            '<p style="font-size:12.5px;color:#6b7280;margin:6px 0 0;line-height:1.5;">Change any wording here. Whatever is in the box is what gets posted when you approve.</p>')
 
 
 def _style_box(pend: dict, token: str) -> str:
@@ -2860,14 +2892,28 @@ def _style_box(pend: dict, token: str) -> str:
             'text-decoration:underline;font:inherit;font-size:13px;cursor:pointer;margin-top:10px;">'
             'Back to the first version</button>' if now else "")
     pic = (" The picture stays. Change it below if it no longer fits." if pend.get("format") in ("tweet_card", "carousel") else "")
+    # The ask box (26 Nov 2026): say what to change in your own words. A guardrail it ran into is said in one line.
+    notes = "".join(f'<p style="font-size:12.5px;color:#a1780a;margin:8px 0 0;line-height:1.5;">{html_escape(n)}</p>'
+                    for n in (pend.get("steer_notes") or []))
+    last = html_escape(pend.get("steer_last") or "")
+    rule = (f'<form method="post" action="/approve/{t}/rule" style="margin:8px 0 0;">'
+            f'<span style="font-size:12.5px;color:#6b7280;">You\'ve asked for this before. </span>'
+            f'<button type="submit" style="background:none;border:0;padding:0;color:#24365e;text-decoration:underline;'
+            f'font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;">Make it a rule for every post</button></form>'
+            if pend.get("steer_suggest_rule") and last else "")
+    ask = (f'<div style="margin-top:12px;">'
+           f'<input name="instruction" maxlength="400" value="{last}" placeholder="Or say what to change: less formal, lead with the client moment, cut the last paragraph…" '
+           f'style="display:block;width:100%;box-sizing:border-box;border:1px solid #d3d8e0;border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;">'
+           f'<button type="submit" name="style" value="custom" style="{btn}margin-top:8px;">Rewrite with this</button>'
+           f'{notes}{rule}</div>')
     return (
         f'<details {"open " if now else ""}style="margin:16px 0 0;border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfe;padding:12px 16px;">'
         f'<summary style="cursor:pointer;font-weight:600;color:#24365e;font-size:14.5px;">'
-        f'{"Try another style" if not now else "Style: " + html_escape(now) + " (try another)"}</summary>'
+        f'{"Change the tone, the hook, or anything else" if not now else "Style: " + html_escape(now) + " (change it again)"}</summary>'
         f'<p style="font-size:13px;color:#6b7280;margin:10px 0 12px;line-height:1.5;">The same post, told differently. '
         f'Your facts and numbers stay exactly as they are.{pic}</p>'
         f'<form method="post" action="/approve/{t}/style" style="margin:0;" {busy}>'
-        f'<div style="display:flex;gap:8px;flex-wrap:wrap;">{chips}</div>{back}'
+        f'<div style="display:flex;gap:8px;flex-wrap:wrap;">{chips}</div>{ask}{back}'
         '<span class="st-busy" style="display:none;font-size:13px;color:#6b7280;margin-top:10px;">Rewriting… about 20 seconds</span>'
         '</form></details>')
 
@@ -2882,13 +2928,36 @@ async def style_from_link(token: str, request: Request):
         return approve_page(token, request)
     form = await request.form()
     try:
-        await run_in_threadpool(draft_styles.apply, pend, str(form.get("style") or ""))
+        await run_in_threadpool(draft_styles.apply, pend, str(form.get("style") or ""), "", str(form.get("instruction") or ""))
     except HTTPException as e:
         if e.status_code in (409,):
             return approve_page(token, request)
         return _approve_shell("Couldn't change the style", f'<p style="color:#444;line-height:1.6;">{html_escape(str(e.detail))}</p>'
                               f'<p style="margin:22px 0 0;">{_btn("Back to the post", f"/approve/{token}", primary=True)}</p>')
     return RedirectResponse(f"/approve/{token}", status_code=303)
+
+
+@app.post("/approve/{token}/rule")
+def rule_from_link(token: str, request: Request):
+    """"Make it a rule" from the review page: the ask just made becomes a standing writing rule (steer.py)."""
+    _rate_limit(f"approvelink:{_client_ip(request)}", 10)
+    pend = _pending_by_token(token)
+    if not pend or pend.get("status") != "pending" or partners.current() or not pend.get("steer_last"):
+        return approve_page(token, request)
+    company = get_company(pend.get("company_id", ""))
+    if not company or company.get("user_id") != pend.get("user_id"):
+        return approve_page(token, request)
+    try:
+        steer.add_rule(company, pend["steer_last"])
+    except HTTPException as e:
+        return _approve_shell("Couldn't add the rule", f'<p style="color:#444;line-height:1.6;">{html_escape(str(e.detail))}</p>'
+                              f'<p style="margin:22px 0 0;">{_btn("Back to the post", f"/approve/{token}", primary=True)}</p>')
+    db.pending_posts.update_one({"id": pend["id"]}, {"$set": {"steer_suggest_rule": False}})
+    return _approve_shell("Added to your writing rules", (
+        '<h1 style="font-size:22px;margin:0 0 10px;">Added to your writing rules</h1>'
+        f'<p style="color:#444;line-height:1.6;margin:0;">“{html_escape(steer.clean(pend["steer_last"]))}” now applies to every post Voyce '
+        'writes for this profile. You can change it any time in the profile\'s writing rules.</p>'
+        f'<p style="margin:22px 0 0;">{_btn("Back to the post", f"/approve/{token}", primary=True)}</p>'))
 
 
 def _picture_box(pend: dict, token: str) -> str:
@@ -3195,14 +3264,16 @@ def use_today_signed_in(company_id: str, note_id: str, x_token: str = Header(Non
 
 
 @app.post("/approve/{token}")
-def approve_from_link(token: str, request: Request):
+def approve_from_link(token: str, request: Request, text: str = Form("")):
+    """text: the review page's editable box (26 Nov 2026). approve_pending_post swaps it in only when it differs
+    from what was generated, so an untouched box changes nothing."""
     _rate_limit(f"approvelink:{_client_ip(request)}", 10)
     from autonomous import approve_pending_post
     pend = _pending_by_token(token)
     if not pend or pend.get("status") != "pending" or partners.current():
         return approve_page(token, request)   # a partner's client approves signed in (_partner_approve_actions)
     try:
-        result = approve_pending_post(pend["id"], pend["user_id"])
+        result = approve_pending_post(pend["id"], pend["user_id"], edited_text=(text or "").strip()[:6000])
     except Exception as e:
         logging.exception("link approve failed")
         # Publish errors are already written for people ("…reconnect LinkedIn from the sidebar").

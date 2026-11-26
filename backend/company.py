@@ -96,6 +96,8 @@ def save_company(profile: dict) -> dict:
         "tone_shift":       profile.get("tone_shift", False),
         "knowledge":        profile.get("knowledge", ""),   # curated facts/rules the AI must use
         "product_name":     profile.get("product_name", ""),  # optional subject label (e.g. "Voyce")
+        "goal":             clean_goal(profile.get("goal", "")),       # what they want from posting (26 Nov 2026)
+        "audience":         clean_audience(profile.get("audience", "")),   # who should read the posts
     }
 
     db.companies.replace_one({"id": company_id}, {"_id": company_id, **entry}, upsert=True)
@@ -115,6 +117,18 @@ def delete_company(company_id: str):
     db.companies.delete_one({"id": company_id})
 
 
+GOAL_KEYS = ("leads", "authority", "network")   # autonomous.GOAL_ROTATIONS has one rotation per key
+
+
+def clean_goal(value) -> str:
+    v = str(value or "").strip().lower()
+    return v if v in GOAL_KEYS else ""
+
+
+def clean_audience(value) -> str:
+    return " ".join(str(value or "").split())[:200]
+
+
 def update_company(company_id: str, data: dict) -> dict | None:
     c = db.companies.find_one({"id": company_id}, _P)
     if not c:
@@ -127,6 +141,10 @@ def update_company(company_id: str, data: dict) -> dict | None:
                   "product_name", "li_photo"):
         if field in data:
             c[field] = data[field]
+    if "goal" in data:
+        c["goal"] = clean_goal(data["goal"])
+    if "audience" in data:
+        c["audience"] = clean_audience(data["audience"])
     # An edit form without a time zone (or with a bad one) keeps the stored one.
     tz = valid_tz(data.get("timezone", ""))
     if tz:

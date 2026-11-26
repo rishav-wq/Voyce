@@ -186,6 +186,20 @@
       transition: background .14s, border-color .14s;
     }
     .tool-run:hover { background: #e7ebf4; border-color: #24365e; }
+    /* Steering (26 Nov 2026): a brief before the post, an ask after it */
+    .brief-row { margin: 2px 0 6px; }
+    .brief-toggle { background: none; border: 0; padding: 4px 0; color: #24365e; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .brief-toggle:hover { text-decoration: underline; }
+    #brief-input { display: block; width: 100%; box-sizing: border-box; border: 1.5px solid #dbe2ee; border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 13.5px; margin-top: 4px; }
+    #brief-input:focus { outline: none; border-color: #24365e; }
+    .ask-row { display: flex; gap: 8px; margin-top: 10px; }
+    .ask-row input { flex: 1; min-width: 0; border: 1.5px solid #dbe2ee; border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 13.5px; }
+    .ask-row input:focus { outline: none; border-color: #24365e; }
+    .ask-row .tool-run { width: auto; }
+    .ask-levers { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .ask-levers .tool-run { width: auto; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 600; }
+    .ask-note { font-size: 12.5px; color: #a1780a; line-height: 1.5; margin-top: 8px; }
+    .ask-rule { background: none; border: 0; padding: 0; color: #24365e; font: inherit; font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; }
     .tool-run:disabled { opacity: .55; cursor: not-allowed; }
     .tool-empty { font-size: 12.5px; color: #98a0ae; line-height: 1.55; padding: 10px 0 0; }
 
@@ -1021,6 +1035,11 @@
         <button class="input-tab" data-type="youtube">YouTube</button>
       </div>
       <textarea id="content-input" placeholder="e.g. why most sales follow-ups die at the second email…" rows="3"></textarea>
+      <div class="brief-row">
+        <button type="button" class="brief-toggle" id="brief-toggle" onclick="toggleBrief()" aria-expanded="false">+ Add a brief: tone, angle, who it's for</button>
+        <input id="brief-input" hidden maxlength="400" autocomplete="off" aria-label="A brief for this post"
+               placeholder="e.g. conversational, lead with the client moment, about 150 words, end on the lesson">
+      </div>
       <div class="box-row">
         <span class="box-cost">Writing the post uses <b>1 generation</b> · <span id="box-how">from what you type here</span></span>
         <div class="box-acts">
@@ -1358,8 +1377,22 @@
         </div>
         <div class="tool-body">
           <div class="tool-pane active" id="tool-rewrites" role="tabpanel">
-            <p class="tool-intro">Two more versions of the post you have — same facts and voice, different hook.</p>
-            <button type="button" class="tool-run" id="rewrites-run" onclick="generateVariations()">⟳ Rewrite this post</button>
+            <p class="tool-intro">Say what to change, pull a lever, or get two more versions. Your facts and numbers stay as they are.</p>
+            <div class="ask-row">
+              <input id="ask-input" maxlength="400" autocomplete="off" aria-label="What to change in the post"
+                     placeholder="What should change? e.g. less formal, lead with the client moment, cut the last paragraph"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();rewriteWithAsk('');}">
+              <button type="button" class="tool-run" id="ask-run" onclick="rewriteWithAsk('')">Rewrite</button>
+            </div>
+            <div class="ask-levers">
+              <button type="button" class="tool-run" onclick="rewriteWithAsk('hook')">Stronger hook</button>
+              <button type="button" class="tool-run" onclick="rewriteWithAsk('story')">More story</button>
+              <button type="button" class="tool-run" onclick="rewriteWithAsk('bolder')">Bolder</button>
+              <button type="button" class="tool-run" onclick="rewriteWithAsk('warmer')">Warmer</button>
+              <button type="button" class="tool-run" onclick="rewriteWithAsk('shorter')">Shorter</button>
+              <button type="button" class="tool-run" id="rewrites-run" onclick="generateVariations()">⟳ Two more versions</button>
+            </div>
+            <div id="ask-note" class="ask-note" hidden></div>
             <div id="variants-row" style="display:none;margin-top:12px;"></div>
           </div>
 

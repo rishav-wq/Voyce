@@ -47,6 +47,65 @@ PERSONAL_ROTATION = {
     10: "open_question",
 }
 
+# What the author wants from posting (profile.goal, 26 Nov 2026): the type mix leans the way the research says
+# each goal is reached, and the writer is told how a post should end. "" keeps the balanced rotations above.
+GOAL_ROTATIONS = {
+    "leads": {
+        "personal": ("lesson_learned", "how_to", "personal_story", "expert_insight_p", "lesson_learned", "hot_take",
+                     "personal_story", "listicle", "stat_reaction", "trend_reaction"),
+        "company":  ("case_study", "how_to_playbook", "expert_insight", "case_study", "product_spotlight", "industry_stat",
+                     "myth_vs_reality", "trend_commentary", "case_study", "teardown"),
+    },
+    "authority": {
+        "personal": ("how_to", "expert_insight_p", "listicle", "teardown", "hot_take", "stat_reaction", "lesson_learned",
+                     "prediction", "trend_reaction", "personal_story"),
+        "company":  ("expert_insight", "how_to_playbook", "industry_stat", "teardown", "myth_vs_reality", "prediction",
+                     "trend_commentary", "case_study", "expert_insight", "product_spotlight"),
+    },
+    "network": {
+        "personal": ("personal_story", "hot_take", "open_question", "lesson_learned", "trend_reaction", "hot_take",
+                     "personal_story", "expert_insight_p", "open_question", "how_to"),
+        "company":  ("trend_commentary", "myth_vs_reality", "expert_insight", "case_study", "prediction", "trend_commentary",
+                     "how_to_playbook", "industry_stat", "case_study", "teardown"),
+    },
+}
+GOAL_LABELS = {"leads": "Clients and enquiries", "authority": "To be known for my field", "network": "Conversations and connections"}
+GOAL_BRIEFS = {
+    "leads": ("clients and enquiries. A reader with this problem should finish the post thinking \"this person has done "
+              "this before\" and want to talk, without ever being asked to. Show the work: what was done, for whom (no "
+              "names unless the author gave them), what changed. End on what the reader could do next about this in "
+              "their own business, as one specific step, never a pitch or a 'DM me'."),
+    "authority": ("to be known for this field. Each post teaches or shows one thing the reader can repeat, with the "
+                  "author's own method or evidence behind it, so it is worth saving. End on the sharpest claim or the "
+                  "lesson said so someone could repeat it."),
+    "network": ("conversation. Write the kind of post people reply to: a real moment, a clear opinion, something "
+                "the reader has lived too. End on a specific question only someone in this field could answer from "
+                "their own experience, never a generic 'Agree?', 'Thoughts?' or 'What do you think?'."),
+}
+
+
+def rotation_for(company: dict) -> dict:
+    """The type rotation for this profile: the goal's, when one is set, else the balanced default."""
+    kind = "personal" if company.get("profile_type") == "personal" else "company"
+    goal = GOAL_ROTATIONS.get(company.get("goal") or "")
+    if goal:
+        return dict(enumerate(goal[kind]))
+    return PERSONAL_ROTATION if kind == "personal" else COMPANY_ROTATION
+
+
+def goal_block(company: dict) -> str:
+    """Who the posts are for and what the author wants from them, for every writer (empty when neither is set)."""
+    lines = []
+    audience = " ".join(str(company.get("audience") or "").split())[:200]
+    if audience:
+        lines.append(f"WHO THESE POSTS ARE FOR: {audience}. Write for them: their situations, their words, what they "
+                     "would recognise from their own week.")
+    brief = GOAL_BRIEFS.get(company.get("goal") or "")
+    if brief:
+        lines.append("WHAT THE AUTHOR WANTS FROM POSTING: " + brief)
+    return "\n".join(lines)
+
+
 POST_TYPE_LABELS = {
     # Company
     "trend_commentary":  "Trend Commentary",
@@ -414,6 +473,29 @@ THE BAR (what readers reward — aim every post at it):
 
 """ + SAMENESS_RULES + "\n"
 
+# Which post types are built on the news (no note) and which on one of the author's notes, by kind.
+NEWS_LED_TYPES = {"trend_reaction", "stat_reaction", "teardown", "prediction", "expert_insight_p",
+                  "trend_commentary", "industry_stat", "expert_insight", "myth_vs_reality"}
+NOTE_KINDS_FOR_TYPE = {
+    "lesson_learned": ("experience", "achievement"),
+    "personal_story": ("experience", "achievement"),
+    "hot_take":       ("opinion",),
+    "open_question":  ("opinion", "experience"),
+    "how_to":         ("process", "experience", "achievement"),
+    "listicle":       ("process", "experience", "opinion"),
+}
+
+ONE_STORY_RULE = """
+
+ONE STORY PER POST (hard rule): TODAY'S MATERIAL above is the only story, client, project, result or
+number set this post may narrate. Everything else you know about the author (their career, their other
+notes, their past posts) is background for voice and credibility only: at most one line naming their role,
+company or years of experience. Do NOT bring in a second anecdote, another client's numbers, a lesson from
+a different episode, or examples from elsewhere in their past, even when they would "strengthen" the post.
+If today's material is thin, go deeper into it (what happened, what changed, what it means for the reader),
+never wider. A reader must be able to say in one sentence what this post is about."""
+
+
 _COMPANY_QUALITY_RULES = _PERSONAL_QUALITY_RULES.replace("AUTHOR CONTEXT", "COMPANY CONTEXT") + """
 COMPANY-PAGE EXCEPTION to the self-promotion ban: a post whose instructions explicitly make it
 a Product Spotlight IS the sanctioned product post — write it proudly there. The ban still
@@ -696,7 +778,10 @@ Return ONLY the post text.""",
 }
 
 
-def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
+def _build_company_brief(company: dict, with_knowledge: bool = True, with_notes: bool = True) -> str:
+    """with_notes=False leaves the author's notes out: when a post is built on ONE of them (today's
+    material), showing the writer the other twelve made it stitch three experiences into one post
+    (Thahseen, 26 Nov 2026). The gate still sees every note through _author_record."""
     is_personal = company.get("profile_type") == "personal"
     analysis = company.get("analysis", {})
 
@@ -738,6 +823,8 @@ def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
         ]
     if company.get("all_topics"):
         parts.append(f"Today's post is about ONE of their topics: {company['industry']}. Keep it to that topic.")
+    if goal_block(company):
+        parts.append(goal_block(company))
     if company.get("website_content"):
         is_external = (company.get("website_type") == "external")
         if is_external:
@@ -787,7 +874,7 @@ def _build_company_brief(company: dict, with_knowledge: bool = True) -> str:
             "\n--- THEIR CAREER (from their LinkedIn profile; real facts you may draw on when they fit. "
             "Never embellish them or add scenes, feelings or results they don't state) ---\n"
             + company["profile_facts"].strip()[:8000])
-    told = notes_mod.record_block(company)
+    told = notes_mod.record_block(company) if with_notes else ""
     if told:
         parts.append("\n--- " + told)
 
@@ -986,8 +1073,7 @@ def _get_post_type(company: dict, runs_today: int | None = None) -> str:
     from datetime import date
     import hashlib
 
-    is_personal = company.get("profile_type") == "personal"
-    rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
+    rotation = rotation_for(company)
 
     today_str = date.today().isoformat()
     company_id = company.get("id", "default")
@@ -1082,8 +1168,7 @@ def get_week_plan(company: dict, days: int = 7) -> list[str]:
     from datetime import date, timedelta
     import hashlib
 
-    is_personal = company.get("profile_type") == "personal"
-    rotation = PERSONAL_ROTATION if is_personal else COMPANY_ROTATION
+    rotation = rotation_for(company)
     company_id = company.get("id", "default")
     local = _local_today(company)
     plan = []
@@ -1359,12 +1444,19 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
 
     prompts  = PERSONAL_PROMPTS if is_personal else COMPANY_PROMPTS
     template = prompts[post_type]
+    # Today's note is chosen first: a post built on one note must not see the others. News-led types
+    # write from the news and the author's voice, with no note (a story welded to an unrelated news hook
+    # was the other half of Thahseen's complaint); note-led types get a note whose kind fits the type.
+    # "Use it today" (_force_note_id) wins on any type.
+    note = None
+    if use_note and (company.get("_force_note_id") or post_type not in NEWS_LED_TYPES):
+        note = notes_mod.pick(company, kinds=NOTE_KINDS_FOR_TYPE.get(post_type))
     prompt = template.format(
         name=company["name"],
         industry=industry,
         tone=company.get("tone", "conversational" if is_personal else "professional"),
         news=news_context or "No specific news today — draw from general industry knowledge.",
-        company_brief=_build_company_brief(company),
+        company_brief=_build_company_brief(company, with_notes=note is None),
         quality_rules=_PERSONAL_QUALITY_RULES if is_personal else "",
     )
     if not is_personal:
@@ -1380,9 +1472,8 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
             f"present-tense take instead: the lesson people in {industry} keep learning the hard "
             "way, anchored in a real case from the news. \"I think\", \"here's what I'd do\" and "
             "advice to the reader are fine.")
-    note = notes_mod.pick(company) if use_note else None
     if note:
-        prompt += notes_mod.prompt_block(note)
+        prompt += notes_mod.prompt_block(note) + ONE_STORY_RULE
     prompt += _hook_guidance(company.get("allowed_hooks"))
     openings = _openings_to_avoid(company)
     prompt += _avoid_block(openings)
@@ -1405,18 +1496,21 @@ def generate_autonomous_post(company: dict, news_context: str, post_type: str,
     # VALUE GATE: unattended posts must earn their place in someone's feed. One brutal
     # reader-judge scores the post; a fail triggers exactly one feedback-fed rewrite.
     author = _author_record(company, note)
-    verdict = _value_gate(post, industry, facts, author_context=author)
+    day_text = str(note.get("text") or "")[:notes_mod.DAY_NOTE_CHARS] if note else None
+    verdict = _value_gate(post, industry, facts, author_context=author, day_note=day_text)
     chosen, chosen_v = post, verdict
     if not verdict.get("passes", True):
         retry = prompt + (
             f"\n\nYOUR PREVIOUS DRAFT FAILED REVIEW.\nWeakness: {verdict.get('reason', '')}\n"
             "Rewrite the post fixing exactly that weakness. Keep every quality rule. If the "
             "weakness is an invented experience, drop the memory and keep the point: make it "
-            "an observation, an opinion or advice instead."
+            "an observation, an opinion or advice instead. If the weakness is a second story, "
+            "client, project or number brought in from the author's past, cut everything that is "
+            "not in TODAY'S MATERIAL and tell that one story fully instead."
         )
         post2 = _revise_post(_format_linkedin_post(
             llm_generate(retry, max_tokens=1024, temperature=0.9)), industry, company, facts)
-        v2 = _value_gate(post2, industry, facts, author_context=author)
+        v2 = _value_gate(post2, industry, facts, author_context=author, day_note=day_text)
         if v2.get("score", 0) >= verdict.get("score", 0):
             chosen, chosen_v = post2, v2
     if report is not None:
@@ -1467,14 +1561,30 @@ def _author_record(company: dict, day_note: dict | None = None) -> str:
 
 
 def _value_gate(post: str, industry: str, news_context: str = "",
-                author_context: str | None = None) -> dict:
+                author_context: str | None = None, day_note: str | None = None) -> dict:
     """Score a finished post as a busy reader would AND catch unverifiable stats before they
     reach the author's real profile. With author_context (what the writer was told about the
     author), it also fails made-up personal history: a first post for a CFO with no past
     posts opened "I treated finance like a brake pedal for years", a memory she never had.
-    Fail-open: gate errors never block posting."""
+    With day_note (the one note today's post was built on), it also fails a post that stitches
+    a second experience, client, project or number set from the author material into it: real
+    material, wrong post (Thahseen, 26 Nov 2026: three experiences in one post, "for the
+    audience it would be not understandable"). Fail-open: gate errors never block posting."""
     from llm import generate_json
     history_axis, history_rule = "", ""
+    story_axis, story_rule = "", ""
+    if day_note and day_note.strip():
+        story_axis = f"""
+TODAY'S MATERIAL (the one story or point this post was meant to be built on):
+{day_note.strip()}
+"""
+        story_rule = """
+4. ONE STORY — does the post narrate a SECOND distinct experience, client, project, result or
+   number set from the AUTHOR MATERIAL that TODAY'S MATERIAL does not contain? (A one-line
+   mention of the author's role, company or years of experience is fine; a second anecdote,
+   a second client's numbers or a second lesson from another episode is not.) If yes, that is
+   an automatic FAIL — the reader can't tell what the post is about. Points, opinions and news
+   context that develop today's material are fine."""
     if author_context is not None:
         history_axis = f"""
 AUTHOR MATERIAL (the ONLY record of the author's real past: their own posts, site, facts):
@@ -1498,8 +1608,8 @@ POST:
 
 SOURCE NEWS the post was allowed to draw from (the ONLY place checkable facts may come from):
 {news_context or "(none provided)"}
-{history_axis}
-Judge on {"THREE" if history_rule else "TWO"} axes:
+{history_axis}{story_axis}
+Judge on {"FOUR" if story_rule else ("THREE" if history_rule else "TWO")} axes:
 1. VALUE — does it teach, reveal, or argue something specific a busy pro is glad they read?
    Generic filler, vague motivation, or obvious advice = fail.
 2. FACTUAL SAFETY — does it state any specific checkable fact (a named company's financials,
@@ -1507,10 +1617,10 @@ Judge on {"THREE" if history_rule else "TWO"} axes:
    present in the source news above? If yes, that is an automatic FAIL — those are fabrications
    on the author's real profile. A fact from the news stated MORE strongly than the news
    states it (dropping "up to", "expected" or "will", turning a plan into a done deal) is a
-   fabrication too.{history_rule}
+   fabrication too.{history_rule}{story_rule}
 
 Return ONLY JSON: {{"score": 1-10, "passes": true or false (passes = score >= 7 AND no
-unverifiable stat{" AND no invented history" if history_rule else ""}), "reason": "one line naming the biggest problem (quote the fabricated stat or memory if any)"}}"""
+unverifiable stat{" AND no invented history" if history_rule else ""}{" AND no second story" if story_rule else ""}), "reason": "one line naming the biggest problem (quote the fabricated stat, memory or imported story if any)"}}"""
     try:
         v = generate_json(prompt, max_tokens=300, temperature=0.2)
         return {"score": int(v.get("score", 7)), "passes": bool(v.get("passes", True)),

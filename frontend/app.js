@@ -442,7 +442,7 @@ async function generate() {
     const res = await fetch("/generate", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId() })
+      body: JSON.stringify({ input_type: activeType, content, profile_id: getActiveProfileId(), instruction: _briefText() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Something went wrong.");
@@ -840,7 +840,7 @@ async function generateVariations() {
   try {
     const res = await fetch("/generate/variations", {
       method: "POST", headers: authHeaders(),
-      body: JSON.stringify({ post, profile_id: getActiveProfileId() })
+      body: JSON.stringify({ post, profile_id: getActiveProfileId(), instruction: _briefText() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Couldn't write the rewrites.");
@@ -852,6 +852,72 @@ async function generateVariations() {
   } catch (e) {
     row.innerHTML = `<div style="font-size:12.5px;color:#c0392b;padding:6px 2px;">${_escHtmlCreate(e.message)}</div>`;
   }
+}
+
+// ── Steering (26 Nov 2026): a brief before the post, an ask or a lever after it ──────────────────
+function _briefText() {
+  const el = document.getElementById("brief-input");
+  return el && !el.hidden ? el.value.trim().slice(0, 400) : "";
+}
+function toggleBrief(open) {
+  const el = document.getElementById("brief-input"), b = document.getElementById("brief-toggle");
+  if (!el) return;
+  el.hidden = open === undefined ? !el.hidden : !open;
+  if (b) { b.setAttribute("aria-expanded", String(!el.hidden)); b.textContent = el.hidden ? "+ Add a brief: tone, angle, who it's for" : "− Brief for this post"; }
+  if (!el.hidden) el.focus();
+}
+// The post rewritten as asked (or with a lever): it lands as a version to tap, the current text kept as "Original".
+async function rewriteWithAsk(style) {
+  const post = _postText().trim();
+  if (!post) { toast("Write a post first, then tell Voyce what to change.", "warn"); return; }
+  const input = document.getElementById("ask-input");
+  const instruction = (input ? input.value : "").trim().slice(0, 400);
+  if (!style && !instruction) { toast("Say what to change, e.g. \"less formal\" or \"lead with the client moment\".", "warn"); if (input) input.focus(); return; }
+  showTool("rewrites");
+  await _refreshToken();
+  const note = document.getElementById("ask-note");
+  const buttons = [...document.querySelectorAll("#tool-rewrites .tool-run")];
+  buttons.forEach(b => b.disabled = true);
+  if (note) { note.hidden = false; note.style.color = "#98a0ae"; note.textContent = "Rewriting… about 20 seconds"; }
+  try {
+    const res = await fetch("/generate/rewrite", {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ post, instruction, style, profile_id: getActiveProfileId() })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't rewrite it. Try again.");
+    const list = window._variants || [{ label: "Original", text: post }];
+    if (!list.some(v => v.text.trim() === post)) list.push({ label: "Original", text: post });
+    list.push({ label: data.style || "Your ask", text: String(data.post_text || "").trim() });
+    window._variants = list;
+    pickVariant(list.length - 1);
+    const lines = (data.notes || []).slice();
+    if (note) {
+      note.style.color = "";
+      note.innerHTML = lines.map(l => `<div>${_escHtmlCreate(l)}</div>`).join("") +
+        (data.suggest_rule && instruction ? `<div style="margin-top:4px;color:#6b7280;">You've asked for this before. <button type="button" class="ask-rule" onclick="makeRuleFromAsk(this)">Make it a rule for every post</button></div>` : "");
+      note.dataset.ask = instruction;
+      note.hidden = !note.innerHTML;
+    }
+    toast(data.style ? `Rewritten: ${data.style}.` : "Rewritten.", "success");
+  } catch (e) {
+    if (note) { note.style.color = "#c0392b"; note.textContent = e.message; note.hidden = false; }
+  }
+  buttons.forEach(b => b.disabled = false);
+}
+async function makeRuleFromAsk(btn) {
+  const note = document.getElementById("ask-note");
+  const text = note ? (note.dataset.ask || "") : "";
+  const pid = getActiveProfileId();
+  if (!text || !pid) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/companies/${encodeURIComponent(pid)}/rules`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ text }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't add the rule.");
+    btn.replaceWith(Object.assign(document.createElement("span"), { textContent: "Added to your writing rules: every post follows it now." }));
+    toast("Added to your writing rules.", "success");
+  } catch (e) { toast(e.message, "warn"); btn.disabled = false; }
 }
 
 function _renderVariants(active) {
@@ -1249,6 +1315,8 @@ async function postToLinkedIn() {
   if (!_ensurePostingConnected(postToLinkedIn)) return;
   const text = _postText();
   if (!text) { toast("Generate content first.", "warn"); return; }
+  if (!(await voyceConfirm("This publishes the post above to your LinkedIn profile right away. To change the wording first, click the text and edit it, then come back here.",
+                           { title: "Post to LinkedIn now?", confirmText: "Post now" }))) return;
   await _refreshToken();
 
   const btn = document.getElementById("post-now-btn");
@@ -1596,6 +1664,8 @@ function viewCarouselSlides(page) {
 async function postCarousel() {
   if (!_ensurePostingConnected(postCarousel)) return;
   if (!_carouselPdfBase64) { toast("Generate a carousel first.", "warn"); return; }
+  if (!(await voyceConfirm("This publishes the carousel and its caption to your LinkedIn profile right away.",
+                           { title: "Post to LinkedIn now?", confirmText: "Post now" }))) return;
 
   const text = document.getElementById("carousel-post-text").textContent;
   const btn  = document.getElementById("post-carousel-btn");

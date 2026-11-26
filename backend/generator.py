@@ -75,16 +75,19 @@ def signature_lines(company: dict | None) -> list[str]:
     return out
 
 
-def editor_brief(company: dict | None, source: str = "") -> str:
+def editor_brief(company: dict | None, source: str = "", instruction: str = "") -> str:
     """What the final editor needs to know. It used to see the draft alone, so its checklist beat the
     author's rules, "no hashtags unless the author's own posts use them" always stripped them (it had never
     seen the posts), and "cut any number that isn't from the source" couldn't work (it had never seen the
     source either: a figure Claude knew from memory went out unchecked)."""
+    import steer
     rules = author_rules(company)
     out = []
     if rules:
         out.append("THE AUTHOR'S OWN RULES (where they differ from your checklist, theirs win; keep what they "
                    "ask for, such as their length, lists, ending or hashtags):\n" + rules)
+    if (instruction or "").strip():   # the brief this post was written to (steer.py)
+        out.append(steer.prompt_block(instruction, role="editor"))
     if uses_hashtags(company):
         out.append("This author's own posts carry hashtags at the end: keep the post's hashtags, trimmed to any "
                    "limit their rules set.")
@@ -531,14 +534,18 @@ def _build_voice_block(company: dict | None) -> str:
     return "\n".join(parts)
 
 
-def generate_content(raw_text: str, company: dict = None) -> dict:
+def generate_content(raw_text: str, company: dict = None, instruction: str = "") -> dict:
+    """instruction: the author's brief for this one post (steer.py), read by the writer and the final editor."""
+    import steer
     voice_block = _build_voice_block(company)
     voice_section = f"\n\nVOICE PROFILE:\n{voice_block}" if voice_block else ""
+    brief = steer.prompt_block(instruction)
+    brief_section = f"\n\n{brief}" if brief else ""
 
     draft = generate_json(
         # main.py has cut the source to 6,000 before putting the profile's context (up to ~4,800 with a
         # full rules box) in front of it, so this cap only guards other callers
-        f"Source content to repurpose:\n\n{raw_text[:11500]}{voice_section}",
+        f"Source content to repurpose:\n\n{raw_text[:11500]}{voice_section}{brief_section}",
         system=SYSTEM_PROMPT,
         max_tokens=2048,
         temperature=0.85,
@@ -547,7 +554,7 @@ def generate_content(raw_text: str, company: dict = None) -> dict:
     # Humanize pass on the LinkedIn post only. It sees what the post was written from (main.py puts the
     # source after "Content to repurpose:"), so it can check the post's facts against it.
     if draft.get("linkedin_post"):
-        draft["linkedin_post"] = polish_post(draft["linkedin_post"], company, source_of(raw_text))
+        draft["linkedin_post"] = polish_post(draft["linkedin_post"], company, source_of(raw_text), instruction)
     return draft
 
 
@@ -556,7 +563,7 @@ def source_of(context_text: str) -> str:
     return (context_text or "").split("Content to repurpose:\n", 1)[-1]
 
 
-def polish_post(post: str, company: dict | None = None, source: str = "") -> str:
+def polish_post(post: str, company: dict | None = None, source: str = "", instruction: str = "") -> str:
     """What every Write post goes through after its writer: the final editor (who knows the author's rules and
     checks facts against the source), then the copied-line check and the author's length. Image captions used
     to skip all of it and keep their own 60-120-word rule (21 Nov 2026 audit)."""
@@ -564,7 +571,7 @@ def polish_post(post: str, company: dict | None = None, source: str = "") -> str
         return post
     try:
         edited = generate(
-            f"{editor_brief(company, source)}Post to edit:\n\n{post}",
+            f"{editor_brief(company, source, instruction)}Post to edit:\n\n{post}",
             system=HUMANIZE_PROMPT,
             max_tokens=1024,
             temperature=0.6,

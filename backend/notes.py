@@ -169,8 +169,10 @@ def split_and_store(company_id: str, note_id: str, text: str, name: str) -> list
         return []
 
 
-def pick(company: dict) -> dict | None:
-    """The note today's post is built around: the least used, then the longest unused."""
+def pick(company: dict, kinds: tuple[str, ...] | None = None) -> dict | None:
+    """The note today's post is built around: the least used, then the longest unused. With kinds, only
+    notes of those kinds are considered when any exist (a Lesson Learned wants an experience, a Hot Take an
+    opinion), so the writer isn't handed an opinion and told to tell it as a story (26 Nov 2026)."""
     notes = company.get("author_notes") or []
     if not notes:
         return None
@@ -180,6 +182,10 @@ def pick(company: dict) -> dict | None:
         hit = next((n for n in notes if n.get("id") == forced), None)
         if hit:
             return hit
+    if kinds:
+        fitting = [n for n in notes if n.get("kind") in kinds]
+        if fitting:
+            notes = fitting
     return sorted(notes, key=lambda n: (int(n.get("uses") or 0), n.get("used_at") or "", n.get("created_at") or ""))[0]
 
 
@@ -206,12 +212,14 @@ def record_block(company: dict) -> str:
 
 
 def prompt_block(note: dict) -> str:
-    """Today's material: the post is built around this note, with the news as the hook."""
+    """Today's material: the post is built around this note and nothing else from the author's past;
+    the news is context only where it genuinely connects."""
     return ("\n\nTODAY'S MATERIAL FROM THE AUTHOR (their own words, real):\n"
             f"\"{str(note.get('text', ''))[:DAY_NOTE_CHARS]}\"\n"
-            "Build the post around this. Use today's news as the hook or the context where it genuinely "
-            "connects; if it doesn't, write from this alone and leave the news out. Keep every detail exactly "
-            "as they said it: don't add numbers, names, dates or events they didn't give.")
+            "This post IS this material: tell this one story or make this one point fully. Use today's news "
+            "as the hook or as context only where it genuinely connects; if it doesn't, write from this alone "
+            "and leave the news out. Keep every detail exactly as they said it: don't add numbers, names, "
+            "dates or events they didn't give.")
 
 
 def extract_from_transcript(transcript: str, name: str) -> list[dict]:
