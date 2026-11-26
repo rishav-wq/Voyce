@@ -199,6 +199,7 @@
       margin-bottom: 16px;
     }
     .section-head h2 { font-size: 16px; font-weight: 700; margin: 0; }
+    .sec-sub { font-size: 12.5px; color: #6b7280; line-height: 1.5; margin: -8px 0 12px; max-width: 720px; }
 
     /* ── Profile cards ── */
     .profiles-grid {
@@ -916,6 +917,7 @@
       <h2>Your profiles</h2>
       <button class="btn-add" onclick="openModal()" style="padding:8px 14px;">+ Add profile</button>
     </div>
+    <p class="sec-sub" id="profiles-sub">One profile per person or page Voyce writes as. Daily posting, voice, topics, rules and photos all live on its card.</p>
     <div class="profiles-grid" id="profiles-grid">
       <div class="profile-card skeleton-card" aria-hidden="true">
         <span class="skeleton-line" style="width:45%;height:16px;"></span>
@@ -1004,6 +1006,7 @@
         <h2>Needs your OK</h2>
         <a class="nav-link" onclick="loadPending()">Refresh</a>
       </div>
+      <p class="sec-sub">Written for today from your notes and this week's news. Change the words, the picture or the tone on the card, then approve. Nothing posts until you do.</p>
       <div id="pending-container"></div>
     </div>
 
@@ -1016,6 +1019,7 @@
         <h2>Post history</h2>
         <a class="nav-link" onclick="loadLog()">Refresh</a>
       </div>
+      <p class="sec-sub">Everything Voyce wrote for you, newest first: posted, skipped, or replaced by the next day's post.</p>
       <div id="log-container"></div>
     </div>
   </main>
@@ -2381,7 +2385,7 @@
         }
         if (box) box.innerText = d.post_text;
         if (hint) { delete hint.dataset.touched; hint.textContent = "Click the text to edit it. Your version is what gets posted."; hint.style.color = ""; }
-        const sb = document.getElementById(`style-btn-${pid}`); if (sb) sb.textContent = d.style ? `Style: ${d.style}` : "Try another style";
+        const sb = document.getElementById(`style-btn-${pid}`); if (sb) sb.textContent = d.style ? `Style: ${d.style}` : "Change the tone or hook";
         const back = document.getElementById(`st-back-${pid}`); if (back) back.hidden = !d.has_first;
         const cur = (window._pendingById || {})[pid]; if (cur) { cur.post_text = d.post_text; cur.style = d.style; }
         toast(style === "first" ? "Back to the first version." : `Rewritten: ${d.style}.`, "success");
@@ -2757,7 +2761,7 @@
             <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>` : `
             <button class="act-btn primary" onclick="approvePending('${p.id}', this)">✓ Approve &amp; post</button>
             <button class="act-btn" id="pic-btn-${p.id}" onclick="openDraftPicture('${p.id}')">${(p.format === "tweet_card" || p.format === "carousel") ? "Change picture" : "Add a picture"}</button>
-            <button class="act-btn" id="style-btn-${p.id}" onclick="toggleDraftStyles('${p.id}')" aria-expanded="false">${p.style ? "Style: " + _escHtml(p.style) : "Try another style"}</button>
+            <button class="act-btn" id="style-btn-${p.id}" onclick="toggleDraftStyles('${p.id}')" aria-expanded="false">${p.style ? "Style: " + _escHtml(p.style) : "Change the tone or hook"}</button>
             <button class="act-btn" onclick="discardPending('${p.id}')">Skip</button>`;
         return `
         <div id="pending-${p.id}" class="pend-card">

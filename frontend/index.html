@@ -1124,7 +1124,7 @@
         .li-see-more:hover{color:#24365e;}
         /* The pencil carries it on its own — the sentence that used to sit here
            explained an affordance the cursor and tooltip already show. */
-        .li-edit-hint{font-size:13px;color:#c3c9d3;padding:6px 20px 0;cursor:default;width:min-content;}
+        .li-edit-hint{font-size:12.5px;color:#8a919e;padding:6px 20px 0;cursor:default;line-height:1.5;}
         .li-edit-hint:hover{color:#5b6270;}
 
         /* ── Rewrites: full alternate posts, read before you pick one ── */
@@ -1337,8 +1337,8 @@
           <!-- After the fold control, not before it: sitting between the clamped text
                and "see more" put an unindented grey line inside the fade, which read
                as a rendering fault. Shares the card's 20px gutter now. -->
-          <div class="li-edit-hint" title="Click the post text above to edit it before posting"
-               aria-label="The post text above is editable">✎</div>
+          <div class="li-edit-hint" title="Click the post text above to edit it before posting">✎ Click the text to change any wording.
+               Post now asks before it publishes; Rewrites below change the tone or the hook.</div>
 
           <!-- Image, shown inside the post exactly as it will publish, with its controls beneath it -->
           <div class="li-media" id="li-media">
@@ -1454,6 +1454,7 @@
     <!-- Queue -->
     <div class="queue-card" id="queue-section">
       <h3>Scheduled Posts</h3>
+      <p class="tool-intro">Posts you scheduled from here go out at the time you picked, in your time zone. Daily posts live in Queue.</p>
       <div id="queue-list"></div>
     </div>
 

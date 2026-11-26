@@ -2839,7 +2839,10 @@ def approve_page(token: str, request: Request):
     when = "replaced by tomorrow's post" if daily else f"expires in {hours} h"
     inner = (f'<p style="font-size:13.5px;color:#6b7280;margin:0;">{html_escape(pend.get("company_name") or "")} · '
              f'{html_escape(pend.get("post_type") or "")} · {fmt} · <b style="color:#b45309;">{when}</b></p>'
-             f'{slides}'
+             + ("" if partners.current() else
+                '<p style="font-size:13px;color:#3f4554;margin:10px 0 0;line-height:1.5;">Change the words, the picture or the '
+                'tone below, then approve. Nothing posts until you tap Approve.</p>')
+             + f'{slides}'
              + (f'<div style="white-space:pre-wrap;font-size:15px;line-height:1.6;color:#1d2027;border:1px solid #eef1f6;'
                 f'border-radius:12px;padding:16px;margin:14px 0 0;background:#fbfcfe;">{html_escape(pend.get("post_text") or "")}</div>'
                 if partners.current() else _edit_box(pend))
